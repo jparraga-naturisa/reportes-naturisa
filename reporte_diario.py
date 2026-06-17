@@ -344,7 +344,10 @@ def enviar_correo(df_alertas: pd.DataFrame, fecha: str):
 
 
 def main():
-    fecha = date.today().strftime("%Y-%m-%d")
+    # Usar hora de Ecuador (UTC-5) para evitar problemas de fecha en GitHub Actions
+    from datetime import timezone, timedelta
+    ecuador = timezone(timedelta(hours=-5))
+    fecha = datetime.now(ecuador).strftime("%Y-%m-%d")
     print(f"[{datetime.now():%H:%M:%S}] Reporte Naturisa - {fecha}")
 
     try:
