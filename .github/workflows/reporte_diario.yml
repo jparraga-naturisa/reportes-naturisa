@@ -2,7 +2,8 @@ name: Alerta Piscinas Sin Movimiento - Diario
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 2 * * *'   # 21:00 Ecuador
+    - cron: '0 4 * * *'   # 23:00 Ecuador
   workflow_dispatch:
 
 jobs:
