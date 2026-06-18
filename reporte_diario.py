@@ -9,7 +9,7 @@ import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from datetime import datetime, date
+from datetime import datetime
 import os, sys, json
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -345,7 +345,9 @@ def enviar_correo(df_alertas: pd.DataFrame, fecha: str):
 
 
 def main():
-    fecha = date.today().strftime("%Y-%m-%d")
+    from datetime import timezone, timedelta
+ECUADOR = timezone(timedelta(hours=-5))
+fecha = datetime.now(ECUADOR).strftime("%Y-%m-%d")
     print(f"[{datetime.now():%H:%M:%S}] Reporte Naturisa - {fecha}")
 
     try:
