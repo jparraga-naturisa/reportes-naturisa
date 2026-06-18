@@ -1,0 +1,21 @@
+name: Alerta Piscinas Sin Movimiento - Diario
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  reporte:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests pandas openpyxl
+      - name: Ejecutar reporte
+        env:
+          NATURISA_PASSWORD: ${{ secrets.NATURISA_PASSWORD }}
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+        run: python reporte_diario.py
