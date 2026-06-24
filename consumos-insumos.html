@@ -1,0 +1,2322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naturisa - Consumos Insumos</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --primary: #1a3a5c;
+            --primary-light: #2d6a9f;
+            --accent: #00b4d8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f0f4f8;
+            --card: #ffffff;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: #e2e8f0;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        /* Header */
+        .header { background: var(--primary); color: white; padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+        .header-logo { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; letter-spacing: 0.5px; }
+        .header-logo .accent { color: var(--accent); }
+        .header-logo .sep { opacity: 0.4; margin: 0 4px; }
+
+        /* Login Bar */
+        .login-bar { background: #fffbeb; border-bottom: 1px solid #fde68a; padding: 8px 24px; display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+        .login-bar.connected { background: #f0fdf4; border-color: #bbf7d0; }
+        .login-bar input[type="text"], .login-bar input[type="password"] { padding: 5px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; width: 150px; }
+        .btn { padding: 5px 14px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; transition: opacity 0.15s; }
+        .btn:hover { opacity: 0.85; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        #login-status { font-size: 12px; color: #92400e; }
+        #login-status.ok { color: #166534; font-weight: 600; }
+        .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--primary-light); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+
+        /* Filters */
+        .filters { background: white; border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+        .fg { display: flex; flex-direction: column; gap: 3px; }
+        .fg label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+        .fg select, .fg input[type="date"] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; min-width: 130px; }
+        .toggle-group { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+        .toggle-btn { padding: 6px 14px; border: none; background: white; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); transition: background 0.15s; }
+        .toggle-btn.active { background: var(--primary); color: white; }
+        .btn-apply { padding: 7px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; align-self: flex-end; }
+        .btn-apply:hover { background: var(--primary-light); }
+        .nav-btn { padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; background: white; cursor: pointer; font-size: 11px; color: var(--muted); line-height: 1; transition: background 0.15s, color 0.15s; flex-shrink: 0; }
+        .nav-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+        .nav-wrap { display: flex; align-items: center; gap: 3px; }
+
+        /* Main */
+        .main { padding: 16px 20px; width: 100%; box-sizing: border-box; }
+
+        /* KPI Cards */
+        .kpi-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; margin-bottom: 16px; }
+        .kpi-inc-row { display:flex; align-items:center; gap:5px; font-size:10px; line-height:1.3; }
+        .kpi-inc-dot { font-size:7px; flex-shrink:0; }
+        .kpi-inc-n   { font-weight:700; min-width:16px; }
+        .kpi-card { background: white; border-radius: 10px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-left: 4px solid transparent; min-width: 0; }
+        .sap-tab { background:none;border:none;padding:10px 18px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s; }
+        .sap-tab:hover { color:var(--primary); }
+        .sap-tab-active { color:var(--primary);border-bottom-color:var(--primary);font-weight:700; }
+        .sap-tbl { width:100%;border-collapse:collapse;font-size:12px; }
+        .sap-tbl th { padding:8px 10px;text-align:left;font-weight:600;color:var(--muted);background:#f8fafc;border-bottom:2px solid var(--border);white-space:nowrap; }
+        .sap-tbl td { padding:7px 10px;border-bottom:1px solid #f1f5f9; }
+        .sap-tbl tr:hover td { background:#f8fafc; }
+        .sap-tbl .num { text-align:right;font-variant-numeric:tabular-nums; }
+        .sap-tbl .grp { font-weight:700;background:#f1f5f9; }
+        .sap-tbl .grp td { border-top:1px solid var(--border); }
+        .kpi-card.blue   { border-left-color: #3B82F6; }
+        .kpi-card.green  { border-left-color: var(--success); }
+        .kpi-card.orange { border-left-color: var(--warning); }
+        .kpi-card.cyan   { border-left-color: var(--accent); }
+        .kpi-label { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .kpi-value { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1.1; }
+        .kpi-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+        /* Charts */
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; align-items: start; }
+        .charts-grid-2 { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; align-items: start; }
+        .chart-card { background: white; border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); min-width: 0; }
+        .chart-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+        .chart-sub { font-size: 11px; font-weight: 400; color: var(--muted); }
+        .chart-scroll { overflow-y: auto; max-height: 420px; }
+
+        /* Table */
+        .table-card { background: white; border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 20px; }
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #f8fafc; padding: 9px 12px; text-align: left; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border-bottom: 2px solid var(--border); white-space: nowrap; }
+        td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; }
+        tr:hover td { background: #f8fafc; }
+        .badge { padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+        .badge-consumo     { background: #d1fae5; color: #065f46; }
+        .badge-planificado { background: #dbeafe; color: #1e40af; }
+        .badge-tolva       { background: #fef3c7; color: #92400e; }
+        .badge-muro        { background: #ede9fe; color: #5b21b6; }
+        .badge-saldo       { background: #e0f2fe; color: #075985; }
+        .badge-default     { background: #f1f5f9; color: #475569; }
+
+        /* Progress bar */
+        .pb { background: #e2e8f0; border-radius: 4px; height: 5px; overflow: hidden; min-width: 60px; }
+        .pb-fill { height: 100%; border-radius: 4px; }
+
+        /* States */
+        .loading { text-align: center; padding: 48px; color: var(--muted); font-size: 14px; }
+        .spinner { display: inline-block; width: 22px; height: 22px; border: 3px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 8px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .empty-state { text-align: center; padding: 56px 20px; color: var(--muted); }
+        .empty-icon { font-size: 44px; margin-bottom: 10px; }
+
+        @media (max-width: 900px) {
+            .charts-grid, .charts-grid-2 { grid-template-columns: 1fr; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        /* Nav tabs */
+        .nav-tabs { background: white; border-bottom: 2px solid var(--border); padding: 0 24px; display: none; gap: 0; }
+        .nav-tab { padding: 11px 22px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -2px; display: flex; align-items: center; gap: 7px; transition: color 0.15s; }
+        .nav-tab:hover { color: var(--primary); }
+        .nav-tab.active { color: var(--primary); border-bottom-color: var(--accent); }
+        .screen { display: none; }
+        .screen.active { display: block; }
+    </style>
+</head>
+<body>
+
+<!-- ── Modal Materiales SAP ───────────────────────────────────── -->
+<div id="sap-mat-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--bg,#fff);border:1px solid var(--border,#e2e8f0);border-radius:16px;width:100%;max-width:900px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border,#e2e8f0);flex-shrink:0">
+      <div id="sap-mat-modal-title" style="font-size:15px;font-weight:700">Materiales</div>
+      <button onclick="document.getElementById('sap-mat-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted,#64748b);line-height:1;padding:0 4px">&times;</button>
+    </div>
+    <div id="sap-mat-modal-body" style="overflow-y:auto;flex:1;padding:0"></div>
+  </div>
+</div>
+
+<!-- ── Modal de inicio de sesión ──────────────────────────────── -->
+<div id="login-modal" style="position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:18px;padding:48px 40px;width:390px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,0.45);">
+        <div style="text-align:center;margin-bottom:32px;">
+            <svg width="60" height="60" viewBox="0 0 26 26" fill="none" style="display:block;margin:0 auto 14px;">
+                <circle cx="13" cy="13" r="12" stroke="#00b4d8" stroke-width="1.8"/>
+                <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.85" transform="rotate(-20 13 13)"/>
+                <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.5" transform="rotate(30 13 13)"/>
+            </svg>
+            <div style="font-size:24px;font-weight:800;color:#1a3a5c;letter-spacing:1px;">NATURISA</div>
+            <div style="font-size:13px;color:#64748b;margin-top:6px;">Consumos Insumos</div>
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">Usuario</label>
+            <input type="text" id="modal-user" placeholder="Ingresa tu usuario" autocomplete="username"
+                style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color 0.15s;"
+                onfocus="this.style.borderColor='#2d6a9f'" onblur="this.style.borderColor='#e2e8f0'"
+                onkeydown="if(event.key==='Enter') document.getElementById('modal-pass').focus()">
+        </div>
+        <div style="margin-bottom:26px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">Contraseña</label>
+            <input type="password" id="modal-pass" placeholder="Ingresa tu contraseña" autocomplete="current-password"
+                style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color 0.15s;"
+                onfocus="this.style.borderColor='#2d6a9f'" onblur="this.style.borderColor='#e2e8f0'"
+                onkeydown="if(event.key==='Enter') doModalLogin()">
+        </div>
+        <button id="modal-btn-login" onclick="doModalLogin()"
+            style="width:100%;padding:13px;background:#1a3a5c;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:0.3px;transition:background 0.15s;"
+            onmouseover="this.style.background='#2d6a9f'" onmouseout="this.style.background='#1a3a5c'">
+            Ingresar
+        </button>
+        <div id="modal-status" style="text-align:center;margin-top:14px;font-size:13px;color:#ef4444;min-height:18px;"></div>
+
+        <!-- Token manual fallback -->
+        <div style="margin-top:18px;border-top:1px solid #e2e8f0;padding-top:16px;">
+            <div style="font-size:11px;color:#94a3b8;text-align:center;margin-bottom:10px;cursor:pointer;" onclick="document.getElementById('modal-token-section').style.display=document.getElementById('modal-token-section').style.display==='none'?'block':'none'">
+                ¿Error de conexión? Usa token manual ▾
+            </div>
+            <div id="modal-token-section" style="display:none;">
+                <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.5;">
+                    Abre DevTools (F12) en otra pestaña de Naturisa → Network → cualquier request → Headers → copia el valor de <strong>Authorization</strong> (sin "Bearer ").
+                </div>
+                <input type="password" id="modal-token-inp" placeholder="Pega el Bearer token aquí..."
+                    style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;font-family:monospace;outline:none;"
+                    onfocus="this.style.borderColor='#2d6a9f'" onblur="this.style.borderColor='#e2e8f0'">
+                <button onclick="saveModalToken()"
+                    style="width:100%;margin-top:8px;padding:10px;background:#0f766e;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">
+                    Conectar con token
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<header class="header">
+    <div class="header-logo">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <circle cx="13" cy="13" r="12" stroke="#00b4d8" stroke-width="1.8"/>
+            <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.85" transform="rotate(-20 13 13)"/>
+            <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.5" transform="rotate(30 13 13)"/>
+        </svg>
+        <span class="accent">NATURISA</span><span class="sep">|</span> Consumos Insumos
+    </div>
+    <span style="font-size:12px;opacity:0.65;" id="header-date"></span>
+</header>
+
+<!-- Login Bar -->
+<div class="login-bar" id="login-bar">
+    <span id="login-label" style="font-weight:600;color:var(--muted)">Iniciar sesión:</span>
+    <input type="text"     id="inp-user" placeholder="Usuario" autocomplete="username">
+    <input type="password" id="inp-pass" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()">
+    <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Ingresar</button>
+    <span id="login-status">⚠ Inicia sesión para cargar datos</span>
+    <button class="btn btn-danger" id="btn-logout" onclick="doLogout()" style="display:none;margin-left:auto;">Cerrar sesión</button>
+</div>
+<!-- Token Fallback -->
+<div id="token-fallback" style="display:none;background:#fef9c3;border-bottom:1px solid #fde047;padding:7px 24px;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap;">
+    <span>🔑 <strong>Login bloqueado por CORS.</strong> Copia el Bearer token desde DevTools → Network → cualquier request → Headers → Authorization:</span>
+    <input type="password" id="inp-token" placeholder="Pega el Bearer token aquí..." style="flex:1;min-width:200px;max-width:500px;padding:4px 10px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;font-family:monospace;">
+    <button class="btn btn-primary" onclick="saveManualToken()" style="font-size:12px">Conectar con token</button>
+    <button onclick="document.getElementById('token-fallback').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:16px;color:#666">✕</button>
+</div>
+
+<!-- ── PANTALLA: Consumos SAP ─────────────────────────────── -->
+<div class="screen" id="screen-consumos-sap">
+
+    <!-- sap-status-bar oculto (actualizado por JS) -->
+    <div id="sap-status-bar" style="display:none"></div>
+
+    <!-- Tabs de vista -->
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);padding:0 20px;background:#f8fafc">
+        <button id="sap-tab-resumen"   class="sap-tab sap-tab-active" onclick="sapSetTab('resumen')">Resumen</button>
+        <button id="sap-tab-material"  class="sap-tab"                onclick="sapSetTab('material')">Por Material</button>
+        <button id="sap-tab-ciclo"     class="sap-tab"                onclick="sapSetTab('ciclo')">Por Ciclo</button>
+        <button id="sap-tab-tendencia" class="sap-tab"                onclick="sapSetTab('tendencia')">Tendencia</button>
+    </div>
+
+    <!-- Barra de progreso (oculta por defecto) -->
+    <div id="sap-progress" style="display:none;padding:8px 20px;background:#eff6ff;border-bottom:1px solid #bfdbfe"></div>
+
+    <!-- Filtros -->
+    <div class="filters">
+        <div id="sap-year-fg" class="fg">
+            <label>Año</label>
+            <select id="sap-year" style="min-width:90px" onchange="sapOnDateChange()">
+                <option value="">— Todos —</option>
+            </select>
+        </div>
+        <div id="sap-month-fg" class="fg">
+            <label>Mes</label>
+            <select id="sap-month" style="min-width:130px" onchange="sapOnDateChange()">
+                <option value="">— Todos —</option>
+            </select>
+        </div>
+        <div id="sap-cluster-fg" class="fg">
+            <label>Cluster</label>
+            <select id="sap-cluster" style="min-width:160px" onchange="sapOnClusterChange()">
+                <option value="">— Todos los clusters —</option>
+            </select>
+        </div>
+        <div id="sap-sub-fg" class="fg">
+            <label>Sucursal</label>
+            <select id="sap-subsidiary" style="min-width:180px" onchange="sapOnSubChange()">
+                <option value="">— Todas las sucursales —</option>
+            </select>
+        </div>
+        <div id="sap-pool-fg" class="fg" style="display:none">
+            <label>Piscina</label>
+            <select id="sap-pool" style="min-width:160px" onchange="sapOnPoolChange()">
+                <option value="">— Todas las piscinas —</option>
+            </select>
+        </div>
+        <div id="sap-cycle-fg" class="fg" style="display:none">
+            <label>Ciclo</label>
+            <select id="sap-cycle" style="min-width:240px" onchange="sapOnCycleChange()">
+                <option value="">— Todos los ciclos —</option>
+            </select>
+        </div>
+        <!-- Filtros exclusivos de la pestaña Por Ciclo (ocultos en otras pestañas) -->
+        <div id="sap-cic-sub-fg" class="fg" style="display:none">
+            <label>Sucursal</label>
+            <select id="sap-cic-sub" style="min-width:180px" onchange="sapOnCicSubChange()"></select>
+        </div>
+        <div id="sap-cic-pool-fg" class="fg" style="display:none">
+            <label>Piscina</label>
+            <select id="sap-cic-pool" style="min-width:160px" onchange="sapOnCicPoolChange()"></select>
+        </div>
+        <div id="sap-cic-cycle-fg" class="fg" style="display:none">
+            <label>Ciclo</label>
+            <select id="sap-cic-cycle" style="min-width:240px" onchange="updateSapResults()"></select>
+        </div>
+        <!-- Filtros exclusivos de la pestaña Por Material (ocultos en otras pestañas) -->
+        <div id="sap-mat-year-fg" class="fg" style="display:none">
+            <label>Año</label>
+            <select id="sap-mat-year" style="min-width:90px" onchange="updateSapResults()">
+                <option value="">— Todos —</option>
+            </select>
+        </div>
+        <div id="sap-mat-month-fg" class="fg" style="display:none">
+            <label>Mes</label>
+            <select id="sap-mat-month" style="min-width:130px" onchange="updateSapResults()">
+                <option value="">— Todos —</option>
+            </select>
+        </div>
+        <div id="sap-mat-sub-fg" class="fg" style="display:none">
+            <label>Sucursal</label>
+            <select id="sap-mat-sub" style="min-width:180px" onchange="updateSapResults()">
+                <option value="">— Todas —</option>
+            </select>
+        </div>
+        <!-- Opciones: al extremo derecho -->
+        <div style="margin-left:auto;position:relative;display:flex;align-items:center">
+            <button onclick="sapToggleOpciones(event)" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Opciones
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="sap-opciones-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:500;min-width:220px;overflow:hidden">
+                <div style="padding:6px 0">
+                    <label id="sap-excel-btn" style="display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text);transition:background .12s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span id="sap-excel-btn-text">Subir Excel</span>
+                        <input type="file" id="sap-file-input" accept=".xlsx,.xls" style="display:none" onchange="sapSubirNuevoExcel(this)">
+                    </label>
+                    <button onclick="sapCargarCiclos();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        Cargar ciclos nuevos
+                    </button>
+                    <button onclick="sapBorrarExcel()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:#b45309;cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background=''">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                        Borrar Excel acumulado
+                    </button>
+                    <div style="height:1px;background:var(--border);margin:4px 0"></div>
+                    <button onclick="sapLimpiarDatos();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:#b91c1c;cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background=''">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                        Limpiar datos
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div id="sap-results" style="padding:16px 20px 20px">
+        <div class="empty-state">
+            <div class="empty-icon">🔗</div>
+            <div>Sube el Excel SAP con el botón <strong>Nuevo Excel</strong> y luego<br>presiona <strong>Cargar ciclos nuevos</strong> para vincular con AP1</div>
+        </div>
+    </div>
+
+</div><!-- /screen-consumos-sap -->
+
+<script>
+Chart.register(ChartDataLabels);
+
+const AUTH_URL = 'https://gateway.naturisa.com.ec/bff/web/ap1/security/api/auth';
+const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
+const API_WAREHOUSES = 'https://gateway.naturisa.com.ec/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
+const API_POOL_PROD   = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/report_production/pool_production';
+const API_CYCLES_NAV  = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/cycles_navigation';
+
+let subsidiaries = [];
+
+const CLUSTERS = {
+    'Josefina Norte': [1, 2, 3, 5, 4, 33],
+    'Josefina Sur':   [6, 7, 8, 9, 11, 10],
+    'Río Nilo':       [12],
+    'Puna Sur':       [20, 19, 21],
+    'Aquanaturisa':   [13, 28, 14],
+    'Golfomar':       [17],
+    'Lanconor':       [18],
+    'Inducam':        [15],
+    'Granmar':        [16]
+};
+
+const CAMPAMENTOS_DEFAULT = [
+    { id: 13, name: 'Acualit 1' },
+    { id: 28, name: 'Acualit 2' },
+    { id: 6,  name: 'Biorey' },
+    { id: 19, name: 'Bonanza' },
+    { id: 8,  name: 'Camarón' },
+    { id: 7,  name: 'Camino Real' },
+    { id: 33, name: 'Coaque NC' },
+    { id: 11, name: 'Esteromar' },
+    { id: 14, name: 'Fincacua' },
+    { id: 21, name: 'Gélices' },
+    { id: 17, name: 'Golfomar' },
+    { id: 16, name: 'Granmar' },
+    { id: 15, name: 'Inducam' },
+    { id: 5,  name: 'Josefina' },
+    { id: 4,  name: 'Kamaclusa' },
+    { id: 18, name: 'Lanconor' },
+    { id: 9,  name: 'Marchena' },
+    { id: 10, name: 'Margolfo' },
+    { id: 3,  name: 'Maricultura' },
+    { id: 1,  name: 'Naturisa' },
+    { id: 2,  name: 'Pesjoya' },
+    { id: 12, name: 'Río Nilo' },
+    { id: 20, name: 'Roblemar' }
+];
+
+function populateSubsidiaries(list) {
+    subsidiaries = list;
+    const opts = list.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    document.getElementById('f-subsidiary').innerHTML = opts;
+    document.getElementById('f-subsidiary-all').innerHTML =
+        '<option value="">Todas las sucursales</option>' + opts;
+    // Refrescar cluster-sub si el agrupador ya estaba en cluster
+    if (document.getElementById('f-groupby').value === 'cluster') onClusterChange();
+}
+
+// ── Load Subsidiaries ─────────────────────────────────────────
+async function loadSubsidiaries() {
+    const token = getToken();
+    try {
+        const res = await fetch(API_WAREHOUSES, {
+            headers: { Authorization: `Bearer ${token}`, Accept: 'application/json, text/plain, */*' }
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        const warehouses = (json.data?.data || json.data || []).filter(w => !w.name.startsWith('BA ') && !w.name.includes('Matriz'));
+
+        // Agrupar por subsidiaryId, preferir el que empiece con "BF" (Bodega Finca)
+        const subsMap = {};
+        warehouses.forEach(w => {
+            const sid = w.subsidiaryId;
+            if (!subsMap[sid] || w.name.startsWith('BF ')) {
+                subsMap[sid] = w;
+            }
+        });
+
+        // Limpiar prefijos BF/BM/BA del nombre
+        const rawList = Object.values(subsMap).map(w => ({
+            id: w.subsidiaryId,
+            rawName: w.name,
+            cleanName: w.name.replace(/^(BA|BF|BM)\s+/, '').trim()
+        }));
+
+        // Si dos campamentos tienen el mismo nombre limpio, mostrar el original para distinguirlos
+        const nameCounts = {};
+        rawList.forEach(s => { nameCounts[s.cleanName] = (nameCounts[s.cleanName] || 0) + 1; });
+
+        const list = rawList
+            .map(s => ({ id: s.id, name: nameCounts[s.cleanName] > 1 ? s.rawName : s.cleanName }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
+        if (list.length === 0) {
+            populateSubsidiaries(CAMPAMENTOS_DEFAULT);
+        } else {
+            populateSubsidiaries(list);
+        }
+    } catch(e) {
+        console.error('Error cargando sucursales', e);
+        populateSubsidiaries(CAMPAMENTOS_DEFAULT);
+    }
+}
+
+function populateSubsidiaries(list) {
+    subsidiaries = list;
+}
+
+// ── Auth helpers ──────────────────────────────────────────────
+function getToken() { return localStorage.getItem('nat_token') || ''; }
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+async function doLogin() {
+    const user = document.getElementById('inp-user').value.trim();
+    const pass = document.getElementById('inp-pass').value.trim();
+    if (!user || !pass) return alert('Ingresa usuario y contraseña');
+    const btn = document.getElementById('btn-login');
+    btn.textContent = 'Ingresando...'; btn.disabled = true;
+    try {
+        const res = await fetch(AUTH_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/plain, */*' },
+            body: JSON.stringify({ userName: user, password: pass, codeApplication: CODE_APP, includeUserInfo: true })
+        });
+        const json = await res.json();
+        if (json.code === 200 && json.data?.token) {
+            localStorage.setItem('nat_token', json.data.token);
+            localStorage.setItem('nat_user', user);
+            const u = json.data.usuario;
+            const fullName = u ? (u.firstNames + ' ' + u.lastNames).trim() : user;
+            localStorage.setItem('nat_name', fullName);
+            document.getElementById('inp-pass').value = '';
+            applyLoginUI(true, fullName);
+            loadSubsidiaries().then(initSapScreen);
+        } else { alert('Usuario o contraseña incorrectos'); }
+    } catch(e) {
+        document.getElementById('login-status').textContent = '⚠ Error de conexión: ' + e.message;
+    } finally { btn.textContent = 'Ingresar'; btn.disabled = false; }
+}
+
+async function doModalLogin() {
+    const user   = document.getElementById('modal-user').value.trim();
+    const pass   = document.getElementById('modal-pass').value.trim();
+    const status = document.getElementById('modal-status');
+    const btn    = document.getElementById('modal-btn-login');
+    if (!user || !pass) { status.textContent = 'Ingresa usuario y contraseña'; return; }
+    btn.textContent = 'Ingresando...'; btn.disabled = true; status.textContent = '';
+    try {
+        const res = await fetch(AUTH_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/plain, */*' },
+            body: JSON.stringify({ userName: user, password: pass, codeApplication: CODE_APP, includeUserInfo: true })
+        });
+        const json = await res.json();
+        if (json.code === 200 && json.data?.token) {
+            localStorage.setItem('nat_token', json.data.token);
+            localStorage.setItem('nat_user', user);
+            const u = json.data.usuario;
+            const fullName = u ? (u.firstNames + ' ' + u.lastNames).trim() : user;
+            localStorage.setItem('nat_name', fullName);
+            document.getElementById('inp-user').value = user;
+            applyLoginUI(true, fullName);
+            loadSubsidiaries().then(initSapScreen);
+        } else { status.textContent = '⚠ Usuario o contraseña incorrectos'; }
+    } catch(e) {
+        console.error('Login error:', e);
+        status.textContent = '⚠ Error de conexión: ' + e.message;
+        document.getElementById('modal-token-section').style.display = 'block';
+    }
+    finally { btn.textContent = 'Ingresar'; btn.disabled = false; }
+}
+
+function saveModalToken() {
+    const t = document.getElementById('modal-token-inp').value.trim().replace(/^Bearer\s+/i, '');
+    if (!t) { alert('Pega el token primero'); return; }
+    localStorage.setItem('nat_token', t);
+    const user = document.getElementById('modal-user').value || 'Usuario';
+    localStorage.setItem('nat_user', user);
+    localStorage.setItem('nat_name', user);
+    if (user) document.getElementById('inp-user').value = user;
+    applyLoginUI(true, user);
+    loadSubsidiaries().then(initSapScreen);
+}
+
+function saveManualToken() {
+    const t = document.getElementById('inp-token').value.trim();
+    if (!t) return alert('Pega el token primero');
+    localStorage.setItem('nat_token', t);
+    document.getElementById('token-fallback').style.display = 'none';
+    document.getElementById('inp-token').value = '';
+    const user = document.getElementById('inp-user').value || 'Usuario';
+    applyLoginUI(true, user);
+    loadSubsidiaries().then(initSapScreen);
+}
+
+function doLogout() {
+    localStorage.removeItem('nat_token');
+    localStorage.removeItem('nat_name');
+    applyLoginUI(false, '');
+    document.getElementById('inp-pass').value = '';
+    document.getElementById('sap-results').innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div>Sesión cerrada. Vuelve a iniciar sesión.</div></div>';
+}
+
+function applyLoginUI(on, nombre) {
+    const bar    = document.getElementById('login-bar');
+    const btnIn  = document.getElementById('btn-login');
+    const btnOut = document.getElementById('btn-logout');
+    const st     = document.getElementById('login-status');
+    const inUser = document.getElementById('inp-user');
+    const inPass = document.getElementById('inp-pass');
+    const label  = document.getElementById('login-label');
+    const modal  = document.getElementById('login-modal');
+
+    modal.style.display = on ? 'none' : 'flex';
+    bar.classList.toggle('connected', on);
+    btnIn.style.display   = on ? 'none' : 'inline-block';
+    btnOut.style.display  = on ? 'inline-block' : 'none';
+    inPass.style.display  = on ? 'none' : 'inline-block';
+    inUser.style.display  = on ? 'none' : 'inline-block';
+    label.style.display   = on ? 'none' : 'inline';
+    if (on) {
+        const words     = nombre.split(' ').filter(w => w.length > 0);
+        const firstName = words[0] || '';
+        const firstLast = words[Math.floor(words.length / 2)] || '';
+        const shortName = firstLast ? firstName + ' ' + firstLast : firstName;
+        const initials  = (firstName[0] || '') + (firstLast[0] || '');
+        st.innerHTML = '<span class="user-avatar">' + initials.toUpperCase() + '</span>&nbsp;' + shortName;
+        st.className = 'ok';
+    } else {
+        st.textContent = '⚠ Inicia sesión para cargar datos';
+        st.className = '';
+        inUser.value = '';
+        document.getElementById('modal-user').value  = '';
+        document.getElementById('modal-pass').value  = '';
+        document.getElementById('modal-status').textContent = '';
+    }
+}
+
+function getISOWeek(d) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+// ── SAP Module ────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// CONSUMOS SAP — Excel en IndexedDB (sin límite), ciclos en localStorage
+// ══════════════════════════════════════════════════════════════════════════════
+
+const SAP_KEY_META   = 'nat_sap_meta_v2';
+const SAP_KEY_CYCLES = 'nat_sap_cycles_v2';
+const SAP_KEY_SUBS   = 'nat_sap_subs_v2';
+const SAP_IDB_NAME   = 'nat_sap_idb';
+const SAP_IDB_VER    = 1;
+const SAP_IDB_STORE  = 'excel';
+
+let _sapExcelRows   = [];
+let _sapExcelMeta   = null;
+let _sapCycles      = [];
+let _sapSubsFetched = new Set();
+
+// ── IndexedDB helpers ────────────────────────────────────────────────────────
+function _sapOpenDB() {
+    return new Promise(function(resolve, reject) {
+        const req = indexedDB.open(SAP_IDB_NAME, SAP_IDB_VER);
+        req.onupgradeneeded = function(e) {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(SAP_IDB_STORE))
+                db.createObjectStore(SAP_IDB_STORE);
+        };
+        req.onsuccess = function(e) { resolve(e.target.result); };
+        req.onerror   = function(e) { reject(e.target.error); };
+    });
+}
+
+function _sapIdbPut(key, value) {
+    return _sapOpenDB().then(function(db) {
+        return new Promise(function(resolve, reject) {
+            const tx = db.transaction(SAP_IDB_STORE, 'readwrite');
+            tx.objectStore(SAP_IDB_STORE).put(value, key);
+            tx.oncomplete = resolve;
+            tx.onerror    = function(e) { reject(e.target.error); };
+        });
+    });
+}
+
+function _sapIdbGet(key) {
+    return _sapOpenDB().then(function(db) {
+        return new Promise(function(resolve, reject) {
+            const tx  = db.transaction(SAP_IDB_STORE, 'readonly');
+            const req = tx.objectStore(SAP_IDB_STORE).get(key);
+            req.onsuccess = function() { resolve(req.result); };
+            req.onerror   = function(e) { reject(e.target.error); };
+        });
+    });
+}
+
+function _sapIdbClear() {
+    return _sapOpenDB().then(function(db) {
+        return new Promise(function(resolve, reject) {
+            const tx = db.transaction(SAP_IDB_STORE, 'readwrite');
+            tx.objectStore(SAP_IDB_STORE).clear();
+            tx.oncomplete = resolve;
+            tx.onerror    = function(e) { reject(e.target.error); };
+        });
+    });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function sapLoad() {
+    // Limpiar claves antiguas de versiones previas (liberan espacio)
+    try { ['nat_sap_excel_v1','nat_sap_meta_v1','nat_sap_cycles_v1','nat_sap_subs_v1',
+           'nat_sap_excel_v2'].forEach(k => localStorage.removeItem(k)); } catch(_) {}
+    try {
+        const me = localStorage.getItem(SAP_KEY_META);
+        if (me) _sapExcelMeta = JSON.parse(me);
+        const cy = localStorage.getItem(SAP_KEY_CYCLES);
+        if (cy) _sapCycles = JSON.parse(cy);
+        const su = localStorage.getItem(SAP_KEY_SUBS);
+        if (su) _sapSubsFetched = new Set(JSON.parse(su));
+    } catch(e) { console.warn('SAP load error:', e); }
+}
+
+function sapSave() {
+    try {
+        localStorage.setItem(SAP_KEY_CYCLES, JSON.stringify(_sapCycles));
+        localStorage.setItem(SAP_KEY_SUBS,   JSON.stringify([..._sapSubsFetched]));
+        if (_sapExcelMeta)
+            localStorage.setItem(SAP_KEY_META, JSON.stringify(_sapExcelMeta));
+    } catch(e) {
+        console.warn('SAP: localStorage ciclos/meta fallo.', e);
+    }
+}
+
+function showSapScreen() {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('screen-consumos-sap').classList.add('active');
+    document.getElementById('tab-consumos-sap').classList.add('active');
+    sapLoad();              // carga ciclos + meta de localStorage (síncrono)
+    _sapSyncFilters();
+    sapPopulateClusterSub();
+    sapPopulatePiscinaCiclo();
+    sapUpdateStatus();
+    // Cargar Excel desde IndexedDB — primero filas fusionadas, fallback al buffer crudo
+    _sapIdbGet('rows').then(function(savedRows) {
+        if (savedRows && savedRows.length) {
+            _sapExcelRows = savedRows;
+            sapPopulateYearMonth(); sapPopulateClusterSub(); sapPopulatePiscinaCiclo();
+            sapUpdateStatus(); updateSapResults();
+            return;
+        }
+        return _sapIdbGet('buffer').then(function(buf) {
+            if (!buf) { updateSapResults(); return; }
+            const wb      = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true });
+            const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+            if (!rawRows.length) { updateSapResults(); return; }
+            const keys    = _sapDetectRawKeys(rawRows);
+            _sapExcelRows = _sapNormalizeRows(rawRows, keys);
+            sapPopulateYearMonth();
+            sapUpdateStatus();
+            updateSapResults();
+        });
+    }).catch(function(e) {
+        console.warn('SAP IDB read error:', e);
+        updateSapResults();
+    });
+}
+
+function sapAllSubs() {
+    return (typeof subsidiaries !== 'undefined' && subsidiaries.length)
+        ? subsidiaries : CAMPAMENTOS_DEFAULT;
+}
+
+function sapPopulateClusterSub() {
+    const selCl = document.getElementById('sap-cluster');
+    if (selCl.options.length <= 1) {
+        selCl.innerHTML = '<option value="">— Todos los clusters —</option>' +
+            Object.keys(CLUSTERS).map(k => '<option value="' + k + '">' + k + '</option>').join('');
+    }
+    _sapRepoblateSubSelect();
+}
+
+function _sapRepoblateSubSelect() {
+    const cluster    = document.getElementById('sap-cluster').value;
+    const clusterIds = cluster ? (CLUSTERS[cluster] || []) : null;
+    const subs = clusterIds ? sapAllSubs().filter(s => clusterIds.includes(s.id)) : sapAllSubs();
+    document.getElementById('sap-subsidiary').innerHTML =
+        '<option value="">— Todas las sucursales —</option>' +
+        subs.map(s => '<option value="' + s.id + '">' + s.name + (_sapSubsFetched.has(s.id) ? ' ✓' : '') + '</option>').join('');
+}
+
+function sapPopulatePiscinaCiclo() {
+    const subIdVal   = parseInt(document.getElementById('sap-subsidiary').value) || null;
+    const cluster    = document.getElementById('sap-cluster').value;
+    const clusterIds = cluster ? (CLUSTERS[cluster] || []) : null;
+    const vis = _sapCycles.filter(c =>
+        (!subIdVal   || c._subsidiaryId === subIdVal) &&
+        (!clusterIds || clusterIds.includes(c._subsidiaryId))
+    );
+    const pools = [...new Set(vis.map(c => c.poolName).filter(Boolean))].sort((a,b) => a.localeCompare(b,'es'));
+    document.getElementById('sap-pool').innerHTML =
+        '<option value="">— Todas las piscinas —</option>' +
+        pools.map(p => '<option value="' + p + '">' + p + '</option>').join('');
+    const poolName = document.getElementById('sap-pool').value;
+    const cycleSel = vis.filter(c => !poolName || c.poolName === poolName);
+    document.getElementById('sap-cycle').innerHTML =
+        '<option value="">— Todos los ciclos —</option>' +
+        cycleSel.map(c => '<option value="' + c.idCycle + '">' + c.cycleCode + ' — ' + c.controlOrderDocument + '</option>').join('');
+}
+
+function sapPopulateYearMonth() {
+    const now      = new Date();
+    const thisYear = String(now.getFullYear());
+    const thisMon  = String(now.getMonth()+1).padStart(2,'0');
+    const years    = [...new Set(_sapExcelRows.map(function(r) { return r.f ? r.f.slice(0,4) : ''; }).filter(Boolean))].sort();
+
+    function fillYM(yId, mId, defaultY, defaultM) {
+        var selY = document.getElementById(yId);
+        var selM = document.getElementById(mId);
+        if (!selY || !selM) return;
+        var curY = selY.value || defaultY;
+        selY.innerHTML = '<option value="">— Todos —</option>' +
+            years.map(function(y) { return '<option value="' + y + '"' + (y===curY?' selected':'') + '>' + y + '</option>'; }).join('');
+        if (!selY.value) selY.value = curY;
+        var curM = selM.value || defaultM;
+        selM.innerHTML = '<option value="">— Todos —</option>' +
+            SAP_MESES.map(function(mn,i) {
+                var val = String(i+1).padStart(2,'0');
+                return '<option value="' + val + '"' + (val===curM?' selected':'') + '>' + mn + '</option>';
+            }).join('');
+        if (!selM.value) selM.value = curM;
+    }
+
+    fillYM('sap-year',     'sap-month',     thisYear, thisMon);
+    fillYM('sap-mat-year', 'sap-mat-month', thisYear, thisMon);
+    sapPopulateMatSub();
+    sapPopulateCicSub();
+}
+
+function sapPopulateCicSub() {
+    var sel = document.getElementById('sap-cic-sub');
+    if (!sel) return;
+    var seen = {}, opts = [];
+    _sapCycles.forEach(function(c) {
+        var camp = _sapCamp(c);
+        if (camp && !seen[camp]) { seen[camp] = true; opts.push({ camp: camp, name: c._subName || camp }); }
+    });
+    opts.sort(function(a,b) { return a.name.localeCompare(b.name, 'es'); });
+    var cur = sel.value || (opts.length ? opts[0].camp : '');
+    sel.innerHTML = opts.map(function(o) {
+        return '<option value="' + o.camp + '"' + (o.camp === cur ? ' selected' : '') + '>' + o.name + '</option>';
+    }).join('');
+    if (!sel.value && opts.length) sel.value = opts[0].camp;
+    sapPopulateCicPools();
+}
+
+function sapPopulateCicPools() {
+    var sel  = document.getElementById('sap-cic-pool');
+    var subV = (document.getElementById('sap-cic-sub') || {}).value || '';
+    if (!sel) return;
+    var cycles = subV ? _sapCycles.filter(function(c) { return _sapCamp(c) === subV; }) : _sapCycles;
+    var pools  = [...new Set(cycles.map(function(c) { return c.poolName; }).filter(Boolean))].sort(function(a,b) { return a.localeCompare(b,'es',{numeric:true,sensitivity:'base'}); });
+    var cur = sel.value || (pools.length ? pools[0] : '');
+    sel.innerHTML = pools.map(function(p) {
+        return '<option value="' + p + '"' + (p === cur ? ' selected' : '') + '>' + p + '</option>';
+    }).join('');
+    if (!sel.value && pools.length) sel.value = pools[0];
+    sapPopulateCicCycles();
+}
+
+function sapPopulateCicCycles() {
+    var sel   = document.getElementById('sap-cic-cycle');
+    var subV  = (document.getElementById('sap-cic-sub')  || {}).value || '';
+    var poolV = (document.getElementById('sap-cic-pool') || {}).value || '';
+    if (!sel) return;
+    var cycles = _sapCycles.filter(function(c) {
+        return (!subV  || _sapCamp(c) === subV) &&
+               (!poolV || c.poolName  === poolV);
+    });
+    var cur = sel.value || (cycles.length ? String(cycles[0].idCycle) : '');
+    sel.innerHTML = cycles.map(function(c) {
+        var lbl = (c.cycleCode || c.idCycle) + (c.controlOrderDocument ? ' — ' + c.controlOrderDocument : '');
+        return '<option value="' + c.idCycle + '"' + (String(c.idCycle) === cur ? ' selected' : '') + '>' + lbl + '</option>';
+    }).join('');
+    if (!sel.value && cycles.length) sel.value = String(cycles[0].idCycle);
+}
+
+function sapOnCicSubChange()  { sapPopulateCicPools();  updateSapResults(); }
+function sapOnCicPoolChange() { sapPopulateCicCycles(); updateSapResults(); }
+
+function sapPopulateMatSub() {
+    var sel = document.getElementById('sap-mat-sub');
+    if (!sel) return;
+    var seen = {}, opts = [];
+    _sapCycles.forEach(function(c) {
+        var camp = _sapCamp(c);
+        if (camp && !seen[camp]) { seen[camp] = true; opts.push({ camp: camp, name: c._subName || camp }); }
+    });
+    opts.sort(function(a,b) { return a.name.localeCompare(b.name, 'es'); });
+    var cur = sel.value || (opts.length ? opts[0].camp : '');
+    sel.innerHTML = opts.map(function(o) { return '<option value="' + o.camp + '"' + (o.camp===cur?' selected':'') + '>' + o.name + '</option>'; }).join('');
+    if (!sel.value && opts.length) sel.value = opts[0].camp;
+}
+
+function _sapTogglePoolCiclo() {
+    const hasSub  = !!document.getElementById('sap-subsidiary').value;
+    const hasPool = !!document.getElementById('sap-pool').value;
+    document.getElementById('sap-pool-fg').style.display  = hasSub ? '' : 'none';
+    document.getElementById('sap-cycle-fg').style.display = (hasSub && hasPool) ? '' : 'none';
+}
+
+function sapOnDateChange()    { updateSapResults(); }
+function sapOnClusterChange() { _sapRepoblateSubSelect(); sapPopulatePiscinaCiclo(); _sapTogglePoolCiclo(); updateSapResults(); }
+function sapOnSubChange()     { sapPopulatePiscinaCiclo(); _sapTogglePoolCiclo(); updateSapResults(); }
+function sapOnCycleChange()   { updateSapResults(); }
+function sapOnPoolChange() {
+    // Solo actualiza el selector de ciclos — NO reconstruye el de piscinas
+    const subIdVal   = parseInt(document.getElementById('sap-subsidiary').value) || null;
+    const cluster    = document.getElementById('sap-cluster').value;
+    const clusterIds = cluster ? (CLUSTERS[cluster] || []) : null;
+    const poolName   = document.getElementById('sap-pool').value;
+    const vis = _sapCycles.filter(c =>
+        (!subIdVal   || c._subsidiaryId === subIdVal) &&
+        (!clusterIds || clusterIds.includes(c._subsidiaryId)) &&
+        (!poolName   || c.poolName === poolName)
+    );
+    document.getElementById('sap-cycle').innerHTML =
+        '<option value="">— Todos los ciclos —</option>' +
+        vis.map(c => '<option value="' + c.idCycle + '">' + c.cycleCode + ' — ' + c.controlOrderDocument + '</option>').join('');
+    _sapTogglePoolCiclo();
+    updateSapResults();
+}
+
+// Detecta los nombres de columna del Excel original (solo se usa al subir)
+function _sapDetectRawKeys(rows) {
+    const keys = Object.keys(rows[0]);
+    const col  = function() { const t=Array.from(arguments); return keys.find(k=>t.some(x=>k.toLowerCase().replace(/[\s\.]/g,'').includes(x)))||''; };
+    const exact = function(x) { return keys.find(k=>k.trim().toLowerCase()===x)||''; };
+    const detected = {
+        kOrden:   col('orden') || exact('w') || keys[0],
+        kMat:     exact('material') || col('nmat','nºmat','codigom','articu','codmat') || keys[0],
+        kDesc:    col('denominac','textobreve','texto','descripci','descripcion','nombre'),
+        kCant:    col('cantidad'),
+        kImporte: col('impte','importe','import'),
+        kAlmacen: col('almac','almacen'),
+        kFecha:   col('fecha','fcontab','contabiliz','contab','posting'),
+        kUnidad:  col('unidad','umbase','umb','medida') || exact('um') || exact('ud') || exact('un'),
+        kDocMat:  col('documentomaterial','docmat','nºdocmat','documento material'),
+        kPosMat:  col('posiciondoc','posdoc','posicion doc','posiciondocmat')
+    };
+    console.log('[SAP] Columnas Excel detectadas:', JSON.stringify(detected));
+    console.log('[SAP] Todas las columnas:', keys.join(' | '));
+    return detected;
+}
+
+function _sapParseDate(val) {
+    if (!val) return '';
+    if (val instanceof Date) {
+        return val.getFullYear() + '-' +
+            String(val.getMonth()+1).padStart(2,'0') + '-' +
+            String(val.getDate()).padStart(2,'0');
+    }
+    var s = String(val).trim();
+    // DD.MM.YYYY o DD/MM/YYYY
+    var m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+    if (m) return m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+    // YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+    return '';
+}
+
+const SAP_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// Normaliza a formato compacto {o,m,d,q,i,a,f} — reduce tamaño ~80%
+function _sapNormalizeRows(rows, k) {
+    return rows.map(function(row) {
+        return {
+            o: String(row[k.kOrden]   || '').trim(),
+            m: String(row[k.kMat]    || '').trim(),
+            d: String(row[k.kDesc]   || '').trim(),
+            q: parseFloat(String(row[k.kCant]    || 0).replace(/,/g,'')) || 0,
+            i: parseFloat(String(row[k.kImporte] || 0).replace(/,/g,'')) || 0,
+            a: String(row[k.kAlmacen] || '').trim(),
+            f: k.kFecha  ? _sapParseDate(row[k.kFecha])           : '',
+            u: k.kUnidad ? String(row[k.kUnidad] || '').trim()    : '',
+            dm: k.kDocMat ? String(row[k.kDocMat] || '').trim()   : '',
+            pd: k.kPosMat ? String(row[k.kPosMat] || '').trim()   : ''
+        };
+    });
+}
+
+function _sapRowKey(r) {
+    // Documento material + Posición doc.mat. = clave única SAP
+    if (r.dm && r.pd) return r.dm + '||' + r.pd;
+    // Fallback si el Excel no trae esas columnas
+    return (r.o||'') + '||' + (r.m||'') + '||' + (r.f||'') + '||' + String(r.i||0) + '||' + String(r.q||0);
+}
+
+function sapSubirNuevoExcel(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const buffer  = e.target.result;
+            const wb      = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
+            const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+            if (!rawRows.length) { alert('El archivo esta vacio'); return; }
+            const keys    = _sapDetectRawKeys(rawRows);
+            const newRows = _sapNormalizeRows(rawRows, keys);
+
+            // Merge acumulativo: solo agregar filas que no existen ya
+            const existingKeys = new Set(_sapExcelRows.map(_sapRowKey));
+            const added = newRows.filter(function(r) { return !existingKeys.has(_sapRowKey(r)); });
+            _sapExcelRows = _sapExcelRows.concat(added);
+            _sapExcelRows.sort(function(a,b) { return (a.f||'').localeCompare(b.f||''); });
+
+            const ts = new Date().toLocaleString('es-EC', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+            _sapExcelMeta = { filename: file.name, rows: _sapExcelRows.length, savedAt: ts, added: added.length };
+
+            // Guardar filas fusionadas en IndexedDB
+            _sapIdbPut('rows', _sapExcelRows).catch(function(err) {
+                console.warn('SAP: no se pudo guardar filas en IndexedDB', err);
+            });
+
+            sapSave(); sapPopulateYearMonth(); sapUpdateStatus(); updateSapResults();
+            alert('Agregadas ' + added.length + ' filas nuevas.\nTotal acumulado: ' + _sapExcelRows.length + ' filas.');
+        } catch(ex) { alert('Error leyendo el archivo: ' + ex.message); }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function sapBorrarExcel() {
+    if (!confirm('¿Borrar todos los datos del Excel acumulado?\nEsta acción no se puede deshacer.')) return;
+    _sapExcelRows = []; _sapExcelMeta = null;
+    _sapIdbPut('rows', []);
+    _sapIdbClear();
+    sapSave(); sapUpdateStatus(); updateSapResults();
+    sapCerrarOpciones();
+}
+
+// Parsea cualquier forma de respuesta paginada del API
+function _sapParseItems(data) {
+    if (Array.isArray(data))                                  return data;
+    if (Array.isArray(data.data))                             return data.data;
+    if (data.data && Array.isArray(data.data.content))        return data.data.content;
+    if (Array.isArray(data.content))                          return data.content;
+    return [];
+}
+
+async function sapCargarCiclos() {
+    const token = getToken();
+    if (!token) { alert('Inicia sesion primero'); return; }
+
+    const allSubIds = sapAllSubs().map(s => s.id);
+    const allFetched = allSubIds.every(function(id) { return _sapSubsFetched.has(id); });
+    if (allFetched) {
+        if (!confirm('Ciclos ya cargados (' + _sapCycles.length + ' ciclos).\n\n¿Volver a cargar para buscar ciclos nuevos?')) return;
+        _sapCycles = []; _sapSubsFetched = new Set();
+    }
+
+    const progressEl = document.getElementById('sap-progress');
+    progressEl.style.display = '';
+    const setP = function(msg) {
+        progressEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#1e40af"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span>' + msg + '</div>';
+    };
+    const authHdrs = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
+    const SAP_CYCLES_API = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/cycles';
+    const subById = Object.fromEntries(sapAllSubs().map(s => [s.id, s.name]));
+
+    // ── Paso 1: mapa subsidiaryCode → subsidiaryId via cycles_navigation ────────
+    // cycles_navigation devuelve {subsidiaryCode, subsidiaryId, ...} por sucursal
+    // El cycleCode empieza con el subsidiaryCode: "CR-0001-0017" → "CR" → sub 7
+    setP('Paso 1/2: cargando códigos de sucursales...');
+    const codeToSid = {}; // "CR" → 7, "GR" → 16, etc.
+    const _extractCodes = function(json) {
+        // Intenta extraer {subsidiaryCode, subsidiaryId} de cualquier estructura
+        const candidates = Array.isArray(json) ? json
+            : Array.isArray(json.data) ? json.data
+            : json.data && Array.isArray(json.data.data) ? json.data.data
+            : json.data ? [json.data] : [];
+        candidates.forEach(function(s) {
+            const code = (s.subsidiaryCode || '').trim();
+            const sid  = s.subsidiaryId;
+            if (code && sid) codeToSid[code] = Number(sid);
+        });
+    };
+    try {
+        const res = await fetch(API_CYCLES_NAV, { headers: authHdrs });
+        if (res.ok) {
+            const json = await res.json();
+            console.log('[SAP] cycles_navigation raw (500c):', JSON.stringify(json).substring(0, 500));
+            _extractCodes(json);
+        }
+    } catch(e) { console.warn('[SAP] cycles_navigation error:', e); }
+    console.log('[SAP] codeToSid desde cycles_navigation:', JSON.stringify(codeToSid));
+
+    // idToPs: idCycle → poolSize (ha). Se llena siempre desde pool_production.
+    const idToPs   = {};
+    const idToDias = {};   // idCycle → días totales del ciclo (seco + producción)
+    const curW2  = getISOWeek(new Date());
+    // Semanas a muestrear: cada 4 semanas cubre bien todos los ciclos 2026
+    const mapWeeks = [];
+    for (var mw = 1; mw <= curW2; mw += 4) mapWeeks.push(mw);
+    if (!mapWeeks.includes(curW2)) mapWeeks.push(curW2);
+
+    if (!Object.keys(codeToSid).length) {
+        console.warn('[SAP] cycles_navigation vacío, usando fallback');
+    }
+
+    setP('Paso 1/2: cargando piscinas y tamaños...');
+    await Promise.all(allSubIds.map(async function(sid) {
+        for (var wi = 0; wi < mapWeeks.length; wi++) {
+            try {
+                const res = await fetch(API_POOL_PROD + '?subsidiaryIds=' + sid + '&cutOffYear=2026&cutOffWeek=' + mapWeeks[wi], { headers: authHdrs });
+                if (!res.ok) continue;
+                const raw   = await res.json();
+                const items = Array.isArray(raw.data)
+                    ? raw.data
+                    : (raw.data && Array.isArray(raw.data.data) ? raw.data.data
+                    : (Array.isArray(raw) ? raw : []));
+                items.forEach(function(c) {
+                    // Construir codeToSid desde el prefijo del cycleCode
+                    const cc = (c.cycleCode || '').trim();
+                    if (cc) {
+                        const prefix = cc.split('-')[0];
+                        if (prefix && !codeToSid[prefix]) codeToSid[prefix] = sid;
+                    }
+                    // Guardar poolSize y días totales por idCycle
+                    if (c.idCycle && c.poolSize) {
+                        idToPs[String(c.idCycle)] = parseFloat(c.poolSize) || 0;
+                    }
+                    if (c.idCycle) {
+                        var dTotal = parseFloat(c.daysCycle || 0) || 0;
+                        if (!dTotal) dTotal = (parseFloat(c.daysDry || 0) || 0) + (parseFloat(c.daysProduction || 0) || 0);
+                        if (dTotal > 0) idToDias[String(c.idCycle)] = dTotal;
+                    }
+                });
+            } catch(e) {}
+        }
+    }));
+    console.log('[SAP] codeToSid:', JSON.stringify(codeToSid));
+    console.log('[SAP] poolSizes mapeados:', Object.keys(idToPs).length);
+
+    // ── Paso 2: paginar /cycles sin filtro, guardar los de 2026 ──────────────
+    setP('Paso 2/2: descargando ciclos 2026...');
+    const existingIds = new Set(_sapCycles.map(function(c) { return c.idCycle; }));
+    const newCycles = [];
+    let page = 0, emptyPages = 0;
+
+    while (emptyPages < 3) {
+        let items = [];
+        try {
+            const res = await fetch(SAP_CYCLES_API + '?pageSize=1000&page=' + page, { headers: authHdrs });
+            if (!res.ok) break;
+            items = _sapParseItems(await res.json());
+            if (!items.length) break;
+        } catch(e) { break; }
+
+        let found = 0;
+        items.forEach(function(c) {
+            const id = String(c.idCycle || '');
+            if (!id || existingIds.has(id)) return;
+            // Filtrar solo 2026 por startDate
+            const yr = c.startDate ? parseInt(c.startDate.substring(0, 4)) : 0;
+            if (yr !== 2026) return;
+            const cod = String(c.controlOrderDocument || '').trim();
+            if (!cod) return;
+            const cc    = String(c.cycleCode || '');
+            const parts = cc.split('-');
+            // Pool name = todo excepto el último segmento: "LN-001-086" → "LN-001"
+            const poolName = parts.length > 1 ? parts.slice(0, -1).join('-') : cc;
+            // Sucursal = primer segmento del cycleCode: "CR" → subsidiaryId 7
+            const sid = codeToSid[parts[0]];
+            if (!sid) return;
+            found++;
+            existingIds.add(id);
+            newCycles.push({ idCycle: id, cycleCode: cc, poolName: poolName,
+                controlOrderDocument: cod, _subsidiaryId: sid,
+                _subName: subById[sid] || ('Sub ' + sid),
+                ps: idToPs[id] || parseFloat(c.poolSize || 0) || 0,
+                totalDays: idToDias[id] || 0 });
+        });
+
+        emptyPages = found === 0 ? emptyPages + 1 : 0;
+        page++;
+        setP('Paso 2/2: pág.' + page + ' — ' + newCycles.length + ' ciclos 2026 con orden...');
+        // Si la API no pagina (devuelve >1000) o es la última página (<1000), salir
+        if (items.length !== 1000) break;
+        // Ceder el hilo brevemente para no bloquear la UI
+        await new Promise(function(r) { setTimeout(r, 0); });
+    }
+
+    console.log('[SAP] Total ciclos 2026 cargados:', newCycles.length, 'en', page, 'páginas');
+    newCycles.forEach(function(c) { _sapCycles.push(c); });
+    _sapCycles.sort(function(a, b) {
+        return (a._subName || '').localeCompare(b._subName || '', 'es') || (a.poolName || '').localeCompare(b.poolName || '', 'es');
+    });
+
+    allSubIds.forEach(function(id) { _sapSubsFetched.add(id); });
+    sapSave();
+    progressEl.style.display = 'none'; progressEl.innerHTML = '';
+    _sapRepoblateSubSelect(); sapPopulatePiscinaCiclo(); sapUpdateStatus(); updateSapResults();
+}
+
+function sapToggleOpciones(e) {
+    e.stopPropagation();
+    var m = document.getElementById('sap-opciones-menu');
+    m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+function sapCerrarOpciones() {
+    var m = document.getElementById('sap-opciones-menu');
+    if (m) m.style.display = 'none';
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#sap-opciones-menu') && !e.target.closest('[onclick*="sapToggleOpciones"]')) {
+        sapCerrarOpciones();
+    }
+});
+
+function sapLimpiarDatos() {
+    if (!confirm('Borrar todos los datos guardados (Excel + ciclos)?')) return;
+    [SAP_KEY_META, SAP_KEY_CYCLES, SAP_KEY_SUBS].forEach(k => localStorage.removeItem(k));
+    _sapIdbClear().catch(function() {});
+    _sapExcelRows=[]; _sapExcelMeta=null; _sapCycles=[]; _sapSubsFetched=new Set();
+    document.getElementById('sap-file-input').value = '';
+    _sapRepoblateSubSelect(); sapPopulatePiscinaCiclo(); sapUpdateStatus();
+    document.getElementById('sap-results').innerHTML = '<div class="empty-state"><div class="empty-icon">&#128279;</div><div>Datos borrados.</div></div>';
+}
+
+function sapUpdateStatus() {
+    const el = document.getElementById('sap-status-bar');
+    if (!el) return;
+    const exPart = _sapExcelMeta
+        ? '📊 <strong>' + _sapExcelMeta.filename + '</strong> · ' + _sapExcelRows.length.toLocaleString('es-EC') + ' filas · <span style="color:var(--muted)">' + _sapExcelMeta.savedAt + '</span>'
+        : '📊 <span style="color:var(--muted)">Sin Excel cargado</span>';
+    const cyPart = _sapCycles.length
+        ? '🔗 <strong>' + _sapCycles.length + ' ciclos</strong> AP1 2026 · ' + _sapSubsFetched.size + ' sucursales escaneadas'
+        : '🔗 <span style="color:var(--muted)">Sin ciclos cargados</span>';
+    el.innerHTML = '<span style="margin-right:20px">' + exPart + '</span><span>' + cyPart + '</span>';
+
+    // Ajustar botón Excel: destacado si no hay Excel, discreto si ya hay uno guardado
+    const btn     = document.getElementById('sap-excel-btn');
+    const btnText = document.getElementById('sap-excel-btn-text');
+    if (!btn || !btnText) return;
+    if (_sapExcelMeta) {
+        btn.style.background  = '#f1f5f9';
+        btn.style.color       = 'var(--muted)';
+        btn.style.border      = '1px solid var(--border)';
+        btn.onmouseover = function() { this.style.background = '#e2e8f0'; };
+        btn.onmouseout  = function() { this.style.background = '#f1f5f9'; };
+        btnText.textContent = 'Actualizar Excel';
+    } else {
+        btn.style.background  = 'var(--primary)';
+        btn.style.color       = 'white';
+        btn.style.border      = 'none';
+        btn.onmouseover = function() { this.style.opacity = '.85'; };
+        btn.onmouseout  = function() { this.style.opacity = '1'; };
+        btnText.textContent = 'Subir Excel';
+    }
+}
+
+function sapGetActiveCycles() {
+    const subIdVal   = parseInt(document.getElementById('sap-subsidiary').value) || null;
+    const cluster    = document.getElementById('sap-cluster').value;
+    const clusterIds = cluster ? (CLUSTERS[cluster] || []) : null;
+    const poolName   = document.getElementById('sap-pool').value;
+    const cycleId    = document.getElementById('sap-cycle').value;
+    return _sapCycles.filter(c =>
+        (!subIdVal   || c._subsidiaryId === subIdVal) &&
+        (!clusterIds || clusterIds.includes(c._subsidiaryId)) &&
+        (!poolName   || c.poolName === poolName) &&
+        (!cycleId    || c.idCycle === cycleId)
+    );
+}
+
+var _sapTab = 'resumen';
+var _sapResumenGrupo = false;
+var _sapResumenChartInst = null;
+var _sapMatChartInst    = null;
+var _sapCicloChartInst  = null;
+var _sapKpiRows = [];
+var _sapKpiDias = 30;
+var _sapKpiSelected = null;
+
+function _sapBuildKpiHtml(imp, ha, dias, subLabel, diasCiclo) {
+    var fmt = function(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+    var costoXHa    = ha > 0 ? imp / ha : null;
+    var costoXHaDia = ha > 0 && dias > 0 ? imp / (ha * dias) : null;
+    var _sep = 'border-right:1px solid rgba(255,255,255,0.25)';
+    var _cel = 'flex:1;padding:14px 20px;display:flex;flex-direction:column;justify-content:center;gap:4px';
+    var _lbl = 'font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;opacity:0.85';
+    var _val = 'font-size:28px;font-weight:900;line-height:1.1';
+    var banner = subLabel
+        ? '<div style="background:rgba(0,0,0,0.18);padding:6px 16px;font-size:15px;font-weight:800;display:flex;justify-content:space-between;align-items:center">' +
+              '<span>' + subLabel + '</span>' +
+              '<span style="cursor:pointer;opacity:0.7;font-size:11px;font-weight:600" onclick="sapClearResumenRow()">✕ Ver total</span>' +
+          '</div>'
+        : '';
+    var diasCard = diasCiclo
+        ? '<div style="' + _cel + ';' + _sep + '">' +
+              '<div style="font-size:24px;line-height:1;margin-bottom:4px">&#x23F1;</div>' +
+              '<div style="' + _lbl + '">D&iacute;as ciclo</div>' +
+              '<div style="' + _val + '">' + diasCiclo + ' <span style="font-size:13px;font-weight:500;opacity:0.8">días</span></div>' +
+          '</div>'
+        : '';
+    return '<div class="kpi-card cyan" style="display:flex;flex-direction:column;padding:0;overflow:hidden">' +
+        banner +
+        '<div style="display:flex;flex:1">' +
+            '<div style="' + _cel + ';' + _sep + '">' +
+                '<div style="font-size:24px;line-height:1;margin-bottom:4px">&#x1F4B5;</div>' +
+                '<div style="' + _lbl + '">Costo total</div>' +
+                '<div style="' + _val + '">$' + fmt(imp) + '</div>' +
+            '</div>' +
+            '<div style="' + _cel + ';' + _sep + '">' +
+                '<div style="font-size:24px;line-height:1;margin-bottom:4px">&#x1F30A;</div>' +
+                '<div style="' + _lbl + '">Hect&aacute;reas</div>' +
+                '<div style="' + _val + '">' + (ha > 0 ? ha.toLocaleString('es-EC',{minimumFractionDigits:1,maximumFractionDigits:1}) : '—') + ' <span style="font-size:13px;font-weight:500;opacity:0.8">Ha</span></div>' +
+            '</div>' +
+            diasCard +
+            '<div style="' + _cel + ';' + _sep + '">' +
+                '<div style="font-size:24px;line-height:1;margin-bottom:4px">&#x1F4CA;</div>' +
+                '<div style="' + _lbl + '">Costo / Ha</div>' +
+                '<div style="' + _val + '">' + (costoXHa !== null ? '$' + fmt(costoXHa) : '—') + '</div>' +
+            '</div>' +
+            '<div style="' + _cel + '">' +
+                '<div style="font-size:24px;line-height:1;margin-bottom:4px">&#x1F4C5;</div>' +
+                '<div style="' + _lbl + '">Costo Ha/D&iacute;a</div>' +
+                '<div style="' + _val + (costoXHaDia !== null && costoXHaDia > 2.67 ? ';color:#fca5a5' : '') + '">' + (costoXHaDia !== null ? '$' + fmt(costoXHaDia) : '—') + '</div>' +
+            '</div>' +
+        '</div>' +
+    '</div>';
+}
+
+function sapSelectResumenRow(el, camp) {
+    if (_sapKpiSelected === camp) { sapClearResumenRow(); return; }
+    _sapKpiSelected = camp;
+    document.querySelectorAll('.sap-res-row').forEach(function(r) { r.style.background = ''; r.style.outline = ''; });
+    el.style.background = '#dbeafe'; el.style.outline = '2px solid #3b82f6';
+    var rows = _sapKpiRows.filter(function(fr) { return _sapCamp(fr.ciclo) === camp; });
+    var imp  = rows.reduce(function(s, fr) { return s + Math.abs(fr.row.i || 0); }, 0);
+    var ps   = {};
+    rows.forEach(function(fr) { ps[fr.ciclo.idCycle] = fr.ciclo.ps || 0; });
+    var ha   = Object.values(ps).reduce(function(s, v) { return s + v; }, 0);
+    var subName = rows.length ? (rows[0].ciclo._subName || camp) : camp;
+    document.getElementById('sap-kpi-container').innerHTML = _sapBuildKpiHtml(imp, ha, _sapKpiDias, subName);
+}
+
+function sapClearResumenRow() {
+    _sapKpiSelected = null;
+    document.querySelectorAll('.sap-res-row').forEach(function(r) { r.style.background = ''; r.style.outline = ''; });
+    var el = document.getElementById('sap-kpi-container');
+    if (el) el.innerHTML = _sapKpiGlobal || '';
+}
+
+var _sapKpiGlobal = '';
+
+function _sapSyncFilters() {
+    var sharedIds = ['sap-year-fg','sap-month-fg','sap-cluster-fg','sap-sub-fg','sap-pool-fg','sap-cycle-fg'];
+    var matIds    = ['sap-mat-year-fg','sap-mat-month-fg','sap-mat-sub-fg'];
+    var cicIds    = ['sap-cic-sub-fg','sap-cic-pool-fg','sap-cic-cycle-fg'];
+    var allSpecial = matIds.concat(cicIds);
+
+    if (_sapTab === 'tendencia') {
+        sharedIds.concat(allSpecial).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        return;
+    }
+    if (_sapTab === 'material') {
+        sharedIds.concat(cicIds).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        matIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
+        return;
+    }
+    if (_sapTab === 'ciclo') {
+        sharedIds.concat(matIds).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        cicIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
+        return;
+    }
+    // Resumen
+    allSpecial.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    ['sap-cluster-fg','sap-sub-fg','sap-pool-fg','sap-cycle-fg'].forEach(function(id) {
+        var el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    ['sap-year-fg','sap-month-fg'].forEach(function(id) {
+        var el = document.getElementById(id); if (el) el.style.display = '';
+    });
+}
+
+function _sapToggleResumenGrupo() {
+    _sapResumenGrupo = !_sapResumenGrupo;
+    updateSapResults();
+}
+
+function sapSetTab(tab) {
+    _sapTab = tab;
+    document.querySelectorAll('.sap-tab').forEach(function(b) { b.classList.remove('sap-tab-active'); });
+    var el = document.getElementById('sap-tab-' + tab);
+    if (el) el.classList.add('sap-tab-active');
+    _sapSyncFilters();
+    updateSapResults();
+}
+
+function updateSapResults() {
+    const resultsDiv   = document.getElementById('sap-results');
+    const isTendencia  = _sapTab === 'tendencia';
+    const isMaterial   = _sapTab === 'material';
+    const isCiclo      = _sapTab === 'ciclo';
+    // Material, Ciclo y Tendencia usan todos los ciclos (sin filtro cluster/sub compartido)
+    const activeCycles = (isTendencia || isMaterial || isCiclo) ? _sapCycles : sapGetActiveCycles();
+
+    if (!_sapCycles.length && !_sapExcelRows.length) {
+        resultsDiv.innerHTML = '<div class="empty-state"><div class="empty-icon">🔗</div><div>Sube el Excel SAP y carga los ciclos AP1 para comenzar</div></div>';
+        return;
+    }
+    if (!_sapExcelRows.length) { _sapRenderCyclesOnly(activeCycles, resultsDiv); return; }
+    if (!activeCycles.length) {
+        resultsDiv.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div>Ningun ciclo coincide con los filtros &mdash; ajusta la seleccion o carga mas ciclos.</div></div>';
+        return;
+    }
+
+    // Cada pestaña usa su propio origen de filtros de año/mes
+    const yearSel  = (isTendencia || isCiclo) ? '' : isMaterial
+        ? ((document.getElementById('sap-mat-year')  || {}).value || '')
+        : ((document.getElementById('sap-year')      || {}).value || '');
+    const monthSel = (isTendencia || isCiclo) ? '' : isMaterial
+        ? ((document.getElementById('sap-mat-month') || {}).value || '')
+        : ((document.getElementById('sap-month')     || {}).value || '');
+    const matSubVal  = isMaterial ? ((document.getElementById('sap-mat-sub')   || {}).value || '') : '';
+    const cicSubVal  = isCiclo ? ((document.getElementById('sap-cic-sub')   || {}).value || '') : '';
+    const cicPoolVal = isCiclo ? ((document.getElementById('sap-cic-pool')  || {}).value || '') : '';
+    const cicCycleVal= isCiclo ? ((document.getElementById('sap-cic-cycle') || {}).value || '') : '';
+
+    // Construir mapa orden → ciclo para filtrar por cluster/sucursal/piscina/ciclo
+    const orderToCycle = {};
+    activeCycles.forEach(function(c) { orderToCycle[c.controlOrderDocument] = c; });
+
+    const fmt2 = function(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+    const fmtFecha = function(f) {
+        if (!f) return '—';
+        var p = f.split('-');
+        return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : f;
+    };
+
+    // Agrupar por (fecha, matCode) filtrando por ciclos activos y por año/mes
+    const grouped = {};
+    const ordenesCon = new Set();
+    let matched = 0;
+    _sapExcelRows.forEach(function(row) {
+        const orden = row.o || '';
+        if (!orderToCycle[orden]) return; // solo filas vinculadas a un ciclo activo
+        const fecha = row.f || '';
+        if (yearSel   && fecha.slice(0,4) !== yearSel)  return;
+        if (monthSel  && fecha.slice(5,7) !== monthSel) return;
+        if (matSubVal  && _sapCamp(orderToCycle[orden]||{}) !== matSubVal) return;
+        if (cicSubVal  && _sapCamp(orderToCycle[orden]||{}) !== cicSubVal) return;
+        if (cicPoolVal  && (orderToCycle[orden]||{}).poolName !== cicPoolVal) return;
+        if (cicCycleVal && String((orderToCycle[orden]||{}).idCycle) !== cicCycleVal) return;
+        matched++;
+        ordenesCon.add(orden);
+        const key = fecha + '||' + (row.m || '');
+        if (!grouped[key]) grouped[key] = { fecha:fecha, matCode:row.m||'',
+            desc:row.d||'', cantidad:0, importe:0, almacenes:new Set() };
+        grouped[key].cantidad += row.q || 0;
+        grouped[key].importe  += row.i || 0;
+        grouped[key].almacenes.add(row.a || '');
+    });
+
+    if (!matched) {
+        resultsDiv.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin movimientos para los filtros seleccionados.</div></div>';
+        return;
+    }
+
+    // Totales por unidad de medida
+    const unidadMap = {};
+    _sapExcelRows.forEach(function(row) {
+        if (!orderToCycle[row.o || '']) return;
+        const fecha = row.f || '';
+        if (yearSel    && fecha.slice(0,4) !== yearSel)  return;
+        if (monthSel   && fecha.slice(5,7) !== monthSel) return;
+        if (matSubVal  && _sapCamp(orderToCycle[row.o||'']||{}) !== matSubVal) return;
+        if (cicSubVal  && _sapCamp(orderToCycle[row.o||'']||{}) !== cicSubVal) return;
+        if (cicPoolVal  && (orderToCycle[row.o||'']||{}).poolName !== cicPoolVal) return;
+        if (cicCycleVal && String((orderToCycle[row.o||'']||{}).idCycle) !== cicCycleVal) return;
+        const u = (row.u || '—').trim();
+        if (!unidadMap[u]) unidadMap[u] = 0;
+        unidadMap[u] += Math.abs(row.q || 0);
+    });
+    const unidadLines = Object.entries(unidadMap)
+        .sort(function(a,b) { return b[1]-a[1]; })
+        .map(function(e) { return '<span style="white-space:nowrap"><b>' + e[0] + '</b> ' + Math.abs(e[1]).toLocaleString('es-EC',{maximumFractionDigits:0}) + '</span>'; })
+        .join(' &nbsp;·&nbsp; ');
+
+    const items     = Object.values(grouped).sort(function(a,b) { return b.fecha.localeCompare(a.fecha) || a.desc.localeCompare(b.desc,'es'); });
+    const totalImp  = items.reduce(function(s,i) { return s+Math.abs(i.importe); }, 0);
+    const totalQty  = items.reduce(function(s,i) { return s+Math.abs(i.cantidad); }, 0);
+    const matUnicos = new Set(items.map(function(i) { return i.matCode; })).size;
+    const diasUnicos = new Set(items.map(function(i) { return i.fecha; })).size;
+    const totalHa   = [...ordenesCon].reduce(function(s,ord) { return s + ((orderToCycle[ord]||{}).ps||0); }, 0);
+    const costoXHa  = totalHa > 0 ? totalImp / totalHa : null;
+
+    var diasMes = 30;
+    const costoXHaDia = totalHa > 0 ? totalImp / (totalHa * 30) : null;
+
+    let trows = '';
+    var lastFecha = null;
+    items.forEach(function(i) {
+        const alm = [...i.almacenes].filter(Boolean).join(', ');
+        const fechaCell = i.fecha !== lastFecha
+            ? '<td style="font-weight:600;white-space:nowrap">' + fmtFecha(i.fecha) + '</td>'
+            : '<td style="color:transparent;border-top:none">·</td>';
+        lastFecha = i.fecha;
+        trows += '<tr>' + fechaCell +
+            '<td><span style="display:block;font-size:10px;color:var(--muted);line-height:1.2">' + i.matCode + '</span>' +
+                '<span style="font-weight:500;font-size:13px">' + i.desc + '</span></td>' +
+            '<td style="font-size:11px;color:var(--muted)">' + alm + '</td>' +
+            '<td style="text-align:right;font-weight:600">' + fmt2(i.cantidad) + '</td>' +
+            '<td style="text-align:right;font-weight:600;color:#065f46">$' + fmt2(i.importe) + '</td></tr>';
+    });
+
+    const periodoLabel = yearSel ? (yearSel + (monthSel ? ' / ' + SAP_MESES[parseInt(monthSel,10)-1] : '')) : 'Todos los períodos';
+
+    var matSubLabel = null;
+    if (isMaterial && matSubVal) {
+        var _sc = _sapCycles.find(function(c) { return _sapCamp(c) === matSubVal; });
+        matSubLabel = _sc ? (_sc._subName || null) : null;
+    }
+    var kpiDias = diasMes;
+    if (isCiclo && cicCycleVal) {
+        var _cc = _sapCycles.find(function(c) { return String(c.idCycle) === cicCycleVal; });
+        if (_cc) {
+            matSubLabel = _cc.cycleCode || _cc._subName || null;
+            kpiDias = _cc.totalDays || 30;
+        }
+    } else if (isCiclo) {
+        var _cicMatch = _sapCycles.filter(function(c) {
+            if (cicSubVal  && _sapCamp(c) !== cicSubVal) return false;
+            if (cicPoolVal && c.poolName !== cicPoolVal) return false;
+            return true;
+        });
+        var _totPs = _cicMatch.reduce(function(s,c) { return s + (c.ps||0); }, 0);
+        kpiDias = _totPs > 0
+            ? Math.round(_cicMatch.reduce(function(s,c) { return s + (c.ps||0)*(c.totalDays||30); }, 0) / _totPs)
+            : 30;
+        if (cicSubVal) {
+            var _cs = _sapCycles.find(function(c) { return _sapCamp(c) === cicSubVal; });
+            matSubLabel = _cs ? (_cs._subName || cicSubVal) : cicSubVal;
+        }
+    }
+    var kpiHtml = _sapBuildKpiHtml(totalImp, totalHa, kpiDias, matSubLabel, isCiclo && kpiDias !== 30 ? kpiDias : null);
+    _sapKpiGlobal = kpiHtml;
+    _sapKpiDias   = diasMes;
+    _sapKpiSelected = null;
+
+    if (_sapTab === 'resumen' || _sapTab === 'tendencia' || _sapTab === 'material' || _sapTab === 'ciclo') {
+        resultsDiv.innerHTML = '<div id="sap-view-body"></div>';
+    } else {
+        resultsDiv.innerHTML = '<div style="margin-bottom:16px">' + kpiHtml + '</div><div id="sap-view-body"></div>';
+    }
+
+    // Construir lista plana de filas filtradas con su ciclo adjunto
+    const filteredRows = [];
+    _sapExcelRows.forEach(function(row) {
+        const ciclo = orderToCycle[row.o || ''];
+        if (!ciclo) return;
+        const fecha = row.f || '';
+        if (yearSel   && fecha.slice(0,4) !== yearSel)  return;
+        if (monthSel  && fecha.slice(5,7) !== monthSel) return;
+        if (matSubVal  && _sapCamp(ciclo) !== matSubVal) return;
+        if (cicSubVal   && _sapCamp(ciclo)         !== cicSubVal)  return;
+        if (cicPoolVal  && (ciclo.poolName || '')   !== cicPoolVal) return;
+        if (cicCycleVal && String(ciclo.idCycle)   !== cicCycleVal) return;
+        filteredRows.push({ row: row, ciclo: ciclo });
+    });
+    _sapKpiRows = filteredRows;
+
+    var viewBody = document.getElementById('sap-view-body');
+    if      (_sapTab === 'resumen')   _sapRenderResumen(filteredRows, diasMes, viewBody, kpiHtml);
+    else if (_sapTab === 'material')  _sapRenderPorMaterial(filteredRows, diasMes, viewBody, kpiHtml);
+    else if (_sapTab === 'ciclo')     _sapRenderPorCiclo(filteredRows, viewBody, kpiHtml);
+    else if (_sapTab === 'tendencia') _sapRenderTendencia(filteredRows, viewBody);
+}
+
+function _sapRenderCyclesOnly(cycles, resultsDiv) {
+    if (!cycles.length) {
+        resultsDiv.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin ciclos para los filtros seleccionados.<br>Amplia la seleccion o presiona <strong>Cargar ciclos nuevos</strong>.</div></div>';
+        return;
+    }
+    let rows = '';
+    cycles.forEach(function(c) {
+        rows += '<tr><td style="font-size:12px;color:var(--muted)">' + c.cycleCode + '</td>' +
+            '<td style="font-weight:600">' + c.poolName + '</td>' +
+            '<td><code style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;color:#334155">' + c.controlOrderDocument + '</code></td>' +
+            '<td style="font-size:12px">' + c._subName + '</td></tr>';
+    });
+    resultsDiv.innerHTML = '<div class="table-card"><div class="chart-title">' + cycles.length + ' ciclos AP1 2026 <span style="font-size:12px;font-weight:400;color:var(--muted)">— Sube el Excel SAP para ver los consumos</span></div>' +
+        '<div class="table-wrapper"><table><thead><tr><th>Ciclo</th><th>Piscina</th><th>Orden de Control</th><th>Sucursal</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+}
+
+// ── Helpers compartidos ───────────────────────────────────────────────────────
+function _sapCamp(ciclo) { return (ciclo.cycleCode || '').split('-')[0] || ciclo._subName; }
+function _sapFmt2(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function _sapFmt0(n) { return Math.abs(n).toLocaleString('es-EC',{maximumFractionDigits:0}); }
+function _sapMesLabel(mm) { return SAP_MESES[parseInt(mm,10)-1] || mm; }
+
+// ── Vista 1: Resumen (Camp × Mes) ────────────────────────────────────────────
+function _sapCampCluster(campCode) {
+    var cycle = _sapCycles.find(function(c) { return _sapCamp(c) === campCode; });
+    if (!cycle) return 'Otros';
+    var sid = cycle._subsidiaryId;
+    var entry = Object.entries(CLUSTERS).find(function(e) { return e[1].includes(sid); });
+    return entry ? entry[0] : 'Otros';
+}
+
+function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
+    var grp = {};
+    filteredRows.forEach(function(fr) {
+        var camp = _sapCamp(fr.ciclo);
+        if (!grp[camp]) grp[camp] = { camp:camp, subName: fr.ciclo._subName || camp, costo:0, cicloPs:{}, cluster: _sapCampCluster(camp) };
+        grp[camp].costo += Math.abs(fr.row.i || 0);
+        grp[camp].cicloPs[fr.ciclo.idCycle] = fr.ciclo.ps || 0;
+    });
+
+    var rows = Object.values(grp).sort(function(a,b) {
+        if (_sapResumenGrupo) {
+            var cc = a.cluster.localeCompare(b.cluster,'es');
+            if (cc !== 0) return cc;
+        }
+        return a.camp.localeCompare(b.camp);
+    });
+
+    // Título dinámico con mes/año del filtro
+    var selY = document.getElementById('sap-year');
+    var selM = document.getElementById('sap-month');
+    var yearVal = selY ? selY.value : '';
+    var monVal  = selM ? selM.value : '';
+    var titleSuffix = '';
+    if (monVal) {
+        var monName = SAP_MESES[parseInt(monVal,10)-1] || monVal;
+        titleSuffix = ' / ' + monName + (yearVal ? ' ' + yearVal : '');
+    } else if (yearVal) {
+        titleSuffix = ' / ' + yearVal;
+    }
+
+    var CCOLORS = {
+        'Josefina Norte':'#3B82F6','Josefina Sur':'#10B981','Río Nilo':'#8B5CF6',
+        'Puna Sur':'#F59E0B','Aquanaturisa':'#14B8A6','Golfomar':'#F97316',
+        'Lanconor':'#EC4899','Inducam':'#06B6D4','Granmar':'#84CC16','Otros':'#94A3B8'
+    };
+    var SAP_PAL = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EC4899','#14B8A6',
+                   '#F97316','#06B6D4','#84CC16','#EF4444','#A855F7','#0EA5E9',
+                   '#FBBF24','#34D399','#F472B6','#60A5FA','#FB7185','#4ADE80'];
+
+    var btnLabel = _sapResumenGrupo ? '✕ Sin agrupar' : '⊞ Agrupar por Cluster';
+    // html acumula solo el contenido interno (sin el table-card wrapper)
+    var html = '<div style="background:#1e3a5f;border-radius:8px 8px 0 0;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin:-18px -20px 0;flex-shrink:0">' +
+            '<span style="color:#fff;font-size:15px;font-weight:800;letter-spacing:0.2px">Resumen por Sucursal' + titleSuffix + '</span>' +
+            '<button style="font-size:12px;padding:5px 12px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:6px;cursor:pointer;font-weight:600;transition:background .15s" onmouseover="this.style.background=\'rgba(255,255,255,0.25)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.15)\'" onclick="_sapToggleResumenGrupo()">' + btnLabel + '</button>' +
+        '</div>' +
+        '<div class="table-wrapper" style="flex:1;overflow-y:auto;min-height:0;margin-top:0"><table class="sap-tbl"><thead style="position:sticky;top:0;z-index:2"><tr>' +
+        (_sapResumenGrupo ? '<th style="background:#2d5282;color:#fff;border-bottom:none">Cluster</th>' : '') +
+        '<th style="background:#2d5282;color:#fff;border-bottom:none">Sucursal</th>' +
+        '<th class="num" style="background:#2d5282;color:#fff;border-bottom:none;width:110px;padding-right:28px">Ha</th>' +
+        '<th class="num" style="background:#2d5282;color:#fff;border-bottom:none;width:150px;padding-right:28px">Costo $</th>' +
+        '<th class="num" style="background:#2d5282;color:#fff;border-bottom:none;width:100px;padding-right:18px">$/Ha/D&iacute;a</th>' +
+        '</tr></thead><tbody>';
+
+    var grandCosto = 0, grandHa = 0;
+    var curCluster = null, clCosto = 0, clHa = 0;
+
+    rows.forEach(function(g) {
+        var ha    = Object.values(g.cicloPs).reduce(function(s,v){return s+v;},0);
+        var haDia = ha>0 && diasMes>0 ? g.costo/(ha*diasMes) : null;
+        g.ha = ha; g.haDia = haDia;
+        grandCosto += g.costo; grandHa += ha;
+
+        if (_sapResumenGrupo && g.cluster !== curCluster) {
+            // Subtotal del cluster anterior
+            if (curCluster !== null) {
+                var clHaDia = clHa>0 && diasMes>0 ? clCosto/(clHa*diasMes) : null;
+                html += '<tr class="grp"><td colspan="2" style="font-weight:700">Subtotal ' + curCluster + '</td>' +
+                    '<td class="num" style="font-weight:700">' + _sapFmt2(clHa) + '</td>' +
+                    '<td class="num" style="font-weight:700;color:#065f46">$' + _sapFmt2(clCosto) + '</td>' +
+                    '<td class="num" style="font-weight:700' + (clHaDia!==null&&clHaDia>2.67?';color:#dc2626':'') + '">' + (clHaDia!==null?'$'+_sapFmt2(clHaDia):'—') + '</td></tr>';
+            }
+            curCluster = g.cluster; clCosto = 0; clHa = 0;
+            html += '<tr style="background:#e0f2fe"><td colspan="5" style="font-weight:800;color:#0369a1;padding:6px 10px">📂 ' + g.cluster + '</td></tr>';
+        }
+
+        if (_sapResumenGrupo) { clCosto += g.costo; clHa += ha; }
+
+        html += '<tr class="sap-res-row" style="cursor:pointer" onclick="sapSelectResumenRow(this,\'' + g.camp + '\')">' +
+            (_sapResumenGrupo ? '<td></td>' : '') +
+            '<td style="font-weight:700">' + g.subName + '</td>' +
+            '<td class="num" style="padding-right:28px">' + (ha ? _sapFmt2(ha) : '—') + '</td>' +
+            '<td class="num" style="font-weight:600;color:#065f46;padding-right:28px">$' + _sapFmt2(g.costo) + '</td>' +
+            '<td class="num" style="padding-right:18px;' + (haDia!==null&&haDia>2.67?'color:#dc2626;font-weight:700':'') + '">' + (haDia!==null?'$'+_sapFmt2(haDia):'—') + '</td></tr>';
+    });
+
+    // Último subtotal cluster
+    if (_sapResumenGrupo && curCluster !== null) {
+        var clHaDia2 = clHa>0 && diasMes>0 ? clCosto/(clHa*diasMes) : null;
+        html += '<tr class="grp"><td colspan="2" style="font-weight:700">Subtotal ' + curCluster + '</td>' +
+            '<td class="num" style="font-weight:700">' + _sapFmt0(clHa) + '</td>' +
+            '<td class="num" style="font-weight:700;color:#065f46">$' + _sapFmt2(clCosto) + '</td>' +
+            '<td class="num" style="font-weight:700' + (clHaDia2!==null&&clHaDia2>2.67?';color:#dc2626':'') + '">' + (clHaDia2!==null?'$'+_sapFmt2(clHaDia2):'—') + '</td></tr>';
+    }
+
+    // Total general en tfoot — sticky al fondo del scroll
+    var grandHaDia = grandHa>0 && diasMes>0 ? grandCosto/(grandHa*diasMes) : null;
+    html += '</tbody>' +
+        '<tfoot style="position:sticky;bottom:0;z-index:2">' +
+            '<tr style="background:#1e3a5f;color:#fff">' +
+                '<td colspan="' + (_sapResumenGrupo?2:1) + '" style="font-weight:800;font-size:13px;padding:8px 10px">TOTAL GENERAL</td>' +
+                '<td class="num" style="font-weight:800;padding:8px 28px 8px 10px">' + _sapFmt2(grandHa) + '</td>' +
+                '<td class="num" style="font-weight:800;padding:8px 28px 8px 10px">$' + _sapFmt2(grandCosto) + '</td>' +
+                '<td class="num" style="font-weight:800;padding:8px 18px 8px 10px' + (grandHaDia!==null&&grandHaDia>2.67?';color:#fca5a5':'') + '">' + (grandHaDia!==null?'$'+_sapFmt2(grandHaDia):'—') + '</td>' +
+            '</tr>' +
+        '</tfoot>' +
+    '</table></div>';
+
+    // Layout: todo cabe en pantalla sin scroll de página
+    el.innerHTML =
+        '<div style="display:flex;gap:16px;align-items:stretch;height:calc(100vh - 210px)">' +
+            '<div class="table-card" style="flex:1;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden">' + html + '</div>' +
+            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;overflow:hidden">' +
+                '<div id="sap-kpi-container">' + (kpiHtml || '') + '</div>' +
+                '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
+                    '<div class="chart-title" style="flex-shrink:0">$/Ha/Día por Sucursal</div>' +
+                    '<div style="position:relative;flex:1;min-height:0">' +
+                        '<canvas id="sap-resumen-chart"></canvas>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
+    // Gráfico de barras horizontal
+    if (_sapResumenChartInst) { _sapResumenChartInst.destroy(); _sapResumenChartInst = null; }
+    var chartRows = rows.slice().sort(function(a,b) { return (b.haDia||0) - (a.haDia||0); });
+    var ctx = document.getElementById('sap-resumen-chart').getContext('2d');
+    _sapResumenChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chartRows.map(function(g) { return g.subName; }),
+            datasets: [
+                {
+                    label: '$/Ha/Día',
+                    type: 'bar',
+                    data:  chartRows.map(function(g) { return g.haDia !== null ? parseFloat(g.haDia.toFixed(2)) : 0; }),
+                    backgroundColor: chartRows.map(function(g, i) {
+                        return _sapResumenGrupo ? (CCOLORS[g.cluster] || '#94A3B8') : SAP_PAL[i % SAP_PAL.length];
+                    }),
+                    borderRadius: 4,
+                    borderSkipped: false,
+                    order: 2
+                },
+                {
+                    label: 'Presupuesto ($2.67/Ha/Día)',
+                    type: 'line',
+                    data: chartRows.map(function() { return 2.67; }),
+                    borderColor: '#dc2626',
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    fill: false,
+                    tension: 0,
+                    order: 1,
+                    datalabels: { display: false }
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        filter: function(item) { return item.datasetIndex === 1; },
+                        boxWidth: 24, boxHeight: 2, padding: 8,
+                        font: { size: 11, weight: '700' }, color: '#dc2626'
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(c) {
+                            if (c.datasetIndex === 1) return ' Presupuesto: $2.67/Ha/Día';
+                            return ' $' + c.raw.toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2}) + '/Ha/Día';
+                        }
+                    }
+                },
+                datalabels: {
+                    display: function(ctx) { return ctx.datasetIndex === 0; },
+                    anchor: 'end',
+                    align: 'start',
+                    offset: 6,
+                    rotation: -90,
+                    font: { size: 11, weight: '400' },
+                    color: '#000000',
+                    formatter: function(v) { return '$' + v.toFixed(2); }
+                }
+            },
+            scales: {
+                x: { ticks: { font: { size: 10, weight: '900' }, maxRotation: 35, minRotation: 25 } },
+                y: {
+                    grid: { color: '#f1f5f9' },
+                    ticks: {
+                        font: { size: 11, weight: '700' },
+                        callback: function(v) { return '$' + v.toFixed(2); }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ── Vista 2: Por Material (Camp × Material) ───────────────────────────────────
+function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
+    if (!filteredRows.length) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin datos para los filtros seleccionados.</div></div>';
+        return;
+    }
+
+    // Agrupar por material; acumular Ha únicas de la sucursal
+    var grp = {}, totalCicloPs = {};
+    filteredRows.forEach(function(fr) {
+        var key = fr.row.m || '(sin código)';
+        if (!grp[key]) grp[key] = { matCode:fr.row.m||'', desc:fr.row.d||'', unidad:fr.row.u||'', costo:0, cant:0 };
+        grp[key].costo += Math.abs(fr.row.i || 0);
+        grp[key].cant  += Math.abs(fr.row.q || 0);
+        if (!grp[key].unidad && fr.row.u) grp[key].unidad = fr.row.u;
+        var cid = fr.ciclo.idCycle;
+        if (cid) totalCicloPs[cid] = fr.ciclo.ps || 0;
+    });
+
+    var totalHa   = Object.values(totalCicloPs).reduce(function(s,v) { return s+v; }, 0);
+    var rows      = Object.values(grp).sort(function(a,b) { return b.costo - a.costo; });
+    var grandCosto = rows.reduce(function(s,g) { return s + g.costo; }, 0);
+    var grandCant  = rows.reduce(function(s,g) { return s + g.cant;  }, 0);
+    var grandHaDia = totalHa > 0 && diasMes > 0 ? grandCosto / (totalHa * diasMes) : null;
+
+    var _fmt4 = function(n) { return n.toLocaleString('es-EC', {minimumFractionDigits:4, maximumFractionDigits:4}); };
+
+    // ─── Tabla ────────────────────────────────────────────────────────────────
+    var html =
+        '<div style="background:#1e3a5f;border-radius:8px 8px 0 0;padding:12px 16px;display:flex;align-items:center;margin:-18px -20px 0;flex-shrink:0">' +
+            '<span style="color:#fff;font-size:15px;font-weight:800;letter-spacing:0.2px">Consumos por Material</span>' +
+        '</div>' +
+        '<div class="table-wrapper" style="flex:1;overflow-y:auto;min-height:0;margin-top:0">' +
+        '<table class="sap-tbl"><thead style="position:sticky;top:0;z-index:2"><tr>' +
+        '<th style="background:#2d5282;color:#fff;border-bottom:none">Código</th>' +
+        '<th style="background:#2d5282;color:#fff;border-bottom:none">Material</th>' +
+        '<th style="background:#2d5282;color:#fff;border-bottom:none">UM</th>' +
+        '<th class="num" style="background:#2d5282;color:#fff;border-bottom:none;width:100px;padding-right:18px">Cantidad</th>' +
+        '<th class="num" style="background:#2d5282;color:#fff;border-bottom:none;width:120px;padding-right:18px">Costo $</th>' +
+        '<th class="num" style="background:#2d5282;color:#fff;border-bottom:none;width:110px;padding-right:18px">$/Ha/D&iacute;a</th>' +
+        '</tr></thead><tbody>';
+
+    rows.forEach(function(g) {
+        var haDia = totalHa > 0 && diasMes > 0 ? g.costo / (totalHa * diasMes) : null;
+        html += '<tr>' +
+            '<td style="font-size:11px;color:var(--muted);white-space:nowrap">' + g.matCode + '</td>' +
+            '<td style="font-weight:500">' + g.desc + '</td>' +
+            '<td style="color:var(--muted);font-size:11px">' + g.unidad + '</td>' +
+            '<td class="num" style="padding-right:18px">' + _sapFmt2(g.cant) + '</td>' +
+            '<td class="num" style="font-weight:600;color:#065f46;padding-right:18px">$' + _sapFmt2(g.costo) + '</td>' +
+            '<td class="num" style="padding-right:18px' + (haDia !== null && haDia > 0.99 ? ';color:#dc2626;font-weight:700' : '') + '">' + (haDia !== null ? '$' + _fmt4(haDia) : '—') + '</td>' +
+            '</tr>';
+    });
+
+    html += '</tbody>' +
+        '<tfoot style="position:sticky;bottom:0;z-index:2">' +
+            '<tr style="background:#1e3a5f;color:#fff">' +
+                '<td colspan="3" style="font-weight:800;font-size:13px;padding:8px 10px">TOTAL</td>' +
+                '<td class="num" style="font-weight:800;padding:8px 18px 8px 10px">' + _sapFmt2(grandCant) + '</td>' +
+                '<td class="num" style="font-weight:800;padding:8px 18px 8px 10px">$' + _sapFmt2(grandCosto) + '</td>' +
+                '<td class="num" style="font-weight:800;padding:8px 18px 8px 10px">' + (grandHaDia !== null ? '$' + _fmt4(grandHaDia) : '—') + '</td>' +
+            '</tr>' +
+        '</tfoot>' +
+        '</table></div>';
+
+    // ─── Layout: tabla izquierda + card+gráfico derecha ───────────────────────
+    var canvasId = 'sap-mat-chart';
+    el.innerHTML =
+        '<div style="display:flex;gap:16px;align-items:stretch;height:calc(100vh - 210px)">' +
+            '<div class="table-card" style="flex:1;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden">' + html + '</div>' +
+            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;overflow:hidden">' +
+                '<div id="sap-kpi-container">' + (kpiHtml || '') + '</div>' +
+                '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
+                    '<div class="chart-title" style="flex-shrink:0">$/Ha/D&iacute;a por Material</div>' +
+                    '<div style="position:relative;flex:1;min-height:0">' +
+                        '<canvas id="' + canvasId + '"></canvas>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
+    // ─── Gráfico de barras horizontales ───────────────────────────────────────
+    if (typeof Chart === 'undefined') return;
+    if (_sapMatChartInst) { _sapMatChartInst.destroy(); _sapMatChartInst = null; }
+    var ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+
+    // Top 20 por costo; ordenar ascendente para que el mayor quede arriba
+    var MAT_PAL = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EC4899','#14B8A6',
+                   '#F97316','#84CC16','#06B6D4','#EF4444','#6366F1','#F43F5E'];
+    var chartRows = rows.slice(0, 20).map(function(g) {
+        return { desc: g.desc || g.matCode, haDia: totalHa > 0 && diasMes > 0 ? g.costo / (totalHa * diasMes) : 0 };
+    }).sort(function(a, b) { return b.haDia - a.haDia; });
+
+    _sapMatChartInst = new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: chartRows.map(function(g) { return g.desc; }),
+            datasets: [{
+                label: '$/Ha/Día',
+                data: chartRows.map(function(g) { return parseFloat(g.haDia.toFixed(6)); }),
+                backgroundColor: chartRows.map(function(_, i) { return MAT_PAL[i % MAT_PAL.length] + 'cc'; }),
+                borderRadius: 3, borderSkipped: false,
+                datalabels: {
+                    display: true, anchor: 'end', align: 'end', offset: 2,
+                    font: { size: 9, weight: '700' }, color: '#1e3a5f',
+                    formatter: function(v) { return '$' + v.toFixed(4); }
+                }
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true, maintainAspectRatio: false,
+            layout: { padding: { right: 70 } },
+            plugins: {
+                legend: { display: false },
+                datalabels: { display: true },
+                tooltip: { callbacks: { label: function(c) {
+                    return ' $' + c.raw.toLocaleString('es-EC', {minimumFractionDigits:4, maximumFractionDigits:4}) + '/Ha/Día';
+                }}}
+            },
+            scales: {
+                x: {
+                    grid: { color: '#f1f5f9' },
+                    ticks: { font: { size: 10, weight: '700' }, callback: function(v) { return '$' + v.toFixed(4); } }
+                },
+                y: { ticks: { font: { size: 10, weight: '700' } } }
+            }
+        }
+    });
+}
+
+// ── Vista 3: Por Ciclo (Camp × CodCiclo) ─────────────────────────────────────
+function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
+    if (!filteredRows.length) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin datos para los filtros seleccionados.</div></div>';
+        return;
+    }
+
+    // Agrupar por ciclo → materiales
+    var grp = {};
+    filteredRows.forEach(function(fr) {
+        var cid = fr.ciclo.idCycle || fr.ciclo.cycleCode;
+        if (!grp[cid]) grp[cid] = {
+            cod: fr.ciclo.cycleCode || String(cid),
+            pool: fr.ciclo.poolName || '—',
+            ps: fr.ciclo.ps || 0,
+            totalDays: fr.ciclo.totalDays || 0,
+            costo: 0,
+            mats: {}
+        };
+        grp[cid].costo += Math.abs(fr.row.i || 0);
+        var mk = fr.row.m || '(sin código)';
+        if (!grp[cid].mats[mk]) grp[cid].mats[mk] = { code: fr.row.m||'', desc: fr.row.d||'', unidad: fr.row.u||'', costo: 0, cant: 0 };
+        grp[cid].mats[mk].costo += Math.abs(fr.row.i || 0);
+        grp[cid].mats[mk].cant  += Math.abs(fr.row.q || 0);
+        if (!grp[cid].mats[mk].unidad && fr.row.u) grp[cid].mats[mk].unidad = fr.row.u;
+    });
+
+    var rows = Object.values(grp).sort(function(a,b) { return b.costo - a.costo; });
+    var grandCosto   = rows.reduce(function(s,g) { return s + g.costo; }, 0);
+    var grandHa      = rows.reduce(function(s,g) { return s + g.ps;    }, 0);
+    var _grandHaDen  = rows.reduce(function(s,g) { return s + g.ps * (g.totalDays || 30); }, 0);
+    var grandHaDia   = _grandHaDen > 0 ? grandCosto / _grandHaDen : null;
+
+    // ─── Tabla ────────────────────────────────────────────────────────────────
+    var html =
+        '<div style="background:#1e3a5f;border-radius:8px 8px 0 0;padding:12px 16px;display:flex;align-items:center;margin:-18px -20px 0;flex-shrink:0">' +
+            '<span style="color:#fff;font-size:15px;font-weight:800;letter-spacing:0.2px">Consumos por Ciclo</span>' +
+        '</div>' +
+        '<div class="table-wrapper" style="flex:1;overflow-y:auto;min-height:0;margin-top:0">' +
+        '<table class="sap-tbl"><thead style="position:sticky;top:0;z-index:2"><tr>' +
+        '<th style="background:#2d5282;color:#fff;border-bottom:none">Material</th>' +
+        '<th style="background:#2d5282;color:#fff;border-bottom:none">UM</th>' +
+        '<th class="num" style="background:#2d5282;color:#fff;border-bottom:none;width:100px;padding-right:18px">Cantidad</th>' +
+        '<th class="num" style="background:#2d5282;color:#fff;border-bottom:none;width:120px;padding-right:18px">Costo $</th>' +
+        '<th class="num" style="background:#2d5282;color:#fff;border-bottom:none;width:110px;padding-right:18px">$/Ha/D&iacute;a</th>' +
+        '</tr></thead><tbody>';
+
+    rows.forEach(function(g) {
+        var diasCiclo = g.totalDays || 30;
+        var cicHaDia = g.ps > 0 ? g.costo / (g.ps * diasCiclo) : null;
+        // Fila de cabecera del ciclo
+        html += '<tr style="background:#dbeafe">' +
+            '<td colspan="2" style="font-weight:800;font-size:12px;color:#1e3a5f;padding:6px 10px">' +
+                g.cod +
+                ' &nbsp;·&nbsp; <span style="font-weight:600;color:#334155">' + _sapFmt2(g.ps) + ' Ha</span>' +
+            '</td>' +
+            '<td class="num" style="padding:6px 18px 6px 10px;font-weight:700;color:#1e3a5f"></td>' +
+            '<td class="num" style="padding:6px 18px 6px 10px;font-weight:800;color:#065f46">$' + _sapFmt2(g.costo) + '</td>' +
+            '<td class="num" style="padding:6px 18px 6px 10px;font-weight:800' + (cicHaDia !== null && cicHaDia > 2.67 ? ';color:#dc2626' : ';color:#1e3a5f') + '">' +
+                (cicHaDia !== null ? '$' + _sapFmt2(cicHaDia) : '—') + '</td>' +
+            '</tr>';
+        // Filas de materiales
+        Object.values(g.mats).sort(function(a,b) { return b.costo - a.costo; }).forEach(function(m) {
+            var mHaDia = g.ps > 0 ? m.costo / (g.ps * diasCiclo) : null;
+            html += '<tr>' +
+                '<td style="padding-left:20px">' +
+                    '<span style="font-size:10px;color:var(--muted);display:block">' + m.code + '</span>' +
+                    '<span style="font-weight:500;font-size:12px">' + m.desc + '</span>' +
+                '</td>' +
+                '<td style="font-size:11px;color:var(--muted)">' + m.unidad + '</td>' +
+                '<td class="num" style="padding-right:18px">' + _sapFmt2(m.cant) + '</td>' +
+                '<td class="num" style="color:#065f46;padding-right:18px">$' + _sapFmt2(m.costo) + '</td>' +
+                '<td class="num" style="padding-right:18px;font-size:11px">' + (mHaDia !== null ? '$' + _sapFmt2(mHaDia) : '—') + '</td>' +
+                '</tr>';
+        });
+    });
+
+    html += '</tbody></table></div>';
+
+    // ─── Layout: tabla izquierda + card+gráfico derecha ───────────────────────
+    var canvasId = 'sap-cic-chart';
+    el.innerHTML =
+        '<div style="display:flex;gap:16px;align-items:stretch;height:calc(100vh - 210px)">' +
+            '<div class="table-card" style="flex:1;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden">' + html + '</div>' +
+            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;overflow:hidden">' +
+                '<div id="sap-kpi-container">' + (kpiHtml || '') + '</div>' +
+                '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
+                    '<div class="chart-title" style="flex-shrink:0">$/Ha/D&iacute;a por Ciclo</div>' +
+                    '<div style="position:relative;flex:1;min-height:0">' +
+                        '<canvas id="' + canvasId + '"></canvas>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
+    // ─── Donut: $/Ha/Día por producto ────────────────────────────────────────
+    if (typeof Chart === 'undefined') return;
+    if (_sapCicloChartInst) { _sapCicloChartInst.destroy(); _sapCicloChartInst = null; }
+    var ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+
+    var CIC_PAL = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EC4899','#14B8A6',
+                   '#F97316','#84CC16','#06B6D4','#EF4444','#6366F1','#F43F5E'];
+
+    // Agregar materiales a través de todos los ciclos visibles
+    var matAgg = {};
+    rows.forEach(function(g) {
+        Object.values(g.mats).forEach(function(m) {
+            var mk = m.code || m.desc;
+            if (!matAgg[mk]) matAgg[mk] = { desc: m.desc, code: m.code, costo: 0 };
+            matAgg[mk].costo += m.costo;
+        });
+    });
+
+    // Denominador: sum(Ha × días) de cada ciclo
+    var den = _grandHaDen || rows.reduce(function(s,g) { return s + g.ps*(g.totalDays||30); }, 0);
+    var totalHaDia = den > 0 ? grandCosto / den : 0;
+
+    var matArr = Object.values(matAgg)
+        .filter(function(m) { return m.costo > 0; })
+        .sort(function(a,b) { return b.costo - a.costo; })
+        .slice(0, 12);
+
+    var matVals  = matArr.map(function(m) { return den > 0 ? parseFloat((m.costo / den).toFixed(4)) : 0; });
+    var matTotal = matVals.reduce(function(s,v) { return s+v; }, 0);
+
+    var chartData = matArr.map(function(m) {
+        return { label: m.desc || m.code, val: den > 0 ? parseFloat((m.costo / den).toFixed(4)) : 0 };
+    }).sort(function(a, b) { return b.val - a.val; });
+
+    _sapCicloChartInst = new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: chartData.map(function(d) { return d.label; }),
+            datasets: [{
+                data: chartData.map(function(d) { return d.val; }),
+                backgroundColor: chartData.map(function(_, i) { return CIC_PAL[i % CIC_PAL.length] + 'cc'; }),
+                borderRadius: 3, borderSkipped: false,
+                datalabels: {
+                    display: true, anchor: 'end', align: 'end', offset: 4,
+                    font: { size: 10, weight: '400' }, color: '#334155',
+                    formatter: function(v) { return '$' + v.toFixed(2); }
+                }
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true, maintainAspectRatio: false,
+            layout: { padding: { right: 50 } },
+            plugins: {
+                legend: { display: false },
+                datalabels: { display: true },
+                tooltip: { callbacks: { label: function(c) {
+                    return ' $' + c.raw.toFixed(4) + '/Ha/Día';
+                }}}
+            },
+            scales: {
+                x: {
+                    grid: { color: '#f1f5f9' },
+                    ticks: { font: { size: 10 }, callback: function(v) { return '$' + v.toFixed(2); } }
+                },
+                y: { ticks: { font: { size: 10 } } }
+            }
+        }
+    });
+}
+
+// ── Vista 4: Tendencia (costo mensual por Camp) ───────────────────────────────
+function _sapRenderTendencia(filteredRows, el) {
+    // Agrupar costo + Ha únicas por mes y camp → para calcular $/Ha/Día
+    var meses = {}, camps = new Set(), subNames = {};
+    filteredRows.forEach(function(fr) {
+        var camp = _sapCamp(fr.ciclo);
+        var mes  = fr.row.f ? fr.row.f.slice(0,7) : '??';
+        camps.add(camp);
+        subNames[camp] = fr.ciclo._subName || camp;
+        if (!meses[mes]) meses[mes] = {};
+        if (!meses[mes][camp]) meses[mes][camp] = { costo: 0, ciclos: {} };
+        meses[mes][camp].costo += Math.abs(fr.row.i || 0);
+        var cid = fr.ciclo.idCycle;
+        if (cid) meses[mes][camp].ciclos[cid] = fr.ciclo.ps || 0;
+    });
+
+    var mesesList = Object.keys(meses).sort();
+    var campList  = [...camps].sort();
+    var colors    = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316','#84CC16','#EC4899','#14B8A6'];
+
+    var datasets = campList.map(function(camp, ci) {
+        return {
+            label: subNames[camp] || camp,
+            data: mesesList.map(function(m) {
+                var d = (meses[m] || {})[camp];
+                if (!d) return null;
+                var ha   = Object.values(d.ciclos).reduce(function(s,v) { return s+v; }, 0);
+                var pts  = m.split('-');
+                var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+                return ha > 0 && dias > 0 ? Math.round(d.costo / (ha * dias) * 100) / 100 : null;
+            }),
+            borderColor: colors[ci % colors.length],
+            backgroundColor: colors[ci % colors.length] + '22',
+            borderWidth: 2, pointRadius: 3, tension: 0.3, fill: false, spanGaps: true,
+            datalabels: { display: false }
+        };
+    });
+
+    // Línea de presupuesto
+    datasets.push({
+        label: 'Presupuesto ($2.67/Ha/Día)',
+        data: mesesList.map(function() { return 2.67; }),
+        borderColor: '#dc2626', borderWidth: 2, borderDash: [6,4],
+        pointRadius: 0, pointHoverRadius: 0, fill: false, tension: 0,
+        datalabels: { display: false }
+    });
+
+    var canvasId = 'sap-tend-chart';
+    el.innerHTML =
+        '<div class="table-card" style="margin-bottom:0;height:calc(100vh - 210px);display:flex;flex-direction:column;overflow:hidden">' +
+            '<div style="flex-shrink:0;display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">' +
+                '<div style="flex:1;font-size:13px;font-weight:700;color:var(--text)">Tendencia $/Ha/D&iacute;a por Sucursal</div>' +
+                '<div id="sap-tend-selected" style="flex:1;text-align:center;font-size:15px;font-weight:800;color:#1e3a5f;letter-spacing:0.2px"></div>' +
+                '<div style="flex:1"></div>' +
+            '</div>' +
+            '<div style="position:relative;flex:1;min-height:0;padding:8px">' +
+                '<canvas id="' + canvasId + '"></canvas>' +
+            '</div>' +
+        '</div>';
+
+    if (typeof Chart === 'undefined') { el.innerHTML += '<p style="padding:16px;color:var(--muted)">Chart.js no disponible</p>'; return; }
+
+    new Chart(document.getElementById(canvasId).getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: mesesList.map(function(m) {
+                var p = m.split('-');
+                return (SAP_MESES[parseInt(p[1],10)-1] || p[1]) + ' ' + p[0];
+            }),
+            datasets: datasets
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { font: { size: 10, weight: '700' }, boxWidth: 20, boxHeight: 10, padding: 8 },
+                    onClick: function(e, legendItem, legend) {
+                        var chart = legend.chart;
+                        var idx   = legendItem.datasetIndex;
+                        var onlyThis = chart.data.datasets.every(function(_, i) {
+                            return i === idx ? chart.isDatasetVisible(i) : !chart.isDatasetVisible(i);
+                        });
+                        if (onlyThis) {
+                            chart.data.datasets.forEach(function(_, i) { chart.setDatasetVisibility(i, true); });
+                        } else {
+                            chart.data.datasets.forEach(function(_, i) { chart.setDatasetVisibility(i, i === idx); });
+                        }
+                        chart.update();
+                        var labelEl = document.getElementById('sap-tend-selected');
+                        if (labelEl) labelEl.textContent = onlyThis ? '' : (legendItem.text || '');
+                    }
+                },
+                datalabels: { display: false },
+                tooltip: { callbacks: { label: function(c) {
+                    if (c.raw === null) return '';
+                    if (c.datasetIndex === campList.length) return ' Presupuesto: $2.67/Ha/Día';
+                    return (c.dataset.label || '') + ': $' + (c.raw||0).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}) + '/Ha/Día';
+                }}}
+            },
+            scales: {
+                x: { ticks: { font: { size: 10, weight: '700' }, maxRotation: 35, minRotation: 20 } },
+                y: {
+                    grid: { color: '#f1f5f9' },
+                    ticks: { font: { size: 11, weight: '700' }, callback: function(v) { return '$' + v.toFixed(2); } }
+                }
+            }
+        }
+    });
+}
+
+function sapOpenMaterialesModal() {
+    const modal    = document.getElementById('sap-mat-modal');
+    const body     = document.getElementById('sap-mat-modal-body');
+    const titleEl  = document.getElementById('sap-mat-modal-title');
+    if (!modal || !body) return;
+
+    const yearSel  = (document.getElementById('sap-year')  || {}).value || '';
+    const monthSel = (document.getElementById('sap-month') || {}).value || '';
+    const activeCycles = sapGetActiveCycles();
+    const orderToCycle = {};
+    activeCycles.forEach(function(c) { orderToCycle[c.controlOrderDocument] = c; });
+
+    const matMap = {};
+    _sapExcelRows.forEach(function(row) {
+        if (!orderToCycle[row.o || '']) return;
+        const fecha = row.f || '';
+        if (yearSel  && fecha.slice(0,4) !== yearSel)  return;
+        if (monthSel && fecha.slice(5,7) !== monthSel) return;
+        const key = row.m || '(sin código)';
+        if (!matMap[key]) matMap[key] = { code: row.m || '', desc: row.d || '', unidad: row.u || '', cantidad: 0, importe: 0 };
+        matMap[key].cantidad += row.q || 0;
+        matMap[key].importe  += row.i || 0;
+        if (!matMap[key].unidad && row.u) matMap[key].unidad = row.u;
+    });
+
+    const items = Object.values(matMap).sort(function(a, b) {
+        return Math.abs(b.importe) - Math.abs(a.importe);
+    });
+
+    if (!items.length) {
+        body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Sin datos para los filtros seleccionados</div>';
+        titleEl.textContent = 'Materiales';
+        modal.style.display = 'flex';
+        return;
+    }
+
+    const fmt2 = function(n) { return Math.abs(n).toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2}); };
+    const periodoLabel = yearSel ? (yearSel + (monthSel ? ' / ' + SAP_MESES[parseInt(monthSel,10)-1] : '')) : 'Todos los períodos';
+
+    let rows = '';
+    items.forEach(function(i) {
+        rows += '<tr>' +
+            '<td style="font-size:11px;color:var(--muted);white-space:nowrap">' + i.code + '</td>' +
+            '<td style="font-weight:500">' + i.desc + '</td>' +
+            '<td style="text-align:center;font-size:12px;color:var(--muted)">' + i.unidad + '</td>' +
+            '<td style="text-align:right;font-weight:600">' + fmt2(i.cantidad) + '</td>' +
+            '<td style="text-align:right;font-weight:600;color:#065f46">$' + fmt2(i.importe) + '</td>' +
+            '</tr>';
+    });
+
+    const totalImp = items.reduce(function(s, i) { return s + Math.abs(i.importe); }, 0);
+    const totalQty = items.reduce(function(s, i) { return s + Math.abs(i.cantidad); }, 0);
+
+    titleEl.textContent = items.length + ' materiales — ' + periodoLabel;
+    body.innerHTML =
+        '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+        '<thead><tr style="background:#f8fafc;border-bottom:2px solid var(--border)">' +
+            '<th style="padding:10px 12px;text-align:left;font-weight:600;color:var(--muted)">Código</th>' +
+            '<th style="padding:10px 12px;text-align:left;font-weight:600">Descripción</th>' +
+            '<th style="padding:10px 12px;text-align:center;font-weight:600;color:var(--muted)">UM</th>' +
+            '<th style="padding:10px 12px;text-align:right;font-weight:600">Cantidad</th>' +
+            '<th style="padding:10px 12px;text-align:right;font-weight:600">Importe $</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr style="background:#f1f5f9;border-top:2px solid var(--border);font-weight:700">' +
+            '<td colspan="3" style="padding:10px 12px">Total</td>' +
+            '<td style="padding:10px 12px;text-align:right">' + fmt2(totalQty) + '</td>' +
+            '<td style="padding:10px 12px;text-align:right;color:#065f46">$' + fmt2(totalImp) + '</td>' +
+        '</tr></tfoot>' +
+        '</table>';
+
+    modal.style.display = 'flex';
+}
+
+function sapExportExcel() {
+    const table = document.getElementById('sap-tabla-result');
+    if (!table) { alert('No hay datos para exportar'); return; }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(table), 'Consumos SAP');
+    XLSX.writeFile(wb, 'Consumos_SAP_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+
+</script>
+
+// ── Init ──────────────────────────────────────────────────────
+function initSapScreen() {
+    sapLoad();
+    _sapSyncFilters();
+    sapPopulateClusterSub();
+    sapPopulatePiscinaCiclo();
+    sapUpdateStatus();
+    _sapIdbGet('rows').then(function(savedRows) {
+        if (savedRows && savedRows.length) {
+            _sapExcelRows = savedRows;
+            sapPopulateYearMonth(); sapPopulateClusterSub(); sapPopulatePiscinaCiclo();
+            sapUpdateStatus(); updateSapResults();
+            return;
+        }
+        return _sapIdbGet('buffer').then(function(buf) {
+            if (!buf) { updateSapResults(); return; }
+            const wb      = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true });
+            const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+            if (!rawRows.length) { updateSapResults(); return; }
+            const keys    = _sapDetectRawKeys(rawRows);
+            _sapExcelRows = _sapNormalizeRows(rawRows, keys);
+            sapPopulateYearMonth();
+            sapUpdateStatus();
+            updateSapResults();
+        });
+    }).catch(function(e) {
+        console.warn('SAP IDB read error:', e);
+        updateSapResults();
+    });
+}
+
+(function() {
+    const now = new Date();
+    document.getElementById('header-date').textContent = now.toLocaleDateString('es-EC', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    const t    = localStorage.getItem('nat_token');
+    const user = localStorage.getItem('nat_user');
+    const name = localStorage.getItem('nat_name');
+    if (t) {
+        if (user) document.getElementById('inp-user').value = user;
+        applyLoginUI(true, name || user || '');
+        loadSubsidiaries().then(initSapScreen);
+    }
+    // If no token, login-modal is already visible (display:flex in HTML)
+})();
+
+</script>
+</body>
+</html>
