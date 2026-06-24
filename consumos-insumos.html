@@ -370,6 +370,20 @@
 Chart.register(ChartDataLabels);
 
 const AUTH_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/ap1/security/api/auth';
+const KV_URL   = 'https://naturisa-proxy.parragajonathan965.workers.dev/kv/';
+
+function _kvPush(key, data) {
+    return fetch(KV_URL + key, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).catch(function(e) { console.warn('KV push error:', e); });
+}
+function _kvPull(key) {
+    return fetch(KV_URL + key)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .catch(function(e) { console.warn('KV pull error:', e); return null; });
+}
 const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
 const API_WAREHOUSES = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
 const API_POOL_PROD   = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/ap1/backoffice/api/report_production/pool_production';
@@ -990,10 +1004,11 @@ function sapSubirNuevoExcel(input) {
             const ts = new Date().toLocaleString('es-EC', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
             _sapExcelMeta = { filename: file.name, rows: _sapExcelRows.length, savedAt: ts, added: added.length };
 
-            // Guardar filas fusionadas en IndexedDB
+            // Guardar filas fusionadas en IndexedDB y KV
             _sapIdbPut('rows', _sapExcelRows).catch(function(err) {
                 console.warn('SAP: no se pudo guardar filas en IndexedDB', err);
             });
+            _kvPush('excel', _sapExcelRows);
 
             sapSave(); sapPopulateYearMonth(); sapUpdateStatus(); updateSapResults();
             alert('Agregadas ' + added.length + ' filas nuevas.\nTotal acumulado: ' + _sapExcelRows.length + ' filas.');
@@ -1023,6 +1038,7 @@ function sapImportarCiclos(input) {
             if (!Array.isArray(ciclos) || !ciclos.length) { alert('Archivo inválido o sin ciclos.'); return; }
             _sapCycles = ciclos;
             sapSave();
+            _kvPush('ciclos', ciclos);
             sapPopulateClusterSub();
             sapPopulatePiscinaCiclo();
             updateSapResults();
@@ -1202,6 +1218,7 @@ async function sapCargarCiclos() {
 
     allSubIds.forEach(function(id) { _sapSubsFetched.add(id); });
     sapSave();
+    _kvPush('ciclos', _sapCycles);
     progressEl.style.display = 'none'; progressEl.innerHTML = '';
     _sapRepoblateSubSelect(); sapPopulatePiscinaCiclo(); sapUpdateStatus(); updateSapResults();
 }
@@ -2318,6 +2335,20 @@ function initSapScreen() {
     sapPopulateClusterSub();
     sapPopulatePiscinaCiclo();
     sapUpdateStatus();
+
+    // Ciclos: si no hay locales, descargar de KV
+    if (!_sapCycles || !_sapCycles.length) {
+        _kvPull('ciclos').then(function(ciclos) {
+            if (ciclos && ciclos.length) {
+                _sapCycles = ciclos;
+                sapSave();
+                sapPopulateClusterSub();
+                sapPopulatePiscinaCiclo();
+                updateSapResults();
+            }
+        });
+    }
+
     _sapIdbGet('rows').then(function(savedRows) {
         if (savedRows && savedRows.length) {
             _sapExcelRows = savedRows;
@@ -2325,16 +2356,26 @@ function initSapScreen() {
             sapUpdateStatus(); updateSapResults();
             return;
         }
-        return _sapIdbGet('buffer').then(function(buf) {
-            if (!buf) { updateSapResults(); return; }
-            const wb      = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true });
-            const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
-            if (!rawRows.length) { updateSapResults(); return; }
-            const keys    = _sapDetectRawKeys(rawRows);
-            _sapExcelRows = _sapNormalizeRows(rawRows, keys);
-            sapPopulateYearMonth();
-            sapUpdateStatus();
-            updateSapResults();
+        // Sin datos locales → intentar desde KV
+        return _kvPull('excel').then(function(rows) {
+            if (rows && rows.length) {
+                _sapExcelRows = rows;
+                _sapIdbPut('rows', rows);
+                sapPopulateYearMonth(); sapPopulateClusterSub(); sapPopulatePiscinaCiclo();
+                sapUpdateStatus(); updateSapResults();
+                return;
+            }
+            return _sapIdbGet('buffer').then(function(buf) {
+                if (!buf) { updateSapResults(); return; }
+                const wb      = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true });
+                const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+                if (!rawRows.length) { updateSapResults(); return; }
+                const keys    = _sapDetectRawKeys(rawRows);
+                _sapExcelRows = _sapNormalizeRows(rawRows, keys);
+                sapPopulateYearMonth();
+                sapUpdateStatus();
+                updateSapResults();
+            });
         });
     }).catch(function(e) {
         console.warn('SAP IDB read error:', e);
