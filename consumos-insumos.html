@@ -337,6 +337,16 @@
                         Borrar Excel acumulado
                     </button>
                     <div style="height:1px;background:var(--border);margin:4px 0"></div>
+                    <button onclick="sapExportarCiclos();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:#0369a1;cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Exportar ciclos (JSON)
+                    </button>
+                    <label style="display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:500;color:#0369a1;transition:background .12s" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Importar ciclos (JSON)
+                        <input type="file" accept=".json" style="display:none" onchange="sapImportarCiclos(this);sapCerrarOpciones()">
+                    </label>
+                    <div style="height:1px;background:var(--border);margin:4px 0"></div>
                     <button onclick="sapLimpiarDatos();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:#b91c1c;cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background=''">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
                         Limpiar datos
@@ -359,11 +369,11 @@
 <script>
 Chart.register(ChartDataLabels);
 
-const AUTH_URL = 'https://gateway.naturisa.com.ec/bff/web/ap1/security/api/auth';
+const AUTH_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/ap1/security/api/auth';
 const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
-const API_WAREHOUSES = 'https://gateway.naturisa.com.ec/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
-const API_POOL_PROD   = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/report_production/pool_production';
-const API_CYCLES_NAV  = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/cycles_navigation';
+const API_WAREHOUSES = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
+const API_POOL_PROD   = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/ap1/backoffice/api/report_production/pool_production';
+const API_CYCLES_NAV  = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/ap1/backoffice/api/cycles_navigation';
 
 let subsidiaries = [];
 
@@ -992,6 +1002,37 @@ function sapSubirNuevoExcel(input) {
     reader.readAsArrayBuffer(file);
 }
 
+function sapExportarCiclos() {
+    if (!_sapCycles || !_sapCycles.length) { alert('No hay ciclos cargados. Carga los ciclos primero desde una conexión local.'); return; }
+    var json = JSON.stringify(_sapCycles, null, 2);
+    var blob = new Blob([json], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'naturisa_ciclos_' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+function sapImportarCiclos(input) {
+    var file = input.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            var ciclos = JSON.parse(e.target.result);
+            if (!Array.isArray(ciclos) || !ciclos.length) { alert('Archivo inválido o sin ciclos.'); return; }
+            _sapCycles = ciclos;
+            sapSave();
+            sapPopulateClusterSub();
+            sapPopulatePiscinaCiclo();
+            updateSapResults();
+            alert('Importados ' + ciclos.length + ' ciclos correctamente.');
+        } catch(err) { alert('Error al leer el archivo: ' + err.message); }
+    };
+    reader.readAsText(file);
+    input.value = '';
+}
+
 function sapBorrarExcel() {
     if (!confirm('¿Borrar todos los datos del Excel acumulado?\nEsta acción no se puede deshacer.')) return;
     _sapExcelRows = []; _sapExcelMeta = null;
@@ -1027,7 +1068,7 @@ async function sapCargarCiclos() {
         progressEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#1e40af"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span>' + msg + '</div>';
     };
     const authHdrs = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
-    const SAP_CYCLES_API = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/cycles';
+    const SAP_CYCLES_API = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/ap1/backoffice/api/cycles';
     const subById = Object.fromEntries(sapAllSubs().map(s => [s.id, s.name]));
 
     // ── Paso 1: mapa subsidiaryCode → subsidiaryId via cycles_navigation ────────
