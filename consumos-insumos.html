@@ -1133,8 +1133,9 @@ async function sapCargarCiclos() {
     console.log('[SAP] codeToSid desde cycles_navigation:', JSON.stringify(codeToSid));
 
     // idToPs: idCycle → poolSize (ha). Se llena siempre desde pool_production.
-    const idToPs   = {};
-    const idToDias = {};   // idCycle → días totales del ciclo (seco + producción)
+    const idToPs     = {};
+    const idToDias   = {};   // idCycle → días totales del ciclo (seco + producción)
+    const activeIds  = new Set(); // ciclos activos en la semana actual
     const curW2  = getISOWeek(new Date());
     // Semanas a muestrear: cada 4 semanas cubre bien todos los ciclos 2026
     const mapWeeks = [];
@@ -1171,6 +1172,8 @@ async function sapCargarCiclos() {
                         var dTotal = parseFloat(c.daysCycle || 0) || 0;
                         if (!dTotal) dTotal = (parseFloat(c.daysDry || 0) || 0) + (parseFloat(c.daysProduction || 0) || 0);
                         if (dTotal > 0) idToDias[String(c.idCycle)] = dTotal;
+                        // Marcar como activo si aparece en la semana actual
+                        if (mapWeeks[wi] === curW2) activeIds.add(String(c.idCycle));
                     }
                 });
             } catch(e) {}
@@ -1216,7 +1219,8 @@ async function sapCargarCiclos() {
                 controlOrderDocument: cod, _subsidiaryId: sid,
                 _subName: subById[sid] || ('Sub ' + sid),
                 ps: idToPs[id] || parseFloat(c.poolSize || 0) || 0,
-                totalDays: idToDias[id] || 0 });
+                totalDays: idToDias[id] || 0,
+                active: activeIds.has(id) });
         });
 
         emptyPages = found === 0 ? emptyPages + 1 : 0;
@@ -1378,7 +1382,7 @@ function sapSelectResumenRow(el, camp) {
     var rows = _sapKpiRows.filter(function(fr) { return _sapCamp(fr.ciclo) === camp; });
     var imp  = rows.reduce(function(s, fr) { return s + Math.abs(fr.row.i || 0); }, 0);
     var ps   = {};
-    rows.forEach(function(fr) { ps[fr.ciclo.idCycle] = fr.ciclo.ps || 0; });
+    rows.forEach(function(fr) { if (fr.ciclo.active) ps[fr.ciclo.idCycle] = fr.ciclo.ps || 0; });
     var ha   = Object.values(ps).reduce(function(s, v) { return s + v; }, 0);
     var subName = rows.length ? (rows[0].ciclo._subName || camp) : camp;
     document.getElementById('sap-kpi-container').innerHTML = _sapBuildKpiHtml(imp, ha, _sapKpiDias, subName);
@@ -1532,11 +1536,14 @@ function updateSapResults() {
     const totalQty  = items.reduce(function(s,i) { return s+Math.abs(i.cantidad); }, 0);
     const matUnicos = new Set(items.map(function(i) { return i.matCode; })).size;
     const diasUnicos = new Set(items.map(function(i) { return i.fecha; })).size;
-    // Deduplicar por piscina: si una piscina tuvo 2 ciclos en el período, solo conta una vez
+    // Ha: ciclos activos (semana actual), deduplicados por piscina, aplicando filtros de la pestaña
     const poolHaMap = {};
-    ordenesCon.forEach(function(ord) {
-        var c = orderToCycle[ord] || {};
-        if (c.poolName && c.ps) poolHaMap[c.poolName] = c.ps;
+    activeCycles.forEach(function(c) {
+        if (!c.active || !c.ps || !c.poolName) return;
+        if (matSubVal  && _sapCamp(c) !== matSubVal)  return;
+        if (cicSubVal  && _sapCamp(c) !== cicSubVal)  return;
+        if (cicPoolVal && c.poolName !== cicPoolVal)   return;
+        poolHaMap[c.poolName] = c.ps;
     });
     const totalHa = Object.values(poolHaMap).reduce(function(s,v) { return s+v; }, 0);
     const costoXHa  = totalHa > 0 ? totalImp / totalHa : null;
@@ -1874,7 +1881,7 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
         grp[key].cant  += Math.abs(fr.row.q || 0);
         if (!grp[key].unidad && fr.row.u) grp[key].unidad = fr.row.u;
         var pool = fr.ciclo.poolName;
-        if (pool && fr.ciclo.ps) totalCicloPs[pool] = fr.ciclo.ps || 0;
+        if (pool && fr.ciclo.ps && fr.ciclo.active) totalCicloPs[pool] = fr.ciclo.ps || 0;
     });
 
     var totalHa   = Object.values(totalCicloPs).reduce(function(s,v) { return s+v; }, 0);
