@@ -322,7 +322,7 @@
         </div>
         <!-- Opciones: al extremo derecho -->
         <div style="margin-left:auto;position:relative;display:flex;align-items:center">
-            <button onclick="sapToggleOpciones(event)" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+            <button id="btn-opciones" onclick="sapToggleOpciones(event)" style="display:none;align-items:center;gap:5px;padding:5px 12px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 Opciones
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
@@ -616,6 +616,11 @@ function applyLoginUI(on, nombre) {
         const initials  = (firstName[0] || '') + (firstLast[0] || '');
         st.innerHTML = '<span class="user-avatar">' + initials.toUpperCase() + '</span>&nbsp;' + shortName;
         st.className = 'ok';
+        const user = localStorage.getItem('nat_user') || '';
+        const btnOpc = document.getElementById('btn-opciones');
+        if (btnOpc) {
+            btnOpc.style.display = user === 'jparraga' ? 'inline-flex' : 'none';
+        }
     } else {
         st.textContent = '⚠ Inicia sesión para cargar datos';
         st.className = '';
@@ -623,6 +628,8 @@ function applyLoginUI(on, nombre) {
         document.getElementById('modal-user').value  = '';
         document.getElementById('modal-pass').value  = '';
         document.getElementById('modal-status').textContent = '';
+        const btnOpc = document.getElementById('btn-opciones');
+        if (btnOpc) btnOpc.style.display = 'none';
     }
 }
 
