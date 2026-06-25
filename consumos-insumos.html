@@ -1985,17 +1985,93 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
 }
 
 // ── Vista 3: Por Ciclo (Camp × CodCiclo) ─────────────────────────────────────
+var _sapCicloDetail = {}; // cid||mk → {rows, ciclo, mat}
+
+function sapShowMatDetail(key) {
+    var d = _sapCicloDetail[key];
+    if (!d) return;
+    // Agrupar por fecha
+    var byDate = {};
+    d.rows.forEach(function(r) {
+        var f = r.f || '—';
+        if (!byDate[f]) byDate[f] = { cant: 0, importe: 0 };
+        byDate[f].cant    += Math.abs(r.q || 0);
+        byDate[f].importe += Math.abs(r.i || 0);
+    });
+    var dates = Object.keys(byDate).sort();
+    var startDate = dates[0] && dates[0] !== '—' ? new Date(dates[0]) : null;
+    var totalCosto = d.rows.reduce(function(s,r) { return s + Math.abs(r.i||0); }, 0);
+    var ps = d.ciclo.ps || 0;
+
+    var rows = dates.map(function(f) {
+        var diasCiclo = '—';
+        if (startDate && f !== '—') {
+            var diff = Math.round((new Date(f) - startDate) / 86400000) + 1;
+            diasCiclo = diff + ' días';
+        }
+        return { f: f, cant: byDate[f].cant, imp: byDate[f].importe, dias: diasCiclo };
+    });
+
+    var tbody = rows.map(function(r) {
+        var haDia = ps > 0 && r.dias !== '—' ? (r.imp / (ps * parseInt(r.dias))).toFixed(4) : '—';
+        return '<tr>' +
+            '<td style="padding:7px 12px;font-size:12px">' + r.f + '</td>' +
+            '<td style="padding:7px 12px;font-size:12px;text-align:right">' + _sapFmt2(r.cant) + '</td>' +
+            '<td style="padding:7px 12px;font-size:12px;text-align:right;color:#065f46">$' + _sapFmt2(r.imp) + '</td>' +
+            '<td style="padding:7px 12px;font-size:12px;text-align:center;color:#1e3a5f;font-weight:600">' + r.dias + '</td>' +
+            '<td style="padding:7px 12px;font-size:12px;text-align:right;color:#6d28d9">' + (haDia !== '—' ? '$'+haDia : '—') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var html =
+        '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:8000;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">' +
+        '<div style="background:white;border-radius:12px;width:680px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.3)">' +
+            '<div style="background:#1e3a5f;border-radius:12px 12px 0 0;padding:14px 20px;display:flex;align-items:center;justify-content:space-between">' +
+                '<div>' +
+                    '<div style="color:#fff;font-weight:800;font-size:14px">' + d.mat.desc + '</div>' +
+                    '<div style="color:#93c5fd;font-size:11px;margin-top:2px">' + d.ciclo.cycleCode + ' · ' + _sapFmt2(ps) + ' Ha · Total: $' + _sapFmt2(totalCosto) + '</div>' +
+                '</div>' +
+                '<button onclick="this.closest(\'[style*=fixed]\').remove()" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1">×</button>' +
+            '</div>' +
+            '<div style="overflow-y:auto;flex:1">' +
+            '<table style="width:100%;border-collapse:collapse">' +
+            '<thead><tr style="background:#f8fafc;position:sticky;top:0">' +
+                '<th style="padding:8px 12px;text-align:left;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #e2e8f0">Fecha</th>' +
+                '<th style="padding:8px 12px;text-align:right;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #e2e8f0">Cantidad</th>' +
+                '<th style="padding:8px 12px;text-align:right;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #e2e8f0">Valor $</th>' +
+                '<th style="padding:8px 12px;text-align:center;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #e2e8f0">Días ciclo</th>' +
+                '<th style="padding:8px 12px;text-align:right;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #e2e8f0">$/Ha/Día</th>' +
+            '</tr></thead>' +
+            '<tbody>' + tbody + '</tbody>' +
+            '<tfoot><tr style="background:#f0fdf4;border-top:2px solid #e2e8f0">' +
+                '<td style="padding:8px 12px;font-weight:700;font-size:12px">TOTAL</td>' +
+                '<td></td>' +
+                '<td style="padding:8px 12px;font-weight:800;font-size:13px;text-align:right;color:#065f46">$' + _sapFmt2(totalCosto) + '</td>' +
+                '<td style="padding:8px 12px;text-align:center;font-size:12px;color:#1e3a5f;font-weight:700">' + (d.ciclo.totalDays || '—') + ' días</td>' +
+                '<td></td>' +
+            '</tr></tfoot>' +
+            '</table></div>' +
+        '</div></div>';
+
+    var overlay = document.createElement('div');
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay.firstElementChild);
+}
+
 function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
     if (!filteredRows.length) {
         el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin datos para los filtros seleccionados.</div></div>';
         return;
     }
 
+    _sapCicloDetail = {};
+
     // Agrupar por ciclo → materiales
     var grp = {};
     filteredRows.forEach(function(fr) {
         var cid = fr.ciclo.idCycle || fr.ciclo.cycleCode;
         if (!grp[cid]) grp[cid] = {
+            cid: cid,
             cod: fr.ciclo.cycleCode || String(cid),
             pool: fr.ciclo.poolName || '—',
             ps: fr.ciclo.ps || 0,
@@ -2009,6 +2085,10 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
         grp[cid].mats[mk].costo += Math.abs(fr.row.i || 0);
         grp[cid].mats[mk].cant  += Math.abs(fr.row.q || 0);
         if (!grp[cid].mats[mk].unidad && fr.row.u) grp[cid].mats[mk].unidad = fr.row.u;
+        // Guardar filas para detalle
+        var dk = cid + '||' + mk;
+        if (!_sapCicloDetail[dk]) _sapCicloDetail[dk] = { rows: [], ciclo: fr.ciclo, mat: grp[cid].mats[mk] };
+        _sapCicloDetail[dk].rows.push(fr.row);
     });
 
     var rows = Object.values(grp).sort(function(a,b) { return b.costo - a.costo; });
@@ -2048,7 +2128,8 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
         // Filas de materiales
         Object.values(g.mats).sort(function(a,b) { return b.costo - a.costo; }).forEach(function(m) {
             var mHaDia = g.ps > 0 ? m.costo / (g.ps * diasCiclo) : null;
-            html += '<tr>' +
+            var dk = g.cid + '||' + (m.code || '(sin código)');
+            html += '<tr style="cursor:pointer" data-dk="' + dk.replace(/"/g,'&quot;') + '" onclick="sapShowMatDetail(this.dataset.dk)" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'">' +
                 '<td style="padding-left:20px">' +
                     '<span style="font-size:10px;color:var(--muted);display:block">' + m.code + '</span>' +
                     '<span style="font-weight:500;font-size:12px">' + m.desc + '</span>' +
