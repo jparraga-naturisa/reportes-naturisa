@@ -1664,7 +1664,7 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
         var camp = _sapCamp(fr.ciclo);
         if (!grp[camp]) grp[camp] = { camp:camp, subName: fr.ciclo._subName || camp, costo:0, cicloPs:{}, cluster: _sapCampCluster(camp) };
         grp[camp].costo += Math.abs(fr.row.i || 0);
-        grp[camp].cicloPs[fr.ciclo.idCycle] = fr.ciclo.ps || 0;
+        grp[camp].cicloPs[fr.ciclo.poolName || fr.ciclo.idCycle] = fr.ciclo.ps || 0;
     });
 
     var rows = Object.values(grp).sort(function(a,b) {
