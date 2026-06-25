@@ -999,7 +999,11 @@ function sapSubirNuevoExcel(input) {
             const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
             if (!rawRows.length) { alert('El archivo esta vacio'); return; }
             const keys    = _sapDetectRawKeys(rawRows);
-            const newRows = _sapNormalizeRows(rawRows, keys);
+            const newRows = _sapNormalizeRows(rawRows, keys).filter(function(r) {
+                return r.a && r.a.toLowerCase().endsWith('02');
+            });
+
+            if (!newRows.length) { alert('El archivo no contiene filas de almacén tipo 02.'); return; }
 
             // Merge acumulativo: solo agregar filas que no existen ya
             const existingKeys = new Set(_sapExcelRows.map(_sapRowKey));
