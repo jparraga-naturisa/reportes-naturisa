@@ -1532,7 +1532,13 @@ function updateSapResults() {
     const totalQty  = items.reduce(function(s,i) { return s+Math.abs(i.cantidad); }, 0);
     const matUnicos = new Set(items.map(function(i) { return i.matCode; })).size;
     const diasUnicos = new Set(items.map(function(i) { return i.fecha; })).size;
-    const totalHa   = [...ordenesCon].reduce(function(s,ord) { return s + ((orderToCycle[ord]||{}).ps||0); }, 0);
+    // Deduplicar por piscina: si una piscina tuvo 2 ciclos en el período, solo conta una vez
+    const poolHaMap = {};
+    ordenesCon.forEach(function(ord) {
+        var c = orderToCycle[ord] || {};
+        if (c.poolName && c.ps) poolHaMap[c.poolName] = c.ps;
+    });
+    const totalHa = Object.values(poolHaMap).reduce(function(s,v) { return s+v; }, 0);
     const costoXHa  = totalHa > 0 ? totalImp / totalHa : null;
 
     var diasMes = 30;
@@ -1867,8 +1873,8 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
         grp[key].costo += Math.abs(fr.row.i || 0);
         grp[key].cant  += Math.abs(fr.row.q || 0);
         if (!grp[key].unidad && fr.row.u) grp[key].unidad = fr.row.u;
-        var cid = fr.ciclo.idCycle;
-        if (cid) totalCicloPs[cid] = fr.ciclo.ps || 0;
+        var pool = fr.ciclo.poolName;
+        if (pool && fr.ciclo.ps) totalCicloPs[pool] = fr.ciclo.ps || 0;
     });
 
     var totalHa   = Object.values(totalCicloPs).reduce(function(s,v) { return s+v; }, 0);
