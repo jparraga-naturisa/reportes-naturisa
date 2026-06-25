@@ -1064,6 +1064,7 @@ function sapBorrarExcel() {
     _sapExcelRows = []; _sapExcelMeta = null;
     _sapIdbPut('rows', []);
     _sapIdbClear();
+    _kvPush('excel', []);
     sapSave(); sapUpdateStatus(); updateSapResults();
     sapCerrarOpciones();
 }
