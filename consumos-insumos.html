@@ -22,7 +22,9 @@
             --muted: #64748b;
             --border: #e2e8f0;
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
+        #app-scale-wrapper { position: absolute; top: 0; left: 0; transform-origin: top left; display: flex; flex-direction: column; overflow: hidden; }
 
         /* Header */
         .header { background: var(--primary); color: white; padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
@@ -43,7 +45,7 @@
         .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--primary-light); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
 
         /* Filters */
-        .filters { background: white; border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+        .filters { background: white; border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; flex-shrink: 0; }
         .fg { display: flex; flex-direction: column; gap: 3px; }
         .fg label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
         .fg select, .fg input[type="date"] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; min-width: 130px; }
@@ -92,7 +94,7 @@
         .chart-scroll { overflow-y: auto; max-height: 420px; }
 
         /* Table */
-        .table-card { background: white; border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 20px; }
+        .table-card { background: white; border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 20px; }
         .table-wrapper { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th { background: #f8fafc; padding: 9px 12px; text-align: left; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border-bottom: 2px solid var(--border); white-space: nowrap; }
@@ -134,7 +136,7 @@
         .nav-tab:hover { color: var(--primary); }
         .nav-tab.active { color: var(--primary); border-bottom-color: var(--accent); }
         .screen { display: none; }
-        .screen.active { display: block; }
+        .screen.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
     </style>
 </head>
 <body>
@@ -204,6 +206,7 @@
     </div>
 </div>
 
+<div id="app-scale-wrapper">
 <header class="header">
     <div class="header-logo">
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
@@ -240,7 +243,7 @@
     <div id="sap-status-bar" style="display:none"></div>
 
     <!-- Tabs de vista -->
-    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);padding:0 20px;background:#f8fafc">
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);padding:0 20px;background:#f8fafc;flex-shrink:0">
         <button id="sap-tab-resumen"   class="sap-tab sap-tab-active" onclick="sapSetTab('resumen')">Resumen</button>
         <button id="sap-tab-material"  class="sap-tab"                onclick="sapSetTab('material')">Por Material</button>
         <button id="sap-tab-ciclo"     class="sap-tab"                onclick="sapSetTab('ciclo')">Por Ciclo</button>
@@ -248,7 +251,7 @@
     </div>
 
     <!-- Barra de progreso (oculta por defecto) -->
-    <div id="sap-progress" style="display:none;padding:8px 20px;background:#eff6ff;border-bottom:1px solid #bfdbfe"></div>
+    <div id="sap-progress" style="display:none;padding:8px 20px;background:#eff6ff;border-bottom:1px solid #bfdbfe;flex-shrink:0"></div>
 
     <!-- Filtros -->
     <div class="filters">
@@ -363,7 +366,7 @@
     </div>
 
     <!-- Resultados -->
-    <div id="sap-results" style="padding:16px 20px 20px">
+    <div id="sap-results" style="padding:10px 14px 14px;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column">
         <div class="empty-state">
             <div class="empty-icon">🔗</div>
             <div>Sube el Excel SAP con el botón <strong>Nuevo Excel</strong> y luego<br>presiona <strong>Cargar ciclos nuevos</strong> para vincular con AP1</div>
@@ -371,14 +374,20 @@
     </div>
 
 </div><!-- /screen-consumos-sap -->
+</div><!-- /app-scale-wrapper -->
 
 <script>
 Chart.register(ChartDataLabels);
 
-const AUTH_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/ap1/security/api/auth';
-const KV_URL   = 'https://naturisa-proxy.parragajonathan965.workers.dev/kv/';
+const _IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const _PROXY    = _IS_LOCAL ? '' : 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const _KV_BASE  = 'https://naturisa-proxy.parragajonathan965.workers.dev/kv/';
+
+const AUTH_URL = _PROXY + '/bff/web/ap1/security/api/auth';
+const KV_URL   = _KV_BASE;
 
 function _kvPush(key, data) {
+    if (_IS_LOCAL) return Promise.resolve(); // KV no disponible en local
     return fetch(KV_URL + key, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -386,14 +395,15 @@ function _kvPush(key, data) {
     }).catch(function(e) { console.warn('KV push error:', e); });
 }
 function _kvPull(key) {
+    if (_IS_LOCAL) return Promise.resolve(null); // KV no disponible en local
     return fetch(KV_URL + key)
         .then(function(r) { return r.ok ? r.json() : null; })
         .catch(function(e) { console.warn('KV pull error:', e); return null; });
 }
 const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
-const API_WAREHOUSES = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
-const API_POOL_PROD   = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/ap1/backoffice/api/report_production/pool_production';
-const API_CYCLES_NAV  = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/ap1/backoffice/api/cycles_navigation';
+const API_WAREHOUSES = _PROXY + '/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
+const API_POOL_PROD   = _PROXY + '/bff/web/ap1/backoffice/api/report_production/pool_production';
+const API_CYCLES_NAV  = _PROXY + '/bff/web/ap1/backoffice/api/cycles_navigation';
 
 let subsidiaries = [];
 
@@ -1102,7 +1112,7 @@ async function sapCargarCiclos() {
         progressEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#1e40af"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span>' + msg + '</div>';
     };
     const authHdrs = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
-    const SAP_CYCLES_API = 'https://naturisa-proxy.parragajonathan965.workers.dev/bff/web/ap1/backoffice/api/cycles';
+    const SAP_CYCLES_API = _PROXY + '/bff/web/ap1/backoffice/api/cycles';
     const subById = Object.fromEntries(sapAllSubs().map(s => [s.id, s.name]));
 
     // ── Paso 1: mapa subsidiaryCode → subsidiaryId via cycles_navigation ────────
@@ -1330,43 +1340,43 @@ function _sapBuildKpiHtml(imp, ha, dias, subLabel, diasCiclo) {
     var costoXHa    = ha > 0 ? imp / ha : null;
     var costoXHaDia = ha > 0 && dias > 0 ? imp / (ha * dias) : null;
     var _sep = 'border-right:1px solid rgba(255,255,255,0.25)';
-    var _cel = 'flex:1;padding:14px 20px;display:flex;flex-direction:column;justify-content:center;gap:4px';
-    var _lbl = 'font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;opacity:0.85';
-    var _val = 'font-size:28px;font-weight:900;line-height:1.1';
+    var _cel = 'flex:1;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px';
+    var _lbl = 'font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;opacity:0.85';
+    var _val = 'font-size:20px;font-weight:900;line-height:1.1';
     var banner = subLabel
-        ? '<div style="background:rgba(0,0,0,0.18);padding:6px 16px;font-size:15px;font-weight:800;display:flex;justify-content:space-between;align-items:center">' +
+        ? '<div style="background:rgba(0,0,0,0.18);padding:4px 12px;font-size:12px;font-weight:800;display:flex;justify-content:space-between;align-items:center">' +
               '<span>' + subLabel + '</span>' +
-              '<span style="cursor:pointer;opacity:0.7;font-size:11px;font-weight:600" onclick="sapClearResumenRow()">✕ Ver total</span>' +
+              '<span style="cursor:pointer;opacity:0.7;font-size:10px;font-weight:600" onclick="sapClearResumenRow()">✕ Ver total</span>' +
           '</div>'
         : '';
     var diasCard = diasCiclo
         ? '<div style="' + _cel + ';' + _sep + '">' +
-              '<div style="font-size:24px;line-height:1;margin-bottom:4px">&#x23F1;</div>' +
+              '<div style="font-size:16px;line-height:1;margin-bottom:2px">&#x23F1;</div>' +
               '<div style="' + _lbl + '">D&iacute;as ciclo</div>' +
-              '<div style="' + _val + '">' + diasCiclo + ' <span style="font-size:13px;font-weight:500;opacity:0.8">días</span></div>' +
+              '<div style="' + _val + '">' + diasCiclo + ' <span style="font-size:11px;font-weight:500;opacity:0.8">días</span></div>' +
           '</div>'
         : '';
     return '<div class="kpi-card cyan" style="display:flex;flex-direction:column;padding:0;overflow:hidden">' +
         banner +
         '<div style="display:flex;flex:1">' +
             '<div style="' + _cel + ';' + _sep + '">' +
-                '<div style="font-size:24px;line-height:1;margin-bottom:4px">&#x1F4B5;</div>' +
+                '<div style="font-size:16px;line-height:1;margin-bottom:2px">&#x1F4B5;</div>' +
                 '<div style="' + _lbl + '">Costo total</div>' +
                 '<div style="' + _val + '">$' + fmt(imp) + '</div>' +
             '</div>' +
             '<div style="' + _cel + ';' + _sep + '">' +
-                '<div style="font-size:24px;line-height:1;margin-bottom:4px">&#x1F30A;</div>' +
+                '<div style="font-size:16px;line-height:1;margin-bottom:2px">&#x1F30A;</div>' +
                 '<div style="' + _lbl + '">Hect&aacute;reas</div>' +
-                '<div style="' + _val + '">' + (ha > 0 ? ha.toLocaleString('es-EC',{minimumFractionDigits:1,maximumFractionDigits:1}) : '—') + ' <span style="font-size:13px;font-weight:500;opacity:0.8">Ha</span></div>' +
+                '<div style="' + _val + '">' + (ha > 0 ? ha.toLocaleString('es-EC',{minimumFractionDigits:1,maximumFractionDigits:1}) : '—') + ' <span style="font-size:11px;font-weight:500;opacity:0.8">Ha</span></div>' +
             '</div>' +
             diasCard +
             '<div style="' + _cel + ';' + _sep + '">' +
-                '<div style="font-size:24px;line-height:1;margin-bottom:4px">&#x1F4CA;</div>' +
+                '<div style="font-size:16px;line-height:1;margin-bottom:2px">&#x1F4CA;</div>' +
                 '<div style="' + _lbl + '">Costo / Ha</div>' +
                 '<div style="' + _val + '">' + (costoXHa !== null ? '$' + fmt(costoXHa) : '—') + '</div>' +
             '</div>' +
             '<div style="' + _cel + '">' +
-                '<div style="font-size:24px;line-height:1;margin-bottom:4px">&#x1F4C5;</div>' +
+                '<div style="font-size:16px;line-height:1;margin-bottom:2px">&#x1F4C5;</div>' +
                 '<div style="' + _lbl + '">Costo Ha/D&iacute;a</div>' +
                 '<div style="' + _val + (costoXHaDia !== null && costoXHaDia > 2.67 ? ';color:#fca5a5' : '') + '">' + (costoXHaDia !== null ? '$' + fmt(costoXHaDia) : '—') + '</div>' +
             '</div>' +
@@ -1599,9 +1609,9 @@ function updateSapResults() {
     _sapKpiSelected = null;
 
     if (_sapTab === 'resumen' || _sapTab === 'tendencia' || _sapTab === 'material' || _sapTab === 'ciclo') {
-        resultsDiv.innerHTML = '<div id="sap-view-body"></div>';
+        resultsDiv.innerHTML = '<div id="sap-view-body" style="flex:1;min-height:0;display:flex;flex-direction:column"></div>';
     } else {
-        resultsDiv.innerHTML = '<div style="margin-bottom:16px">' + kpiHtml + '</div><div id="sap-view-body"></div>';
+        resultsDiv.innerHTML = '<div style="margin-bottom:16px">' + kpiHtml + '</div><div id="sap-view-body" style="flex:1;min-height:0;display:flex;flex-direction:column"></div>';
     }
 
     // Construir lista plana de filas filtradas con su ciclo adjunto
@@ -1767,12 +1777,12 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
 
     // Layout: todo cabe en pantalla sin scroll de página
     el.innerHTML =
-        '<div style="display:flex;gap:16px;align-items:stretch;height:calc(100vh - 210px)">' +
+        '<div style="display:flex;gap:16px;align-items:stretch;flex:1;min-height:0">' +
             '<div class="table-card" style="flex:1;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden">' + html + '</div>' +
-            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;overflow:hidden">' +
+            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;overflow:hidden">' +
                 '<div id="sap-kpi-container">' + (kpiHtml || '') + '</div>' +
-                '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
-                    '<div class="chart-title" style="flex-shrink:0">$/Ha/Día por Sucursal</div>' +
+                '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:10px 14px">' +
+                    '<div class="chart-title" style="flex-shrink:0;font-size:12px;margin-bottom:6px">$/Ha/Día por Sucursal</div>' +
                     '<div style="position:relative;flex:1;min-height:0">' +
                         '<canvas id="sap-resumen-chart"></canvas>' +
                     '</div>' +
@@ -1930,12 +1940,12 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
     // ─── Layout: tabla izquierda + card+gráfico derecha ───────────────────────
     var canvasId = 'sap-mat-chart';
     el.innerHTML =
-        '<div style="display:flex;gap:16px;align-items:stretch;height:calc(100vh - 210px)">' +
+        '<div style="display:flex;gap:16px;align-items:stretch;flex:1;min-height:0">' +
             '<div class="table-card" style="flex:1;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden">' + html + '</div>' +
-            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;overflow:hidden">' +
+            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;overflow:hidden">' +
                 '<div id="sap-kpi-container">' + (kpiHtml || '') + '</div>' +
-                '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
-                    '<div class="chart-title" style="flex-shrink:0">$/Ha/D&iacute;a por Material</div>' +
+                '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:10px 14px">' +
+                    '<div class="chart-title" style="flex-shrink:0;font-size:12px;margin-bottom:6px">$/Ha/D&iacute;a por Material</div>' +
                     '<div style="position:relative;flex:1;min-height:0">' +
                         '<canvas id="' + canvasId + '"></canvas>' +
                     '</div>' +
@@ -2153,12 +2163,12 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
     // ─── Layout: tabla izquierda + card+gráfico derecha ───────────────────────
     var canvasId = 'sap-cic-chart';
     el.innerHTML =
-        '<div style="display:flex;gap:16px;align-items:stretch;height:calc(100vh - 210px)">' +
+        '<div style="display:flex;gap:16px;align-items:stretch;flex:1;min-height:0">' +
             '<div class="table-card" style="flex:1;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden">' + html + '</div>' +
-            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;overflow:hidden">' +
+            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;overflow:hidden">' +
                 '<div id="sap-kpi-container">' + (kpiHtml || '') + '</div>' +
-                '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
-                    '<div class="chart-title" style="flex-shrink:0">$/Ha/D&iacute;a por Ciclo</div>' +
+                '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:10px 14px">' +
+                    '<div class="chart-title" style="flex-shrink:0;font-size:12px;margin-bottom:6px">$/Ha/D&iacute;a por Ciclo</div>' +
                     '<div style="position:relative;flex:1;min-height:0">' +
                         '<canvas id="' + canvasId + '"></canvas>' +
                     '</div>' +
@@ -2287,7 +2297,7 @@ function _sapRenderTendencia(filteredRows, el) {
 
     var canvasId = 'sap-tend-chart';
     el.innerHTML =
-        '<div class="table-card" style="margin-bottom:0;height:calc(100vh - 210px);display:flex;flex-direction:column;overflow:hidden">' +
+        '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
             '<div style="flex-shrink:0;display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">' +
                 '<div style="flex:1;font-size:13px;font-weight:700;color:var(--text)">Tendencia $/Ha/D&iacute;a por Sucursal</div>' +
                 '<div id="sap-tend-selected" style="flex:1;text-align:center;font-size:15px;font-weight:800;color:#1e3a5f;letter-spacing:0.2px"></div>' +
@@ -2502,6 +2512,23 @@ function initSapScreen() {
     // If no token, login-modal is already visible (display:flex in HTML)
 })();
 
+// ── Zoom fit: escala el contenido para que siempre quepa en pantalla ──────────
+(function() {
+    var BASE_W = 1440;
+    var wrapper = null;
+    function applyFit() {
+        if (!wrapper) wrapper = document.getElementById('app-scale-wrapper');
+        if (!wrapper) return;
+        var vw = window.innerWidth;
+        var vh = window.innerHeight;
+        var s  = vw / BASE_W;
+        wrapper.style.width     = BASE_W + 'px';
+        wrapper.style.height    = Math.round(vh / s) + 'px';
+        wrapper.style.transform = 'scale(' + s + ')';
+    }
+    window.addEventListener('resize', applyFit);
+    applyFit();
+})();
 </script>
 </body>
 </html>
