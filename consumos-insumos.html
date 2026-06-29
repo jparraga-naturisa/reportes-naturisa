@@ -322,9 +322,9 @@
             </select>
         </div>
         <!-- Opciones: al extremo derecho -->
-        <div style="margin-left:auto;position:relative;display:flex;align-items:center">
-            <button id="btn-opciones" onclick="sapToggleOpciones(event)" style="display:none;align-items:center;gap:5px;padding:5px 12px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <div style="position:relative;display:flex;align-items:center;margin-left:auto">
+            <button id="btn-opciones" onclick="sapToggleOpciones(event)" style="display:none;align-items:center;gap:6px;padding:5px 12px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 Opciones
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
@@ -335,24 +335,18 @@
                         <span id="sap-excel-btn-text">Subir Excel</span>
                         <input type="file" id="sap-file-input" accept=".xlsx,.xls" style="display:none" onchange="sapSubirNuevoExcel(this)">
                     </label>
-                    <button onclick="sapCargarCiclos();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                    <button onclick="sapCargarPools();sapCargarCiclos();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         Cargar ciclos nuevos
+                    </button>
+                    <button onclick="sapActualizarHa();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        Actualizar Ha activas
                     </button>
                     <button onclick="sapBorrarExcel()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:#b45309;cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background=''">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                         Borrar Excel acumulado
                     </button>
-                    <div style="height:1px;background:var(--border);margin:4px 0"></div>
-                    <button onclick="sapExportarCiclos();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:#0369a1;cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Exportar ciclos (JSON)
-                    </button>
-                    <label style="display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:500;color:#0369a1;transition:background .12s" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Importar ciclos (JSON)
-                        <input type="file" accept=".json" style="display:none" onchange="sapImportarCiclos(this);sapCerrarOpciones()">
-                    </label>
                     <div style="height:1px;background:var(--border);margin:4px 0"></div>
                     <button onclick="sapLimpiarDatos();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:#b91c1c;cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background=''">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
@@ -398,9 +392,11 @@ function _kvPull(key) {
         .catch(function(e) { console.warn('KV pull error:', e); return null; });
 }
 const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
-const API_WAREHOUSES = _PROXY + '/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
+const API_WAREHOUSES = _PROXY + '/bff/web/ap1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
 const API_POOL_PROD   = _PROXY + '/bff/web/ap1/backoffice/api/report_production/pool_production';
 const API_CYCLES_NAV  = _PROXY + '/bff/web/ap1/backoffice/api/cycles_navigation';
+const API_POOLS         = _PROXY + '/bff/web/ap1/backoffice/api/pools';
+const API_SUB_USERS     = _PROXY + '/bff/web/ap1/backoffice/api/subsidiary_users/' + CODE_APP;
 
 let subsidiaries = [];
 
@@ -655,6 +651,7 @@ function getISOWeek(d) {
 const SAP_KEY_META   = 'nat_sap_meta_v2';
 const SAP_KEY_CYCLES = 'nat_sap_cycles_v2';
 const SAP_KEY_SUBS   = 'nat_sap_subs_v2';
+const SAP_KEY_POOLS  = 'nat_sap_pools_v1';
 const SAP_IDB_NAME   = 'nat_sap_idb';
 const SAP_IDB_VER    = 1;
 const SAP_IDB_STORE  = 'excel';
@@ -663,6 +660,7 @@ let _sapExcelRows   = [];
 let _sapExcelMeta   = null;
 let _sapCycles      = [];
 let _sapSubsFetched = new Set();
+let _sapPools       = []; // piscinas activas cargadas desde /pools
 
 // ── IndexedDB helpers ────────────────────────────────────────────────────────
 function _sapOpenDB() {
@@ -1092,6 +1090,78 @@ function _sapParseItems(data) {
     return [];
 }
 
+
+function _sapRefreshHaBadge(filteredHa) {
+    var badge = document.getElementById('sap-ha-badge');
+    if (!badge || !_sapPools.length) return;
+    var ha = filteredHa != null ? filteredHa
+           : _sapPools.reduce(function(s, p) { return s + p.poolSize; }, 0);
+    badge.textContent = '🌊 ' + ha.toLocaleString('es-EC', {minimumFractionDigits:1, maximumFractionDigits:1}) + ' Ha';
+    badge.style.display = '';
+}
+
+async function sapActualizarHa() {
+    _sapPools = [];
+    localStorage.removeItem(SAP_KEY_POOLS);
+    await sapCargarPools();
+}
+
+async function sapCargarPools() {
+    if (_sapPools.length) { _sapRefreshHaBadge(); return; } // ya en localStorage, no rellamar
+    const token = getToken();
+    if (!token) return;
+    const subs = sapAllSubs();
+    const hdrs = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
+    const rawAll = [];
+    try {
+        // Una petición por subsidiario en paralelo — evita el cap global de 1000
+        await Promise.all(subs.map(async function(sub) {
+            let pg = 0;
+            while (pg < 5) {
+                try {
+                    const url = API_POOLS + '?subsidiaryIds=' + sub.id +
+                                '&status=ACTIVO&pageSize=500&page=' + pg;
+                    const res = await fetch(url, { headers: hdrs });
+                    if (!res.ok) break;
+                    const raw  = await res.json();
+                    const meta = (raw.data && !Array.isArray(raw.data)) ? raw.data : {};
+                    const items = Array.isArray(meta.data) ? meta.data : _sapParseItems(raw);
+                    if (!items.length) break;
+                    rawAll.push(...items);
+                    if ((meta.currentPage || 1) >= (meta.totalPages || 1)) break;
+                    pg++;
+                } catch(_) { break; }
+            }
+        }));
+        // Dedup: idPool si existe, sino nombre+subsidiario como clave
+        const seen = new Set();
+        const unique = rawAll.filter(function(p) {
+            var uid = p.idPool != null ? ('id_' + p.idPool)
+                    : ((p.name || p.codePool || '') + '_' + (p.subsidiaryId || ''));
+            if (!uid || seen.has(uid)) return false;
+            seen.add(uid);
+            return true;
+        });
+        _sapPools = unique.map(function(p) {
+                return {
+                    poolName:     p.name || p.poolName || p.codePool || '',
+                    poolSize:     parseFloat(p.size || p.poolSize || p.ha || 0) || 0,
+                    subsidiaryId: p.subsidiaryId || null,
+                    subName:      p.subsidiaryName || ''
+                };
+            }).filter(function(p) { return p.poolSize > 0; });
+        try { localStorage.setItem(SAP_KEY_POOLS, JSON.stringify(_sapPools)); } catch(_) {}
+        const ha = _sapPools.reduce(function(s, p) { return s + p.poolSize; }, 0);
+        console.log('[SAP] pools: total=' + rawAll.length + ' únicas=' + _sapPools.length +
+                    ' Ha=' + ha.toFixed(1));
+        _sapRefreshHaBadge();
+        sapUpdateStatus();
+        updateSapResults();
+    } catch(e) {
+        console.warn('[SAP] Error cargando pools:', e);
+    }
+}
+
 async function sapCargarCiclos() {
     const token = getToken();
     if (!token) { alert('Inicia sesion primero'); return; }
@@ -1099,8 +1169,10 @@ async function sapCargarCiclos() {
     const allSubIds = sapAllSubs().map(s => s.id);
     const allFetched = allSubIds.every(function(id) { return _sapSubsFetched.has(id); });
     if (allFetched) {
-        if (!confirm('Ciclos ya cargados (' + _sapCycles.length + ' ciclos).\n\n¿Volver a cargar para buscar ciclos nuevos?')) return;
-        _sapCycles = []; _sapSubsFetched = new Set();
+        // Ciclos ya en memoria/localStorage — actualizar vista sin rellamar la API
+        _sapRefreshHaBadge();
+        updateSapResults();
+        return;
     }
 
     const progressEl = document.getElementById('sap-progress');
@@ -1269,7 +1341,7 @@ document.addEventListener('click', function(e) {
 
 function sapLimpiarDatos() {
     if (!confirm('Borrar todos los datos guardados (Excel + ciclos)?')) return;
-    [SAP_KEY_META, SAP_KEY_CYCLES, SAP_KEY_SUBS].forEach(k => localStorage.removeItem(k));
+    [SAP_KEY_META, SAP_KEY_CYCLES, SAP_KEY_SUBS, SAP_KEY_POOLS].forEach(k => localStorage.removeItem(k));
     _sapIdbClear().catch(function() {});
     _sapExcelRows=[]; _sapExcelMeta=null; _sapCycles=[]; _sapSubsFetched=new Set();
     document.getElementById('sap-file-input').value = '';
@@ -1286,7 +1358,10 @@ function sapUpdateStatus() {
     const cyPart = _sapCycles.length
         ? '🔗 <strong>' + _sapCycles.length + ' ciclos</strong> AP1 2026 · ' + _sapSubsFetched.size + ' sucursales escaneadas'
         : '🔗 <span style="color:var(--muted)">Sin ciclos cargados</span>';
-    el.innerHTML = '<span style="margin-right:20px">' + exPart + '</span><span>' + cyPart + '</span>';
+    const haPart = _sapPools.length
+        ? ' &nbsp;·&nbsp; 🌊 <strong>' + _sapPools.reduce(function(s,p){return s+p.poolSize;},0).toLocaleString('es-EC',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' Ha</strong> activas'
+        : '';
+    el.innerHTML = '<span style="margin-right:20px">' + exPart + '</span><span>' + cyPart + haPart + '</span>';
 
     // Ajustar botón Excel: destacado si no hay Excel, discreto si ya hay uno guardado
     const btn     = document.getElementById('sap-excel-btn');
@@ -1388,10 +1463,12 @@ function sapSelectResumenRow(el, camp) {
     el.style.background = '#dbeafe'; el.style.outline = '2px solid #3b82f6';
     var rows = _sapKpiRows.filter(function(fr) { return _sapCamp(fr.ciclo) === camp; });
     var imp  = rows.reduce(function(s, fr) { return s + Math.abs(fr.row.i || 0); }, 0);
-    var ps   = {};
-    rows.forEach(function(fr) { ps[fr.ciclo.poolName || fr.ciclo.idCycle] = fr.ciclo.ps || 0; });
-    var ha   = Object.values(ps).reduce(function(s, v) { return s + v; }, 0);
     var subName = rows.length ? (rows[0].ciclo._subName || camp) : camp;
+    // Ha desde pools activos si disponible
+    var sid = rows.length ? rows[0].ciclo._subsidiaryId : null;
+    var ha  = (sid && _sapPools.length)
+        ? _sapPools.filter(function(p){return p.subsidiaryId===sid;}).reduce(function(s,p){return s+p.poolSize;},0)
+        : (function(){ var ps={}; rows.forEach(function(fr){ps[fr.ciclo.poolName||fr.ciclo.idCycle]=fr.ciclo.ps||0;}); return Object.values(ps).reduce(function(s,v){return s+v;},0); })();
     document.getElementById('sap-kpi-container').innerHTML = _sapBuildKpiHtml(imp, ha, _sapKpiDias, subName);
 }
 
@@ -1543,13 +1620,38 @@ function updateSapResults() {
     const totalQty  = items.reduce(function(s,i) { return s+Math.abs(i.cantidad); }, 0);
     const matUnicos = new Set(items.map(function(i) { return i.matCode; })).size;
     const diasUnicos = new Set(items.map(function(i) { return i.fecha; })).size;
-    // Ha: deduplicadas por piscina desde los ciclos con consumo en el periodo filtrado
-    const poolHaMap = {};
-    [...ordenesCon].forEach(function(ord) {
-        var c = orderToCycle[ord];
-        if (c && c.ps && c.poolName) poolHaMap[c.poolName] = c.ps;
-    });
-    const totalHa = Object.values(poolHaMap).reduce(function(s,v) { return s+v; }, 0);
+    // Ha: desde /pools (piscinas activas) filtrado por sucursal/cluster activo
+    var totalHa = 0;
+    if (_sapPools.length) {
+        // Determinar subsidiaryIds válidos según filtro actual
+        var subIdSet = null;
+        if (!isCiclo && !isMaterial && !isTendencia) {
+            // Resumen: usar filtros de cluster/sub del resumen
+            var _clv = (document.getElementById('sap-cluster') || {}).value || '';
+            var _sbv = parseInt((document.getElementById('sap-subsidiary') || {}).value) || null;
+            if (_clv && CLUSTERS[_clv]) subIdSet = new Set(CLUSTERS[_clv]);
+            if (_sbv) subIdSet = new Set([_sbv]);
+        } else if (isMaterial) {
+            var _msid = parseInt((document.getElementById('sap-mat-sub') || {}).value) || null;
+            if (_msid) subIdSet = new Set([_msid]);
+        } else if (isCiclo) {
+            var _csid = parseInt((document.getElementById('sap-cic-sub') || {}).value) || null;
+            if (_csid) subIdSet = new Set([_csid]);
+        }
+        totalHa = _sapPools.reduce(function(s, p) {
+            if (subIdSet && !subIdSet.has(p.subsidiaryId)) return s;
+            return s + p.poolSize;
+        }, 0);
+        _sapRefreshHaBadge(totalHa);
+    } else {
+        // Fallback: deduplicar desde ciclos con consumo
+        var poolHaMap = {};
+        [...ordenesCon].forEach(function(ord) {
+            var c = orderToCycle[ord];
+            if (c && c.ps && c.poolName) poolHaMap[c.poolName] = c.ps;
+        });
+        totalHa = Object.values(poolHaMap).reduce(function(s,v) { return s+v; }, 0);
+    }
     const costoXHa  = totalHa > 0 ? totalImp / totalHa : null;
 
     var diasMes = 30;
@@ -1721,8 +1823,18 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
     var grandCosto = 0, grandHa = 0;
     var curCluster = null, clCosto = 0, clHa = 0;
 
+    // Construir mapa subsidiaryId → Ha activa desde _sapPools
+    var poolsHaBySubId = {};
+    _sapPools.forEach(function(p) {
+        if (!p.subsidiaryId) return;
+        poolsHaBySubId[p.subsidiaryId] = (poolsHaBySubId[p.subsidiaryId] || 0) + p.poolSize;
+    });
+
     rows.forEach(function(g) {
-        var ha    = Object.values(g.cicloPs).reduce(function(s,v){return s+v;},0);
+        // Usar Ha de pools activos si disponible, sino fallback a ciclos
+        var sid = g.camp ? (_sapCycles.find(function(c){return _sapCamp(c)===g.camp;}) || {})._subsidiaryId : null;
+        var ha = (sid && poolsHaBySubId[sid]) ? poolsHaBySubId[sid]
+               : Object.values(g.cicloPs).reduce(function(s,v){return s+v;},0);
         var haDia = ha>0 && diasMes>0 ? g.costo/(ha*diasMes) : null;
         g.ha = ha; g.haDia = haDia;
         grandCosto += g.costo; grandHa += ha;
@@ -2447,6 +2559,12 @@ function initSapScreen() {
     sapPopulateClusterSub();
     sapPopulatePiscinaCiclo();
     sapUpdateStatus();
+
+    // Cargar pools desde localStorage (se actualizan solo cuando el usuario carga ciclos)
+    try {
+        var _savedPools = localStorage.getItem(SAP_KEY_POOLS);
+        if (_savedPools) { _sapPools = JSON.parse(_savedPools); _sapRefreshHaBadge(); }
+    } catch(_) {}
 
     // Ciclos: si no hay locales, descargar de KV
     if (!_sapCycles || !_sapCycles.length) {
