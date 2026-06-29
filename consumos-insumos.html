@@ -22,9 +22,8 @@
             --muted: #64748b;
             --border: #e2e8f0;
         }
-        html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
-        #app-scale-wrapper { position: absolute; top: 0; left: 0; transform-origin: top left; display: flex; flex-direction: column; overflow: hidden; }
+        html { height: 100%; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); height: 100%; display: flex; flex-direction: column; overflow: hidden; margin: 0; }
 
         /* Header */
         .header { background: var(--primary); color: white; padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
@@ -206,7 +205,6 @@
     </div>
 </div>
 
-<div id="app-scale-wrapper">
 <header class="header">
     <div class="header-logo">
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
@@ -374,7 +372,6 @@
     </div>
 
 </div><!-- /screen-consumos-sap -->
-</div><!-- /app-scale-wrapper -->
 
 <script>
 Chart.register(ChartDataLabels);
@@ -2512,19 +2509,12 @@ function initSapScreen() {
     // If no token, login-modal is already visible (display:flex in HTML)
 })();
 
-// ── Zoom fit: escala el contenido para que siempre quepa en pantalla ──────────
+// ── Ajuste de escala: el contenido siempre cabe en pantalla ──────────────────
 (function() {
-    var BASE_W = 1440;
-    var wrapper = null;
+    var BASE_W = 1440; // ancho de referencia del diseño
     function applyFit() {
-        if (!wrapper) wrapper = document.getElementById('app-scale-wrapper');
-        if (!wrapper) return;
-        var vw = window.innerWidth;
-        var vh = window.innerHeight;
-        var s  = vw / BASE_W;
-        wrapper.style.width     = BASE_W + 'px';
-        wrapper.style.height    = Math.round(vh / s) + 'px';
-        wrapper.style.transform = 'scale(' + s + ')';
+        var z = Math.min(window.innerWidth / BASE_W, 1); // solo reduce, nunca agranda
+        document.documentElement.style.zoom = String(z);
     }
     window.addEventListener('resize', applyFit);
     applyFit();
