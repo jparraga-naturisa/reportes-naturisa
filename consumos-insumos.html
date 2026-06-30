@@ -305,6 +305,12 @@
             <select id="sap-cic-cycle" style="min-width:240px" onchange="updateSapResults()"></select>
         </div>
         <!-- Filtros exclusivos de la pestaña Tendencia (ocultos en otras pestañas) -->
+        <div id="sap-tend-year-fg" class="fg" style="display:none">
+            <label>Año</label>
+            <select id="sap-tend-year" style="min-width:90px" onchange="updateSapResults()">
+                <option value="">— Todos —</option>
+            </select>
+        </div>
         <div id="sap-tend-cluster-fg" class="fg" style="display:none">
             <label>Cluster</label>
             <select id="sap-tend-cluster" style="min-width:160px" onchange="sapOnTendClusterChange()">
@@ -860,6 +866,14 @@ function sapPopulateYearMonth() {
 
     fillYM('sap-year',     'sap-month',     thisYear, thisMon);
     fillYM('sap-mat-year', 'sap-mat-month', thisYear, thisMon);
+    // Año de Tendencia (solo año, sin mes)
+    var selTY = document.getElementById('sap-tend-year');
+    if (selTY) {
+        var curTY = selTY.value || thisYear;
+        selTY.innerHTML = '<option value="">— Todos —</option>' +
+            years.map(function(y) { return '<option value="' + y + '"' + (y===curTY?' selected':'') + '>' + y + '</option>'; }).join('');
+        if (!selTY.value) selTY.value = curTY;
+    }
     sapPopulateTendCluster();
     sapPopulateTendSub();
     sapPopulateMatCluster();
@@ -1564,10 +1578,10 @@ function _sapSyncFilters() {
 
     if (_sapTab === 'tendencia') {
         sharedIds.concat(allSpecial).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
-        ['sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-budget-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
+        ['sap-tend-year-fg','sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-budget-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
         return;
     }
-    ['sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-budget-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    ['sap-tend-year-fg','sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-budget-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
     if (_sapTab === 'material') {
         sharedIds.concat(cicIds).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         matIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
@@ -1633,6 +1647,7 @@ function updateSapResults() {
     const tendSubVal    = isTendencia ? ((document.getElementById('sap-tend-sub')     || {}).value || '') : '';
     const tendClusterVal= isTendencia ? ((document.getElementById('sap-tend-cluster') || {}).value || '') : '';
     const tendClusterIds= tendClusterVal ? (CLUSTERS[tendClusterVal] || []) : null;
+    const tendYearSel   = isTendencia ? ((document.getElementById('sap-tend-year') || {}).value || '') : '';
     const cicSubVal  = isCiclo ? ((document.getElementById('sap-cic-sub')   || {}).value || '') : '';
     const cicPoolVal = isCiclo ? ((document.getElementById('sap-cic-pool')  || {}).value || '') : '';
     const cicCycleVal= isCiclo ? ((document.getElementById('sap-cic-cycle') || {}).value || '') : '';
@@ -1660,6 +1675,7 @@ function updateSapResults() {
         if (monthSel  && fecha.slice(5,7) !== monthSel) return;
         if (matSubVal  && _sapCamp(orderToCycle[orden]||{}) !== matSubVal) return;
         if (!matSubVal && matClusterIds && !matClusterIds.includes((orderToCycle[orden]||{})._subsidiaryId)) return;
+        if (tendYearSel && fecha.slice(0,4) !== tendYearSel) return;
         if (tendSubVal && _sapCamp(orderToCycle[orden]||{}) !== tendSubVal) return;
         if (!tendSubVal && tendClusterIds && !tendClusterIds.includes((orderToCycle[orden]||{})._subsidiaryId)) return;
         if (cicSubVal  && _sapCamp(orderToCycle[orden]||{}) !== cicSubVal) return;
@@ -1689,6 +1705,7 @@ function updateSapResults() {
         if (monthSel   && fecha.slice(5,7) !== monthSel) return;
         if (matSubVal  && _sapCamp(orderToCycle[row.o||'']||{}) !== matSubVal) return;
         if (!matSubVal && matClusterIds && !matClusterIds.includes((orderToCycle[row.o||'']||{})._subsidiaryId)) return;
+        if (tendYearSel && fecha.slice(0,4) !== tendYearSel) return;
         if (tendSubVal && _sapCamp(orderToCycle[row.o||'']||{}) !== tendSubVal) return;
         if (!tendSubVal && tendClusterIds && !tendClusterIds.includes((orderToCycle[row.o||'']||{})._subsidiaryId)) return;
         if (cicSubVal  && _sapCamp(orderToCycle[row.o||'']||{}) !== cicSubVal) return;
@@ -1833,6 +1850,7 @@ function updateSapResults() {
         if (monthSel  && fecha.slice(5,7) !== monthSel) return;
         if (matSubVal  && _sapCamp(ciclo) !== matSubVal) return;
         if (!matSubVal && matClusterIds && !matClusterIds.includes(ciclo._subsidiaryId)) return;
+        if (tendYearSel && fecha.slice(0,4) !== tendYearSel) return;
         if (tendSubVal && _sapCamp(ciclo) !== tendSubVal) return;
         if (!tendSubVal && tendClusterIds && !tendClusterIds.includes(ciclo._subsidiaryId)) return;
         if (cicSubVal   && _sapCamp(ciclo)         !== cicSubVal)  return;
@@ -2479,13 +2497,20 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
 
 // ── Vista 4: Tendencia (costo mensual por Camp) ───────────────────────────────
 function _sapRenderTendencia(filteredRows, el) {
+    // Ha por subsidiaryId desde _sapPools (igual que Resumen), con fallback a ciclo.ps
+    var poolsHaBySubId = {};
+    _sapPools.forEach(function(p) {
+        if (!p.subsidiaryId) return;
+        poolsHaBySubId[p.subsidiaryId] = (poolsHaBySubId[p.subsidiaryId] || 0) + p.poolSize;
+    });
     // Agrupar costo + Ha únicas por mes y camp → para calcular $/Ha/Día
-    var meses = {}, camps = new Set(), subNames = {};
+    var meses = {}, camps = new Set(), subNames = {}, campSubId = {};
     filteredRows.forEach(function(fr) {
         var camp = _sapCamp(fr.ciclo);
         var mes  = fr.row.f ? fr.row.f.slice(0,7) : '??';
         camps.add(camp);
         subNames[camp] = fr.ciclo._subName || camp;
+        campSubId[camp] = fr.ciclo._subsidiaryId;
         if (!meses[mes]) meses[mes] = {};
         if (!meses[mes][camp]) meses[mes][camp] = { costo: 0, ciclos: {} };
         meses[mes][camp].costo += Math.abs(fr.row.i || 0);
@@ -2498,12 +2523,14 @@ function _sapRenderTendencia(filteredRows, el) {
     var colors    = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316','#84CC16','#EC4899','#14B8A6'];
 
     var datasets = campList.map(function(camp, ci) {
+        var sid = campSubId[camp];
+        var haFromPools = sid && poolsHaBySubId[sid] ? poolsHaBySubId[sid] : 0;
         return {
             label: subNames[camp] || camp,
             data: mesesList.map(function(m) {
                 var d = (meses[m] || {})[camp];
                 if (!d) return null;
-                var ha   = Object.values(d.ciclos).reduce(function(s,v) { return s+v; }, 0);
+                var ha = haFromPools || Object.values(d.ciclos).reduce(function(s,v) { return s+v; }, 0);
                 var pts  = m.split('-');
                 var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
                 return ha > 0 && dias > 0 ? Math.round(d.costo / (ha * dias) * 100) / 100 : null;
