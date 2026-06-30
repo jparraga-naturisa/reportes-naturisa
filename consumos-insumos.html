@@ -358,7 +358,7 @@
                         <span id="sap-excel-btn-text">Subir Excel</span>
                         <input type="file" id="sap-file-input" accept=".xlsx,.xls" style="display:none" onchange="sapSubirNuevoExcel(this)">
                     </label>
-                    <button onclick="sapCargarPools();sapCargarCiclos();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                    <button onclick="sapCargarPools();sapCargarCiclos(true);sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         Cargar ciclos nuevos
                     </button>
@@ -1234,18 +1234,20 @@ async function sapCargarPools() {
     }
 }
 
-async function sapCargarCiclos() {
+async function sapCargarCiclos(force) {
     const token = getToken();
     if (!token) { alert('Inicia sesion primero'); return; }
 
     const allSubIds = sapAllSubs().map(s => s.id);
     const allFetched = allSubIds.every(function(id) { return _sapSubsFetched.has(id); });
-    if (allFetched) {
+    if (!force && allFetched) {
         // Ciclos ya en memoria/localStorage — actualizar vista sin rellamar la API
         _sapRefreshHaBadge();
         updateSapResults();
         return;
     }
+    // Con force: resetear fetched para que detect nuevos ciclos
+    if (force) _sapSubsFetched.clear();
 
     const progressEl = document.getElementById('sap-progress');
     progressEl.style.display = '';
@@ -1301,7 +1303,7 @@ async function sapCargarCiclos() {
     await Promise.all(allSubIds.map(async function(sid) {
         for (var wi = 0; wi < mapWeeks.length; wi++) {
             try {
-                const res = await fetch(API_POOL_PROD + '?subsidiaryIds=' + sid + '&cutOffYear=2026&cutOffWeek=' + mapWeeks[wi], { headers: authHdrs });
+                const res = await fetch(API_POOL_PROD + '?subsidiaryIds=' + sid + '&cutOffYear=' + new Date().getFullYear() + '&cutOffWeek=' + mapWeeks[wi], { headers: authHdrs });
                 if (!res.ok) continue;
                 const raw   = await res.json();
                 const items = Array.isArray(raw.data)
@@ -1352,9 +1354,10 @@ async function sapCargarCiclos() {
         items.forEach(function(c) {
             const id = String(c.idCycle || '');
             if (!id || existingIds.has(id)) return;
-            // Filtrar solo 2026 por startDate
+            // Filtrar solo año actual por startDate
+            const _curYr = new Date().getFullYear();
             const yr = c.startDate ? parseInt(c.startDate.substring(0, 4)) : 0;
-            if (yr !== 2026) return;
+            if (yr !== _curYr) return;
             const cod = String(c.controlOrderDocument || '').trim();
             if (!cod) return;
             const cc    = String(c.cycleCode || '');
