@@ -2633,6 +2633,83 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
     });
 }
 
+// ── Cambio de métrica sin re-render ───────────────────────────────────────────
+function _sapTendChangeMetric(id) {
+    _sapTendMetric = id;
+    var bv = (window._tendState || {}).budgetVal || 2.67;
+
+    // Botones activo/inactivo
+    document.querySelectorAll('[data-tend-btn]').forEach(function(btn) {
+        var isActive = btn.getAttribute('data-tend-btn') === id;
+        btn.style.background = isActive ? '#1e3a5f' : '#e2e8f0';
+        btn.style.color      = isActive ? '#fff'    : '#475569';
+    });
+
+    // Indicador de presupuesto
+    var budgetLbl = document.getElementById('tend-budget-lbl');
+    if (budgetLbl) budgetLbl.style.display = id === 'hadía' ? '' : 'none';
+
+    // Recalcular y actualizar celdas de valor
+    document.querySelectorAll('[data-tend-val]').forEach(function(td) {
+        var costo = parseFloat(td.getAttribute('data-costo') || '0');
+        var ha    = parseFloat(td.getAttribute('data-ha')    || '0');
+        var dias  = parseFloat(td.getAttribute('data-dias')  || '0');
+        var kind  = td.getAttribute('data-kind');
+
+        var v;
+        if (id === 'total')  v = costo;
+        else if (id === 'ha') v = ha > 0 ? costo / ha : null;
+        else                  v = (ha > 0 && dias > 0) ? costo / (ha * dias) : null;
+
+        if (v === null || !costo) { td.textContent = '—'; td.style.color = '#cbd5e1'; td.style.fontWeight = ''; return; }
+
+        var fmt;
+        if (kind === 'mat') {
+            fmt = id === 'total' ? '$' + v.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2})
+                : id === 'ha'   ? '$' + v.toFixed(2)
+                :                 '$' + v.toFixed(4);
+        } else {
+            fmt = id === 'total' ? '$' + v.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2})
+                : '$' + v.toFixed(2);
+        }
+        td.textContent = fmt;
+
+        if (kind === 'sub') {
+            var over = id === 'hadía' && v > bv;
+            td.style.color      = over ? '#dc2626' : '#065f46';
+            td.style.fontWeight = over ? '700' : '';
+        } else if (kind === 'prom') {
+            td.style.color = (id === 'hadía' && v > bv) ? '#fca5a5' : '#bbf7d0';
+        } else if (kind === 'total' || kind === 'mat') {
+            td.style.color = kind === 'total' ? '#bbf7d0' : '#065f46';
+        }
+    });
+
+    // Actualizar gráfico in-place
+    if (_sapTendMatChartInst && window._tendState) {
+        var st = window._tendState;
+        _sapTendMatChartInst.data.datasets.forEach(function(ds, ci) {
+            var mc = st.matList[ci];
+            ds.data = st.mesesList.map(function(m) {
+                var costo = (st.matMeses[mc] || {})[m] || 0;
+                if (!costo) return null;
+                var ha   = st.mesHaTotal[m] || 0;
+                var pts  = m.split('-');
+                var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+                var v;
+                if (id === 'total')  v = costo;
+                else if (id === 'ha') v = ha > 0 ? costo / ha : null;
+                else                  v = (ha > 0 && dias > 0) ? costo / (ha * dias) : null;
+                return v !== null ? parseFloat(v.toFixed(4)) : null;
+            });
+        });
+        _sapTendMatChartInst.options.scales.y.ticks.callback = function(v) {
+            return '$' + (id === 'hadía' ? v.toFixed(4) : v.toFixed(2));
+        };
+        _sapTendMatChartInst.update('none');
+    }
+}
+
 // ── Vista 4: Tendencia (por Sucursal y por Material) ─────────────────────────
 function _sapRenderTendencia(filteredRows, el) {
     var poolsHaBySubId = {};
@@ -2699,7 +2776,7 @@ function _sapRenderTendencia(filteredRows, el) {
     var _metricLabels = { total: '$ Total', ha: '$/Ha', 'hadía': '$/Ha/D&iacute;a' };
     function _metricBtn(id, lbl) {
         var active = _sapTendMetric === id;
-        return '<button onclick="_sapTendMetric=\'' + id + '\';updateSapResults()" style="padding:4px 12px;font-size:11px;font-weight:600;border:none;cursor:pointer;transition:background .12s;' +
+        return '<button data-tend-btn="' + id + '" onclick="_sapTendChangeMetric(\'' + id + '\')" style="padding:4px 12px;font-size:11px;font-weight:600;border:none;cursor:pointer;transition:background .12s;' +
             (active ? 'background:#1e3a5f;color:#fff;' : 'background:#e2e8f0;color:#475569;') + '">' + lbl + '</button>';
     }
 
@@ -2733,7 +2810,8 @@ function _sapRenderTendencia(filteredRows, el) {
             var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
             var val  = _calcVal(d.costo, ha, dias);
             var over = _sapTendMetric === 'hadía' && val !== null && val > _budgetVal;
-            tbodySub += '<td style="' + _tdBase + ';text-align:right;' + (over ? 'color:#dc2626;font-weight:700' : 'color:#065f46') + '">' +
+            tbodySub += '<td data-tend-val data-costo="' + d.costo + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="sub" ' +
+                'style="' + _tdBase + ';text-align:right;' + (over ? 'color:#dc2626;font-weight:700' : 'color:#065f46') + '">' +
                 _fmtSub(val) + '</td>';
         });
         tbodySub += '</tr>';
@@ -2760,7 +2838,8 @@ function _sapRenderTendencia(filteredRows, el) {
         mesHaTotal[m] = totalHa;
         var promVal = _calcVal(totalCosto, totalHa, dias);
         var over = _sapTendMetric === 'hadía' && promVal !== null && promVal > _budgetVal;
-        tbodyProm += '<td style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;' + (over ? 'color:#fca5a5' : 'color:#bbf7d0') + '">' +
+        tbodyProm += '<td data-tend-val data-costo="' + totalCosto + '" data-ha="' + totalHa + '" data-dias="' + dias + '" data-kind="prom" ' +
+            'style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;' + (over ? 'color:#fca5a5' : 'color:#bbf7d0') + '">' +
             _fmtSub(promVal) + '</td>';
     });
     tbodyProm += '</tr></tbody>';
@@ -2810,7 +2889,8 @@ function _sapRenderTendencia(filteredRows, el) {
             var pts  = m.split('-');
             var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
             var val = _calcVal(costo, ha, dias);
-            tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#065f46">' + _fmtMat(val) + '</td>';
+            tbodyMat += '<td data-tend-val data-costo="' + costo + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="mat" ' +
+                'style="' + _tdBase + ';text-align:right;color:#065f46">' + _fmtMat(val) + '</td>';
         });
         tbodyMat += '</tr>';
     });
@@ -2825,7 +2905,8 @@ function _sapRenderTendencia(filteredRows, el) {
         var pts  = m.split('-');
         var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
         var totVal = _calcVal(mesCosto, ha, dias);
-        tfoot += '<td style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;color:#bbf7d0">' + _fmtSub(totVal) + '</td>';
+        tfoot += '<td data-tend-val data-costo="' + mesCosto + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="total" ' +
+            'style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;color:#bbf7d0">' + _fmtSub(totVal) + '</td>';
     });
     tfoot += '</tr></tfoot>';
 
@@ -2847,7 +2928,7 @@ function _sapRenderTendencia(filteredRows, el) {
                     _metricBtn('ha', '$/Ha') +
                     _metricBtn('hadía', '$/Ha/D&iacute;a') +
                 '</div>' +
-                (_sapTendMetric === 'hadía' ? '<span style="font-size:11px;color:var(--muted)">Presupuesto: <b>$' + _budgetVal.toFixed(2) + '</b> &nbsp;<span style="color:#dc2626;font-weight:700">■</span> sobre presupuesto</span>' : '') +
+                '<span id="tend-budget-lbl" style="font-size:11px;color:var(--muted);' + (_sapTendMetric !== 'hadía' ? 'display:none' : '') + '">Presupuesto: <b>$' + _budgetVal.toFixed(2) + '</b> &nbsp;<span style="color:#dc2626;font-weight:700">■</span> sobre presupuesto</span>' +
             '</div>' +
             '<div style="flex:1;overflow:auto">' +
                 '<table style="border-collapse:separate;border-spacing:0;width:100%;font-size:12px">' +
@@ -2864,6 +2945,13 @@ function _sapRenderTendencia(filteredRows, el) {
                 '</div>' +
             '</div>' +
         '</div>';
+
+    // ── Guardar estado para actualizaciones in-place ──────────────────────────
+    window._tendState = {
+        matList: matList, matMeses: matMeses, mesHaTotal: mesHaTotal,
+        mesesList: mesesList, matDescMap: matDescMap, budgetVal: _budgetVal,
+        SAP_PAL: _SAP_PAL
+    };
 
     // ── Fijar posiciones sticky dinámicamente tras el render ──────────────────
     (function() {
