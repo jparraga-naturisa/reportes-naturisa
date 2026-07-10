@@ -426,6 +426,15 @@ function _kvPull(key) {
         .then(function(r) { return r.ok ? r.json() : null; })
         .catch(function(e) { console.warn('KV pull error:', e); return null; });
 }
+// La key 'pools' no está permitida en el KV worker — embebemos pools dentro de 'ciclos'
+function _kvPushCiclos() {
+    return _kvPush('ciclos', { cycles: _sapCycles, pools: _sapPools });
+}
+function _kvExtractCiclos(data) {
+    if (Array.isArray(data)) return { cycles: data, pools: null };
+    if (data && Array.isArray(data.cycles)) return { cycles: data.cycles, pools: data.pools || null };
+    return { cycles: null, pools: null };
+}
 const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
 const API_WAREHOUSES = _PROXY + '/bff/web/ap1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
 const API_POOL_PROD   = _PROXY + '/bff/web/ap1/backoffice/api/report_production/pool_production';
@@ -1174,7 +1183,7 @@ function sapImportarCiclos(input) {
             if (!Array.isArray(ciclos) || !ciclos.length) { alert('Archivo inválido o sin ciclos.'); return; }
             _sapCycles = ciclos;
             sapSave();
-            _kvPush('ciclos', ciclos);
+            _kvPushCiclos();
             sapPopulateClusterSub();
             sapPopulatePiscinaCiclo();
             updateSapResults();
@@ -1268,7 +1277,6 @@ async function sapCargarPools() {
                 };
             }).filter(function(p) { return p.poolSize > 0; });
         try { localStorage.setItem(SAP_KEY_POOLS, JSON.stringify(_sapPools)); } catch(_) {}
-        _kvPush('pools', _sapPools);
         const ha = _sapPools.reduce(function(s, p) { return s + p.poolSize; }, 0);
         console.log('[SAP] pools: total=' + rawAll.length + ' únicas=' + _sapPools.length +
                     ' Ha=' + ha.toFixed(1));
@@ -1446,7 +1454,7 @@ async function sapCargarCiclos(force) {
 
     allSubIds.forEach(function(id) { _sapSubsFetched.add(id); });
     sapSave();
-    _kvPush('ciclos', _sapCycles);
+    _kvPushCiclos();
     progressEl.style.display = 'none'; progressEl.innerHTML = '';
     _sapRepoblateSubSelect(); sapPopulatePiscinaCiclo(); sapUpdateStatus(); updateSapResults();
 }
@@ -1463,20 +1471,21 @@ async function sapSincronizarParaTodos() {
     var steps = [];
 
     // 1. Pools (Ha) — forzar recarga desde API para garantizar datos frescos
+    var _poolsHa = 0;
     try {
         _sapPools = [];
         localStorage.removeItem(SAP_KEY_POOLS);
         await sapCargarPools();
+        _poolsHa = _sapPools.reduce(function(s,p){return s+p.poolSize;},0);
         if (_sapPools.length) {
-            await _kvPush('pools', _sapPools);
-            steps.push('✅ Ha piscinas (' + _sapPools.reduce(function(s,p){return s+p.poolSize;},0).toFixed(1) + ' Ha)');
+            steps.push('✅ Ha piscinas (' + _poolsHa.toFixed(1) + ' Ha)');
         }
     } catch(e) { steps.push('❌ Error Ha: ' + e.message); }
 
-    // 2. Ciclos
+    // 2. Ciclos + pools embebidos en la key 'ciclos' (la key 'pools' no está permitida en el KV)
     if (_sapCycles.length) {
-        await _kvPush('ciclos', _sapCycles);
-        steps.push('✅ Ciclos (' + _sapCycles.length + ')');
+        await _kvPushCiclos();
+        steps.push('✅ Ciclos (' + _sapCycles.length + ')' + (_poolsHa > 0 ? ' + Ha incluidas' : ''));
     }
 
     // 3. Excel
@@ -2952,34 +2961,23 @@ function initSapScreen() {
     sapPopulatePiscinaCiclo();
     sapUpdateStatus();
 
-    // Cargar pools: localStorage primero (rápido), luego sincronizar con KV
+    // Cargar pools: localStorage primero (rápido)
     try {
         var _savedPools = localStorage.getItem(SAP_KEY_POOLS);
         if (_savedPools) { _sapPools = JSON.parse(_savedPools); _sapRefreshHaBadge(); }
     } catch(_) {}
-    var _localPoolHa = _sapPools.reduce(function(s,p){return s+p.poolSize;},0);
-    _kvPull('pools').then(function(kvPools) {
-        var kvHa = kvPools && kvPools.length ? kvPools.reduce(function(s,p){return s+p.poolSize;},0) : 0;
-        if (kvHa > _localPoolHa + 0.01) {
-            // KV tiene más Ha (otro usuario cargó datos más completos) → actualizar local
-            _sapPools = kvPools;
-            try { localStorage.setItem(SAP_KEY_POOLS, JSON.stringify(_sapPools)); } catch(_) {}
-            _sapRefreshHaBadge();
-            updateSapResults();
-        } else if (_localPoolHa > kvHa + 0.01) {
-            // Local tiene más Ha → subir al KV para que otros usuarios lo reciban
-            _kvPush('pools', _sapPools);
-        }
-    });
 
-    // Ciclos: descargar de KV si no hay locales o llevan más de 2h sin actualizarse
+    // Ciclos y pools desde KV — siempre consultar para que todos vean las mismas Ha.
+    // Los pools van embebidos en la key 'ciclos' (la key 'pools' no está permitida en el KV worker).
     var _cyclesTs    = parseInt(localStorage.getItem(SAP_KEY_CYCLES_TS) || '0');
     var _cyclesStale = !_sapCycles.length || (Date.now() - _cyclesTs) > 2 * 60 * 60 * 1000;
-    if (_cyclesStale) {
-        _kvPull('ciclos').then(function(kvCiclos) {
-            if (!kvCiclos || !kvCiclos.length) return;
-            _sapCycles = kvCiclos;
-            // Aplicar migraciones de nombre/id igual que sapLoad
+    _kvPull('ciclos').then(function(kvData) {
+        var ext = _kvExtractCiclos(kvData);
+        var needsRender = false;
+
+        // Actualizar ciclos solo si llevan más de 2h o no hay locales
+        if (_cyclesStale && ext.cycles && ext.cycles.length) {
+            _sapCycles = ext.cycles;
             var _subByIdNow = Object.fromEntries(CAMPAMENTOS_DEFAULT.map(function(s) { return [s.id, s.name]; }));
             _sapCycles.forEach(function(c) {
                 if (SUBSIDIARY_ID_MAP[c._subsidiaryId]) c._subsidiaryId = SUBSIDIARY_ID_MAP[c._subsidiaryId];
@@ -2989,9 +2987,23 @@ function initSapScreen() {
             sapSave();
             sapPopulateClusterSub();
             sapPopulatePiscinaCiclo();
-            updateSapResults();
-        });
-    }
+            needsRender = true;
+        }
+
+        // Siempre actualizar pools si el KV tiene más Ha (admin sincronizó con datos más completos)
+        if (ext.pools && ext.pools.length) {
+            var kvHa    = ext.pools.reduce(function(s,p){return s+p.poolSize;},0);
+            var localHa = _sapPools.reduce(function(s,p){return s+p.poolSize;},0);
+            if (kvHa > localHa + 0.01) {
+                _sapPools = ext.pools;
+                try { localStorage.setItem(SAP_KEY_POOLS, JSON.stringify(_sapPools)); } catch(_) {}
+                _sapRefreshHaBadge();
+                needsRender = true;
+            }
+        }
+
+        if (needsRender) updateSapResults();
+    });
 
     _sapIdbGet('rows').then(function(savedRows) {
         var localRows = (savedRows && savedRows.length) ? savedRows : [];
