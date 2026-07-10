@@ -2738,8 +2738,10 @@ function _sapRenderTendencia(filteredRows, el) {
         tbodySub += '</tr>';
     });
 
-    // Fila Promedio (al final del tbody de sucursal)
-    tbodySub += '<tr class="row-navy" style="background:#1e3a5f;color:#fff">' +
+    tbodySub += '</tbody>';
+
+    // ── Promedio — tbody separado; sticky top se aplica por JS ────────────────
+    var tbodyProm = '<tbody class="tend-prom"><tr class="row-navy" style="background:#1e3a5f;color:#fff">' +
         '<td style="padding:7px 12px;font-weight:800;position:sticky;left:0;background:#1e3a5f;z-index:2">Promedio</td>';
     mesesList.forEach(function(m) {
         var pts  = m.split('-');
@@ -2757,41 +2759,43 @@ function _sapRenderTendencia(filteredRows, el) {
         mesHaTotal[m] = totalHa;
         var promVal = _calcVal(totalCosto, totalHa, dias);
         var over = _sapTendMetric === 'hadía' && promVal !== null && promVal > _budgetVal;
-        tbodySub += '<td style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;' + (over ? 'color:#fca5a5' : 'color:#bbf7d0') + '">' +
+        tbodyProm += '<td style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;' + (over ? 'color:#fca5a5' : 'color:#bbf7d0') + '">' +
             _fmtSub(promVal) + '</td>';
     });
-    tbodySub += '</tr></tbody>';
+    tbodyProm += '</tr></tbody>';
 
-    // ── Material: separador + encabezado (como fila sticky dentro de tbody) ────
+    // ── Separador + título Material (se desplaza, no sticky) ─────────────────
     var matList = Object.keys(matMeses).sort(function(a, b) {
         var totA = Object.values(matMeses[a]).reduce(function(s,v){return s+v;},0);
         var totB = Object.values(matMeses[b]).reduce(function(s,v){return s+v;},0);
         return totB - totA;
     });
     var matCount = matList.length;
-
     var colSpan = mesesList.length + 1;
+
+    var tbodySep = '<tbody>' +
+        '<tr><td colspan="' + colSpan + '" style="height:14px;padding:0;background:var(--bg)"></td></tr>' +
+        '<tr style="background:#e0f2fe"><td colspan="' + colSpan + '" style="padding:8px 12px;font-size:13px;font-weight:700;color:#0369a1">' +
+            'Tendencia por Material' +
+            '<span style="font-size:11px;font-weight:400;color:#64748b;margin-left:10px">' + matCount + ' materiales</span>' +
+        '</td></tr>' +
+        '</tbody>';
+
+    // ── Encabezado Material — tbody separado; sticky top se aplica por JS ─────
     var _mesTdCells = mesesList.map(function(m) {
         var p = m.split('-');
-        return '<td style="' + _tdHdr + '">' +
+        return '<td style="padding:7px 12px;font-weight:700;white-space:nowrap;background:#1e3a5f;color:#fff;text-align:right">' +
             (SAP_MESES[parseInt(p[1],10)-1] || p[1]) +
             '<br><span style="font-size:10px;font-weight:400;opacity:.8">' + p[0] + '</span></td>';
     }).join('');
 
-    var tbodyMat = '<tbody>' +
-        // Fila separadora
-        '<tr><td colspan="' + colSpan + '" style="height:14px;padding:0;background:var(--bg)"></td></tr>' +
-        // Fila título de sección
-        '<tr style="background:#e0f2fe"><td colspan="' + colSpan + '" style="padding:8px 12px;font-size:13px;font-weight:700;color:#0369a1">' +
-            'Tendencia $/Ha/D&iacute;a por Material' +
-            '<span style="font-size:11px;font-weight:400;color:#64748b;margin-left:10px">' +
-            matCount + ' materiales' +
-            '</span></td></tr>' +
-        // Fila encabezado de material (sticky al hacer scroll)
-        '<tr class="row-navy" style="background:#1e3a5f;color:#fff">' +
-        '<td style="' + _tdHdr + ';text-align:left;left:0;z-index:4">Material</td>' +
-        _mesTdCells + '</tr>';
+    var tbodyMatHdr = '<tbody class="tend-mat-hdr"><tr class="row-navy" style="background:#1e3a5f;color:#fff">' +
+        '<td style="padding:7px 12px;font-weight:700;white-space:nowrap;background:#1e3a5f;color:#fff;text-align:left;position:sticky;left:0;z-index:2">Material</td>' +
+        _mesTdCells +
+        '</tr></tbody>';
 
+    // ── Filas de materiales ───────────────────────────────────────────────────
+    var tbodyMat = '<tbody>';
     matList.forEach(function(mc, ri) {
         var rowBg = ri % 2 === 0 ? '#ffffff' : '#f8fafc';
         tbodyMat += '<tr style="background:' + rowBg + '">';
@@ -2811,7 +2815,7 @@ function _sapRenderTendencia(filteredRows, el) {
     });
     tbodyMat += '</tbody>';
 
-    // Fila Total material (tfoot — siempre al fondo de la tabla)
+    // ── Total — tfoot; sticky bottom se aplica por JS ─────────────────────────
     var tfoot = '<tfoot><tr style="background:#1e3a5f;color:#fff">' +
         '<td style="padding:7px 12px;font-weight:800;position:sticky;left:0;background:#1e3a5f;z-index:2">Total</td>';
     mesesList.forEach(function(m) {
@@ -2820,7 +2824,7 @@ function _sapRenderTendencia(filteredRows, el) {
         var pts  = m.split('-');
         var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
         var totVal = _calcVal(mesCosto, ha, dias);
-        tfoot += '<td style="padding:7px 12px;text-align:right;font-weight:800;color:#bbf7d0">' + _fmtSub(totVal) + '</td>';
+        tfoot += '<td style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;color:#bbf7d0">' + _fmtSub(totVal) + '</td>';
     });
     tfoot += '</tr></tfoot>';
 
@@ -2837,10 +2841,50 @@ function _sapRenderTendencia(filteredRows, el) {
             '</div>' +
             '<div style="flex:1;overflow:auto">' +
                 '<table style="border-collapse:separate;border-spacing:0;width:100%;font-size:12px">' +
-                    thead + tbodySub + tbodyMat + tfoot +
+                    thead + tbodySub + tbodyProm + tbodySep + tbodyMatHdr + tbodyMat + tfoot +
                 '</table>' +
             '</div>' +
         '</div>';
+
+    // ── Fijar posiciones sticky dinámicamente tras el render ──────────────────
+    (function() {
+        var theadRow   = el.querySelector('thead tr');
+        var promBody   = el.querySelector('tbody.tend-prom');
+        var matHdrBody = el.querySelector('tbody.tend-mat-hdr');
+        var tfootCells = el.querySelectorAll('tfoot tr td');
+
+        var theadH = theadRow ? theadRow.offsetHeight : 0;
+        var promH  = 0;
+
+        // Promedio: sticky justo debajo del encabezado de sucursal
+        if (promBody) {
+            promH = promBody.offsetHeight;
+            Array.from(promBody.querySelectorAll('td')).forEach(function(td, i) {
+                td.style.position = 'sticky';
+                td.style.top = theadH + 'px';
+                td.style.zIndex = i === 0 ? '4' : '2';
+            });
+        }
+
+        // Encabezado Material: sticky debajo del Promedio
+        if (matHdrBody) {
+            Array.from(matHdrBody.querySelectorAll('td')).forEach(function(td, i) {
+                td.style.position = 'sticky';
+                td.style.top = (theadH + promH) + 'px';
+                td.style.background = '#1e3a5f';
+                td.style.zIndex = i === 0 ? '4' : '3';
+                if (i === 0) td.style.left = '0';
+            });
+        }
+
+        // Total: sticky al fondo del área de scroll
+        Array.from(tfootCells).forEach(function(td, i) {
+            td.style.position = 'sticky';
+            td.style.bottom = '0';
+            td.style.background = '#1e3a5f';
+            td.style.zIndex = i === 0 ? '4' : '2';
+        });
+    })();
 }
 
 function sapOpenMaterialesModal() {
