@@ -2733,7 +2733,7 @@ function _sapRenderTendencia(filteredRows, el) {
         mesHaTotal[m] = totalHa;
         var promHaDia = totalHa > 0 && dias > 0 ? totalCosto / (totalHa * dias) : null;
         var over = promHaDia !== null && promHaDia > _budgetVal;
-        tbodySub += '<td style="padding:7px 12px;text-align:right;font-weight:800;' + (over ? 'color:#fca5a5' : 'color:#bbf7d0') + '">' +
+        tbodySub += '<td style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;' + (over ? 'color:#fca5a5' : 'color:#bbf7d0') + '">' +
             (promHaDia !== null ? '$' + promHaDia.toFixed(2) : '—') + '</td>';
     });
     tbodySub += '</tr></tbody>';
