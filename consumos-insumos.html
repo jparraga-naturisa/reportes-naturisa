@@ -85,6 +85,20 @@
         .kpi-value { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1.1; }
         .kpi-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
 
+        /* Multi-select */
+        .ms-wrap { position:relative; display:inline-block; }
+        .ms-btn { display:flex; align-items:center; gap:5px; padding:4px 10px; background:#fff; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; font-size:12px; color:#334155; white-space:nowrap; max-width:200px; }
+        .ms-btn:hover { border-color:#94a3b8; }
+        .ms-btn .ms-lbl { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; text-align:left; }
+        .ms-drop { position:absolute; top:calc(100% + 3px); left:0; min-width:200px; background:#fff; border:1px solid #cbd5e1; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.13); z-index:9999; }
+        .ms-search-row { padding:7px 8px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:4px; }
+        .ms-search-row input { flex:1; border:1px solid #e2e8f0; border-radius:4px; padding:3px 7px; font-size:12px; outline:none; }
+        .ms-opts-list { max-height:210px; overflow-y:auto; padding:3px 0; }
+        .ms-opt { display:flex; align-items:center; gap:8px; padding:5px 12px; cursor:pointer; font-size:12px; color:#334155; }
+        .ms-opt:hover { background:#f8fafc; }
+        .ms-opt input[type=checkbox] { cursor:pointer; accent-color:#1e3a5f; flex-shrink:0; }
+        .ms-clear { font-size:11px; color:#64748b; cursor:pointer; white-space:nowrap; padding:0 2px; }
+        .ms-clear:hover { color:#dc2626; }
         /* Charts */
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 14px; align-items: start; }
         .charts-grid-2 { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; align-items: start; }
@@ -327,27 +341,19 @@
         <!-- Filtros exclusivos de la pestaña Por Material (ocultos en otras pestañas) -->
         <div id="sap-mat-year-fg" class="fg" style="display:none">
             <label>Año</label>
-            <select id="sap-mat-year" style="min-width:90px" onchange="updateSapResults()">
-                <option value="">— Todos —</option>
-            </select>
+            <div id="sap-mat-year" class="ms-wrap"></div>
         </div>
         <div id="sap-mat-month-fg" class="fg" style="display:none">
             <label>Mes</label>
-            <select id="sap-mat-month" style="min-width:130px" onchange="updateSapResults()">
-                <option value="">— Todos —</option>
-            </select>
+            <div id="sap-mat-month" class="ms-wrap"></div>
         </div>
         <div id="sap-mat-cluster-fg" class="fg" style="display:none">
             <label>Cluster</label>
-            <select id="sap-mat-cluster" style="min-width:160px" onchange="sapOnMatClusterChange()">
-                <option value="">— Todos —</option>
-            </select>
+            <div id="sap-mat-cluster" class="ms-wrap"></div>
         </div>
         <div id="sap-mat-sub-fg" class="fg" style="display:none">
             <label>Sucursal</label>
-            <select id="sap-mat-sub" style="min-width:180px" onchange="updateSapResults()">
-                <option value="">— Todas —</option>
-            </select>
+            <div id="sap-mat-sub" class="ms-wrap"></div>
         </div>
         <!-- Ha activas badge -->
         <span id="sap-ha-badge" style="display:none;margin-left:auto;font-size:12px;font-weight:700;color:#1e40af;padding:4px 10px;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;white-space:nowrap"></span>
@@ -899,8 +905,12 @@ function sapPopulateYearMonth() {
         if (!selM.value) selM.value = curM;
     }
 
-    fillYM('sap-year',     'sap-month',     thisYear, thisMon);
-    fillYM('sap-mat-year', 'sap-mat-month', thisYear, thisMon);
+    fillYM('sap-year', 'sap-month', thisYear, thisMon);
+    // Año y Mes de Material — multi-select
+    _msInit('sap-mat-year',  '— Todos —', updateSapResults);
+    _msInit('sap-mat-month', '— Todos —', updateSapResults);
+    _msPop('sap-mat-year',  years.map(function(y){ return {v:y, l:y}; }));
+    _msPop('sap-mat-month', SAP_MESES.map(function(mn,i){ var v=String(i+1).padStart(2,'0'); return {v:v,l:mn}; }));
     // Año de Tendencia (solo año, sin mes)
     var selTY = document.getElementById('sap-tend-year');
     if (selTY) {
@@ -997,11 +1007,116 @@ function sapPopulateTendSub() {
         opts.map(function(o) { return '<option value="' + o.camp + '"' + (o.camp===cur?' selected':'') + '>' + o.name + '</option>'; }).join('');
 }
 
+// ── Motor de multi-select ──────────────────────────────────────────────────
+(function() {
+    var _ms = {};
+
+    function _lbl(id) {
+        var st = _ms[id];
+        if (!st) return '';
+        var arr = Array.from(st.sel);
+        if (!arr.length) return st.ph;
+        if (arr.length === 1) { var o = st.opts.find(function(x){return x.v===arr[0];}); return o ? o.l : arr[0]; }
+        return arr.length + ' seleccionados';
+    }
+
+    function _renderOpts(id, q) {
+        var st = _ms[id];
+        if (!st) return '';
+        var list = q ? st.opts.filter(function(o){ return o.l.toLowerCase().includes(q.toLowerCase()); }) : st.opts;
+        return list.map(function(o) {
+            return '<label class="ms-opt"><input type="checkbox" value="' + o.v.replace(/"/g,'&quot;') + '"' +
+                (st.sel.has(o.v) ? ' checked' : '') + ' onchange="_msChk(\'' + id + '\',this.value,this.checked)"> ' +
+                o.l.replace(/</g,'&lt;') + '</label>';
+        }).join('');
+    }
+
+    function _redraw(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var st = _ms[id];
+        var open = el.querySelector('.ms-drop') && el.querySelector('.ms-drop').style.display !== 'none';
+        var q = open && el.querySelector('.ms-search-row input') ? el.querySelector('.ms-search-row input').value : '';
+        el.innerHTML =
+            '<button class="ms-btn" onclick="_msToggle(\'' + id + '\')" type="button">' +
+                '<span class="ms-lbl">' + _lbl(id) + '</span>' +
+                '<span style="font-size:9px;opacity:.7">&#9660;</span>' +
+            '</button>' +
+            '<div class="ms-drop" style="display:' + (open ? 'block' : 'none') + '">' +
+                '<div class="ms-search-row">' +
+                    '<input type="text" placeholder="Buscar..." value="' + q.replace(/"/g,'') + '" oninput="_msFilter(\'' + id + '\',this.value)">' +
+                    '<span class="ms-clear" onclick="_msClear(\'' + id + '\')" title="Limpiar">✕</span>' +
+                '</div>' +
+                '<div class="ms-opts-list">' + _renderOpts(id, q) + '</div>' +
+            '</div>';
+    }
+
+    window._msInit = function(id, ph, onChange) {
+        if (!_ms[id]) _ms[id] = { opts: [], sel: new Set(), ph: ph, cb: onChange };
+        else { _ms[id].ph = ph; _ms[id].cb = onChange; }
+        _redraw(id);
+    };
+
+    window._msPop = function(id, opts) {
+        if (!_ms[id]) return;
+        var valid = new Set(opts.map(function(o){return o.v;}));
+        _ms[id].sel.forEach(function(v){ if (!valid.has(v)) _ms[id].sel.delete(v); });
+        _ms[id].opts = opts;
+        _redraw(id);
+    };
+
+    window._msGet = function(id) {
+        return _ms[id] ? Array.from(_ms[id].sel) : [];
+    };
+
+    window._msClear = function(id) {
+        if (!_ms[id]) return;
+        _ms[id].sel.clear();
+        _redraw(id);
+        if (_ms[id].cb) _ms[id].cb();
+    };
+
+    window._msToggle = function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var drop = el.querySelector('.ms-drop');
+        if (!drop) return;
+        var wasOpen = drop.style.display !== 'none';
+        document.querySelectorAll('.ms-drop').forEach(function(d){ d.style.display = 'none'; });
+        if (!wasOpen) {
+            drop.style.display = 'block';
+            var inp = drop.querySelector('input[type=text]');
+            if (inp) { inp.value = ''; inp.focus(); }
+        }
+    };
+
+    window._msFilter = function(id, q) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var list = el.querySelector('.ms-opts-list');
+        if (list) list.innerHTML = _renderOpts(id, q);
+    };
+
+    window._msChk = function(id, val, checked) {
+        if (!_ms[id]) return;
+        if (checked) _ms[id].sel.add(val);
+        else _ms[id].sel.delete(val);
+        var el = document.getElementById(id);
+        if (el) { var lbl = el.querySelector('.ms-lbl'); if (lbl) lbl.textContent = _lbl(id); }
+        if (_ms[id].cb) _ms[id].cb();
+    };
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.ms-wrap')) {
+            document.querySelectorAll('.ms-drop').forEach(function(d){ d.style.display = 'none'; });
+        }
+    });
+})();
+
 function sapPopulateMatCluster() {
-    var sel = document.getElementById('sap-mat-cluster');
-    if (!sel || sel.options.length > 1) return;
-    sel.innerHTML = '<option value="">— Todos —</option>' +
-        Object.keys(CLUSTERS).map(function(k) { return '<option value="' + k + '">' + k + '</option>'; }).join('');
+    _msInit('sap-mat-cluster', '— Todos —', function(){ sapPopulateMatSub(); updateSapResults(); });
+    var opts = Object.keys(CLUSTERS).map(function(k){ return {v:k, l:k}; });
+    _msPop('sap-mat-cluster', opts);
 }
 
 function sapOnMatClusterChange() {
@@ -1010,21 +1125,19 @@ function sapOnMatClusterChange() {
 }
 
 function sapPopulateMatSub() {
-    var sel = document.getElementById('sap-mat-sub');
-    if (!sel) return;
-    var clusterVal = (document.getElementById('sap-mat-cluster') || {}).value || '';
-    var clusterIds = clusterVal ? (CLUSTERS[clusterVal] || []) : null;
+    _msInit('sap-mat-sub', '— Todas —', updateSapResults);
+    var selClusters = _msGet('sap-mat-cluster');
+    var clusterSids = selClusters.length
+        ? new Set(selClusters.flatMap(function(k){ return CLUSTERS[k]||[]; }))
+        : null;
     var seen = {}, opts = [];
     _sapCycles.forEach(function(c) {
-        if (clusterIds && !clusterIds.includes(c._subsidiaryId)) return;
+        if (clusterSids && !clusterSids.has(c._subsidiaryId)) return;
         var camp = _sapCamp(c);
-        if (camp && !seen[camp]) { seen[camp] = true; opts.push({ camp: camp, name: c._subName || camp }); }
+        if (camp && !seen[camp]) { seen[camp] = true; opts.push({v: camp, l: c._subName || camp}); }
     });
-    opts.sort(function(a,b) { return a.name.localeCompare(b.name, 'es'); });
-    var cur = sel.value;
-    if (cur && !opts.find(function(o) { return o.camp === cur; })) cur = '';
-    sel.innerHTML = '<option value="">— Todas —</option>' +
-        opts.map(function(o) { return '<option value="' + o.camp + '"' + (o.camp===cur?' selected':'') + '>' + o.name + '</option>'; }).join('');
+    opts.sort(function(a,b){ return a.l.localeCompare(b.l,'es'); });
+    _msPop('sap-mat-sub', opts);
 }
 
 function _sapTogglePoolCiclo() {
@@ -1725,15 +1838,17 @@ function updateSapResults() {
     }
 
     // Cada pestaña usa su propio origen de filtros de año/mes
-    const yearSel  = (isTendencia || isCiclo) ? '' : isMaterial
-        ? ((document.getElementById('sap-mat-year')  || {}).value || '')
-        : ((document.getElementById('sap-year')      || {}).value || '');
-    const monthSel = (isTendencia || isCiclo) ? '' : isMaterial
-        ? ((document.getElementById('sap-mat-month') || {}).value || '')
-        : ((document.getElementById('sap-month')     || {}).value || '');
-    const matSubVal     = isMaterial ? ((document.getElementById('sap-mat-sub')     || {}).value || '') : '';
-    const matClusterVal = isMaterial ? ((document.getElementById('sap-mat-cluster') || {}).value || '') : '';
-    const matClusterIds = matClusterVal ? (CLUSTERS[matClusterVal] || []) : null;
+    const yearSel  = (isTendencia || isCiclo || isMaterial) ? ''
+        : ((document.getElementById('sap-year')  || {}).value || '');
+    const monthSel = (isTendencia || isCiclo || isMaterial) ? ''
+        : ((document.getElementById('sap-month') || {}).value || '');
+    const matYears    = isMaterial ? _msGet('sap-mat-year')   : [];
+    const matMonths   = isMaterial ? _msGet('sap-mat-month')  : [];
+    const matSubs     = isMaterial ? _msGet('sap-mat-sub')    : [];
+    const matClusters = isMaterial ? _msGet('sap-mat-cluster'): [];
+    const matClusterSids = matClusters.length
+        ? new Set(matClusters.flatMap(function(k){ return CLUSTERS[k]||[]; }))
+        : new Set();
     const tendSubVal    = isTendencia ? ((document.getElementById('sap-tend-sub')     || {}).value || '') : '';
     const tendClusterVal= isTendencia ? ((document.getElementById('sap-tend-cluster') || {}).value || '') : '';
     const tendClusterIds= tendClusterVal ? (CLUSTERS[tendClusterVal] || []) : null;
@@ -1761,10 +1876,12 @@ function updateSapResults() {
         const orden = row.o || '';
         if (!orderToCycle[orden]) return; // solo filas vinculadas a un ciclo activo
         const fecha = row.f || '';
-        if (yearSel   && fecha.slice(0,4) !== yearSel)  return;
-        if (monthSel  && fecha.slice(5,7) !== monthSel) return;
-        if (matSubVal  && _sapCamp(orderToCycle[orden]||{}) !== matSubVal) return;
-        if (!matSubVal && matClusterIds && !matClusterIds.includes((orderToCycle[orden]||{})._subsidiaryId)) return;
+        if (yearSel    && fecha.slice(0,4) !== yearSel)  return;
+        if (monthSel   && fecha.slice(5,7) !== monthSel) return;
+        if (matYears.length   && !matYears.includes(fecha.slice(0,4)))  return;
+        if (matMonths.length  && !matMonths.includes(fecha.slice(5,7))) return;
+        if (matSubs.length    && !matSubs.includes(_sapCamp(orderToCycle[orden]||{}))) return;
+        if (!matSubs.length   && matClusterSids.size && !matClusterSids.has((orderToCycle[orden]||{})._subsidiaryId)) return;
         if (tendYearSel && fecha.slice(0,4) !== tendYearSel) return;
         if (tendSubVal && _sapCamp(orderToCycle[orden]||{}) !== tendSubVal) return;
         if (!tendSubVal && tendClusterIds && !tendClusterIds.includes((orderToCycle[orden]||{})._subsidiaryId)) return;
@@ -1839,12 +1956,16 @@ function updateSapResults() {
             if (_clv && CLUSTERS[_clv]) subIdSet = new Set(CLUSTERS[_clv]);
             if (_sbv) subIdSet = new Set([_sbv]);
         } else if (isMaterial) {
-            var _mcamp = (document.getElementById('sap-mat-sub') || {}).value || null;
-            if (_mcamp) {
-                var _mc = _sapCycles.find(function(c) { return _sapCamp(c) === _mcamp; });
-                if (_mc && _mc._subsidiaryId) subIdSet = new Set([_mc._subsidiaryId]);
-            } else if (matClusterIds) {
-                subIdSet = new Set(matClusterIds);
+            var _mcamps = _msGet('sap-mat-sub');
+            if (_mcamps.length) {
+                var _mcSids = new Set();
+                _mcamps.forEach(function(camp) {
+                    var _mc = _sapCycles.find(function(c){ return _sapCamp(c) === camp; });
+                    if (_mc && _mc._subsidiaryId) _mcSids.add(_mc._subsidiaryId);
+                });
+                subIdSet = _mcSids;
+            } else if (matClusterSids.size) {
+                subIdSet = matClusterSids;
             }
         } else if (isCiclo) {
             // Solo sucursal seleccionada (sin piscina/ciclo específico)
@@ -3223,8 +3344,9 @@ function _sapOpenMatDetail(matCode) {
     titleEl.innerHTML = '<span style="font-size:11px;font-weight:400;color:var(--muted)">' + matCode + ' &nbsp;·&nbsp; ' + unidad + '</span><br>' + desc;
     var _periodEl = document.getElementById('sap-mat-modal-period');
     if (_periodEl) {
-        var _pYr = (document.getElementById('sap-mat-year')  || {}).value || (document.getElementById('sap-year')  || {}).value || '';
-        var _pMo = (document.getElementById('sap-mat-month') || {}).value || (document.getElementById('sap-month') || {}).value || '';
+        var _matYrs = _msGet('sap-mat-year');  var _matMos = _msGet('sap-mat-month');
+        var _pYr = _matYrs.length === 1 ? _matYrs[0] : (_matYrs.length > 1 ? _matYrs.join(', ') : ((document.getElementById('sap-year')||{}).value||''));
+        var _pMo = _matMos.length === 1 ? _matMos[0] : '';
         _periodEl.textContent = _pYr ? (_pMo ? (SAP_MESES[parseInt(_pMo,10)-1] + ' ' + _pYr) : _pYr) : 'Todos los períodos';
     }
     body.innerHTML = '<div style="padding:16px 20px;height:380px;position:relative"><canvas id="sap-mat-modal-chart"></canvas></div>';
