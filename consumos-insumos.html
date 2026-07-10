@@ -1576,6 +1576,7 @@ var _sapResumenChartInst  = null;
 var _sapMatChartInst     = null;
 var _sapCicloChartInst   = null;
 var _sapMatModalChartInst = null;
+var _sapTendMatChartInst  = null;
 var _sapKpiRows = [];
 var _sapKpiDias = 30;
 var _sapKpiSelected = null;
@@ -2828,6 +2829,14 @@ function _sapRenderTendencia(filteredRows, el) {
     });
     tfoot += '</tr></tfoot>';
 
+    // Top 15 materiales para el gráfico (ya ordenados por costo total desc)
+    var _chartMats = matList.slice(0, 15);
+    var _SAP_PAL   = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EC4899','#14B8A6',
+                       '#F97316','#06B6D4','#84CC16','#EF4444','#A855F7','#0EA5E9',
+                       '#FBBF24','#34D399','#F472B6'];
+
+    var _metricLabel = _sapTendMetric === 'total' ? '$ Total' : _sapTendMetric === 'ha' ? '$/Ha' : '$/Ha/Día';
+
     el.innerHTML =
         '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
             '<div style="flex-shrink:0;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
@@ -2843,6 +2852,15 @@ function _sapRenderTendencia(filteredRows, el) {
                 '<table style="border-collapse:separate;border-spacing:0;width:100%;font-size:12px">' +
                     thead + tbodySub + tbodyProm + tbodySep + tbodyMatHdr + tbodyMat + tfoot +
                 '</table>' +
+                // Gráfico de líneas por material
+                '<div class="chart-card" style="margin:14px;padding:14px 16px">' +
+                    '<div class="chart-title">Top ' + _chartMats.length + ' Materiales — ' + _metricLabel + ' por Mes' +
+                        '<span class="chart-sub" style="margin-left:8px">líneas: tendencia mensual</span>' +
+                    '</div>' +
+                    '<div style="height:340px;position:relative">' +
+                        '<canvas id="tend-mat-chart"></canvas>' +
+                    '</div>' +
+                '</div>' +
             '</div>' +
         '</div>';
 
@@ -2885,6 +2903,77 @@ function _sapRenderTendencia(filteredRows, el) {
             td.style.zIndex = i === 0 ? '4' : '2';
         });
     })();
+
+    // ── Gráfico de líneas: Top materiales por mes ─────────────────────────────
+    if (_sapTendMatChartInst) { _sapTendMatChartInst.destroy(); _sapTendMatChartInst = null; }
+    var _tendCtx = document.getElementById('tend-mat-chart');
+    if (_tendCtx) {
+        var _mesLabels = mesesList.map(function(m) {
+            var p = m.split('-');
+            return (SAP_MESES[parseInt(p[1],10)-1] || p[1]) + ' ' + p[0].slice(2);
+        });
+        var _datasets = _chartMats.map(function(mc, ci) {
+            var color = _SAP_PAL[ci % _SAP_PAL.length];
+            return {
+                label: (matDescMap[mc] || mc).substring(0, 28),
+                data: mesesList.map(function(m) {
+                    var costo = (matMeses[mc] || {})[m] || 0;
+                    if (!costo) return null;
+                    var ha   = mesHaTotal[m] || 0;
+                    var pts  = m.split('-');
+                    var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+                    var v = _calcVal(costo, ha, dias);
+                    return v !== null ? parseFloat(v.toFixed(4)) : null;
+                }),
+                borderColor: color,
+                backgroundColor: color + '22',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                tension: 0.3,
+                spanGaps: true,
+                fill: false,
+                datalabels: { display: false }
+            };
+        });
+        _sapTendMatChartInst = new Chart(_tendCtx.getContext('2d'), {
+            type: 'line',
+            data: { labels: _mesLabels, datasets: _datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, boxHeight: 12, padding: 8, font: { size: 10 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(c) {
+                                if (c.raw === null) return null;
+                                return ' ' + c.dataset.label + ': ' + (_sapTendMetric === 'total'
+                                    ? '$' + c.raw.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2})
+                                    : '$' + c.raw.toFixed(_sapTendMetric === 'hadía' ? 4 : 2));
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+                    y: {
+                        grid: { color: '#f1f5f9' },
+                        ticks: {
+                            font: { size: 10 },
+                            callback: function(v) {
+                                return '$' + (_sapTendMetric === 'hadía' ? v.toFixed(4) : v.toFixed(2));
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 }
 
 function sapOpenMaterialesModal() {
