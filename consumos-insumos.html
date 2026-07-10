@@ -2829,11 +2829,12 @@ function _sapRenderTendencia(filteredRows, el) {
     });
     tfoot += '</tr></tfoot>';
 
-    // Top 15 materiales para el gráfico (ya ordenados por costo total desc)
-    var _chartMats = matList.slice(0, 15);
+    var _chartMats = matList;
     var _SAP_PAL   = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EC4899','#14B8A6',
                        '#F97316','#06B6D4','#84CC16','#EF4444','#A855F7','#0EA5E9',
-                       '#FBBF24','#34D399','#F472B6'];
+                       '#FBBF24','#34D399','#F472B6','#60A5FA','#FB7185','#4ADE80',
+                       '#A78BFA','#FCD34D','#6EE7B7','#FCA5A5','#93C5FD','#C4B5FD',
+                       '#86EFAC','#FDE68A','#BAE6FD','#F9A8D4','#D9F99D','#A5F3FC'];
 
     var _metricLabel = _sapTendMetric === 'total' ? '$ Total' : _sapTendMetric === 'ha' ? '$/Ha' : '$/Ha/Día';
 
@@ -2854,7 +2855,7 @@ function _sapRenderTendencia(filteredRows, el) {
                 '</table>' +
                 // Gráfico de líneas por material
                 '<div class="chart-card" style="margin:14px;padding:14px 16px">' +
-                    '<div class="chart-title">Top ' + _chartMats.length + ' Materiales — ' + _metricLabel + ' por Mes' +
+                    '<div class="chart-title">' + _chartMats.length + ' Materiales — ' + _metricLabel + ' por Mes' +
                         '<span class="chart-sub" style="margin-left:8px">líneas: tendencia mensual</span>' +
                     '</div>' +
                     '<div style="height:340px;position:relative">' +
