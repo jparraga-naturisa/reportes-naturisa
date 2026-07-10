@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Start-Process python -ArgumentList \"c:\\\\Scripts\\\\Naturisa\\\\app_inventario.py\")",
+      "PowerShell(Start-Process pythonw -ArgumentList \"c:\\\\Scripts\\\\Naturisa\\\\app_inventario.py\" -WorkingDirectory \"c:\\\\Scripts\\\\Naturisa\")",
+      "PowerShell(python -c \"import sys; print\\(sys.executable\\)\")",
+      "PowerShell(Start-Process \"C:\\\\Users\\\\jparraga\\\\AppData\\\\Local\\\\Python\\\\pythoncore-3.14-64\\\\pythonw.exe\" -ArgumentList \"`\"c:\\\\Scripts\\\\Naturisa\\\\app_inventario.py`\"\" -WorkingDirectory \"c:\\\\Scripts\\\\Naturisa\")",
+      "Skill(schedule)",
+      "Skill(schedule:*)",
+      "PowerShell(Copy-Item \"C:\\\\Scripts\\\\Naturisa\\\\app_inventario.py\" \"$env:USERPROFILE\\\\Desktop\\\\app_inventario.py\" -Force; Write-Host \"Copiado\")",
+      "PowerShell(node --version)",
+      "WebFetch(domain:gateway.naturisa.com.ec)",
+      "PowerShell(\\(Get-Content \"c:\\\\Scripts\\\\Naturisa\\\\dashboard-alimentacion.html\" | Measure-Object -Line\\).Lines)"
+    ]
+  }
+}
