@@ -2782,7 +2782,7 @@ function _sapRenderTendencia(filteredRows, el) {
             var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
             var haDia = ha > 0 && dias > 0 ? costo / (ha * dias) : null;
             tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#065f46">' +
-                (haDia !== null ? '$' + haDia.toFixed(3) : '—') + '</td>';
+                (haDia !== null ? '$' + haDia.toFixed(4) : '—') + '</td>';
         });
         tbodyMat += '</tr>';
     });
