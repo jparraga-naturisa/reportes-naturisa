@@ -2745,7 +2745,6 @@ function _sapRenderTendencia(filteredRows, el) {
         return totB - totA;
     });
     var matCount = matList.length;
-    if (matList.length > 30) matList = matList.slice(0, 30);
 
     var colSpan = mesesList.length + 1;
     var _mesTdCells = mesesList.map(function(m) {
@@ -2762,7 +2761,7 @@ function _sapRenderTendencia(filteredRows, el) {
         '<tr style="background:#e0f2fe"><td colspan="' + colSpan + '" style="padding:8px 12px;font-size:13px;font-weight:700;color:#0369a1">' +
             'Tendencia $/Ha/D&iacute;a por Material' +
             '<span style="font-size:11px;font-weight:400;color:#64748b;margin-left:10px">' +
-            (matCount > 30 ? 'Top 30 &mdash; ' + matCount + ' en total' : matCount + ' materiales') +
+            matCount + ' materiales' +
             '</span></td></tr>' +
         // Fila encabezado de material (sticky al hacer scroll)
         '<tr style="background:#1e3a5f;color:#fff">' +
