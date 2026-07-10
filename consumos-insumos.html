@@ -710,6 +710,7 @@ let _sapExcelMeta   = null;
 let _sapCycles      = [];
 let _sapSubsFetched = new Set();
 let _sapPools       = []; // piscinas activas cargadas desde /pools
+let _sapTendMetric  = 'hadía'; // 'total' | 'ha' | 'hadía'
 
 // ── IndexedDB helpers ────────────────────────────────────────────────────────
 function _sapOpenDB() {
@@ -2675,8 +2676,31 @@ function _sapRenderTendencia(filteredRows, el) {
     var _th = 'padding:7px 12px;font-weight:700;white-space:nowrap;border-bottom:2px solid #2d5282';
     var _thTop = _th + ';position:sticky;top:0;z-index:3;background:#1e3a5f;color:#fff';
     var _tdBase = 'padding:6px 12px;border-bottom:1px solid var(--border)';
-
     var _tdHdr = 'padding:7px 12px;font-weight:700;white-space:nowrap;border-bottom:2px solid #2d5282;position:sticky;top:0;z-index:3;background:#1e3a5f;color:#fff;text-align:right';
+
+    // Helpers para métrica seleccionada
+    function _calcVal(costo, ha, dias) {
+        if (_sapTendMetric === 'total') return costo;
+        if (_sapTendMetric === 'ha')    return ha > 0 ? costo / ha : null;
+        return ha > 0 && dias > 0 ? costo / (ha * dias) : null;
+    }
+    function _fmtSub(v) {
+        if (v === null || v === undefined) return '—';
+        if (_sapTendMetric === 'total') return '$' + v.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});
+        return '$' + v.toFixed(2);
+    }
+    function _fmtMat(v) {
+        if (v === null || v === undefined) return '—';
+        if (_sapTendMetric === 'total') return '$' + v.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});
+        if (_sapTendMetric === 'ha')    return '$' + v.toFixed(2);
+        return '$' + v.toFixed(4);
+    }
+    var _metricLabels = { total: '$ Total', ha: '$/Ha', 'hadía': '$/Ha/D&iacute;a' };
+    function _metricBtn(id, lbl) {
+        var active = _sapTendMetric === id;
+        return '<button onclick="_sapTendMetric=\'' + id + '\';updateSapResults()" style="padding:4px 12px;font-size:11px;font-weight:600;border:none;cursor:pointer;transition:background .12s;' +
+            (active ? 'background:#1e3a5f;color:#fff;' : 'background:#e2e8f0;color:#475569;') + '">' + lbl + '</button>';
+    }
 
     // ── Sucursal: encabezado (thead sticky) ────────────────────────────────────
     var _mesThCells = mesesList.map(function(m) {
@@ -2706,10 +2730,10 @@ function _sapRenderTendencia(filteredRows, el) {
             var ha   = (m === _tendCurMes && haFromPools) ? haFromPools : (_cicHa || haFromPools);
             var pts  = m.split('-');
             var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
-            var haDia = ha > 0 && dias > 0 ? d.costo / (ha * dias) : null;
-            var over  = haDia !== null && haDia > _budgetVal;
+            var val  = _calcVal(d.costo, ha, dias);
+            var over = _sapTendMetric === 'hadía' && val !== null && val > _budgetVal;
             tbodySub += '<td style="' + _tdBase + ';text-align:right;' + (over ? 'color:#dc2626;font-weight:700' : 'color:#065f46') + '">' +
-                (haDia !== null ? '$' + haDia.toFixed(2) : '—') + '</td>';
+                _fmtSub(val) + '</td>';
         });
         tbodySub += '</tr>';
     });
@@ -2731,10 +2755,10 @@ function _sapRenderTendencia(filteredRows, el) {
             if (ha > 0) { totalCosto += d.costo; totalHa += ha; }
         });
         mesHaTotal[m] = totalHa;
-        var promHaDia = totalHa > 0 && dias > 0 ? totalCosto / (totalHa * dias) : null;
-        var over = promHaDia !== null && promHaDia > _budgetVal;
+        var promVal = _calcVal(totalCosto, totalHa, dias);
+        var over = _sapTendMetric === 'hadía' && promVal !== null && promVal > _budgetVal;
         tbodySub += '<td style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;' + (over ? 'color:#fca5a5' : 'color:#bbf7d0') + '">' +
-            (promHaDia !== null ? '$' + promHaDia.toFixed(2) : '—') + '</td>';
+            _fmtSub(promVal) + '</td>';
     });
     tbodySub += '</tr></tbody>';
 
@@ -2780,9 +2804,8 @@ function _sapRenderTendencia(filteredRows, el) {
             var ha   = mesHaTotal[m] || 0;
             var pts  = m.split('-');
             var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
-            var haDia = ha > 0 && dias > 0 ? costo / (ha * dias) : null;
-            tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#065f46">' +
-                (haDia !== null ? '$' + haDia.toFixed(4) : '—') + '</td>';
+            var val = _calcVal(costo, ha, dias);
+            tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#065f46">' + _fmtMat(val) + '</td>';
         });
         tbodyMat += '</tr>';
     });
@@ -2796,17 +2819,21 @@ function _sapRenderTendencia(filteredRows, el) {
         var ha   = mesHaTotal[m] || 0;
         var pts  = m.split('-');
         var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
-        var haDia = ha > 0 && dias > 0 ? mesCosto / (ha * dias) : null;
-        tfoot += '<td style="padding:7px 12px;text-align:right;font-weight:800;color:#bbf7d0">' +
-            (haDia !== null ? '$' + haDia.toFixed(2) : '—') + '</td>';
+        var totVal = _calcVal(mesCosto, ha, dias);
+        tfoot += '<td style="padding:7px 12px;text-align:right;font-weight:800;color:#bbf7d0">' + _fmtSub(totVal) + '</td>';
     });
     tfoot += '</tr></tfoot>';
 
     el.innerHTML =
         '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
-            '<div style="flex-shrink:0;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">' +
-                '<span style="font-size:13px;font-weight:700;color:var(--text)">Tendencia $/Ha/D&iacute;a</span>' +
-                '<span style="font-size:11px;color:var(--muted)">Presupuesto: <b>$' + _budgetVal.toFixed(2) + '</b> &nbsp;<span style="color:#dc2626;font-weight:700">■</span> sobre presupuesto</span>' +
+            '<div style="flex-shrink:0;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+                '<span style="font-size:13px;font-weight:700;color:var(--text)">Tendencia</span>' +
+                '<div style="display:flex;border:1px solid #cbd5e1;border-radius:5px;overflow:hidden">' +
+                    _metricBtn('total', '$ Total') +
+                    _metricBtn('ha', '$/Ha') +
+                    _metricBtn('hadía', '$/Ha/D&iacute;a') +
+                '</div>' +
+                (_sapTendMetric === 'hadía' ? '<span style="font-size:11px;color:var(--muted)">Presupuesto: <b>$' + _budgetVal.toFixed(2) + '</b> &nbsp;<span style="color:#dc2626;font-weight:700">■</span> sobre presupuesto</span>' : '') +
             '</div>' +
             '<div style="flex:1;overflow:auto">' +
                 '<table style="border-collapse:separate;border-spacing:0;width:100%;font-size:12px">' +
