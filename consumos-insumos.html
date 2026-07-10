@@ -2749,13 +2749,11 @@ function _sapRenderTendencia(filteredRows, el) {
     var thead2 = '<thead><tr style="background:#1e3a5f;color:#fff">' +
         '<th style="' + _thTop + ';text-align:left;left:0;z-index:4;min-width:180px">Material</th>' +
         _mesHeaders +
-        '<th style="' + _thTop + ';text-align:right;border-left:1px solid #2d5282">Total $</th>' +
         '</tr></thead>';
 
     var tbody2 = '<tbody>';
     matList.forEach(function(mc, ri) {
         var rowBg = ri % 2 === 0 ? '#ffffff' : '#f8fafc';
-        var costoTotal = 0;
         tbody2 += '<tr style="background:' + rowBg + '">';
         tbody2 += '<td style="' + _tdBase + ';position:sticky;left:0;background:' + rowBg + ';z-index:1;min-width:180px;max-width:240px">' +
             '<div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (matDescMap[mc]||mc).replace(/"/g,'&quot;') + '">' + (matDescMap[mc] || mc) + '</div>' +
@@ -2763,7 +2761,6 @@ function _sapRenderTendencia(filteredRows, el) {
         mesesList.forEach(function(m) {
             var costo = (matMeses[mc] || {})[m] || 0;
             if (!costo) { tbody2 += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1">—</td>'; return; }
-            costoTotal += costo;
             var ha   = mesHaTotal[m] || 0;
             var pts  = m.split('-');
             var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
@@ -2771,23 +2768,21 @@ function _sapRenderTendencia(filteredRows, el) {
             tbody2 += '<td style="' + _tdBase + ';text-align:right;color:#065f46">' +
                 (haDia !== null ? '$' + haDia.toFixed(3) : '—') + '</td>';
         });
-        tbody2 += '<td style="' + _tdBase + ';text-align:right;font-weight:700;border-left:1px solid var(--border);color:#0369a1">' +
-            '$' + costoTotal.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</td>';
         tbody2 += '</tr>';
     });
     tbody2 += '</tbody>';
 
     var tfoot2 = '<tfoot><tr style="background:#1e3a5f;color:#fff">' +
         '<td style="padding:7px 12px;font-weight:800;position:sticky;left:0;background:#1e3a5f;z-index:2">Total</td>';
-    var grandTotal2 = 0;
     mesesList.forEach(function(m) {
         var mesCosto = matList.reduce(function(s,mc){ return s + ((matMeses[mc]||{})[m]||0); }, 0);
-        grandTotal2 += mesCosto;
+        var ha   = mesHaTotal[m] || 0;
+        var pts  = m.split('-');
+        var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+        var haDia = ha > 0 && dias > 0 ? mesCosto / (ha * dias) : null;
         tfoot2 += '<td style="padding:7px 12px;text-align:right;font-weight:800;color:#bbf7d0">' +
-            (mesCosto > 0 ? '$' + mesCosto.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—') + '</td>';
+            (haDia !== null ? '$' + haDia.toFixed(2) : '—') + '</td>';
     });
-    tfoot2 += '<td style="padding:7px 12px;text-align:right;font-weight:800;color:#bbf7d0;border-left:1px solid #2d5282">$' +
-        grandTotal2.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</td>';
     tfoot2 += '</tr></tfoot>';
 
     var _card = 'class="table-card" style="margin-bottom:0;flex-shrink:0"';
