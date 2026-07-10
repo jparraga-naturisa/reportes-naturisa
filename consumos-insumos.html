@@ -2676,45 +2676,46 @@ function _sapRenderTendencia(filteredRows, el) {
     var _thTop = _th + ';position:sticky;top:0;z-index:3;background:#1e3a5f;color:#fff';
     var _tdBase = 'padding:6px 12px;border-bottom:1px solid var(--border)';
 
-    // Cabeceras de meses — reutilizadas en ambas tablas
-    var _mesHeaders = mesesList.map(function(m) {
+    var _tdHdr = 'padding:7px 12px;font-weight:700;white-space:nowrap;border-bottom:2px solid #2d5282;position:sticky;top:0;z-index:3;background:#1e3a5f;color:#fff;text-align:right';
+
+    // ── Sucursal: encabezado (thead sticky) ────────────────────────────────────
+    var _mesThCells = mesesList.map(function(m) {
         var p = m.split('-');
         return '<th style="' + _thTop + ';text-align:right">' +
             (SAP_MESES[parseInt(p[1],10)-1] || p[1]) +
             '<br><span style="font-size:10px;font-weight:400;opacity:.8">' + p[0] + '</span></th>';
     }).join('');
 
-    // ── Tabla 1: por Sucursal ──────────────────────────────────────────────────
-    var thead1 = '<thead><tr style="background:#1e3a5f;color:#fff">' +
+    var thead = '<thead><tr style="background:#1e3a5f;color:#fff">' +
         '<th style="' + _thTop + ';text-align:left;left:0;z-index:4">Sucursal</th>' +
-        _mesHeaders + '</tr></thead>';
+        _mesThCells + '</tr></thead>';
 
-    var tbody1 = '<tbody>';
+    // ── Sucursal: filas de datos ───────────────────────────────────────────────
+    var mesHaTotal = {};
+    var tbodySub = '<tbody>';
     campList.forEach(function(camp, ri) {
         var sid = campSubId[camp];
         var haFromPools = sid && poolsHaBySubId[sid] ? poolsHaBySubId[sid] : 0;
         var rowBg = ri % 2 === 0 ? '#ffffff' : '#f8fafc';
-        tbody1 += '<tr style="background:' + rowBg + '">';
-        tbody1 += '<td style="' + _tdBase + ';font-weight:700;white-space:nowrap;position:sticky;left:0;background:' + rowBg + ';z-index:1">' + (subNames[camp] || camp) + '</td>';
+        tbodySub += '<tr style="background:' + rowBg + '">';
+        tbodySub += '<td style="' + _tdBase + ';font-weight:700;white-space:nowrap;position:sticky;left:0;background:' + rowBg + ';z-index:1">' + (subNames[camp] || camp) + '</td>';
         mesesList.forEach(function(m) {
             var d = (meses[m] || {})[camp];
-            if (!d) { tbody1 += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1">—</td>'; return; }
+            if (!d) { tbodySub += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1">—</td>'; return; }
             var _cicHa = Object.values(d.ciclos).reduce(function(s,v){return s+v;},0);
             var ha   = (m === _tendCurMes && haFromPools) ? haFromPools : (_cicHa || haFromPools);
             var pts  = m.split('-');
             var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
             var haDia = ha > 0 && dias > 0 ? d.costo / (ha * dias) : null;
             var over  = haDia !== null && haDia > _budgetVal;
-            tbody1 += '<td style="' + _tdBase + ';text-align:right;' + (over ? 'color:#dc2626;font-weight:700' : 'color:#065f46') + '">' +
+            tbodySub += '<td style="' + _tdBase + ';text-align:right;' + (over ? 'color:#dc2626;font-weight:700' : 'color:#065f46') + '">' +
                 (haDia !== null ? '$' + haDia.toFixed(2) : '—') + '</td>';
         });
-        tbody1 += '</tr>';
+        tbodySub += '</tr>';
     });
-    tbody1 += '</tbody>';
 
-    // Ha total por mes (para Promedio y tabla Material)
-    var mesHaTotal = {};
-    var tfoot1 = '<tfoot><tr style="background:#1e3a5f;color:#fff">' +
+    // Fila Promedio (al final del tbody de sucursal)
+    tbodySub += '<tr style="background:#1e3a5f;color:#fff">' +
         '<td style="padding:7px 12px;font-weight:800;position:sticky;left:0;background:#1e3a5f;z-index:2">Promedio</td>';
     mesesList.forEach(function(m) {
         var pts  = m.split('-');
@@ -2732,47 +2733,64 @@ function _sapRenderTendencia(filteredRows, el) {
         mesHaTotal[m] = totalHa;
         var promHaDia = totalHa > 0 && dias > 0 ? totalCosto / (totalHa * dias) : null;
         var over = promHaDia !== null && promHaDia > _budgetVal;
-        tfoot1 += '<td style="padding:7px 12px;text-align:right;font-weight:800;' + (over ? 'color:#fca5a5' : 'color:#bbf7d0') + '">' +
+        tbodySub += '<td style="padding:7px 12px;text-align:right;font-weight:800;' + (over ? 'color:#fca5a5' : 'color:#bbf7d0') + '">' +
             (promHaDia !== null ? '$' + promHaDia.toFixed(2) : '—') + '</td>';
     });
-    tfoot1 += '</tr></tfoot>';
+    tbodySub += '</tr></tbody>';
 
-    // ── Tabla 2: por Material ──────────────────────────────────────────────────
+    // ── Material: separador + encabezado (como fila sticky dentro de tbody) ────
     var matList = Object.keys(matMeses).sort(function(a, b) {
         var totA = Object.values(matMeses[a]).reduce(function(s,v){return s+v;},0);
         var totB = Object.values(matMeses[b]).reduce(function(s,v){return s+v;},0);
         return totB - totA;
     });
-    var matTotal2 = matList.length;
+    var matCount = matList.length;
     if (matList.length > 30) matList = matList.slice(0, 30);
 
-    var thead2 = '<thead><tr style="background:#1e3a5f;color:#fff">' +
-        '<th style="' + _thTop + ';text-align:left;left:0;z-index:4;min-width:180px">Material</th>' +
-        _mesHeaders +
-        '</tr></thead>';
+    var colSpan = mesesList.length + 1;
+    var _mesTdCells = mesesList.map(function(m) {
+        var p = m.split('-');
+        return '<td style="' + _tdHdr + '">' +
+            (SAP_MESES[parseInt(p[1],10)-1] || p[1]) +
+            '<br><span style="font-size:10px;font-weight:400;opacity:.8">' + p[0] + '</span></td>';
+    }).join('');
 
-    var tbody2 = '<tbody>';
+    var tbodyMat = '<tbody>' +
+        // Fila separadora
+        '<tr><td colspan="' + colSpan + '" style="height:14px;padding:0;background:var(--bg)"></td></tr>' +
+        // Fila título de sección
+        '<tr style="background:#e0f2fe"><td colspan="' + colSpan + '" style="padding:8px 12px;font-size:13px;font-weight:700;color:#0369a1">' +
+            'Tendencia $/Ha/D&iacute;a por Material' +
+            '<span style="font-size:11px;font-weight:400;color:#64748b;margin-left:10px">' +
+            (matCount > 30 ? 'Top 30 &mdash; ' + matCount + ' en total' : matCount + ' materiales') +
+            '</span></td></tr>' +
+        // Fila encabezado de material (sticky al hacer scroll)
+        '<tr style="background:#1e3a5f;color:#fff">' +
+        '<td style="' + _tdHdr + ';text-align:left;left:0;z-index:4"">Material</td>' +
+        _mesTdCells + '</tr>';
+
     matList.forEach(function(mc, ri) {
         var rowBg = ri % 2 === 0 ? '#ffffff' : '#f8fafc';
-        tbody2 += '<tr style="background:' + rowBg + '">';
-        tbody2 += '<td style="' + _tdBase + ';position:sticky;left:0;background:' + rowBg + ';z-index:1;min-width:180px;max-width:240px">' +
-            '<div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (matDescMap[mc]||mc).replace(/"/g,'&quot;') + '">' + (matDescMap[mc] || mc) + '</div>' +
+        tbodyMat += '<tr style="background:' + rowBg + '">';
+        tbodyMat += '<td style="' + _tdBase + ';position:sticky;left:0;background:' + rowBg + ';z-index:1">' +
+            '<div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px" title="' + (matDescMap[mc]||mc).replace(/"/g,'&quot;') + '">' + (matDescMap[mc] || mc) + '</div>' +
             '<div style="font-size:10px;color:var(--muted)">' + mc + '</div></td>';
         mesesList.forEach(function(m) {
             var costo = (matMeses[mc] || {})[m] || 0;
-            if (!costo) { tbody2 += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1">—</td>'; return; }
+            if (!costo) { tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1">—</td>'; return; }
             var ha   = mesHaTotal[m] || 0;
             var pts  = m.split('-');
             var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
             var haDia = ha > 0 && dias > 0 ? costo / (ha * dias) : null;
-            tbody2 += '<td style="' + _tdBase + ';text-align:right;color:#065f46">' +
+            tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#065f46">' +
                 (haDia !== null ? '$' + haDia.toFixed(3) : '—') + '</td>';
         });
-        tbody2 += '</tr>';
+        tbodyMat += '</tr>';
     });
-    tbody2 += '</tbody>';
+    tbodyMat += '</tbody>';
 
-    var tfoot2 = '<tfoot><tr style="background:#1e3a5f;color:#fff">' +
+    // Fila Total material (tfoot — siempre al fondo de la tabla)
+    var tfoot = '<tfoot><tr style="background:#1e3a5f;color:#fff">' +
         '<td style="padding:7px 12px;font-weight:800;position:sticky;left:0;background:#1e3a5f;z-index:2">Total</td>';
     mesesList.forEach(function(m) {
         var mesCosto = matList.reduce(function(s,mc){ return s + ((matMeses[mc]||{})[m]||0); }, 0);
@@ -2780,28 +2798,21 @@ function _sapRenderTendencia(filteredRows, el) {
         var pts  = m.split('-');
         var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
         var haDia = ha > 0 && dias > 0 ? mesCosto / (ha * dias) : null;
-        tfoot2 += '<td style="padding:7px 12px;text-align:right;font-weight:800;color:#bbf7d0">' +
+        tfoot += '<td style="padding:7px 12px;text-align:right;font-weight:800;color:#bbf7d0">' +
             (haDia !== null ? '$' + haDia.toFixed(2) : '—') + '</td>';
     });
-    tfoot2 += '</tr></tfoot>';
+    tfoot += '</tr></tfoot>';
 
-    var _card = 'class="table-card" style="margin-bottom:0;flex-shrink:0"';
-    var _cardHdr = 'style="flex-shrink:0;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px"';
     el.innerHTML =
-        '<div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:14px;padding-bottom:16px">' +
-            '<div ' + _card + '>' +
-                '<div ' + _cardHdr + '>' +
-                    '<span style="font-size:13px;font-weight:700;color:var(--text)">Tendencia $/Ha/D&iacute;a por Sucursal</span>' +
-                    '<span style="font-size:11px;color:var(--muted)">Presupuesto: <b>$' + _budgetVal.toFixed(2) + '</b> &nbsp;<span style="color:#dc2626;font-weight:700">■</span> sobre presupuesto</span>' +
-                '</div>' +
-                '<table style="border-collapse:separate;border-spacing:0;width:100%;font-size:12px">' + thead1 + tbody1 + tfoot1 + '</table>' +
+        '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
+            '<div style="flex-shrink:0;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">' +
+                '<span style="font-size:13px;font-weight:700;color:var(--text)">Tendencia $/Ha/D&iacute;a</span>' +
+                '<span style="font-size:11px;color:var(--muted)">Presupuesto: <b>$' + _budgetVal.toFixed(2) + '</b> &nbsp;<span style="color:#dc2626;font-weight:700">■</span> sobre presupuesto</span>' +
             '</div>' +
-            '<div ' + _card + '>' +
-                '<div ' + _cardHdr + '>' +
-                    '<span style="font-size:13px;font-weight:700;color:var(--text)">Tendencia $/Ha/D&iacute;a por Material</span>' +
-                    '<span style="font-size:11px;color:var(--muted)">' + (matTotal2 > 30 ? 'Top 30 — ' + matTotal2 + ' materiales en total' : matTotal2 + ' materiales') + '</span>' +
-                '</div>' +
-                '<table style="border-collapse:separate;border-spacing:0;width:100%;font-size:12px">' + thead2 + tbody2 + tfoot2 + '</table>' +
+            '<div style="flex:1;overflow:auto">' +
+                '<table style="border-collapse:separate;border-spacing:0;width:100%;font-size:12px">' +
+                    thead + tbodySub + tbodyMat + tfoot +
+                '</table>' +
             '</div>' +
         '</div>';
 }
