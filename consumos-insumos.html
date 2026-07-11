@@ -1415,11 +1415,13 @@ async function sapCargarCiclos(force) {
         items.forEach(function(c) {
             const id = String(c.idCycle || '');
             if (!id) return;
-            // Si el ciclo ya está cacheado, actualizar startDate in-place (puede haberse cacheado sin él)
+            // Si el ciclo ya está cacheado, actualizar startDate, días y Ha desde datos frescos
             if (existingIds.has(id)) {
-                if (c.startDate) {
-                    var ex = _sapCycles.find(function(x) { return String(x.idCycle) === id; });
-                    if (ex && !ex.startDate) ex.startDate = c.startDate;
+                var ex = _sapCycles.find(function(x) { return String(x.idCycle) === id; });
+                if (ex) {
+                    if (c.startDate && !ex.startDate) ex.startDate = c.startDate;
+                    if (idToDias[id] > 0) ex.totalDays = idToDias[id];
+                    if (idToPs[id]   > 0) ex.ps        = idToPs[id];
                 }
                 return;
             }
@@ -1987,18 +1989,14 @@ function _sapRenderCyclesOnly(cycles, resultsDiv) {
 // ── Helpers compartidos ───────────────────────────────────────────────────────
 function _sapCamp(ciclo) { return (ciclo.cycleCode || '').split('-')[0] || ciclo._subName; }
 function _sapFmt2(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-// Días del ciclo: si elapsed < totalDays (o totalDays=0) → ciclo activo, mostrar días transcurridos; si ya completó → totalDays
+// Días del ciclo: pool_production (totalDays) es la fuente principal; startDate como fallback para ciclos sin datos aún
 function _cycleDias(c) {
+    if (c.totalDays > 0) return c.totalDays;
     if (c.startDate) {
-        var elapsed = Math.floor((Date.now() - new Date(c.startDate)) / 86400000) + 1;
-        if (elapsed > 0) {
-            // Ciclo completado: el tiempo transcurrido ya supera la duración planificada
-            if (c.totalDays > 0 && elapsed >= c.totalDays) return c.totalDays;
-            // Ciclo activo o sin datos: mostrar días reales transcurridos
-            return elapsed;
-        }
+        var d = Math.floor((Date.now() - new Date(c.startDate)) / 86400000) + 1;
+        if (d > 0) return d;
     }
-    return c.totalDays || 0;
+    return 0;
 }
 function _sapFmt0(n) { return Math.abs(n).toLocaleString('es-EC',{maximumFractionDigits:0}); }
 function _sapMesLabel(mm) { return SAP_MESES[parseInt(mm,10)-1] || mm; }
