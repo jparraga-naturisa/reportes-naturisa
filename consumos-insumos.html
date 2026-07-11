@@ -1430,6 +1430,7 @@ async function sapCargarCiclos(force) {
             if (!sid) return;
             found++;
             existingIds.add(id);
+            if (newCycles.length < 5) console.log('[SAP] ciclo raw keys:', JSON.stringify(Object.keys(c)), 'startDate:', c.startDate, 'totalDays raw:', c.totalDays, 'daysCycle:', c.daysCycle);
             newCycles.push({ idCycle: id, cycleCode: cc, poolName: poolName,
                 controlOrderDocument: cod, _subsidiaryId: sid,
                 _subName: subById[sid] || ('Sub ' + sid),
