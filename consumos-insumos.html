@@ -1996,7 +1996,7 @@ function _sapFmt2(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractio
 // Días del ciclo: si elapsed>=totalDays el ciclo completó → usar totalDays; si no → días transcurridos (ciclo activo)
 function _cycleDias(c) {
     if (c.startDate) {
-        var elapsed = Math.floor((Date.now() - new Date(c.startDate)) / 86400000);
+        var elapsed = Math.floor((Date.now() - new Date(c.startDate)) / 86400000) + 1;
         if (c.totalDays > 0 && elapsed >= c.totalDays) return c.totalDays;
         if (elapsed >= 0) return elapsed;
     }
