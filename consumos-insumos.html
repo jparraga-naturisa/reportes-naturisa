@@ -1434,6 +1434,7 @@ async function sapCargarCiclos(force) {
                 controlOrderDocument: cod, _subsidiaryId: sid,
                 _subName: subById[sid] || ('Sub ' + sid),
                 ps: idToPs[id] || parseFloat(c.poolSize || 0) || 0,
+                startDate: c.startDate || null,
                 totalDays: idToDias[id] || 0,
                 active: activeIds.has(id) });
         });
@@ -1903,7 +1904,7 @@ function updateSapResults() {
         var _cc = _sapCycles.find(function(c) { return String(c.idCycle) === cicCycleVal; });
         if (_cc) {
             matSubLabel = _cc.cycleCode || _cc._subName || null;
-            kpiDias = _cc.totalDays || 30;
+            kpiDias = _cycleDias(_cc) || 30;
         }
     } else if (isCiclo) {
         var _cicMatch = _sapCycles.filter(function(c) {
@@ -1913,7 +1914,7 @@ function updateSapResults() {
         });
         var _totPs = _cicMatch.reduce(function(s,c) { return s + (c.ps||0); }, 0);
         kpiDias = _totPs > 0
-            ? Math.round(_cicMatch.reduce(function(s,c) { return s + (c.ps||0)*(c.totalDays||30); }, 0) / _totPs)
+            ? Math.round(_cicMatch.reduce(function(s,c) { return s + (c.ps||0)*(_cycleDias(c)||30); }, 0) / _totPs)
             : 30;
         if (cicSubVal) {
             var _cs = _sapCycles.find(function(c) { return _sapCamp(c) === cicSubVal; });
@@ -1978,6 +1979,14 @@ function _sapRenderCyclesOnly(cycles, resultsDiv) {
 // ── Helpers compartidos ───────────────────────────────────────────────────────
 function _sapCamp(ciclo) { return (ciclo.cycleCode || '').split('-')[0] || ciclo._subName; }
 function _sapFmt2(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+// Días reales del ciclo: usa startDate si está disponible, si no usa totalDays planificado
+function _cycleDias(c) {
+    if (c.startDate) {
+        var d = Math.round((Date.now() - new Date(c.startDate)) / 86400000) + 1;
+        if (d > 0) return d;
+    }
+    return c.totalDays || 0;
+}
 function _sapFmt0(n) { return Math.abs(n).toLocaleString('es-EC',{maximumFractionDigits:0}); }
 function _sapMesLabel(mm) { return SAP_MESES[parseInt(mm,10)-1] || mm; }
 
@@ -2449,7 +2458,7 @@ function sapShowMatDetail(key) {
                 '<td style="padding:8px 12px;font-weight:700;font-size:12px">TOTAL</td>' +
                 '<td></td>' +
                 '<td style="padding:8px 12px;font-weight:800;font-size:13px;text-align:right;color:#065f46">$' + _sapFmt2(totalCosto) + '</td>' +
-                '<td style="padding:8px 12px;text-align:center;font-size:12px;color:#1e3a5f;font-weight:700">' + (d.ciclo.totalDays || '—') + ' días</td>' +
+                '<td style="padding:8px 12px;text-align:center;font-size:12px;color:#1e3a5f;font-weight:700">' + (_cycleDias(d.ciclo) || '—') + ' días</td>' +
             '</tr></tfoot>' +
             '</table></div>' +
         '</div></div>';
@@ -2476,7 +2485,7 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
             cod: fr.ciclo.cycleCode || String(cid),
             pool: fr.ciclo.poolName || '—',
             ps: fr.ciclo.ps || 0,
-            totalDays: fr.ciclo.totalDays || 0,
+            totalDays: _cycleDias(fr.ciclo) || 0,
             costo: 0,
             mats: {}
         };
