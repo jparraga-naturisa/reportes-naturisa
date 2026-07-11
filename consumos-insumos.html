@@ -955,7 +955,7 @@ function sapPopulateCicCycles() {
     var cycles = _sapCycles.filter(function(c) {
         return (!subV  || _sapCamp(c) === subV) &&
                (!poolV || c.poolName  === poolV);
-    });
+    }).sort(function(a, b) { return (b.idCycle || 0) - (a.idCycle || 0); });
     var cur = sel.value || (cycles.length ? String(cycles[0].idCycle) : '');
     sel.innerHTML = cycles.map(function(c) {
         var lbl = (c.cycleCode || c.idCycle) + (c.controlOrderDocument ? ' — ' + c.controlOrderDocument : '');
