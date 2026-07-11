@@ -1989,14 +1989,14 @@ function _sapRenderCyclesOnly(cycles, resultsDiv) {
 // ── Helpers compartidos ───────────────────────────────────────────────────────
 function _sapCamp(ciclo) { return (ciclo.cycleCode || '').split('-')[0] || ciclo._subName; }
 function _sapFmt2(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-// Días del ciclo: pool_production (totalDays) es la fuente principal; startDate como fallback para ciclos sin datos aún
+// Días del ciclo: elapsed sin +1 (AP1 cuenta días completos). Si elapsed>=totalDays el ciclo terminó → usar totalDays
 function _cycleDias(c) {
-    if (c.totalDays > 0) return c.totalDays;
     if (c.startDate) {
-        var d = Math.floor((Date.now() - new Date(c.startDate)) / 86400000) + 1;
-        if (d > 0) return d;
+        var elapsed = Math.floor((Date.now() - new Date(c.startDate)) / 86400000);
+        if (c.totalDays > 0 && elapsed >= c.totalDays) return c.totalDays;
+        if (elapsed >= 0) return elapsed;
     }
-    return 0;
+    return c.totalDays || 0;
 }
 function _sapFmt0(n) { return Math.abs(n).toLocaleString('es-EC',{maximumFractionDigits:0}); }
 function _sapMesLabel(mm) { return SAP_MESES[parseInt(mm,10)-1] || mm; }
