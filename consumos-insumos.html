@@ -1415,13 +1415,16 @@ async function sapCargarCiclos(force) {
         items.forEach(function(c) {
             const id = String(c.idCycle || '');
             if (!id) return;
-            // Si el ciclo ya está cacheado, actualizar startDate, días y Ha desde datos frescos
+            // Si el ciclo ya está cacheado, actualizar con datos frescos
             if (existingIds.has(id)) {
                 var ex = _sapCycles.find(function(x) { return String(x.idCycle) === id; });
                 if (ex) {
                     if (c.startDate && !ex.startDate) ex.startDate = c.startDate;
-                    if (idToDias[id] > 0) ex.totalDays = idToDias[id];
-                    if (idToPs[id]   > 0) ex.ps        = idToPs[id];
+                    // daysCycle de la API de ciclos tiene prioridad; pool_production como fallback
+                    var apiDias = parseFloat(c.daysCycle || 0) || 0;
+                    var freshDias = apiDias || idToDias[id] || 0;
+                    if (freshDias > 0) ex.totalDays = freshDias;
+                    if (idToPs[id] > 0) ex.ps = idToPs[id];
                 }
                 return;
             }
@@ -1445,7 +1448,7 @@ async function sapCargarCiclos(force) {
                 _subName: subById[sid] || ('Sub ' + sid),
                 ps: idToPs[id] || parseFloat(c.poolSize || 0) || 0,
                 startDate: c.startDate || null,
-                totalDays: idToDias[id] || 0,
+                totalDays: parseFloat(c.daysCycle || 0) || idToDias[id] || 0,
                 active: activeIds.has(id) });
         });
 
