@@ -1987,14 +1987,13 @@ function _sapRenderCyclesOnly(cycles, resultsDiv) {
 // ── Helpers compartidos ───────────────────────────────────────────────────────
 function _sapCamp(ciclo) { return (ciclo.cycleCode || '').split('-')[0] || ciclo._subName; }
 function _sapFmt2(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-// Días del ciclo: daysCycle de pool_production (totalDays) tiene prioridad; si es 0, calcula días transcurridos por startDate (para ciclos muy nuevos sin datos)
+// Días del ciclo: activos → días transcurridos desde startDate; completados → daysCycle de pool_production
 function _cycleDias(c) {
-    if (c.totalDays > 0) return c.totalDays;
-    if (c.startDate) {
-        var d = Math.round((Date.now() - new Date(c.startDate)) / 86400000) + 1;
+    if (c.active && c.startDate) {
+        var d = Math.floor((Date.now() - new Date(c.startDate)) / 86400000) + 1;
         if (d > 0) return d;
     }
-    return 0;
+    return c.totalDays || 0;
 }
 function _sapFmt0(n) { return Math.abs(n).toLocaleString('es-EC',{maximumFractionDigits:0}); }
 function _sapMesLabel(mm) { return SAP_MESES[parseInt(mm,10)-1] || mm; }
