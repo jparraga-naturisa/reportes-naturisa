@@ -1987,11 +1987,16 @@ function _sapRenderCyclesOnly(cycles, resultsDiv) {
 // ── Helpers compartidos ───────────────────────────────────────────────────────
 function _sapCamp(ciclo) { return (ciclo.cycleCode || '').split('-')[0] || ciclo._subName; }
 function _sapFmt2(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-// Días del ciclo: activos → días transcurridos desde startDate; completados → daysCycle de pool_production
+// Días del ciclo: si elapsed < totalDays (o totalDays=0) → ciclo activo, mostrar días transcurridos; si ya completó → totalDays
 function _cycleDias(c) {
-    if (c.active && c.startDate) {
-        var d = Math.floor((Date.now() - new Date(c.startDate)) / 86400000) + 1;
-        if (d > 0) return d;
+    if (c.startDate) {
+        var elapsed = Math.floor((Date.now() - new Date(c.startDate)) / 86400000) + 1;
+        if (elapsed > 0) {
+            // Ciclo completado: el tiempo transcurrido ya supera la duración planificada
+            if (c.totalDays > 0 && elapsed >= c.totalDays) return c.totalDays;
+            // Ciclo activo o sin datos: mostrar días reales transcurridos
+            return elapsed;
+        }
     }
     return c.totalDays || 0;
 }
