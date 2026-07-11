@@ -1992,12 +1992,11 @@ function _sapRenderCyclesOnly(cycles, resultsDiv) {
 // ── Helpers compartidos ───────────────────────────────────────────────────────
 function _sapCamp(ciclo) { return (ciclo.cycleCode || '').split('-')[0] || ciclo._subName; }
 function _sapFmt2(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-// Días del ciclo: elapsed sin +1 (AP1 cuenta días completos). Si elapsed>=totalDays el ciclo terminó → usar totalDays
+// Días del ciclo: días transcurridos desde startDate (igual que AP1); totalDays solo si no hay startDate
 function _cycleDias(c) {
     if (c.startDate) {
-        var elapsed = Math.floor((Date.now() - new Date(c.startDate)) / 86400000);
-        if (c.totalDays > 0 && elapsed >= c.totalDays) return c.totalDays;
-        if (elapsed >= 0) return elapsed;
+        var d = Math.floor((Date.now() - new Date(c.startDate)) / 86400000);
+        if (d >= 0) return d;
     }
     return c.totalDays || 0;
 }
