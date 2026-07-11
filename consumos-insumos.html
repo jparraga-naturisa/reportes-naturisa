@@ -777,6 +777,9 @@ function sapLoad() {
                 var nm = _subByIdNow[c._subsidiaryId];
                 if (nm) c._subName = nm;
             });
+            // LOG: ver ciclos cacheados con startDate
+            var c18s = _sapCycles.filter(function(c) { return String(c.cycleCode || '').includes('0454'); });
+            console.log('[SAP] CACHE: total ciclos cacheados:', _sapCycles.length, '| piscina 0454:', JSON.stringify(c18s.map(function(c) { return { id: c.idCycle, code: c.cycleCode, startDate: c.startDate, totalDays: c.totalDays }; })));
         }
         const su = localStorage.getItem(SAP_KEY_SUBS);
         if (su) {
@@ -1414,7 +1417,17 @@ async function sapCargarCiclos(force) {
         let found = 0;
         items.forEach(function(c) {
             const id = String(c.idCycle || '');
-            if (!id || existingIds.has(id)) return;
+            // LOG diagnóstico — ver 3 primeros ciclos del API en página 1
+            if (page === 1 && items.indexOf(c) < 3) console.log('[SAP] ciclo raw#' + items.indexOf(c), JSON.stringify({ id: id, cached: existingIds.has(id), startDate: c.startDate, cod: c.controlOrderDocument, keys: Object.keys(c) }));
+            if (!id) return;
+            // Si el ciclo ya está cacheado, actualizar startDate in-place (puede haber sido cacheado sin él)
+            if (existingIds.has(id)) {
+                if (c.startDate) {
+                    var ex = _sapCycles.find(function(x) { return String(x.idCycle) === id; });
+                    if (ex && !ex.startDate) ex.startDate = c.startDate;
+                }
+                return;
+            }
             // Filtrar solo año actual por startDate; si startDate es null se incluye (ciclo recién creado)
             const _curYr = new Date().getFullYear();
             const yr = c.startDate ? parseInt(c.startDate.substring(0, 4)) : 0;
@@ -1430,7 +1443,6 @@ async function sapCargarCiclos(force) {
             if (!sid) return;
             found++;
             existingIds.add(id);
-            if (newCycles.length < 5) console.log('[SAP] ciclo raw keys:', JSON.stringify(Object.keys(c)), 'startDate:', c.startDate, 'totalDays raw:', c.totalDays, 'daysCycle:', c.daysCycle);
             newCycles.push({ idCycle: id, cycleCode: cc, poolName: poolName,
                 controlOrderDocument: cod, _subsidiaryId: sid,
                 _subName: subById[sid] || ('Sub ' + sid),

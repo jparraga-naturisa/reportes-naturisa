@@ -10,7 +10,10 @@
       "PowerShell(Copy-Item \"C:\\\\Scripts\\\\Naturisa\\\\app_inventario.py\" \"$env:USERPROFILE\\\\Desktop\\\\app_inventario.py\" -Force; Write-Host \"Copiado\")",
       "PowerShell(node --version)",
       "WebFetch(domain:gateway.naturisa.com.ec)",
-      "PowerShell(\\(Get-Content \"c:\\\\Scripts\\\\Naturisa\\\\dashboard-alimentacion.html\" | Measure-Object -Line\\).Lines)"
+      "PowerShell(\\(Get-Content \"c:\\\\Scripts\\\\Naturisa\\\\dashboard-alimentacion.html\" | Measure-Object -Line\\).Lines)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }
