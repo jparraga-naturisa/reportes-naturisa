@@ -1401,24 +1401,27 @@ async function sapCargarCiclos(force) {
 
     // ── Paso 2: paginar /cycles sin filtro, guardar los de 2026 ──────────────
     setP('Paso 2/2: descargando ciclos 2026...');
-    const existingIds = new Set(_sapCycles.map(function(c) { return c.idCycle; }));
+    const existingIds = new Set(_sapCycles.map(function(c) { return String(c.idCycle); }));
     const newCycles = [];
     let page = 0, emptyPages = 0;
+    console.log('[SAP] Iniciando fetch ciclos, URL:', SAP_CYCLES_API, 'existentes:', existingIds.size);
 
     while (emptyPages < 3) {
         let items = [];
         try {
             const res = await fetch(SAP_CYCLES_API + '?pageSize=1000&page=' + page, { headers: authHdrs });
+            console.log('[SAP] ciclos pág.' + page + ' status:', res.status, 'ok:', res.ok);
             if (!res.ok) break;
             items = _sapParseItems(await res.json());
+            console.log('[SAP] ciclos pág.' + page + ' items:', items.length, 'ejemplo:', JSON.stringify(items[0] || null));
             if (!items.length) break;
-        } catch(e) { break; }
+        } catch(e) { console.error('[SAP] ciclos error pág.' + page, e); break; }
 
         let found = 0;
         items.forEach(function(c) {
             const id = String(c.idCycle || '');
-            // LOG diagnóstico — ver 3 primeros ciclos del API en página 1
-            if (page === 1 && items.indexOf(c) < 3) console.log('[SAP] ciclo raw#' + items.indexOf(c), JSON.stringify({ id: id, cached: existingIds.has(id), startDate: c.startDate, cod: c.controlOrderDocument, keys: Object.keys(c) }));
+            // LOG diagnóstico — ver 3 primeros ciclos de página 0
+            if (page === 0 && items.indexOf(c) < 3) console.log('[SAP] ciclo raw#' + items.indexOf(c), JSON.stringify({ id: id, cached: existingIds.has(id), startDate: c.startDate, cod: c.controlOrderDocument, keys: Object.keys(c) }));
             if (!id) return;
             // Si el ciclo ya está cacheado, actualizar startDate in-place (puede haber sido cacheado sin él)
             if (existingIds.has(id)) {
