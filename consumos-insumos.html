@@ -777,9 +777,6 @@ function sapLoad() {
                 var nm = _subByIdNow[c._subsidiaryId];
                 if (nm) c._subName = nm;
             });
-            // LOG: ver ciclos cacheados con startDate
-            var c18s = _sapCycles.filter(function(c) { return String(c.cycleCode || '').includes('0454'); });
-            console.log('[SAP] CACHE: total ciclos cacheados:', _sapCycles.length, '| piscina 0454:', JSON.stringify(c18s.map(function(c) { return { id: c.idCycle, code: c.cycleCode, startDate: c.startDate, totalDays: c.totalDays }; })));
         }
         const su = localStorage.getItem(SAP_KEY_SUBS);
         if (su) {
@@ -1404,26 +1401,21 @@ async function sapCargarCiclos(force) {
     const existingIds = new Set(_sapCycles.map(function(c) { return String(c.idCycle); }));
     const newCycles = [];
     let page = 0, emptyPages = 0;
-    console.log('[SAP] Iniciando fetch ciclos, URL:', SAP_CYCLES_API, 'existentes:', existingIds.size);
 
     while (emptyPages < 3) {
         let items = [];
         try {
             const res = await fetch(SAP_CYCLES_API + '?pageSize=1000&page=' + page, { headers: authHdrs });
-            console.log('[SAP] ciclos pág.' + page + ' status:', res.status, 'ok:', res.ok);
             if (!res.ok) break;
             items = _sapParseItems(await res.json());
-            console.log('[SAP] ciclos pág.' + page + ' items:', items.length, 'ejemplo:', JSON.stringify(items[0] || null));
             if (!items.length) break;
-        } catch(e) { console.error('[SAP] ciclos error pág.' + page, e); break; }
+        } catch(e) { break; }
 
         let found = 0;
         items.forEach(function(c) {
             const id = String(c.idCycle || '');
-            // LOG diagnóstico — ver 3 primeros ciclos de página 0
-            if (page === 0 && items.indexOf(c) < 3) console.log('[SAP] ciclo raw#' + items.indexOf(c), JSON.stringify({ id: id, cached: existingIds.has(id), startDate: c.startDate, cod: c.controlOrderDocument, keys: Object.keys(c) }));
             if (!id) return;
-            // Si el ciclo ya está cacheado, actualizar startDate in-place (puede haber sido cacheado sin él)
+            // Si el ciclo ya está cacheado, actualizar startDate in-place (puede haberse cacheado sin él)
             if (existingIds.has(id)) {
                 if (c.startDate) {
                     var ex = _sapCycles.find(function(x) { return String(x.idCycle) === id; });
@@ -1995,13 +1987,14 @@ function _sapRenderCyclesOnly(cycles, resultsDiv) {
 // ── Helpers compartidos ───────────────────────────────────────────────────────
 function _sapCamp(ciclo) { return (ciclo.cycleCode || '').split('-')[0] || ciclo._subName; }
 function _sapFmt2(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-// Días reales del ciclo: usa startDate si está disponible, si no usa totalDays planificado
+// Días del ciclo: daysCycle de pool_production (totalDays) tiene prioridad; si es 0, calcula días transcurridos por startDate (para ciclos muy nuevos sin datos)
 function _cycleDias(c) {
+    if (c.totalDays > 0) return c.totalDays;
     if (c.startDate) {
         var d = Math.round((Date.now() - new Date(c.startDate)) / 86400000) + 1;
         if (d > 0) return d;
     }
-    return c.totalDays || 0;
+    return 0;
 }
 function _sapFmt0(n) { return Math.abs(n).toLocaleString('es-EC',{maximumFractionDigits:0}); }
 function _sapMesLabel(mm) { return SAP_MESES[parseInt(mm,10)-1] || mm; }
