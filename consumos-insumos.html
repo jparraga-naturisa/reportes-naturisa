@@ -1379,7 +1379,8 @@ async function sapCargarCiclos(force) {
                     if (c.idCycle) {
                         var dTotal = parseFloat(c.daysCycle || 0) || 0;
                         if (!dTotal) dTotal = (parseFloat(c.daysDry || 0) || 0) + (parseFloat(c.daysProduction || 0) || 0);
-                        if (dTotal > 0) idToDias[String(c.idCycle)] = dTotal;
+                        // Guardar el MÁXIMO entre semanas (semanas corren en paralelo, el mayor es el total real del ciclo)
+                        if (dTotal > 0 && dTotal > (idToDias[String(c.idCycle)] || 0)) idToDias[String(c.idCycle)] = dTotal;
                         // Marcar como activo si aparece en la semana actual
                         if (mapWeeks[wi] === curW2) activeIds.add(String(c.idCycle));
                     }
@@ -1992,11 +1993,12 @@ function _sapRenderCyclesOnly(cycles, resultsDiv) {
 // ── Helpers compartidos ───────────────────────────────────────────────────────
 function _sapCamp(ciclo) { return (ciclo.cycleCode || '').split('-')[0] || ciclo._subName; }
 function _sapFmt2(n) { return Math.abs(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-// Días del ciclo: días transcurridos desde startDate (igual que AP1); totalDays solo si no hay startDate
+// Días del ciclo: si elapsed>=totalDays el ciclo completó → usar totalDays; si no → días transcurridos (ciclo activo)
 function _cycleDias(c) {
     if (c.startDate) {
-        var d = Math.floor((Date.now() - new Date(c.startDate)) / 86400000);
-        if (d >= 0) return d;
+        var elapsed = Math.floor((Date.now() - new Date(c.startDate)) / 86400000);
+        if (c.totalDays > 0 && elapsed >= c.totalDays) return c.totalDays;
+        if (elapsed >= 0) return elapsed;
     }
     return c.totalDays || 0;
 }
