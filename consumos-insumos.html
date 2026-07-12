@@ -1072,7 +1072,7 @@ function _sapDetectRawKeys(rows) {
         kUnidad:  col('unidad','umbase','umb','medida') || exact('um') || exact('ud') || exact('un'),
         kDocMat:  col('documentomaterial','docmat','nºdocmat','documento material'),
         kPosMat:  col('posiciondoc','posdoc','posicion doc','posiciondocmat'),
-        kMov:     col('clasemov','clasedmov','mvt','movim','tipomov','movement')
+        kMov:     col('clasedmov','clasemvto','clasemov','clmvto','mvto','mvt','movim','tipomov','movement')
     };
     console.log('[SAP] Columnas Excel detectadas:', JSON.stringify(detected));
     console.log('[SAP] Todas las columnas:', keys.join(' | '));
@@ -1101,13 +1101,17 @@ const SAP_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Ago
 function _sapNormalizeRows(rows, k) {
     return rows.map(function(row) {
         var mv   = k.kMov ? String(row[k.kMov] || '').trim() : '';
-        var sign = mv === '262' ? -1 : 1; // 262 anula consumo → negar cantidad e importe
+        var rawQ = parseFloat(String(row[k.kCant]    || 0).replace(/,/g,'')) || 0;
+        var rawI = parseFloat(String(row[k.kImporte] || 0).replace(/,/g,'')) || 0;
+        // 262 siempre resta: usar -|valor| sin importar si SAP lo exporta positivo o negativo
+        var q = (mv === '262') ? -Math.abs(rawQ) : rawQ;
+        var i = (mv === '262') ? -Math.abs(rawI) : rawI;
         return {
             o:  String(row[k.kOrden]   || '').trim(),
             m:  String(row[k.kMat]    || '').trim(),
             d:  String(row[k.kDesc]   || '').trim(),
-            q:  sign * (parseFloat(String(row[k.kCant]    || 0).replace(/,/g,'')) || 0),
-            i:  sign * (parseFloat(String(row[k.kImporte] || 0).replace(/,/g,'')) || 0),
+            q:  q,
+            i:  i,
             a:  String(row[k.kAlmacen] || '').trim(),
             f:  k.kFecha  ? _sapParseDate(row[k.kFecha])        : '',
             u:  k.kUnidad ? String(row[k.kUnidad] || '').trim() : '',
