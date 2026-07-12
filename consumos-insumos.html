@@ -1071,7 +1071,8 @@ function _sapDetectRawKeys(rows) {
         kFecha:   col('fecha','fcontab','contabiliz','contab','posting'),
         kUnidad:  col('unidad','umbase','umb','medida') || exact('um') || exact('ud') || exact('un'),
         kDocMat:  col('documentomaterial','docmat','nºdocmat','documento material'),
-        kPosMat:  col('posiciondoc','posdoc','posicion doc','posiciondocmat')
+        kPosMat:  col('posiciondoc','posdoc','posicion doc','posiciondocmat'),
+        kMov:     col('clasemov','clasedmov','mvt','movim','tipomov','movement')
     };
     console.log('[SAP] Columnas Excel detectadas:', JSON.stringify(detected));
     console.log('[SAP] Todas las columnas:', keys.join(' | '));
@@ -1096,20 +1097,23 @@ function _sapParseDate(val) {
 
 const SAP_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-// Normaliza a formato compacto {o,m,d,q,i,a,f} — reduce tamaño ~80%
+// Normaliza a formato compacto {o,m,d,q,i,a,f,mv} — reduce tamaño ~80%
 function _sapNormalizeRows(rows, k) {
     return rows.map(function(row) {
+        var mv   = k.kMov ? String(row[k.kMov] || '').trim() : '';
+        var sign = mv === '262' ? -1 : 1; // 262 anula consumo → negar cantidad e importe
         return {
-            o: String(row[k.kOrden]   || '').trim(),
-            m: String(row[k.kMat]    || '').trim(),
-            d: String(row[k.kDesc]   || '').trim(),
-            q: parseFloat(String(row[k.kCant]    || 0).replace(/,/g,'')) || 0,
-            i: parseFloat(String(row[k.kImporte] || 0).replace(/,/g,'')) || 0,
-            a: String(row[k.kAlmacen] || '').trim(),
-            f: k.kFecha  ? _sapParseDate(row[k.kFecha])           : '',
-            u: k.kUnidad ? String(row[k.kUnidad] || '').trim()    : '',
-            dm: k.kDocMat ? String(row[k.kDocMat] || '').trim()   : '',
-            pd: k.kPosMat ? String(row[k.kPosMat] || '').trim()   : ''
+            o:  String(row[k.kOrden]   || '').trim(),
+            m:  String(row[k.kMat]    || '').trim(),
+            d:  String(row[k.kDesc]   || '').trim(),
+            q:  sign * (parseFloat(String(row[k.kCant]    || 0).replace(/,/g,'')) || 0),
+            i:  sign * (parseFloat(String(row[k.kImporte] || 0).replace(/,/g,'')) || 0),
+            a:  String(row[k.kAlmacen] || '').trim(),
+            f:  k.kFecha  ? _sapParseDate(row[k.kFecha])        : '',
+            u:  k.kUnidad ? String(row[k.kUnidad] || '').trim() : '',
+            dm: k.kDocMat ? String(row[k.kDocMat] || '').trim() : '',
+            pd: k.kPosMat ? String(row[k.kPosMat] || '').trim() : '',
+            mv: mv
         };
     });
 }
@@ -1133,7 +1137,10 @@ function sapSubirNuevoExcel(input) {
             if (!rawRows.length) { alert('El archivo esta vacio'); return; }
             const keys    = _sapDetectRawKeys(rawRows);
             const newRows = _sapNormalizeRows(rawRows, keys).filter(function(r) {
-                return r.a && r.a.toLowerCase().endsWith('02');
+                if (!r.a || !r.a.toLowerCase().endsWith('02')) return false;
+                // Si la columna de movimiento está presente, solo aceptar 261 y 262
+                if (r.mv && r.mv !== '261' && r.mv !== '262') return false;
+                return true;
             });
 
             if (!newRows.length) { alert('El archivo no contiene filas de almacén tipo 02.'); return; }
