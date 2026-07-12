@@ -812,10 +812,13 @@ function showSapScreen() {
     // Cargar Excel desde IndexedDB — primero filas fusionadas, fallback al buffer crudo
     _sapIdbGet('rows').then(function(savedRows) {
         if (savedRows && savedRows.length) {
-            // Migrar filas 262 que quedaron mal negadas (código anterior): 262 debe ser positivo en SAP
-            var fixed262 = false;
-            savedRows.forEach(function(r) { if (r.mv === '262' && r.q < 0) { r.q = -r.q; r.i = -r.i; fixed262 = true; } });
-            if (fixed262) _sapIdbPut('rows', savedRows);
+            // Migrar al convenio normalizado: 261 (consumo) = positivo, 262 (anulación) = negativo
+            var needsMigration = false;
+            savedRows.forEach(function(r) {
+                if (r.mv === '262' && r.q > 0) { r.q = -r.q; r.i = -r.i; needsMigration = true; }
+                else if ((!r.mv || r.mv === '261') && r.q < 0) { r.q = -r.q; r.i = -r.i; needsMigration = true; }
+            });
+            if (needsMigration) _sapIdbPut('rows', savedRows);
             _sapExcelRows = savedRows;
             sapPopulateYearMonth(); sapPopulateClusterSub(); sapPopulatePiscinaCiclo();
             sapUpdateStatus(); updateSapResults();
@@ -1105,13 +1108,16 @@ const SAP_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Ago
 function _sapNormalizeRows(rows, k) {
     return rows.map(function(row) {
         var mv   = k.kMov ? String(row[k.kMov] || '').trim() : '';
-        // SAP exporta 261 (consumo) como negativo y 262 (anulación) como positivo — guardar tal cual
+        var rawQ = parseFloat(String(row[k.kCant]    || 0).replace(/,/g,'')) || 0;
+        var rawI = parseFloat(String(row[k.kImporte] || 0).replace(/,/g,'')) || 0;
+        // Convención interna: 261 (consumo) = positivo, 262 (anulación) = negativo
+        var sign = (mv === '262') ? -1 : 1;
         return {
             o:  String(row[k.kOrden]   || '').trim(),
             m:  String(row[k.kMat]    || '').trim(),
             d:  String(row[k.kDesc]   || '').trim(),
-            q:  parseFloat(String(row[k.kCant]    || 0).replace(/,/g,'')) || 0,
-            i:  parseFloat(String(row[k.kImporte] || 0).replace(/,/g,'')) || 0,
+            q:  sign * Math.abs(rawQ),
+            i:  sign * Math.abs(rawI),
             a:  String(row[k.kAlmacen] || '').trim(),
             f:  k.kFecha  ? _sapParseDate(row[k.kFecha])        : '',
             u:  k.kUnidad ? String(row[k.kUnidad] || '').trim() : '',
@@ -1662,7 +1668,7 @@ function sapSelectResumenRow(el, camp) {
     document.querySelectorAll('.sap-res-row').forEach(function(r) { r.style.background = ''; r.style.outline = ''; });
     el.style.background = '#dbeafe'; el.style.outline = '2px solid #3b82f6';
     var rows = _sapKpiRows.filter(function(fr) { return _sapCamp(fr.ciclo) === camp; });
-    var imp  = rows.reduce(function(s, fr) { return s + Math.abs(fr.row.i || 0); }, 0);
+    var imp  = rows.reduce(function(s, fr) { return s + (fr.row.i || 0); }, 0);
     var subName = rows.length ? (rows[0].ciclo._subName || camp) : camp;
     var sid = rows.length ? rows[0].ciclo._subsidiaryId : null;
     // Mes actual → Ha live desde _sapPools; mes histórico → Ha congelada desde cicloPs
@@ -1829,7 +1835,7 @@ function updateSapResults() {
         if (cicCycleVal && String((orderToCycle[row.o||'']||{}).idCycle) !== cicCycleVal) return;
         const u = (row.u || '—').trim();
         if (!unidadMap[u]) unidadMap[u] = 0;
-        unidadMap[u] += Math.abs(row.q || 0);
+        unidadMap[u] += row.q || 0;
     });
     const unidadLines = Object.entries(unidadMap)
         .sort(function(a,b) { return b[1]-a[1]; })
@@ -2030,7 +2036,7 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
     filteredRows.forEach(function(fr) {
         var camp = _sapCamp(fr.ciclo);
         if (!grp[camp]) grp[camp] = { camp:camp, subName: fr.ciclo._subName || camp, costo:0, cicloPs:{}, cluster: _sapCampCluster(camp) };
-        grp[camp].costo += Math.abs(fr.row.i || 0);
+        grp[camp].costo += fr.row.i || 0;
         grp[camp].cicloPs[fr.ciclo.poolName || fr.ciclo.idCycle] = fr.ciclo.ps || 0;
     });
 
@@ -2297,8 +2303,8 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
     filteredRows.forEach(function(fr) {
         var key = fr.row.m || '(sin código)';
         if (!grp[key]) grp[key] = { matCode:fr.row.m||'', desc:fr.row.d||'', unidad:fr.row.u||'', costo:0, cant:0 };
-        grp[key].costo += Math.abs(fr.row.i || 0);
-        grp[key].cant  += Math.abs(fr.row.q || 0);
+        grp[key].costo += fr.row.i || 0;
+        grp[key].cant  += fr.row.q || 0;
         if (!grp[key].unidad && fr.row.u) grp[key].unidad = fr.row.u;
         var pool = fr.ciclo.poolName;
         if (pool && fr.ciclo.ps) totalCicloPs[pool] = fr.ciclo.ps || 0;
@@ -2435,12 +2441,12 @@ function sapShowMatDetail(key) {
     d.rows.forEach(function(r) {
         var f = r.f || '—';
         if (!byDate[f]) byDate[f] = { cant: 0, importe: 0 };
-        byDate[f].cant    += Math.abs(r.q || 0);
-        byDate[f].importe += Math.abs(r.i || 0);
+        byDate[f].cant    += r.q || 0;
+        byDate[f].importe += r.i || 0;
     });
     var dates = Object.keys(byDate).sort();
     var startDate = dates[0] && dates[0] !== '—' ? new Date(dates[0]) : null;
-    var totalCosto = d.rows.reduce(function(s,r) { return s + Math.abs(r.i||0); }, 0);
+    var totalCosto = d.rows.reduce(function(s,r) { return s + (r.i||0); }, 0);
     var ps = d.ciclo.ps || 0;
 
     var rows = dates.map(function(f) {
@@ -2515,11 +2521,11 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
             costo: 0,
             mats: {}
         };
-        grp[cid].costo += Math.abs(fr.row.i || 0);
+        grp[cid].costo += fr.row.i || 0;
         var mk = fr.row.m || '(sin código)';
         if (!grp[cid].mats[mk]) grp[cid].mats[mk] = { code: fr.row.m||'', desc: fr.row.d||'', unidad: fr.row.u||'', costo: 0, cant: 0 };
-        grp[cid].mats[mk].costo += Math.abs(fr.row.i || 0);
-        grp[cid].mats[mk].cant  += Math.abs(fr.row.q || 0);
+        grp[cid].mats[mk].costo += fr.row.i || 0;
+        grp[cid].mats[mk].cant  += fr.row.q || 0;
         if (!grp[cid].mats[mk].unidad && fr.row.u) grp[cid].mats[mk].unidad = fr.row.u;
         // Guardar filas para detalle
         var dk = cid + '||' + mk;
@@ -2766,14 +2772,14 @@ function _sapRenderTendencia(filteredRows, el) {
         campSubId[camp] = fr.ciclo._subsidiaryId;
         if (!meses[mes]) meses[mes] = {};
         if (!meses[mes][camp]) meses[mes][camp] = { costo: 0, ciclos: {} };
-        meses[mes][camp].costo += Math.abs(fr.row.i || 0);
+        meses[mes][camp].costo += fr.row.i || 0;
         var cid = fr.ciclo.idCycle;
         if (cid) meses[mes][camp].ciclos[cid] = fr.ciclo.ps || 0;
 
         var mc = fr.row.m || '(sin código)';
         matDescMap[mc] = fr.row.d || mc;
         if (!matMeses[mc]) matMeses[mc] = {};
-        matMeses[mc][mes] = (matMeses[mc][mes] || 0) + Math.abs(fr.row.i || 0);
+        matMeses[mc][mes] = (matMeses[mc][mes] || 0) + (fr.row.i || 0);
     });
 
     var mesesList = Object.keys(meses).sort();
@@ -3213,8 +3219,8 @@ function _sapOpenMatDetail(matCode) {
         var sid  = fr.ciclo._subsidiaryId;
         var name = fr.ciclo._subName || _sapCamp(fr.ciclo);
         if (!bySub[name]) bySub[name] = { name: name, sid: sid, costo: 0, cant: 0, cicloPs: {} };
-        bySub[name].costo += Math.abs(fr.row.i || 0);
-        bySub[name].cant  += Math.abs(fr.row.q || 0);
+        bySub[name].costo += fr.row.i || 0;
+        bySub[name].cant  += fr.row.q || 0;
         var pn = fr.ciclo.poolName || fr.ciclo.idCycle;
         if (pn && fr.ciclo.ps) bySub[name].cicloPs[pn] = fr.ciclo.ps;
     });
@@ -3240,8 +3246,8 @@ function _sapOpenMatDetail(matCode) {
     matRows.forEach(function(fr) {
         var ord = fr.row.o || '—';
         if (!byOrd[ord]) byOrd[ord] = { ord: ord, sub: fr.ciclo._subName || _sapCamp(fr.ciclo), pool: fr.ciclo.poolName || '—', costo: 0, cant: 0 };
-        byOrd[ord].costo += Math.abs(fr.row.i || 0);
-        byOrd[ord].cant  += Math.abs(fr.row.q || 0);
+        byOrd[ord].costo += fr.row.i || 0;
+        byOrd[ord].cant  += fr.row.q || 0;
     });
     var ordRows = Object.values(byOrd).sort(function(a, b) { return b.costo - a.costo; }).slice(0, 15);
     var ordHtml = ordRows.map(function(o, i) {
