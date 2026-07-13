@@ -1049,20 +1049,20 @@ function sapPopulateTendMat() {
     if (!sel) return;
     var clusterVal = (document.getElementById('sap-tend-cluster') || {}).value || '';
     var subVal     = (document.getElementById('sap-tend-sub')     || {}).value || '';
+    var yearVal    = (document.getElementById('sap-tend-year')    || {}).value || '';
     var clusterIds = clusterVal ? (CLUSTERS[clusterVal] || []) : null;
-    // Construir conjunto de órdenes válidas según cluster/sucursal activos
-    var validOrders = null;
-    if (clusterIds || subVal) {
-        validOrders = new Set();
-        _sapCycles.forEach(function(c) {
-            if (clusterIds && !clusterIds.includes(c._subsidiaryId)) return;
-            if (subVal && _sapCamp(c) !== subVal) return;
-            if (c.controlOrderDocument) validOrders.add(c.controlOrderDocument);
-        });
-    }
+    // Mismo lookup de orden→ciclo que updateSapResults
+    var orderToCycle = {};
+    _sapCycles.forEach(function(c) { if (c.controlOrderDocument) orderToCycle[c.controlOrderDocument] = c; });
+    // Aplicar los mismos filtros que updateSapResults (sin filtro de material)
     var seen = {}, opts = [];
     _sapExcelRows.forEach(function(r) {
-        if (validOrders && !validOrders.has(r.o)) return;
+        if (!r.a || !r.a.toLowerCase().endsWith('02')) return;
+        var ciclo = orderToCycle[r.o || ''];
+        if (!ciclo) return;
+        if (yearVal && (r.f || '').slice(0, 4) !== yearVal) return;
+        if (subVal && _sapCamp(ciclo) !== subVal) return;
+        if (!subVal && clusterIds && !clusterIds.includes(ciclo._subsidiaryId)) return;
         var code = r.m || '';
         if (code && !seen[code]) { seen[code] = true; opts.push({ code: code, desc: r.d || code }); }
     });
@@ -2061,7 +2061,7 @@ function updateSapResults() {
     if      (_sapTab === 'resumen')   _sapRenderResumen(filteredRows, diasMes, viewBody, kpiHtml);
     else if (_sapTab === 'material')  _sapRenderPorMaterial(filteredRows, diasMes, viewBody, kpiHtml);
     else if (_sapTab === 'ciclo')     _sapRenderPorCiclo(filteredRows, viewBody, kpiHtml);
-    else if (_sapTab === 'tendencia') _sapRenderTendencia(filteredRows, viewBody);
+    else if (_sapTab === 'tendencia') { sapPopulateTendMat(); _sapRenderTendencia(filteredRows, viewBody); }
 }
 
 function _sapRenderCyclesOnly(cycles, resultsDiv) {
