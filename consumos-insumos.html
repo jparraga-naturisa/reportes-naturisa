@@ -34,6 +34,26 @@
         .header-logo .accent { color: var(--accent); }
         .header-logo .sep { opacity: 0.4; margin: 0 4px; }
 
+        /* Header user dropdown */
+        .hdr-right { display: flex; align-items: center; gap: 16px; }
+        .hdr-user-btn { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); border-radius: 20px; padding: 4px 10px 4px 5px; cursor: pointer; color: white; font-size: 13px; font-weight: 600; transition: background 0.15s; white-space: nowrap; }
+        .hdr-user-btn:hover { background: rgba(255,255,255,0.22); }
+        .hdr-user-av { width: 28px; height: 28px; border-radius: 50%; background: #00b4d8; color: #0a2540; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0; }
+        .hdr-user-dd { position: absolute; top: calc(100% + 8px); right: 0; background: white; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); min-width: 220px; overflow: hidden; display: none; z-index: 9999; border: 1px solid var(--border); }
+        .hdr-user-dd.open { display: block; }
+        .hdr-dd-head { padding: 12px 16px; font-size: 13px; font-weight: 700; color: var(--text); background: #f8fafc; border-bottom: 1px solid var(--border); }
+        .hdr-dd-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 16px; background: none; border: none; font-size: 13px; font-weight: 500; color: var(--text); cursor: pointer; text-align: left; transition: background 0.12s; }
+        .hdr-dd-item:hover { background: #f1f5f9; }
+        .hdr-dd-item.danger { color: #dc2626; }
+        .hdr-dd-item.danger:hover { background: #fef2f2; }
+        .hdr-dd-item.blue { color: #0369a1; }
+        .hdr-dd-item.blue:hover { background: #e0f2fe; }
+        .hdr-dd-item.amber { color: #b45309; }
+        .hdr-dd-item.amber:hover { background: #fef3c7; }
+        .hdr-dd-sep { height: 1px; background: var(--border); margin: 4px 0; }
+        .hdr-dd-upload { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 16px; font-size: 13px; font-weight: 500; color: var(--text); cursor: pointer; transition: background 0.12s; box-sizing: border-box; }
+        .hdr-dd-upload:hover { background: #f1f5f9; }
+
         /* Login Bar */
         .login-bar { background: #fffbeb; border-bottom: 1px solid #fde68a; padding: 8px 24px; display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
         .login-bar.connected { background: #f0fdf4; border-color: #bbf7d0; }
@@ -227,7 +247,55 @@
         </svg>
         <span class="accent">NATURISA</span><span class="sep">|</span> Consumos Insumos
     </div>
-    <span style="font-size:12px;opacity:0.65;" id="header-date"></span>
+    <div class="hdr-right">
+        <span style="font-size:12px;opacity:0.65;" id="header-date"></span>
+        <!-- Usuario: visible solo cuando está logueado -->
+        <div id="hdr-user-wrap" style="position:relative;display:none">
+            <button class="hdr-user-btn" onclick="_hdrUserToggle(event)">
+                <span class="hdr-user-av" id="hdr-user-av"></span>
+                <span id="hdr-user-name"></span>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:0.7"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="hdr-user-dd" id="hdr-user-dd">
+                <div class="hdr-dd-head" id="hdr-user-fullname"></div>
+                <!-- Sección opciones: solo para admin -->
+                <div id="hdr-opc-section" style="display:none">
+                    <label class="hdr-dd-upload" id="sap-excel-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span id="sap-excel-btn-text">Subir Excel</span>
+                        <input type="file" id="sap-file-input" accept=".xlsx,.xls" style="display:none" onchange="sapSubirNuevoExcel(this)">
+                    </label>
+                    <button class="hdr-dd-item" onclick="sapCargarPools();sapCargarCiclos(true);_hdrUserClose()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        Cargar ciclos nuevos
+                    </button>
+                    <button class="hdr-dd-item" onclick="sapActualizarHa();_hdrUserClose()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        Actualizar Ha activas
+                    </button>
+                    <button class="hdr-dd-item amber" onclick="sapBorrarExcel();_hdrUserClose()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                        Borrar Excel acumulado
+                    </button>
+                    <div class="hdr-dd-sep"></div>
+                    <button id="btn-sincronizar" class="hdr-dd-item blue" onclick="sapSincronizarParaTodos()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        Sincronizar para todos
+                    </button>
+                    <div class="hdr-dd-sep"></div>
+                    <button class="hdr-dd-item danger" onclick="sapLimpiarDatos();_hdrUserClose()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                        Limpiar datos
+                    </button>
+                    <div class="hdr-dd-sep"></div>
+                </div>
+                <button class="hdr-dd-item danger" onclick="doLogout()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Cerrar sesión
+                </button>
+            </div>
+        </div>
+    </div>
 </header>
 
 <!-- Login Bar -->
@@ -372,45 +440,6 @@
                 <option value="">— Todas —</option>
             </select>
         </div>
-        <!-- Opciones: al extremo derecho -->
-        <div style="position:relative;display:flex;align-items:center;margin-left:8px">
-            <button id="btn-opciones" onclick="sapToggleOpciones(event)" style="display:none;align-items:center;gap:6px;padding:5px 12px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                Opciones
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div id="sap-opciones-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:500;min-width:220px;overflow:hidden">
-                <div style="padding:6px 0">
-                    <label id="sap-excel-btn" style="display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text);transition:background .12s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        <span id="sap-excel-btn-text">Subir Excel</span>
-                        <input type="file" id="sap-file-input" accept=".xlsx,.xls" style="display:none" onchange="sapSubirNuevoExcel(this)">
-                    </label>
-                    <button onclick="sapCargarPools();sapCargarCiclos(true);sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                        Cargar ciclos nuevos
-                    </button>
-                    <button onclick="sapActualizarHa();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                        Actualizar Ha activas
-                    </button>
-                    <button onclick="sapBorrarExcel()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:#b45309;cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background=''">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                        Borrar Excel acumulado
-                    </button>
-                    <div style="height:1px;background:var(--border);margin:4px 0"></div>
-                    <button id="btn-sincronizar" onclick="sapSincronizarParaTodos()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:#0369a1;cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background=''">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                        Sincronizar para todos
-                    </button>
-                    <div style="height:1px;background:var(--border);margin:4px 0"></div>
-                    <button onclick="sapLimpiarDatos();sapCerrarOpciones()" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:none;font-size:13px;font-weight:500;color:#b91c1c;cursor:pointer;text-align:left;transition:background .12s" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background=''">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-                        Limpiar datos
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Resultados -->
@@ -427,7 +456,7 @@
 // ── Versión de la app ────────────────────────────────────────────────────────
 // Para publicar nueva versión: actualizar AMBOS archivos:
 //   1) este string  2) version.json → {"v":"..."}  (mismo valor)
-var _APP_VER = '20260713-11';
+var _APP_VER = '20260713-12';
 (function() {
     // Limpiar parámetro _refresh de la URL si venimos de una redirección de versión
     if (location.search.includes('_refresh') && history.replaceState) {
@@ -697,45 +726,51 @@ function doLogout() {
 
 function applyLoginUI(on, nombre) {
     const bar    = document.getElementById('login-bar');
-    const btnIn  = document.getElementById('btn-login');
-    const btnOut = document.getElementById('btn-logout');
-    const st     = document.getElementById('login-status');
-    const inUser = document.getElementById('inp-user');
-    const inPass = document.getElementById('inp-pass');
-    const label  = document.getElementById('login-label');
     const modal  = document.getElementById('login-modal');
+    const wrap   = document.getElementById('hdr-user-wrap');
 
     modal.style.display = on ? 'none' : 'flex';
-    bar.classList.toggle('connected', on);
-    btnIn.style.display   = on ? 'none' : 'inline-block';
-    btnOut.style.display  = on ? 'inline-block' : 'none';
-    inPass.style.display  = on ? 'none' : 'inline-block';
-    inUser.style.display  = on ? 'none' : 'inline-block';
-    label.style.display   = on ? 'none' : 'inline';
+    // Ocultar la login-bar completa cuando el usuario está conectado
+    bar.style.display = on ? 'none' : '';
+
     if (on) {
-        const words     = nombre.split(' ').filter(w => w.length > 0);
+        const words     = (nombre || '').split(' ').filter(w => w.length > 0);
         const firstName = words[0] || '';
         const firstLast = words[Math.floor(words.length / 2)] || '';
         const shortName = firstLast ? firstName + ' ' + firstLast : firstName;
-        const initials  = (firstName[0] || '') + (firstLast[0] || '');
-        st.innerHTML = '<span class="user-avatar">' + initials.toUpperCase() + '</span>&nbsp;' + shortName;
-        st.className = 'ok';
+        const initials  = ((firstName[0] || '') + (firstLast[0] || '')).toUpperCase();
+        // Mostrar botón de usuario en el header
+        if (wrap) wrap.style.display = '';
+        const avEl = document.getElementById('hdr-user-av');
+        if (avEl) avEl.textContent = initials;
+        const nmEl = document.getElementById('hdr-user-name');
+        if (nmEl) nmEl.textContent = shortName;
+        const fnEl = document.getElementById('hdr-user-fullname');
+        if (fnEl) fnEl.textContent = nombre || shortName;
+        // Mostrar sección opciones solo para admin
         const user = localStorage.getItem('nat_user') || '';
-        const btnOpc = document.getElementById('btn-opciones');
-        if (btnOpc) {
-            btnOpc.style.display = user === 'jparraga' ? 'inline-flex' : 'none';
-        }
+        const opcSection = document.getElementById('hdr-opc-section');
+        if (opcSection) opcSection.style.display = user === 'jparraga' ? '' : 'none';
     } else {
-        st.textContent = '⚠ Inicia sesión para cargar datos';
-        st.className = '';
-        inUser.value = '';
+        if (wrap) wrap.style.display = 'none';
+        document.getElementById('inp-user').value = '';
         document.getElementById('modal-user').value  = '';
         document.getElementById('modal-pass').value  = '';
         document.getElementById('modal-status').textContent = '';
-        const btnOpc = document.getElementById('btn-opciones');
-        if (btnOpc) btnOpc.style.display = 'none';
     }
 }
+
+function _hdrUserToggle(e) {
+    e.stopPropagation();
+    document.getElementById('hdr-user-dd').classList.toggle('open');
+}
+function _hdrUserClose() {
+    var dd = document.getElementById('hdr-user-dd');
+    if (dd) dd.classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#hdr-user-wrap')) _hdrUserClose();
+});
 
 function getISOWeek(d) {
     const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -1350,7 +1385,6 @@ function sapBorrarExcel() {
     _kvPush('excel_v', _clearVer);
     localStorage.setItem(SAP_KEY_EXCEL_TS, String(_clearVer));
     sapSave(); sapUpdateStatus(); updateSapResults();
-    sapCerrarOpciones();
 }
 
 // Parsea cualquier forma de respuesta paginada del API
@@ -1620,13 +1654,8 @@ async function sapCargarCiclos(force) {
     _sapRepoblateSubSelect(); sapPopulatePiscinaCiclo(); sapUpdateStatus(); updateSapResults();
 }
 
-function sapToggleOpciones(e) {
-    e.stopPropagation();
-    var m = document.getElementById('sap-opciones-menu');
-    m.style.display = m.style.display === 'none' ? 'block' : 'none';
-}
 async function sapSincronizarParaTodos() {
-    sapCerrarOpciones();
+    _hdrUserClose();
     var btn = document.getElementById('btn-sincronizar');
     if (btn) { btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
     var steps = [];
@@ -1661,14 +1690,7 @@ async function sapSincronizarParaTodos() {
     if (btn) { btn.style.opacity = ''; btn.style.pointerEvents = ''; }
     alert('Sincronización completada:\n' + steps.join('\n') + '\n\nLos demás usuarios verán los datos actualizados al recargar la página.');
 }
-function sapCerrarOpciones() {
-    var m = document.getElementById('sap-opciones-menu');
-    if (m) m.style.display = 'none';
-}
 document.addEventListener('click', function(e) {
-    if (!e.target.closest('#sap-opciones-menu') && !e.target.closest('[onclick*="sapToggleOpciones"]')) {
-        sapCerrarOpciones();
-    }
     // Selección de opción en el buscador de material
     var opt = e.target.closest && e.target.closest('.tsm-opt');
     if (opt && opt.closest('#sap-tend-mat-list')) {
