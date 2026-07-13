@@ -429,7 +429,7 @@
 // ── Versión de la app ────────────────────────────────────────────────────────
 // Para publicar nueva versión: actualizar AMBOS archivos:
 //   1) este string  2) version.json → {"v":"..."}  (mismo valor)
-var _APP_VER = '20260713-7';
+var _APP_VER = '20260713-8';
 (function() {
     // Limpiar parámetro _refresh de la URL si venimos de una redirección de versión
     if (location.search.includes('_refresh') && history.replaceState) {
@@ -477,7 +477,7 @@ function _kvPush(key, data) {
 }
 function _kvPull(key) {
     if (_IS_LOCAL) return Promise.resolve(null); // KV no disponible en local
-    return fetch(KV_URL + key)
+    return fetch(KV_URL + key, { cache: 'no-store' })
         .then(function(r) { return r.ok ? r.json() : null; })
         .catch(function(e) { console.warn('KV pull error:', e); return null; });
 }
@@ -3504,14 +3504,12 @@ function initSapScreen() {
 
     // Ciclos y pools desde KV — siempre consultar para que todos vean las mismas Ha.
     // Los pools van embebidos en la key 'ciclos' (la key 'pools' no está permitida en el KV worker).
-    var _cyclesTs    = parseInt(localStorage.getItem(SAP_KEY_CYCLES_TS) || '0');
-    var _cyclesStale = !_sapCycles.length || (Date.now() - _cyclesTs) > 2 * 60 * 60 * 1000;
     _kvPull('ciclos').then(function(kvData) {
         var ext = _kvExtractCiclos(kvData);
         var needsRender = false;
 
-        // Actualizar ciclos solo si llevan más de 2h o no hay locales
-        if (_cyclesStale && ext.cycles && ext.cycles.length) {
+        // Siempre aplicar ciclos del KV si tiene datos — garantiza que todos ven la versión actual
+        if (ext.cycles && ext.cycles.length) {
             _sapCycles = ext.cycles;
             var _subByIdNow = Object.fromEntries(CAMPAMENTOS_DEFAULT.map(function(s) { return [s.id, s.name]; }));
             _sapCycles.forEach(function(c) {
