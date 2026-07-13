@@ -327,6 +327,12 @@
                 <option value="">— Todas —</option>
             </select>
         </div>
+        <div id="sap-tend-mat-fg" class="fg" style="display:none">
+            <label>Material</label>
+            <select id="sap-tend-mat" style="min-width:200px" onchange="updateSapResults()">
+                <option value="">— Todos —</option>
+            </select>
+        </div>
         <!-- Filtros exclusivos de la pestaña Por Material (ocultos en otras pestañas) -->
         <div id="sap-mat-year-fg" class="fg" style="display:none">
             <label>Año</label>
@@ -945,6 +951,7 @@ function sapPopulateYearMonth() {
     }
     sapPopulateTendCluster();
     sapPopulateTendSub();
+    sapPopulateTendMat();
     sapPopulateMatCluster();
     sapPopulateMatSub();
     sapPopulateCicSub();
@@ -1029,6 +1036,23 @@ function sapPopulateTendSub() {
     if (cur && !opts.find(function(o) { return o.camp === cur; })) cur = '';
     sel.innerHTML = '<option value="">— Todas —</option>' +
         opts.map(function(o) { return '<option value="' + o.camp + '"' + (o.camp===cur?' selected':'') + '>' + o.name + '</option>'; }).join('');
+}
+
+function sapPopulateTendMat() {
+    var sel = document.getElementById('sap-tend-mat');
+    if (!sel) return;
+    var seen = {}, opts = [];
+    _sapExcelRows.forEach(function(r) {
+        var code = r.m || '';
+        if (code && !seen[code]) { seen[code] = true; opts.push({ code: code, desc: r.d || code }); }
+    });
+    opts.sort(function(a, b) { return a.desc.localeCompare(b.desc, 'es'); });
+    var cur = sel.value;
+    if (cur && !opts.find(function(o) { return o.code === cur; })) cur = '';
+    sel.innerHTML = '<option value="">— Todos —</option>' +
+        opts.map(function(o) {
+            return '<option value="' + o.code + '"' + (o.code === cur ? ' selected' : '') + '>' + o.desc + '</option>';
+        }).join('');
 }
 
 function sapPopulateMatCluster() {
@@ -1727,7 +1751,7 @@ function _sapSyncFilters() {
 
     if (_sapTab === 'tendencia') {
         sharedIds.concat(allSpecial).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
-        ['sap-tend-year-fg','sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-budget-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
+        ['sap-tend-year-fg','sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-mat-fg','sap-tend-budget-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
         return;
     }
     ['sap-tend-year-fg','sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-budget-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
@@ -1797,6 +1821,7 @@ function updateSapResults() {
     const tendClusterVal= isTendencia ? ((document.getElementById('sap-tend-cluster') || {}).value || '') : '';
     const tendClusterIds= tendClusterVal ? (CLUSTERS[tendClusterVal] || []) : null;
     const tendYearSel   = isTendencia ? ((document.getElementById('sap-tend-year') || {}).value || '') : '';
+    const tendMatVal    = isTendencia ? ((document.getElementById('sap-tend-mat')     || {}).value || '') : '';
     const cicSubVal  = isCiclo ? ((document.getElementById('sap-cic-sub')   || {}).value || '') : '';
     const cicPoolVal = isCiclo ? ((document.getElementById('sap-cic-pool')  || {}).value || '') : '';
     const cicCycleVal= isCiclo ? ((document.getElementById('sap-cic-cycle') || {}).value || '') : '';
@@ -2004,6 +2029,7 @@ function updateSapResults() {
         if (tendYearSel && fecha.slice(0,4) !== tendYearSel) return;
         if (tendSubVal && _sapCamp(ciclo) !== tendSubVal) return;
         if (!tendSubVal && tendClusterIds && !tendClusterIds.includes(ciclo._subsidiaryId)) return;
+        if (tendMatVal && (row.m || '') !== tendMatVal) return;
         if (cicSubVal   && _sapCamp(ciclo)         !== cicSubVal)  return;
         if (cicPoolVal  && (ciclo.poolName || '')   !== cicPoolVal) return;
         if (cicCycleVal && String(ciclo.idCycle)   !== cicCycleVal) return;
