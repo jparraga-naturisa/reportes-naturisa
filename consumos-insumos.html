@@ -323,7 +323,7 @@
         </div>
         <div id="sap-tend-sub-fg" class="fg" style="display:none">
             <label>Sucursal</label>
-            <select id="sap-tend-sub" style="min-width:180px" onchange="updateSapResults()">
+            <select id="sap-tend-sub" style="min-width:180px" onchange="sapOnTendSubChange()">
                 <option value="">— Todas —</option>
             </select>
         </div>
@@ -1017,6 +1017,12 @@ function sapPopulateTendCluster() {
 
 function sapOnTendClusterChange() {
     sapPopulateTendSub();
+    sapPopulateTendMat();
+    updateSapResults();
+}
+
+function sapOnTendSubChange() {
+    sapPopulateTendMat();
     updateSapResults();
 }
 
@@ -1041,8 +1047,22 @@ function sapPopulateTendSub() {
 function sapPopulateTendMat() {
     var sel = document.getElementById('sap-tend-mat');
     if (!sel) return;
+    var clusterVal = (document.getElementById('sap-tend-cluster') || {}).value || '';
+    var subVal     = (document.getElementById('sap-tend-sub')     || {}).value || '';
+    var clusterIds = clusterVal ? (CLUSTERS[clusterVal] || []) : null;
+    // Construir conjunto de órdenes válidas según cluster/sucursal activos
+    var validOrders = null;
+    if (clusterIds || subVal) {
+        validOrders = new Set();
+        _sapCycles.forEach(function(c) {
+            if (clusterIds && !clusterIds.includes(c._subsidiaryId)) return;
+            if (subVal && _sapCamp(c) !== subVal) return;
+            if (c.controlOrderDocument) validOrders.add(c.controlOrderDocument);
+        });
+    }
     var seen = {}, opts = [];
     _sapExcelRows.forEach(function(r) {
+        if (validOrders && !validOrders.has(r.o)) return;
         var code = r.m || '';
         if (code && !seen[code]) { seen[code] = true; opts.push({ code: code, desc: r.d || code }); }
     });
