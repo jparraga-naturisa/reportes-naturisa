@@ -429,7 +429,7 @@
 // ── Versión de la app ────────────────────────────────────────────────────────
 // Para publicar nueva versión: actualizar AMBOS archivos:
 //   1) este string  2) version.json → {"v":"..."}  (mismo valor)
-var _APP_VER = '20260713-9';
+var _APP_VER = '20260713-10';
 (function() {
     // Limpiar parámetro _refresh de la URL si venimos de una redirección de versión
     if (location.search.includes('_refresh') && history.replaceState) {
@@ -3539,65 +3539,34 @@ function initSapScreen() {
         if (needsRender) updateSapResults();
     });
 
-    _sapIdbGet('rows').then(function(savedRows) {
-        var localRows = (savedRows && savedRows.length) ? savedRows : [];
-        var localVer  = parseInt(localStorage.getItem(SAP_KEY_EXCEL_TS) || '0');
-
-        function _useLocalAndRender() {
-            _sapExcelRows = localRows;
-            sapPopulateYearMonth(); sapPopulateClusterSub(); sapPopulatePiscinaCiclo();
-            sapUpdateStatus(); updateSapResults();
-        }
-        function _pullFullExcel() {
-            return _kvPull('excel').then(function(kvRows) {
-                if (kvRows !== null && kvRows.length) {
-                    _sapExcelRows = kvRows;
-                    _sapIdbPut('rows', kvRows);
-                } else if (localRows.length) {
-                    _sapExcelRows = localRows;
-                } else {
-                    return; // sin datos
-                }
-                sapPopulateYearMonth(); sapPopulateClusterSub(); sapPopulatePiscinaCiclo();
-                sapUpdateStatus(); updateSapResults();
+    // Siempre descargar Excel desde KV — garantiza datos actualizados para todos los usuarios.
+    // Fallback a IndexedDB local si KV no tiene datos o hay error de red.
+    function _applyAndRender(rows) {
+        if (rows && rows.length) {
+            // Migración de signos para filas antiguas almacenadas con convenio incorrecto
+            rows.forEach(function(r) {
+                if (r.mv === '262' && r.q > 0) { r.q = -r.q; r.i = -r.i; }
+                else if ((!r.mv || r.mv === '261') && r.q < 0) { r.q = -r.q; r.i = -r.i; }
             });
+            _sapExcelRows = rows;
         }
-
-        if (!localRows.length) {
-            // Sin datos locales: intentar KV directamente
-            return _pullFullExcel().then(function() {
-                if (!_sapExcelRows.length) {
-                    return _sapIdbGet('buffer').then(function(buf) {
-                        if (!buf) { updateSapResults(); return; }
-                        const wb      = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true });
-                        const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
-                        if (!rawRows.length) { updateSapResults(); return; }
-                        _sapExcelRows = _sapNormalizeRows(rawRows, _sapDetectRawKeys(rawRows));
-                        sapPopulateYearMonth(); sapUpdateStatus(); updateSapResults();
-                    });
-                }
-            });
+        sapPopulateYearMonth(); sapPopulateClusterSub(); sapPopulatePiscinaCiclo();
+        sapUpdateStatus(); updateSapResults();
+    }
+    function _fallbackToIdb() {
+        _sapIdbGet('rows').then(function(saved) {
+            _applyAndRender(saved && saved.length ? saved : []);
+        }).catch(function() { updateSapResults(); });
+    }
+    _kvPull('excel').then(function(kvRows) {
+        if (kvRows && kvRows.length) {
+            _sapIdbPut('rows', kvRows); // mantener IDB sincronizado para uso offline
+            _applyAndRender(kvRows);
+        } else {
+            _fallbackToIdb(); // KV vacío → usar IDB local
         }
-
-        // Hay datos locales: comparar versión con KV antes de descargar todo
-        return _kvPull('excel_v').then(function(kvVer) {
-            var remoteVer = kvVer ? parseInt(kvVer) : 0;
-            if (remoteVer > localVer) {
-                // KV tiene datos más nuevos → descargar Excel completo
-                return _pullFullExcel().then(function() {
-                    if (remoteVer) localStorage.setItem(SAP_KEY_EXCEL_TS, String(remoteVer));
-                });
-            } else {
-                // Local está al día → usar directamente
-                _useLocalAndRender();
-            }
-        }).catch(function() {
-            // Si falla la llamada de versión, usar locales
-            _useLocalAndRender();
-        });
-    }).catch(function(e) {
-        console.warn('SAP IDB read error:', e);
-        updateSapResults();
+    }).catch(function() {
+        _fallbackToIdb(); // fallo de red → usar IDB local
     });
 }
 
