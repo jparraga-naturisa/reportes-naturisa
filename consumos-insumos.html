@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Naturisa - Consumos Insumos</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -403,6 +406,30 @@
 </div><!-- /screen-consumos-sap -->
 
 <script>
+// ── Versión de la app — ACTUALIZAR este string con cada deploy ──────────────
+var _APP_VER = '20260713-1';
+// Detecta actualizaciones aunque el navegador sirva HTML de caché.
+// Descarga silenciosamente la página con cache:'no-store' y compara versión.
+// Solo corre una vez por sesión de pestaña; máx 3 reintentos para evitar loop.
+(function() {
+    if (sessionStorage.getItem('_sapVer') === _APP_VER) return;
+    var tries = parseInt(sessionStorage.getItem('_sapReload') || '0');
+    if (tries >= 3) { sessionStorage.setItem('_sapVer', _APP_VER); return; }
+    fetch(location.pathname + '?_v=' + Date.now(), { cache: 'no-store' })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            var m = html.match(/var _APP_VER = '([^']+)'/);
+            if (m && m[1] !== _APP_VER) {
+                sessionStorage.setItem('_sapReload', tries + 1);
+                location.reload(true);
+            } else {
+                sessionStorage.removeItem('_sapReload');
+                sessionStorage.setItem('_sapVer', _APP_VER);
+            }
+        })
+        .catch(function() { sessionStorage.setItem('_sapVer', _APP_VER); });
+})();
+
 Chart.register(ChartDataLabels);
 
 const _IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
