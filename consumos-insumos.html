@@ -2853,14 +2853,18 @@ function _sapTendChangeMetric(id) {
         }
         td.textContent = fmt;
 
+        var haDia = (ha > 0 && dias > 0) ? costo / (ha * dias) : null;
+        var over  = haDia !== null && haDia > bv;
         if (kind === 'sub') {
-            var over = id === 'hadía' && v > bv;
             td.style.color      = over ? '#dc2626' : '#065f46';
             td.style.fontWeight = over ? '700' : '';
         } else if (kind === 'prom') {
-            td.style.color = (id === 'hadía' && v > bv) ? '#fca5a5' : '#bbf7d0';
-        } else if (kind === 'total' || kind === 'mat') {
-            td.style.color = kind === 'total' ? '#bbf7d0' : '#065f46';
+            td.style.color = over ? '#fca5a5' : '#bbf7d0';
+        } else if (kind === 'total') {
+            td.style.color = over ? '#fca5a5' : '#bbf7d0';
+        } else if (kind === 'mat') {
+            td.style.color      = over ? '#dc2626' : '#065f46';
+            td.style.fontWeight = over ? '700' : '';
         }
     });
 
@@ -2987,8 +2991,9 @@ function _sapRenderTendencia(filteredRows, el) {
             var ha   = (m === _tendCurMes && haFromPools) ? haFromPools : (_cicHa || haFromPools);
             var pts  = m.split('-');
             var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
-            var val  = _calcVal(d.costo, ha, dias);
-            var over = _sapTendMetric === 'hadía' && val !== null && val > _budgetVal;
+            var val      = _calcVal(d.costo, ha, dias);
+            var haDiaVal = ha > 0 && dias > 0 ? d.costo / (ha * dias) : null;
+            var over     = haDiaVal !== null && haDiaVal > _budgetVal;
             tbodySub += '<td data-tend-val data-costo="' + d.costo + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="sub" ' +
                 'style="' + _tdBase + ';text-align:right;' + (over ? 'color:#dc2626;font-weight:700' : 'color:#065f46') + '">' +
                 _fmtSub(val) + '</td>';
@@ -3015,8 +3020,9 @@ function _sapRenderTendencia(filteredRows, el) {
             if (ha > 0) { totalCosto += d.costo; totalHa += ha; }
         });
         mesHaTotal[m] = totalHa;
-        var promVal = _calcVal(totalCosto, totalHa, dias);
-        var over = _sapTendMetric === 'hadía' && promVal !== null && promVal > _budgetVal;
+        var promVal   = _calcVal(totalCosto, totalHa, dias);
+        var promHaDia = totalHa > 0 && dias > 0 ? totalCosto / (totalHa * dias) : null;
+        var over      = promHaDia !== null && promHaDia > _budgetVal;
         tbodyProm += '<td data-tend-val data-costo="' + totalCosto + '" data-ha="' + totalHa + '" data-dias="' + dias + '" data-kind="prom" ' +
             'style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;' + (over ? 'color:#fca5a5' : 'color:#bbf7d0') + '">' +
             _fmtSub(promVal) + '</td>';
@@ -3067,9 +3073,11 @@ function _sapRenderTendencia(filteredRows, el) {
             var ha   = mesHaTotal[m] || 0;
             var pts  = m.split('-');
             var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
-            var val = _calcVal(costo, ha, dias);
+            var val      = _calcVal(costo, ha, dias);
+            var matHaDia = ha > 0 && dias > 0 ? costo / (ha * dias) : null;
+            var over     = matHaDia !== null && matHaDia > _budgetVal;
             tbodyMat += '<td data-tend-val data-costo="' + costo + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="mat" ' +
-                'style="' + _tdBase + ';text-align:right;color:#065f46">' + _fmtMat(val) + '</td>';
+                'style="' + _tdBase + ';text-align:right;color:' + (over ? '#dc2626' : '#065f46') + ';font-weight:' + (over ? '700' : '') + '">' + _fmtMat(val) + '</td>';
         });
         tbodyMat += '</tr>';
     });
@@ -3083,9 +3091,11 @@ function _sapRenderTendencia(filteredRows, el) {
         var ha   = mesHaTotal[m] || 0;
         var pts  = m.split('-');
         var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
-        var totVal = _calcVal(mesCosto, ha, dias);
+        var totVal   = _calcVal(mesCosto, ha, dias);
+        var totHaDia = ha > 0 && dias > 0 ? mesCosto / (ha * dias) : null;
+        var over     = totHaDia !== null && totHaDia > _budgetVal;
         tfoot += '<td data-tend-val data-costo="' + mesCosto + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="total" ' +
-            'style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;color:#bbf7d0">' + _fmtSub(totVal) + '</td>';
+            'style="padding:7px 12px;text-align:right;font-weight:800;background:#1e3a5f;color:' + (over ? '#fca5a5' : '#bbf7d0') + '">' + _fmtSub(totVal) + '</td>';
     });
     tfoot += '</tr></tfoot>';
 
