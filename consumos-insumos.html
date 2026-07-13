@@ -426,24 +426,32 @@
 </div><!-- /screen-consumos-sap -->
 
 <script>
-// ── Versión de la app — ACTUALIZAR este string con cada deploy ──────────────
-var _APP_VER = '20260713-1';
-// Detecta actualizaciones aunque el navegador sirva HTML de caché.
-// Descarga silenciosamente la página con cache:'no-store' y compara versión.
-// Solo corre una vez por sesión de pestaña; máx 3 reintentos para evitar loop.
+// ── Versión de la app ────────────────────────────────────────────────────────
+// Para publicar nueva versión: actualizar AMBOS archivos:
+//   1) este string  2) version.json → {"v":"..."}  (mismo valor)
+var _APP_VER = '20260713-7';
 (function() {
+    // Limpiar parámetro _refresh de la URL si venimos de una redirección de versión
+    if (location.search.includes('_refresh') && history.replaceState) {
+        history.replaceState(null, '', location.pathname + location.hash);
+    }
+    // Ya verificado en esta sesión
     if (sessionStorage.getItem('_sapVer') === _APP_VER) return;
-    var tries = parseInt(sessionStorage.getItem('_sapReload') || '0');
-    if (tries >= 3) { sessionStorage.setItem('_sapVer', _APP_VER); return; }
-    fetch(location.pathname + '?_v=' + Date.now(), { cache: 'no-store' })
-        .then(function(r) { return r.text(); })
-        .then(function(html) {
-            var m = html.match(/var _APP_VER = '([^']+)'/);
-            if (m && m[1] !== _APP_VER) {
-                sessionStorage.setItem('_sapReload', tries + 1);
-                location.reload(true);
+    // Acabamos de hacer la redirección forzada — confirmar versión y no volver a redirigir
+    if (sessionStorage.getItem('_sapRefreshed') === '1') {
+        sessionStorage.removeItem('_sapRefreshed');
+        sessionStorage.setItem('_sapVer', _APP_VER);
+        return;
+    }
+    // Consultar version.json con cache:'no-store' (bypassa caché del navegador y del CDN)
+    fetch('version.json?_t=' + Date.now(), { cache: 'no-store' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.v && data.v !== _APP_VER) {
+                // Navegar a URL con timestamp único — el navegador DEBE buscar HTML fresco
+                sessionStorage.setItem('_sapRefreshed', '1');
+                location.href = location.pathname + '?_refresh=' + Date.now();
             } else {
-                sessionStorage.removeItem('_sapReload');
                 sessionStorage.setItem('_sapVer', _APP_VER);
             }
         })
