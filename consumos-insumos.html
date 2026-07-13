@@ -372,8 +372,6 @@
                 <option value="">— Todas —</option>
             </select>
         </div>
-        <!-- Ha activas badge -->
-        <span id="sap-ha-badge" style="display:none;margin-left:auto;font-size:12px;font-weight:700;color:#1e40af;padding:4px 10px;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;white-space:nowrap"></span>
         <!-- Opciones: al extremo derecho -->
         <div style="position:relative;display:flex;align-items:center;margin-left:8px">
             <button id="btn-opciones" onclick="sapToggleOpciones(event)" style="display:none;align-items:center;gap:6px;padding:5px 12px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
@@ -429,7 +427,7 @@
 // ── Versión de la app ────────────────────────────────────────────────────────
 // Para publicar nueva versión: actualizar AMBOS archivos:
 //   1) este string  2) version.json → {"v":"..."}  (mismo valor)
-var _APP_VER = '20260713-10';
+var _APP_VER = '20260713-11';
 (function() {
     // Limpiar parámetro _refresh de la URL si venimos de una redirección de versión
     if (location.search.includes('_refresh') && history.replaceState) {
