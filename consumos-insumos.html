@@ -429,7 +429,7 @@
 // ── Versión de la app ────────────────────────────────────────────────────────
 // Para publicar nueva versión: actualizar AMBOS archivos:
 //   1) este string  2) version.json → {"v":"..."}  (mismo valor)
-var _APP_VER = '20260713-8';
+var _APP_VER = '20260713-9';
 (function() {
     // Limpiar parámetro _refresh de la URL si venimos de una redirección de versión
     if (location.search.includes('_refresh') && history.replaceState) {
@@ -477,7 +477,8 @@ function _kvPush(key, data) {
 }
 function _kvPull(key) {
     if (_IS_LOCAL) return Promise.resolve(null); // KV no disponible en local
-    return fetch(KV_URL + key, { cache: 'no-store' })
+    // ?_t=timestamp hace el URL único en cada request → bypassa caché del CDN, Worker y navegador
+    return fetch(KV_URL + key + '?_t=' + Date.now(), { cache: 'no-store' })
         .then(function(r) { return r.ok ? r.json() : null; })
         .catch(function(e) { console.warn('KV pull error:', e); return null; });
 }
