@@ -51,6 +51,13 @@
         .fg { display: flex; flex-direction: column; gap: 3px; }
         .fg label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
         .fg select, .fg input[type="date"] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; min-width: 130px; }
+        .tsm-btn { height:32px; padding:0 10px; border:1px solid var(--border); border-radius:6px; background:var(--card); cursor:pointer; font-size:13px; min-width:200px; max-width:260px; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text); }
+        .tsm-dd { display:none; position:absolute; top:calc(100% + 4px); left:0; background:var(--card); border:1px solid var(--border); border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,.15); z-index:9999; min-width:240px; max-width:340px; }
+        .tsm-q { width:100%; padding:5px 8px; border:1px solid var(--border); border-radius:4px; font-size:13px; outline:none; background:var(--bg); color:var(--text); }
+        .tsm-list { max-height:220px; overflow-y:auto; padding:0 4px 4px; }
+        .tsm-opt { padding:6px 10px; cursor:pointer; font-size:13px; border-radius:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .tsm-opt:hover { background:var(--bg); }
+        .tsm-opt.tsm-active { background:#dbeafe; color:#1d4ed8; font-weight:600; }
         .toggle-group { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
         .toggle-btn { padding: 6px 14px; border: none; background: white; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); transition: background 0.15s; }
         .toggle-btn.active { background: var(--primary); color: white; }
@@ -327,11 +334,18 @@
                 <option value="">— Todas —</option>
             </select>
         </div>
-        <div id="sap-tend-mat-fg" class="fg" style="display:none">
+        <div id="sap-tend-mat-fg" class="fg" style="display:none;position:relative">
             <label>Material</label>
-            <select id="sap-tend-mat" style="min-width:200px" onchange="updateSapResults()">
-                <option value="">— Todos —</option>
-            </select>
+            <div id="sap-tend-mat-wrap" style="position:relative">
+                <button type="button" id="sap-tend-mat-btn" class="tsm-btn" onclick="_tendMatToggle(event)">— Todos —</button>
+                <div id="sap-tend-mat-dd" class="tsm-dd">
+                    <div style="padding:8px 8px 4px">
+                        <input type="text" id="sap-tend-mat-q" class="tsm-q" placeholder="Buscar material..." autocomplete="off" oninput="_tendMatFilter(this.value)">
+                    </div>
+                    <div id="sap-tend-mat-list" class="tsm-list"></div>
+                </div>
+                <input type="hidden" id="sap-tend-mat" value="">
+            </div>
         </div>
         <!-- Filtros exclusivos de la pestaña Por Material (ocultos en otras pestañas) -->
         <div id="sap-mat-year-fg" class="fg" style="display:none">
@@ -1044,17 +1058,18 @@ function sapPopulateTendSub() {
         opts.map(function(o) { return '<option value="' + o.camp + '"' + (o.camp===cur?' selected':'') + '>' + o.name + '</option>'; }).join('');
 }
 
+window._tendMatOpts = [];
+
 function sapPopulateTendMat() {
-    var sel = document.getElementById('sap-tend-mat');
-    if (!sel) return;
+    var inp = document.getElementById('sap-tend-mat');
+    var btn = document.getElementById('sap-tend-mat-btn');
+    if (!inp) return;
     var clusterVal = (document.getElementById('sap-tend-cluster') || {}).value || '';
     var subVal     = (document.getElementById('sap-tend-sub')     || {}).value || '';
     var yearVal    = (document.getElementById('sap-tend-year')    || {}).value || '';
     var clusterIds = clusterVal ? (CLUSTERS[clusterVal] || []) : null;
-    // Mismo lookup de orden→ciclo que updateSapResults
     var orderToCycle = {};
     _sapCycles.forEach(function(c) { if (c.controlOrderDocument) orderToCycle[c.controlOrderDocument] = c; });
-    // Aplicar los mismos filtros que updateSapResults (sin filtro de material)
     var seen = {}, opts = [];
     _sapExcelRows.forEach(function(r) {
         if (!r.a || !r.a.toLowerCase().endsWith('02')) return;
@@ -1067,12 +1082,47 @@ function sapPopulateTendMat() {
         if (code && !seen[code]) { seen[code] = true; opts.push({ code: code, desc: r.d || code }); }
     });
     opts.sort(function(a, b) { return a.desc.localeCompare(b.desc, 'es'); });
-    var cur = sel.value;
-    if (cur && !opts.find(function(o) { return o.code === cur; })) cur = '';
-    sel.innerHTML = '<option value="">— Todos —</option>' +
-        opts.map(function(o) {
-            return '<option value="' + o.code + '"' + (o.code === cur ? ' selected' : '') + '>' + o.desc + '</option>';
-        }).join('');
+    window._tendMatOpts = opts;
+    // Resetear selección si ya no está en la lista
+    var cur = inp.value;
+    if (cur && !opts.find(function(o) { return o.code === cur; })) {
+        inp.value = '';
+        if (btn) btn.textContent = '— Todos —';
+    }
+    _tendMatFilter('');
+}
+
+function _tendMatFilter(q) {
+    var list = document.getElementById('sap-tend-mat-list');
+    if (!list) return;
+    var cur   = (document.getElementById('sap-tend-mat') || {}).value || '';
+    var items = q.trim()
+        ? window._tendMatOpts.filter(function(o) {
+            return (o.desc + ' ' + o.code).toLowerCase().indexOf(q.toLowerCase()) >= 0;
+          })
+        : window._tendMatOpts;
+    var html = '<div class="tsm-opt' + (!cur ? ' tsm-active' : '') + '" data-v="" data-l="— Todos —">— Todos —</div>';
+    items.forEach(function(o) {
+        html += '<div class="tsm-opt' + (o.code === cur ? ' tsm-active' : '') + '" data-v="' +
+            o.code.replace(/"/g, '&quot;') + '" data-l="' + o.desc.replace(/"/g, '&quot;') + '">' +
+            o.desc + '</div>';
+    });
+    list.innerHTML = html;
+}
+
+function _tendMatToggle(e) {
+    e.stopPropagation();
+    var dd = document.getElementById('sap-tend-mat-dd');
+    var q  = document.getElementById('sap-tend-mat-q');
+    if (!dd) return;
+    if (dd.style.display !== 'none') { dd.style.display = 'none'; return; }
+    dd.style.display = 'block';
+    if (q) { q.value = ''; _tendMatFilter(''); q.focus(); }
+}
+
+function _tendMatClose() {
+    var dd = document.getElementById('sap-tend-mat-dd');
+    if (dd) dd.style.display = 'none';
 }
 
 function sapPopulateMatCluster() {
@@ -1612,6 +1662,21 @@ document.addEventListener('click', function(e) {
     if (!e.target.closest('#sap-opciones-menu') && !e.target.closest('[onclick*="sapToggleOpciones"]')) {
         sapCerrarOpciones();
     }
+    // Selección de opción en el buscador de material
+    var opt = e.target.closest && e.target.closest('.tsm-opt');
+    if (opt && opt.closest('#sap-tend-mat-list')) {
+        var code  = opt.getAttribute('data-v') || '';
+        var label = opt.getAttribute('data-l') || '— Todos —';
+        var inp   = document.getElementById('sap-tend-mat');
+        var btn   = document.getElementById('sap-tend-mat-btn');
+        if (inp) inp.value = code;
+        if (btn) btn.textContent = code ? label : '— Todos —';
+        _tendMatClose();
+        updateSapResults();
+        return;
+    }
+    // Cerrar buscador si se hace clic fuera
+    if (!e.target.closest('#sap-tend-mat-wrap')) _tendMatClose();
 });
 
 function sapLimpiarDatos() {
