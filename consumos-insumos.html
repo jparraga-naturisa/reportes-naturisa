@@ -644,12 +644,10 @@ let subsidiaries = [];
 const CLUSTERS = {
     'Josefina Norte': [1, 2, 3, 5, 4, 33, 10034],
     'Josefina Sur':   [6, 7, 8, 9, 11, 10],
-    'Río Nilo':       [12],
     'Puna Sur':       [20, 19, 21],
     'Aquanaturisa':   [13, 28, 14],
-    'Golfomar':       [17],
+    'RN-IN-GO':       [17, 12, 15],
     'Lanconor':       [18],
-    'Inducam':        [15],
     'Granmar':        [16]
 };
 
@@ -2819,9 +2817,10 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
     }
 
     var CCOLORS = {
-        'Josefina Norte':'#3B82F6','Josefina Sur':'#10B981','Río Nilo':'#8B5CF6',
-        'Puna Sur':'#F59E0B','Aquanaturisa':'#14B8A6','Golfomar':'#F97316',
-        'Lanconor':'#EC4899','Inducam':'#06B6D4','Granmar':'#84CC16','Otros':'#94A3B8'
+        'Josefina Norte':'#1e88e5','Josefina Sur':'#90caf9',
+        'Puna Sur':'#1e88e5','Aquanaturisa':'#90caf9',
+        'RN-IN-GO':'#1e88e5','Lanconor':'#90caf9',
+        'Granmar':'#1e88e5','Otros':'#90caf9'
     };
     var SAP_PAL = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EC4899','#14B8A6',
                    '#F97316','#06B6D4','#84CC16','#EF4444','#A855F7','#0EA5E9',
@@ -2946,6 +2945,11 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
         }
         return (b.haDia||0) - (a.haDia||0);
     });
+    // Índice de cada cluster según orden de aparición en chartRows (para alternar colores por cluster)
+    var _clusterIdx = {}, _clusterCount = 0;
+    chartRows.forEach(function(g) {
+        if (!(_clusterIdx.hasOwnProperty(g.cluster))) _clusterIdx[g.cluster] = _clusterCount++;
+    });
     var ctx = document.getElementById('sap-resumen-chart').getContext('2d');
     _sapResumenChartInst = new Chart(ctx, {
         type: 'bar',
@@ -2957,7 +2961,9 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
                     type: 'bar',
                     data:  chartRows.map(function(g) { return g.haDia !== null ? parseFloat(g.haDia.toFixed(2)) : 0; }),
                     backgroundColor: chartRows.map(function(g, i) {
-                        return _sapResumenGrupo ? (CCOLORS[g.cluster] || '#94A3B8') : SAP_PAL[i % SAP_PAL.length];
+                        return _sapResumenGrupo
+                            ? (_clusterIdx[g.cluster] % 2 === 0 ? '#1e88e5' : '#90caf9')
+                            : (i % 2 === 0 ? '#1e88e5' : '#90caf9');
                     }),
                     borderRadius: 4,
                     borderSkipped: false,
@@ -3135,7 +3141,7 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
             datasets: [{
                 label: '$/Ha/Día',
                 data: chartRows.map(function(g) { return parseFloat(g.haDia.toFixed(6)); }),
-                backgroundColor: chartRows.map(function(_, i) { return MAT_PAL[i % MAT_PAL.length] + 'cc'; }),
+                backgroundColor: chartRows.map(function(_, i) { return i % 2 === 0 ? '#1e88e5' : '#90caf9'; }),
                 borderRadius: 3, borderSkipped: false,
                 datalabels: {
                     display: true, anchor: 'end', align: 'end', offset: 2,
@@ -3420,7 +3426,7 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
         var den = _grandHaDen || rows.reduce(function(s,g) { return s + g.ps*(g.totalDays||30); }, 0);
         datasets = [{
             data: matArr.map(function(m) { return den > 0 ? parseFloat((m.costo / den).toFixed(4)) : 0; }),
-            backgroundColor: matArr.map(function(_, i) { return CIC_PAL[i % CIC_PAL.length] + 'cc'; }),
+            backgroundColor: matArr.map(function(_, i) { return i % 2 === 0 ? '#1e88e5' : '#90caf9'; }),
             borderRadius: 3, borderSkipped: false,
             datalabels: {
                 display: true, anchor: 'end', align: 'end', offset: 4,
@@ -4045,7 +4051,7 @@ function sapOpenHaHistModal() {
     var now = new Date(), curYr = now.getFullYear(), curMo = now.getMonth();
     var curMesStr = curYr + '-' + String(curMo+1).padStart(2,'0');
 
-    // Meses: enero del año actual hasta mes actual
+    // Meses: enero del año actual hasta mes actual (inclusive)
     var months = [];
     for (var mi = 0; mi <= curMo; mi++) {
         months.push(curYr + '-' + String(mi+1).padStart(2,'0'));
@@ -4074,7 +4080,31 @@ function sapOpenHaHistModal() {
         if (sid && !sidToCamp[sid]) sidToCamp[sid] = camp;
     });
 
-    // Construir filas: CAMPAMENTOS_DEFAULT + camps de _manualHa que no estén ya
+    // cicHa por (camp, mes): dedup por poolName, igual que Resumen
+    var orderToCycle = {};
+    _sapCycles.forEach(function(c) { if (c.controlOrderDocument) orderToCycle[c.controlOrderDocument] = c; });
+    var _cicHaRaw = {}; // mes → camp → poolName → ps
+    _sapExcelRows.forEach(function(row) {
+        var c = orderToCycle[row.o || ''];
+        if (!c || !c.ps || !c.poolName) return;
+        var camp = _sapCamp(c);
+        if (!camp) return;
+        var mes = (row.f || '').slice(0, 7);
+        if (!mes) return;
+        if (!_cicHaRaw[mes]) _cicHaRaw[mes] = {};
+        if (!_cicHaRaw[mes][camp]) _cicHaRaw[mes][camp] = {};
+        _cicHaRaw[mes][camp][c.poolName] = c.ps;
+    });
+    // Sumar por camp/mes
+    var cicHaSum = {}; // mes → camp → haTotal
+    Object.keys(_cicHaRaw).forEach(function(mes) {
+        cicHaSum[mes] = {};
+        Object.keys(_cicHaRaw[mes]).forEach(function(camp) {
+            cicHaSum[mes][camp] = Object.values(_cicHaRaw[mes][camp]).reduce(function(s,v){return s+v;},0);
+        });
+    });
+
+    // Construir filas: CAMPAMENTOS_DEFAULT + camps extra de _manualHa/ciclos
     var rows = [];
     var usedCamps = new Set();
     CAMPAMENTOS_DEFAULT.forEach(function(s) {
@@ -4082,9 +4112,13 @@ function sapOpenHaHistModal() {
         rows.push({ camp: camp, name: s.name, sid: s.id });
         if (camp) usedCamps.add(camp);
     });
-    Object.keys(_manualHa).forEach(function(camp) {
+    // Agregar camps con datos que no estén ya en la lista
+    var extraCamps = new Set(Object.keys(_manualHa));
+    Object.values(cicHaSum).forEach(function(mc) { Object.keys(mc).forEach(function(c) { extraCamps.add(c); }); });
+    extraCamps.forEach(function(camp) {
         if (!usedCamps.has(camp)) {
             rows.push({ camp: camp, name: campToName[camp] || camp, sid: campToSid[camp] || null });
+            usedCamps.add(camp);
         }
     });
 
@@ -4103,7 +4137,7 @@ function sapOpenHaHistModal() {
         '<th style="' + thBase + ';text-align:left;position:sticky;left:0;z-index:4">Sucursal</th>' +
         headerCells + '</tr></thead>';
 
-    // Filas y totales
+    // Filas y totales — misma lógica Ha que Resumen: manual || cicloHa || poolsHaBySid
     var monthTotals = {};
     months.forEach(function(m) { monthTotals[m] = 0; });
 
@@ -4116,7 +4150,9 @@ function sapOpenHaHistModal() {
             if (isCur) {
                 ha = r.sid && poolsHaBySid[r.sid] ? poolsHaBySid[r.sid] : 0;
             } else {
-                ha = r.camp ? ((_manualHa[r.camp] || {})[m] || 0) : 0;
+                var mnHa  = r.camp ? ((_manualHa[r.camp] || {})[m] || 0) : 0;
+                var cHa   = r.camp ? ((cicHaSum[m] || {})[r.camp] || 0) : 0;
+                ha = mnHa || cHa;
             }
             monthTotals[m] += ha;
             var style = tdBase + (isCur ? ';background:#f0fdf4;font-weight:600;color:#166534' : '');
@@ -4350,7 +4386,7 @@ function _sapOpenMatDetail(matCode) {
             datasets: [{
                 label: '$/Ha/Día',
                 data: valores,
-                backgroundColor: labels.map(function(_, i) { return MAT_PAL[i % MAT_PAL.length] + 'cc'; }),
+                backgroundColor: labels.map(function(_, i) { return i % 2 === 0 ? '#1e88e5' : '#90caf9'; }),
                 borderRadius: 4, borderSkipped: false,
                 datalabels: {
                     anchor: 'start', align: 'end', offset: 4, rotation: -90,
