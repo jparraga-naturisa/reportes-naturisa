@@ -13,7 +13,8 @@
       "PowerShell(\\(Get-Content \"c:\\\\Scripts\\\\Naturisa\\\\dashboard-alimentacion.html\" | Measure-Object -Line\\).Lines)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "PowerShell(Start-Process \"c:\\\\Scripts\\\\Naturisa\\\\consumos-insumos.html\")"
     ]
   }
 }
