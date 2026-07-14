@@ -197,6 +197,20 @@
   </div>
 </div>
 
+<!-- ── Modal Historial Ha ─────────────────────────────────────── -->
+<div id="ha-hist-modal" onclick="if(event.target===this)this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:1100px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid #e2e8f0;flex-shrink:0;background:#1e3a5f;border-radius:14px 14px 0 0">
+      <div>
+        <div style="color:#fff;font-size:15px;font-weight:800">Historial de Hectáreas por Sucursal</div>
+        <div style="color:#93c5fd;font-size:11px;margin-top:2px">Meses pasados: Ha fija (manual). Mes actual: Ha activa en tiempo real.</div>
+      </div>
+      <button onclick="document.getElementById('ha-hist-modal').style.display='none'" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600">Cerrar</button>
+    </div>
+    <div id="ha-hist-body" style="overflow:auto;flex:1"></div>
+  </div>
+</div>
+
 <!-- ── Modal Materiales SAP ───────────────────────────────────── -->
 <div id="sap-mat-modal" onclick="if(event.target===this)this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9500;align-items:center;justify-content:center;padding:20px">
   <div style="background:var(--bg,#fff);border:1px solid var(--border,#e2e8f0);border-radius:16px;width:100%;max-width:900px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.3)">
@@ -308,6 +322,10 @@
                     <button class="hdr-dd-item" id="btn-ha-manual" onclick="sapOpenManualHaModal();_hdrUserClose()">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         Ha Manual
+                    </button>
+                    <button class="hdr-dd-item" onclick="sapOpenHaHistModal();_hdrUserClose()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+                        Historial Ha
                     </button>
                     <button class="hdr-dd-item amber" onclick="sapBorrarExcel();_hdrUserClose()">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
@@ -4017,6 +4035,116 @@ function sapClearManualHa() {
     document.getElementById('manual-ha-modal').style.display = 'none';
     _updateHaManualBtn();
     updateSapResults();
+}
+
+function sapOpenHaHistModal() {
+    var modal = document.getElementById('ha-hist-modal');
+    var body  = document.getElementById('ha-hist-body');
+    if (!modal || !body) return;
+
+    var now = new Date(), curYr = now.getFullYear(), curMo = now.getMonth();
+    var curMesStr = curYr + '-' + String(curMo+1).padStart(2,'0');
+
+    // Meses: enero del año actual hasta mes actual
+    var months = [];
+    for (var mi = 0; mi <= curMo; mi++) {
+        months.push(curYr + '-' + String(mi+1).padStart(2,'0'));
+    }
+
+    // Ha actual por subsidiaryId desde _sapPools
+    var poolsHaBySid = {};
+    _sapPools.forEach(function(p) {
+        if (!p.subsidiaryId) return;
+        poolsHaBySid[p.subsidiaryId] = (poolsHaBySid[p.subsidiaryId] || 0) + p.poolSize;
+    });
+
+    // camp → subsidiaryId y camp → nombre desde _sapCycles
+    var campToSid = {}, campToName = {};
+    _sapCycles.forEach(function(c) {
+        var camp = _sapCamp(c);
+        if (!camp) return;
+        if (!campToSid[camp])  campToSid[camp]  = c._subsidiaryId;
+        if (!campToName[camp]) campToName[camp] = c._subName || camp;
+    });
+
+    // sid → camp (primer ciclo que coincida)
+    var sidToCamp = {};
+    Object.keys(campToSid).forEach(function(camp) {
+        var sid = campToSid[camp];
+        if (sid && !sidToCamp[sid]) sidToCamp[sid] = camp;
+    });
+
+    // Construir filas: CAMPAMENTOS_DEFAULT + camps de _manualHa que no estén ya
+    var rows = [];
+    var usedCamps = new Set();
+    CAMPAMENTOS_DEFAULT.forEach(function(s) {
+        var camp = sidToCamp[s.id] || null;
+        rows.push({ camp: camp, name: s.name, sid: s.id });
+        if (camp) usedCamps.add(camp);
+    });
+    Object.keys(_manualHa).forEach(function(camp) {
+        if (!usedCamps.has(camp)) {
+            rows.push({ camp: camp, name: campToName[camp] || camp, sid: campToSid[camp] || null });
+        }
+    });
+
+    // Estilos base
+    var thBase = 'padding:7px 10px;font-weight:700;white-space:nowrap;background:#1e3a5f;color:#fff;border-bottom:2px solid #2d5282;text-align:right';
+    var thCur  = 'padding:7px 10px;font-weight:700;white-space:nowrap;background:#166534;color:#fff;border-bottom:2px solid #14532d;text-align:right';
+    var tdBase = 'padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-variant-numeric:tabular-nums';
+
+    // Encabezado
+    var headerCells = months.map(function(m) {
+        var p = m.split('-'), isCur = m === curMesStr;
+        var lbl = SAP_MESES[parseInt(p[1],10)-1] + '<br><span style="font-size:10px;font-weight:400;opacity:.75">' + p[0] + (isCur ? ' 🔴' : '') + '</span>';
+        return '<th style="' + (isCur ? thCur : thBase) + '">' + lbl + '</th>';
+    }).join('');
+    var thead = '<thead><tr>' +
+        '<th style="' + thBase + ';text-align:left;position:sticky;left:0;z-index:4">Sucursal</th>' +
+        headerCells + '</tr></thead>';
+
+    // Filas y totales
+    var monthTotals = {};
+    months.forEach(function(m) { monthTotals[m] = 0; });
+
+    var tbody = '<tbody>';
+    rows.forEach(function(r, ri) {
+        var rowBg = ri % 2 === 0 ? '#fff' : '#f8fafc';
+        var cells = months.map(function(m) {
+            var isCur = m === curMesStr;
+            var ha;
+            if (isCur) {
+                ha = r.sid && poolsHaBySid[r.sid] ? poolsHaBySid[r.sid] : 0;
+            } else {
+                ha = r.camp ? ((_manualHa[r.camp] || {})[m] || 0) : 0;
+            }
+            monthTotals[m] += ha;
+            var style = tdBase + (isCur ? ';background:#f0fdf4;font-weight:600;color:#166534' : '');
+            return '<td style="' + style + '">' +
+                (ha > 0 ? ha.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}) : '<span style="color:#cbd5e1">—</span>') +
+                '</td>';
+        }).join('');
+        tbody += '<tr style="background:' + rowBg + '">' +
+            '<td style="' + tdBase + ';font-weight:600;white-space:nowrap;text-align:left;position:sticky;left:0;background:' + rowBg + ';z-index:1">' + r.name + '</td>' +
+            cells + '</tr>';
+    });
+    tbody += '</tbody>';
+
+    // Fila de totales
+    var totalCells = months.map(function(m) {
+        var isCur = m === curMesStr;
+        return '<td style="padding:6px 10px;text-align:right;font-weight:800;background:' + (isCur ? '#14532d' : '#1e3a5f') + ';color:' + (isCur ? '#bbf7d0' : '#fff') + ';font-variant-numeric:tabular-nums">' +
+            monthTotals[m].toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Ha</td>';
+    }).join('');
+    var tfoot = '<tfoot><tr>' +
+        '<td style="padding:6px 10px;font-weight:800;background:#1e3a5f;color:#fff;white-space:nowrap;position:sticky;left:0;z-index:1">TOTAL</td>' +
+        totalCells + '</tr></tfoot>';
+
+    body.innerHTML =
+        '<table style="border-collapse:separate;border-spacing:0;width:100%;font-size:12px">' +
+        thead + tbody + tfoot + '</table>';
+
+    modal.style.display = 'flex';
 }
 
 function _updateHaManualBtn() {
