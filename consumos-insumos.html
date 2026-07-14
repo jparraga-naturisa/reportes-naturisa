@@ -177,6 +177,26 @@
 </head>
 <body>
 
+<!-- ── Modal Ha Manual ───────────────────────────────────────── -->
+<div id="manual-ha-modal" onclick="if(event.target===this)this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:780px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid #e2e8f0;flex-shrink:0;background:#1e3a5f;border-radius:14px 14px 0 0">
+      <div>
+        <div style="color:#fff;font-size:15px;font-weight:800">Hectáreas Manuales — Ene a May 2026</div>
+        <div style="color:#93c5fd;font-size:11px;margin-top:2px">Ingresa las Ha reales por sucursal y mes. Tienen prioridad sobre el cálculo automático.</div>
+      </div>
+      <button onclick="sapCloseManualHaModal()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600">Cerrar</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;padding:0">
+      <div id="manual-ha-body" style="padding:0"></div>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0">
+      <button onclick="sapClearManualHa()" style="padding:8px 18px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;cursor:pointer;background:#fff;color:#64748b;font-weight:600">Limpiar todo</button>
+      <button onclick="sapSaveManualHa()" style="padding:8px 22px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#1e3a5f;color:#fff;font-weight:700">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Modal Materiales SAP ───────────────────────────────────── -->
 <div id="sap-mat-modal" onclick="if(event.target===this)this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9500;align-items:center;justify-content:center;padding:20px">
   <div style="background:var(--bg,#fff);border:1px solid var(--border,#e2e8f0);border-radius:16px;width:100%;max-width:900px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.3)">
@@ -284,6 +304,10 @@
                     <button class="hdr-dd-item" onclick="sapActualizarHa();_hdrUserClose()">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                         Actualizar Ha activas
+                    </button>
+                    <button class="hdr-dd-item" id="btn-ha-manual" onclick="sapOpenManualHaModal();_hdrUserClose()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Ha Manual
                     </button>
                     <button class="hdr-dd-item amber" onclick="sapBorrarExcel();_hdrUserClose()">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
@@ -2226,6 +2250,9 @@ var _sapCicloChartInst   = null;
 var _sapMatModalChartInst = null;
 var _sapTendMatChartInst  = null;
 var _tendSel = {};
+var _manualHa = (function() { try { return JSON.parse(localStorage.getItem('sap-manual-ha') || '{}'); } catch(e) { return {}; } })();
+var _CUR_MES_STR = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0');
+function _getManualHa(camp, mes) { return (mes && mes < _CUR_MES_STR && camp) ? ((_manualHa[camp]||{})[mes]||0) : 0; }
 var _sapKpiRows = [];
 var _sapKpiDias = 30;
 var _sapKpiSelected = null;
@@ -2294,9 +2321,10 @@ function sapSelectResumenRow(el, camp) {
     var _kpiNowMo = String(new Date().getMonth() + 1).padStart(2, '0');
     var _kpiNowYr = String(new Date().getFullYear());
     var _kpiCurMo = _kpiSelMo === _kpiNowMo && (_kpiSelYr === _kpiNowYr || _kpiSelYr === '');
-    var ha = (_kpiCurMo && sid && _sapPools.length)
+    var _kpiMes   = _kpiSelYr && _kpiSelMo ? (_kpiSelYr + '-' + _kpiSelMo.padStart(2,'0')) : null;
+    var ha = _kpiCurMo && sid && _sapPools.length
         ? _sapPools.filter(function(p){return p.subsidiaryId===sid;}).reduce(function(s,p){return s+p.poolSize;},0)
-        : (function(){ var ps={}; rows.forEach(function(fr){ps[fr.ciclo.poolName||fr.ciclo.idCycle]=fr.ciclo.ps||0;}); return Object.values(ps).reduce(function(s,v){return s+v;},0); })();
+        : (_getManualHa(camp, _kpiMes) || (function(){ var ps={}; rows.forEach(function(fr){ps[fr.ciclo.poolName||fr.ciclo.idCycle]=fr.ciclo.ps||0;}); return Object.values(ps).reduce(function(s,v){return s+v;},0); })());
     document.getElementById('sap-kpi-container').innerHTML = _sapBuildKpiHtml(imp, ha, _sapKpiDias, subName);
 }
 
@@ -2484,6 +2512,12 @@ function updateSapResults() {
     const diasUnicos = new Set(items.map(function(i) { return i.fecha; })).size;
     // Ha: desde /pools (piscinas activas) filtrado por sucursal/cluster activo
     var totalHa = 0;
+    var _matMesKpi = (function() {
+        if (!isMaterial) return null;
+        var y = (document.getElementById('sap-mat-year') ||{}).value||'';
+        var m = (document.getElementById('sap-mat-month')||{}).value||'';
+        return y && m ? y+'-'+m.padStart(2,'0') : null;
+    })();
     // Para ciclo con piscina/ciclo específico: usar ps del ciclo, no pools globales
     if (isCiclo && (cicCycleCodes.length || cicPoolCodes.length)) {
         var _cicMatchHa = _sapCycles.filter(function(c) {
@@ -2530,7 +2564,10 @@ function updateSapResults() {
             }
         }
         var _activeSidsForHa = new Set(CAMPAMENTOS_DEFAULT.map(function(s) { return s.id; }));
-        totalHa = _sapPools.reduce(function(s, p) {
+        // Para isMaterial en meses históricos Ene–May: sumar Ha manual por camp
+        var _mnHaKpi = 0;
+        // Ha de Por Material en meses históricos: se recalcula debajo una vez que filteredRows esté listo
+        totalHa = _mnHaKpi || _sapPools.reduce(function(s, p) {
             if (!_activeSidsForHa.has(p.subsidiaryId)) return s;
             if (subIdSet && !subIdSet.has(p.subsidiaryId)) return s;
             return s + p.poolSize;
@@ -2628,6 +2665,29 @@ function updateSapResults() {
         filteredRows.push({ row: row, ciclo: ciclo });
     });
     _sapKpiRows = filteredRows;
+
+    // Para Por Material en meses históricos: recalcular Ha usando los mismos camps de filteredRows (= Resumen)
+    if (isMaterial && _matMesKpi && _matMesKpi < _CUR_MES_STR) {
+        var _fcSet = new Set(filteredRows.map(function(fr) { return _sapCamp(fr.ciclo); }));
+        var _campCicPs = {};
+        filteredRows.forEach(function(fr) {
+            var camp = _sapCamp(fr.ciclo);
+            if (!_campCicPs[camp]) _campCicPs[camp] = {};
+            if (fr.ciclo.poolName && fr.ciclo.ps) _campCicPs[camp][fr.ciclo.poolName] = fr.ciclo.ps;
+        });
+        var _recalcHa = 0;
+        _fcSet.forEach(function(camp) {
+            var mnHa = _getManualHa(camp, _matMesKpi);
+            var cicHa = Object.values(_campCicPs[camp] || {}).reduce(function(s,v){return s+v;},0);
+            _recalcHa += mnHa || cicHa;
+        });
+        if (_recalcHa > 0) {
+            totalHa = _recalcHa;
+            kpiHtml = _sapBuildKpiHtml(totalImp, totalHa, kpiDias, matSubLabel, null);
+            _sapKpiGlobal = kpiHtml;
+            _sapRefreshHaBadge(totalHa);
+        }
+    }
 
     var viewBody = document.getElementById('sap-view-body');
     if      (_sapTab === 'resumen')   _sapRenderResumen(filteredRows, diasMes, viewBody, kpiHtml);
@@ -2753,7 +2813,9 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
     // html acumula solo el contenido interno (sin el table-card wrapper)
     var html = '<div style="background:#1e3a5f;border-radius:8px 8px 0 0;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin:-18px -20px 0;flex-shrink:0">' +
             '<span style="color:#fff;font-size:15px;font-weight:800;letter-spacing:0.2px">Resumen por Sucursal' + titleSuffix + '</span>' +
+            '<div style="display:flex;gap:8px">' +
             '<button style="font-size:12px;padding:5px 12px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:6px;cursor:pointer;font-weight:600;transition:background .15s" onmouseover="this.style.background=\'rgba(255,255,255,0.25)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.15)\'" onclick="_sapToggleResumenGrupo()">' + btnLabel + '</button>' +
+            '</div>' +
         '</div>' +
         '<div class="table-wrapper" style="flex:1;overflow-y:auto;min-height:0;margin-top:0"><table class="sap-tbl"><thead style="position:sticky;top:0;z-index:2"><tr>' +
         (_sapResumenGrupo ? '<th style="background:#2d5282;color:#fff;border-bottom:none">Cluster</th>' : '') +
@@ -2774,13 +2836,16 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
     });
 
     var _isCurrentMonth = _selMonth === _curMonthStr && (_selYear === _curYearStr || _selYear === '');
+    var _resMes = (_selYear && _selMonth) ? (_selYear + '-' + _selMonth.padStart(2,'0')) : null;
+
     // Paso 1: calcular ha/haDia para cada fila y acumular totales
     rows.forEach(function(g) {
         var sid = g.camp ? (_sapCycles.find(function(c){return _sapCamp(c)===g.camp;}) || {})._subsidiaryId : null;
         var _cicloHa = Object.values(g.cicloPs).reduce(function(s,v){return s+v;},0);
-        var ha = (_isCurrentMonth && sid && poolsHaBySubId[sid])
+        var _mnHa = _getManualHa(g.camp, _resMes);
+        var ha = _isCurrentMonth && sid && poolsHaBySubId[sid]
                ? poolsHaBySubId[sid]
-               : (_cicloHa || (sid && poolsHaBySubId[sid] ? poolsHaBySubId[sid] : 0));
+               : (_mnHa || _cicloHa || (sid && poolsHaBySubId[sid] ? poolsHaBySubId[sid] : 0));
         g.ha = ha;
         g.haDia = ha>0 && diasMes>0 ? g.costo/(ha*diasMes) : null;
         grandCosto += g.costo; grandHa += ha;
@@ -2950,7 +3015,7 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
     }
 
     // Agrupar por material; acumular Ha únicas de la sucursal
-    var grp = {}, totalCicloPs = {};
+    var grp = {}, totalCicloPs = {}, campSet = new Set();
     filteredRows.forEach(function(fr) {
         var key = fr.row.m || '(sin código)';
         if (!grp[key]) grp[key] = { matCode:fr.row.m||'', desc:fr.row.d||'', unidad:fr.row.u||'', costo:0, cant:0 };
@@ -2959,9 +3024,17 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
         if (!grp[key].unidad && fr.row.u) grp[key].unidad = fr.row.u;
         var pool = fr.ciclo.poolName;
         if (pool && fr.ciclo.ps) totalCicloPs[pool] = fr.ciclo.ps || 0;
+        campSet.add(_sapCamp(fr.ciclo));
     });
 
-    var totalHa   = Object.values(totalCicloPs).reduce(function(s,v) { return s+v; }, 0);
+    // Ha: manual tiene prioridad para meses históricos Ene–May
+    var _matSelYr = (document.getElementById('sap-mat-year')  || {}).value || '';
+    var _matSelMo = (document.getElementById('sap-mat-month') || {}).value || '';
+    var _matMesKey = _matSelYr && _matSelMo ? (_matSelYr + '-' + _matSelMo.padStart(2,'0')) : null;
+    var _mnTotalHa = _matMesKey && _matMesKey < _CUR_MES_STR
+        ? (function(){ var s=0; campSet.forEach(function(c){ s+=_getManualHa(c,_matMesKey); }); return s; })()
+        : 0;
+    var totalHa = _mnTotalHa || Object.values(totalCicloPs).reduce(function(s,v) { return s+v; }, 0);
     var rows      = Object.values(grp).sort(function(a,b) { return b.costo - a.costo; });
     var grandCosto = rows.reduce(function(s,g) { return s + g.costo; }, 0);
     var grandCant  = rows.reduce(function(s,g) { return s + g.cant;  }, 0);
@@ -3430,7 +3503,7 @@ function _sapTendChangeMetric(id) {
                 if (!costo) return null;
                 var ha   = st.mesHaTotal[m] || 0;
                 var pts  = m.split('-');
-                var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+                var dias = 30;
                 var v;
                 if (id === 'total')  v = costo;
                 else if (id === 'ha') v = ha > 0 ? costo / ha : null;
@@ -3453,13 +3526,12 @@ function _sapRenderTendencia(filteredRows, el) {
         poolsHaBySubId[p.subsidiaryId] = (poolsHaBySubId[p.subsidiaryId] || 0) + p.poolSize;
     });
 
-    var _tendActiveSids = new Set(CAMPAMENTOS_DEFAULT.map(function(s) { return s.id; }));
     var meses = {}, camps = new Set(), subNames = {}, campSubId = {};
     var matMeses = {}, matDescMap = {}, subMatMeses = {};
 
     filteredRows.forEach(function(fr) {
-        if (!_tendActiveSids.has(fr.ciclo._subsidiaryId)) return;
         var camp = _sapCamp(fr.ciclo);
+        if (!camp) return;
         var mes  = fr.row.f ? fr.row.f.slice(0,7) : '??';
         camps.add(camp);
         subNames[camp] = fr.ciclo._subName || camp;
@@ -3467,8 +3539,9 @@ function _sapRenderTendencia(filteredRows, el) {
         if (!meses[mes]) meses[mes] = {};
         if (!meses[mes][camp]) meses[mes][camp] = { costo: 0, ciclos: {} };
         meses[mes][camp].costo += fr.row.i || 0;
-        var cid = fr.ciclo.idCycle;
-        if (cid) meses[mes][camp].ciclos[cid] = fr.ciclo.ps || 0;
+        // Dedup por poolName (igual que Resumen) para evitar doble conteo si hay varios ciclos por piscina
+        var pn = fr.ciclo.poolName || String(fr.ciclo.idCycle);
+        if (pn) meses[mes][camp].ciclos[pn] = fr.ciclo.ps || 0;
 
         var mc = fr.row.m || '(sin código)';
         matDescMap[mc] = fr.row.d || mc;
@@ -3488,6 +3561,14 @@ function _sapRenderTendencia(filteredRows, el) {
     }
 
     var _tendCurMes = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0');
+
+    // Ha por sucursal para meses históricos: misma lógica que Resumen
+    function _haForMes(camp, m, haFromPools, _cicHa) {
+        if (m >= _tendCurMes) return haFromPools || _cicHa || 0;
+        var mnHa = _getManualHa(camp, m);
+        return mnHa || _cicHa || haFromPools || 0;
+    }
+
     var _budgetVal  = parseFloat((document.getElementById('sap-tend-budget') || {}).value) || 2.67;
     var _th = 'padding:7px 12px;font-weight:700;white-space:nowrap;border-bottom:2px solid #2d5282';
     var _thTop = _th + ';position:sticky;top:0;z-index:3;background:#1e3a5f;color:#fff';
@@ -3551,10 +3632,10 @@ function _sapRenderTendencia(filteredRows, el) {
             var d = (meses[m] || {})[camp];
             if (!d) { tbodySub += '<td style="' + _tdBase + ';text-align:right;color:#93c5fd">—</td>'; campHaByMes[m] = 0; return; }
             var _cicHa = Object.values(d.ciclos).reduce(function(s,v){return s+v;},0);
-            var ha   = (m === _tendCurMes && haFromPools) ? haFromPools : (_cicHa || haFromPools);
+            var ha   = _haForMes(camp, m, haFromPools, _cicHa);
             campHaByMes[m] = ha;
             var pts  = m.split('-');
-            var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+            var dias = 30;
             var val      = _calcVal(d.costo, ha, dias);
             var haDiaVal = ha > 0 && dias > 0 ? d.costo / (ha * dias) : null;
             var over     = haDiaVal !== null && haDiaVal > _budgetVal;
@@ -3579,7 +3660,7 @@ function _sapRenderTendencia(filteredRows, el) {
                 if (!costo) { tbodySub += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1;font-size:11px">—</td>'; return; }
                 var ha   = campHaByMes[m] || 0;
                 var pts  = m.split('-');
-                var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+                var dias = 30;
                 var val      = _calcVal(costo, ha, dias);
                 var matHaDia = ha > 0 && dias > 0 ? costo / (ha * dias) : null;
                 var over     = matHaDia !== null && matHaDia > _budgetVal;
@@ -3595,7 +3676,7 @@ function _sapRenderTendencia(filteredRows, el) {
         '<td style="padding:6px 12px;font-weight:800;position:sticky;left:0;background:#1e3a5f;z-index:2">Promedio</td>';
     mesesList.forEach(function(m) {
         var pts  = m.split('-');
-        var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+        var dias = 30;
         var totalCosto = 0, totalHa = 0;
         campList.forEach(function(camp) {
             var d = (meses[m] || {})[camp];
@@ -3603,7 +3684,7 @@ function _sapRenderTendencia(filteredRows, el) {
             var sid = campSubId[camp];
             var haFromPools = sid && poolsHaBySubId[sid] ? poolsHaBySubId[sid] : 0;
             var _cicHa = Object.values(d.ciclos).reduce(function(s,v){return s+v;},0);
-            var ha = (m === _tendCurMes && haFromPools) ? haFromPools : (_cicHa || haFromPools);
+            var ha = _haForMes(camp, m, haFromPools, _cicHa);
             if (ha > 0) { totalCosto += d.costo; totalHa += ha; }
         });
         mesHaTotal[m] = totalHa;
@@ -3626,7 +3707,7 @@ function _sapRenderTendencia(filteredRows, el) {
             var d = (meses[m] || {})[camp];
             if (!d) { mesHaBySub[camp][m] = 0; return; }
             var _cicHa = Object.values(d.ciclos).reduce(function(s,v){return s+v;},0);
-            mesHaBySub[camp][m] = (m === _tendCurMes && haFromPools) ? haFromPools : (_cicHa || haFromPools);
+            mesHaBySub[camp][m] = _haForMes(camp, m, haFromPools, _cicHa);
         });
     });
 
@@ -3652,7 +3733,7 @@ function _sapRenderTendencia(filteredRows, el) {
             if (!costo) { tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1">—</td>'; return; }
             var ha   = mesHaTotal[m] || 0;
             var pts  = m.split('-');
-            var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+            var dias = 30;
             var val      = _calcVal(costo, ha, dias);
             var matHaDia = ha > 0 && dias > 0 ? costo / (ha * dias) : null;
             var over     = matHaDia !== null && matHaDia > _budgetVal;
@@ -3671,7 +3752,7 @@ function _sapRenderTendencia(filteredRows, el) {
                 if (!costo) { tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1;font-size:11px">—</td>'; return; }
                 var ha   = mesHaBySub[camp][m] || 0;
                 var pts  = m.split('-');
-                var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+                var dias = 30;
                 var val      = _calcVal(costo, ha, dias);
                 var matHaDia = ha > 0 && dias > 0 ? costo / (ha * dias) : null;
                 var over     = matHaDia !== null && matHaDia > _budgetVal;
@@ -3689,7 +3770,7 @@ function _sapRenderTendencia(filteredRows, el) {
         var mesCosto = matList.reduce(function(s,mc){ return s + ((matMeses[mc]||{})[m]||0); }, 0);
         var ha   = mesHaTotal[m] || 0;
         var pts  = m.split('-');
-        var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+        var dias = 30;
         var totVal   = _calcVal(mesCosto, ha, dias);
         var totHaDia = ha > 0 && dias > 0 ? mesCosto / (ha * dias) : null;
         var over     = totHaDia !== null && totHaDia > _budgetVal;
@@ -3779,7 +3860,7 @@ function _sapRenderTendencia(filteredRows, el) {
                     if (!costo) return null;
                     var ha   = mesHaTotal[m] || 0;
                     var pts  = m.split('-');
-                    var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+                    var dias = 30;
                     var v = _calcVal(costo, ha, dias);
                     return v !== null ? parseFloat(v.toFixed(4)) : null;
                 }),
@@ -3867,6 +3948,96 @@ function _tendLegendClick(idx) {
     }
     ci.update();
     _tendUpdateLegend();
+}
+
+function sapOpenManualHaModal() {
+    var MES_KEYS = [], MES_LBLS = [];
+    var _nowD = new Date(), _nowYr = _nowD.getFullYear();
+    for (var _mi = 0; _mi < 12; _mi++) {
+        var _mk = _nowYr + '-' + String(_mi+1).padStart(2,'0');
+        if (_mk >= _CUR_MES_STR) break;
+        MES_KEYS.push(_mk);
+        MES_LBLS.push(SAP_MESES[_mi]);
+    }
+    // Construir lista camp → nombre desde _sapCycles
+    var campNames = {};
+    _sapCycles.forEach(function(c) {
+        var camp = _sapCamp(c);
+        if (camp && !campNames[camp]) campNames[camp] = c._subName || camp;
+    });
+    var camps = Object.keys(campNames).sort(function(a,b) {
+        return campNames[a].localeCompare(campNames[b],'es');
+    });
+    window._mhaCamps  = camps;
+    window._mhaMeses  = MES_KEYS;
+
+    var th = 'padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;background:#f1f5f9;color:#475569;border-bottom:2px solid #e2e8f0;white-space:nowrap';
+    var html = '<table style="width:100%;border-collapse:collapse">';
+    html += '<thead><tr><th style="'+th+';text-align:left;position:sticky;top:0;z-index:2">Sucursal</th>';
+    MES_LBLS.forEach(function(l) { html += '<th style="'+th+';text-align:center;position:sticky;top:0;z-index:2">'+l+'</th>'; });
+    html += '</tr></thead><tbody>';
+    var inp = 'type="number" step="0.1" min="0" style="width:76px;text-align:right;padding:4px 7px;border:1px solid #e2e8f0;border-radius:5px;font-size:12px"';
+    camps.forEach(function(camp, ri) {
+        html += '<tr style="background:'+(ri%2===0?'#f8fafc':'#fff')+'">';
+        html += '<td style="padding:7px 14px;font-size:13px;font-weight:600;white-space:nowrap">'+campNames[camp]+'</td>';
+        MES_KEYS.forEach(function(mes) {
+            var val = (_manualHa[camp]||{})[mes]||'';
+            html += '<td style="padding:5px 8px;text-align:center"><input '+inp+' placeholder="—" id="mha-'+camp.replace(/\W/g,'_')+'-'+mes.replace('-','_')+'" value="'+val+'"></td>';
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('manual-ha-body').innerHTML = html;
+    document.getElementById('manual-ha-modal').style.display = 'flex';
+}
+
+function sapSaveManualHa() {
+    var camps = window._mhaCamps || [];
+    var meses = window._mhaMeses || [];
+    camps.forEach(function(camp) {
+        meses.forEach(function(mes) {
+            var el = document.getElementById('mha-'+camp.replace(/\W/g,'_')+'-'+mes.replace('-','_'));
+            if (!el) return;
+            var v = parseFloat(el.value);
+            if (!_manualHa[camp]) _manualHa[camp] = {};
+            if (v > 0) { _manualHa[camp][mes] = v; }
+            else { delete _manualHa[camp][mes]; }
+        });
+    });
+    localStorage.setItem('sap-manual-ha', JSON.stringify(_manualHa));
+    document.getElementById('manual-ha-modal').style.display = 'none';
+    _updateHaManualBtn();
+    updateSapResults();
+}
+
+function sapClearManualHa() {
+    if (!confirm('¿Borrar todas las Ha manuales guardadas?')) return;
+    _manualHa = {};
+    localStorage.removeItem('sap-manual-ha');
+    document.getElementById('manual-ha-modal').style.display = 'none';
+    _updateHaManualBtn();
+    updateSapResults();
+}
+
+function _updateHaManualBtn() {
+    var btn = document.getElementById('btn-ha-manual');
+    if (!btn) return;
+    var hasHa = Object.keys(_manualHa).some(function(k) { return Object.keys(_manualHa[k]||{}).length > 0; });
+    btn.style.color = hasHa ? '#f59e0b' : '';
+    btn.style.fontWeight = hasHa ? '700' : '';
+    var span = btn.querySelector('span.ha-check');
+    if (hasHa && !span) {
+        var s = document.createElement('span');
+        s.className = 'ha-check';
+        s.textContent = ' ✓';
+        btn.appendChild(s);
+    } else if (!hasHa && span) {
+        span.remove();
+    }
+}
+
+function sapCloseManualHaModal() {
+    document.getElementById('manual-ha-modal').style.display = 'none';
 }
 
 function sapOpenMaterialesModal() {
@@ -3970,7 +4141,7 @@ function _sapOpenMatDetail(matCode) {
     matRows.forEach(function(fr) {
         var sid  = fr.ciclo._subsidiaryId;
         var name = fr.ciclo._subName || _sapCamp(fr.ciclo);
-        if (!bySub[name]) bySub[name] = { name: name, sid: sid, costo: 0, cant: 0, cicloPs: {} };
+        if (!bySub[name]) bySub[name] = { name: name, sid: sid, camp: _sapCamp(fr.ciclo), costo: 0, cant: 0, cicloPs: {} };
         bySub[name].costo += fr.row.i || 0;
         bySub[name].cant  += fr.row.q || 0;
         var pn = fr.ciclo.poolName || fr.ciclo.idCycle;
@@ -3980,9 +4151,13 @@ function _sapOpenMatDetail(matCode) {
     var grandCosto = subRows.reduce(function(s, r) { return s + r.costo; }, 0);
     var grandCant  = subRows.reduce(function(s, r) { return s + r.cant;  }, 0);
 
+    var _matMes = (_selYr && _selMo) ? (_selYr + '-' + _selMo.padStart(2,'0')) : null;
     var subHtml = subRows.map(function(s) {
         var cicloHa = Object.values(s.cicloPs).reduce(function(acc, v) { return acc + v; }, 0);
-        var ha  = (_isCurMo && s.sid && poolsHaBySid[s.sid]) ? poolsHaBySid[s.sid] : (cicloHa || (s.sid && poolsHaBySid[s.sid] ? poolsHaBySid[s.sid] : 0));
+        var _mnHa   = _getManualHa(s.camp, _matMes);
+        var ha  = _isCurMo && s.sid && poolsHaBySid[s.sid]
+            ? poolsHaBySid[s.sid]
+            : (_mnHa || cicloHa || (s.sid && poolsHaBySid[s.sid] ? poolsHaBySid[s.sid] : 0));
         var haDia = ha > 0 && diasMes > 0 ? s.costo / (ha * diasMes) : null;
         var over  = haDia !== null && haDia > 0.99;
         return '<tr style="border-bottom:1px solid var(--border)">' +
@@ -4178,6 +4353,7 @@ function initSapScreen() {
         applyLoginUI(true, name || user || '');
         loadSubsidiaries().then(initSapScreen);
     }
+    _updateHaManualBtn();
     // If no token, login-modal is already visible (display:flex in HTML)
 })();
 
