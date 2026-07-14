@@ -454,8 +454,18 @@
                 <input type="hidden" id="sap-tend-mat" value="">
             </div>
         </div>
+        <!-- Vista Tendencia: sucursal / material -->
+        <div id="sap-tend-view-fg" class="fg" style="display:none">
+            <label>Vista</label>
+            <div style="display:flex;gap:4px;align-items:center">
+                <div style="display:flex;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden">
+                    <button id="tend-view-sub-btn" onclick="_sapTendSetView('sub')" style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;background:#1e3a5f;color:#fff">Por Sucursal</button>
+                    <button id="tend-view-mat-btn" onclick="_sapTendSetView('mat')" style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;background:#e2e8f0;color:#475569">Por Material</button>
+                </div>
+            </div>
+        </div>
         <!-- Selector de métrica: solo pestaña Tendencia -->
-        <div id="sap-tend-metric-fg" class="fg" style="display:none">
+        <div id="sap-tend-metric-fg" class="fg" style="display:none;margin-left:20px;padding-left:20px;border-left:2px solid #e2e8f0">
             <label>Métrica</label>
             <div style="display:flex;align-items:center;gap:8px">
                 <div style="display:flex;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden">
@@ -2209,11 +2219,13 @@ function sapGetActiveCycles() {
 
 var _sapTab = 'resumen';
 var _sapResumenGrupo = false;
+var _sapTendView     = 'sub';
 var _sapResumenChartInst  = null;
 var _sapMatChartInst     = null;
 var _sapCicloChartInst   = null;
 var _sapMatModalChartInst = null;
 var _sapTendMatChartInst  = null;
+var _tendSel = {};
 var _sapKpiRows = [];
 var _sapKpiDias = 30;
 var _sapKpiSelected = null;
@@ -2305,10 +2317,10 @@ function _sapSyncFilters() {
 
     if (_sapTab === 'tendencia') {
         sharedIds.concat(allSpecial).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
-        ['sap-tend-year-fg','sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-mat-fg','sap-tend-metric-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
+        ['sap-tend-view-fg','sap-tend-year-fg','sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-mat-fg','sap-tend-metric-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
         return;
     }
-    ['sap-tend-year-fg','sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-mat-fg','sap-tend-metric-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    ['sap-tend-view-fg','sap-tend-year-fg','sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-mat-fg','sap-tend-metric-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
     if (_sapTab === 'material') {
         sharedIds.concat(cicIds).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         matIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
@@ -2331,6 +2343,10 @@ function _sapSyncFilters() {
 
 function _sapToggleResumenGrupo() {
     _sapResumenGrupo = !_sapResumenGrupo;
+    updateSapResults();
+}
+function _sapTendSetView(v) {
+    _sapTendView = v;
     updateSapResults();
 }
 
@@ -3439,7 +3455,7 @@ function _sapRenderTendencia(filteredRows, el) {
 
     var _tendActiveSids = new Set(CAMPAMENTOS_DEFAULT.map(function(s) { return s.id; }));
     var meses = {}, camps = new Set(), subNames = {}, campSubId = {};
-    var matMeses = {}, matDescMap = {};
+    var matMeses = {}, matDescMap = {}, subMatMeses = {};
 
     filteredRows.forEach(function(fr) {
         if (!_tendActiveSids.has(fr.ciclo._subsidiaryId)) return;
@@ -3458,6 +3474,9 @@ function _sapRenderTendencia(filteredRows, el) {
         matDescMap[mc] = fr.row.d || mc;
         if (!matMeses[mc]) matMeses[mc] = {};
         matMeses[mc][mes] = (matMeses[mc][mes] || 0) + (fr.row.i || 0);
+        if (!subMatMeses[camp]) subMatMeses[camp] = {};
+        if (!subMatMeses[camp][mc]) subMatMeses[camp][mc] = {};
+        subMatMeses[camp][mc][mes] = (subMatMeses[camp][mc][mes] || 0) + (fr.row.i || 0);
     });
 
     var mesesList = Object.keys(meses).sort();
@@ -3507,24 +3526,33 @@ function _sapRenderTendencia(filteredRows, el) {
             '<br><span style="font-size:10px;font-weight:400;opacity:.8">' + p[0] + '</span></th>';
     }).join('');
 
+    var _thLbl = _sapTendView === 'sub' ? 'Sucursal' : 'Material';
     var thead = '<thead><tr style="background:#1e3a5f;color:#fff">' +
-        '<th style="' + _thTop + ';text-align:left;left:0;z-index:4">Sucursal</th>' +
+        '<th style="' + _thTop + ';text-align:left;left:0;z-index:4">' + _thLbl + '</th>' +
         _mesThCells + '</tr></thead>';
 
-    // ── Sucursal: filas de datos ───────────────────────────────────────────────
+    // ── Sucursal: filas de datos + materiales colapsables ─────────────────────
     var mesHaTotal = {};
-    var tbodySub = '<tbody>';
+    var tbodySub = '';
     campList.forEach(function(camp, ri) {
         var sid = campSubId[camp];
         var haFromPools = sid && poolsHaBySubId[sid] ? poolsHaBySubId[sid] : 0;
-        var rowBg = ri % 2 === 0 ? '#ffffff' : '#f8fafc';
-        tbodySub += '<tr style="background:' + rowBg + '">';
-        tbodySub += '<td style="' + _tdBase + ';font-weight:700;white-space:nowrap;position:sticky;left:0;background:' + rowBg + ';z-index:1">' + (subNames[camp] || camp) + '</td>';
+        var rowBg = '#f1f5f9';
+        var tbodyId = 'tend-sub-mats-' + ri;
+        // Fila de sucursal (clickable)
+        tbodySub += '<tbody>';
+        tbodySub += '<tr class="cic-hdr" style="background:' + rowBg + ';cursor:pointer" onclick="sapToggleCicMats(\'' + tbodyId + '\',this)">';
+        tbodySub += '<td style="' + _tdBase + ';font-weight:700;white-space:nowrap;position:sticky;left:0;background:' + rowBg + ';z-index:1">' +
+            '<span id="' + tbodyId + '-arrow" style="margin-right:6px;display:inline-block">▶</span>' +
+            (subNames[camp] || camp) + '</td>';
+        // Calcular Ha por mes para esta sucursal (necesario para materiales)
+        var campHaByMes = {};
         mesesList.forEach(function(m) {
             var d = (meses[m] || {})[camp];
-            if (!d) { tbodySub += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1">—</td>'; return; }
+            if (!d) { tbodySub += '<td style="' + _tdBase + ';text-align:right;color:#93c5fd">—</td>'; campHaByMes[m] = 0; return; }
             var _cicHa = Object.values(d.ciclos).reduce(function(s,v){return s+v;},0);
             var ha   = (m === _tendCurMes && haFromPools) ? haFromPools : (_cicHa || haFromPools);
+            campHaByMes[m] = ha;
             var pts  = m.split('-');
             var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
             var val      = _calcVal(d.costo, ha, dias);
@@ -3534,10 +3562,33 @@ function _sapRenderTendencia(filteredRows, el) {
                 'style="' + _tdBase + ';text-align:right;' + (over ? 'color:#dc2626;font-weight:700' : 'color:#065f46') + '">' +
                 _fmtSub(val) + '</td>';
         });
-        tbodySub += '</tr>';
+        tbodySub += '</tr></tbody>';
+        // Filas de materiales (colapsadas por defecto)
+        tbodySub += '<tbody id="' + tbodyId + '" style="display:none">';
+        var campMats = Object.keys(subMatMeses[camp] || {}).sort(function(a,b) {
+            var totA = Object.values(subMatMeses[camp][a]||{}).reduce(function(s,v){return s+v;},0);
+            var totB = Object.values(subMatMeses[camp][b]||{}).reduce(function(s,v){return s+v;},0);
+            return totB - totA;
+        });
+        campMats.forEach(function(mc, mi) {
+            var matBg = '#ffffff';
+            tbodySub += '<tr style="background:' + matBg + '">';
+            tbodySub += '<td style="' + _tdBase + ';padding-left:28px;position:sticky;left:0;background:' + matBg + ';z-index:1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px" title="' + (matDescMap[mc]||mc).replace(/"/g,'&quot;') + '">' + (matDescMap[mc] || mc) + '</td>';
+            mesesList.forEach(function(m) {
+                var costo = ((subMatMeses[camp]||{})[mc]||{})[m] || 0;
+                if (!costo) { tbodySub += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1;font-size:11px">—</td>'; return; }
+                var ha   = campHaByMes[m] || 0;
+                var pts  = m.split('-');
+                var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+                var val      = _calcVal(costo, ha, dias);
+                var matHaDia = ha > 0 && dias > 0 ? costo / (ha * dias) : null;
+                var over     = matHaDia !== null && matHaDia > _budgetVal;
+                tbodySub += '<td style="' + _tdBase + ';text-align:right;font-size:11px;color:' + (over ? '#dc2626' : '#065f46') + ';font-weight:' + (over ? '700' : '') + '">' + _fmtMat(val) + '</td>';
+            });
+            tbodySub += '</tr>';
+        });
+        tbodySub += '</tbody>';
     });
-
-    tbodySub += '</tbody>';
 
     // ── Promedio — tbody separado; sticky top se aplica por JS ────────────────
     var tbodyProm = '<tbody class="tend-prom"><tr class="row-navy" style="background:#1e3a5f;color:#fff">' +
@@ -3565,42 +3616,37 @@ function _sapRenderTendencia(filteredRows, el) {
     });
     tbodyProm += '</tr></tbody>';
 
+    // Ha por sucursal por mes (para expandir sucursales en vista material)
+    var mesHaBySub = {};
+    campList.forEach(function(camp) {
+        mesHaBySub[camp] = {};
+        var sid = campSubId[camp];
+        var haFromPools = sid && poolsHaBySubId[sid] ? poolsHaBySubId[sid] : 0;
+        mesesList.forEach(function(m) {
+            var d = (meses[m] || {})[camp];
+            if (!d) { mesHaBySub[camp][m] = 0; return; }
+            var _cicHa = Object.values(d.ciclos).reduce(function(s,v){return s+v;},0);
+            mesHaBySub[camp][m] = (m === _tendCurMes && haFromPools) ? haFromPools : (_cicHa || haFromPools);
+        });
+    });
+
     // ── Separador + título Material (se desplaza, no sticky) ─────────────────
     var matList = Object.keys(matMeses).sort(function(a, b) {
         var totA = Object.values(matMeses[a]).reduce(function(s,v){return s+v;},0);
         var totB = Object.values(matMeses[b]).reduce(function(s,v){return s+v;},0);
         return totB - totA;
     });
-    var matCount = matList.length;
-    var colSpan = mesesList.length + 1;
-
-    var tbodySep = '<tbody>' +
-        '<tr><td colspan="' + colSpan + '" style="height:14px;padding:0;background:var(--bg)"></td></tr>' +
-        '<tr style="background:#e0f2fe"><td colspan="' + colSpan + '" style="padding:8px 12px;font-size:13px;font-weight:700;color:#0369a1">' +
-            'Tendencia por Material' +
-            '<span style="font-size:11px;font-weight:400;color:#64748b;margin-left:10px">' + matCount + ' materiales</span>' +
-        '</td></tr>' +
-        '</tbody>';
-
-    // ── Encabezado Material — tbody separado; sticky top se aplica por JS ─────
-    var _mesTdCells = mesesList.map(function(m) {
-        var p = m.split('-');
-        return '<td style="padding:6px 12px;font-weight:700;white-space:nowrap;background:#1e3a5f;color:#fff;text-align:right">' +
-            (SAP_MESES[parseInt(p[1],10)-1] || p[1]) +
-            '<br><span style="font-size:10px;font-weight:400;opacity:.8">' + p[0] + '</span></td>';
-    }).join('');
-
-    var tbodyMatHdr = '<tbody class="tend-mat-hdr"><tr class="row-navy" style="background:#1e3a5f;color:#fff">' +
-        '<td style="padding:6px 12px;font-weight:700;white-space:nowrap;background:#1e3a5f;color:#fff;text-align:left;position:sticky;left:0;z-index:2">Material</td>' +
-        _mesTdCells +
-        '</tr></tbody>';
-
-    // ── Filas de materiales ───────────────────────────────────────────────────
-    var tbodyMat = '<tbody>';
+    // ── Filas de materiales con sucursales colapsables ───────────────────────
+    var tbodyMat = '';
     matList.forEach(function(mc, ri) {
-        var rowBg = ri % 2 === 0 ? '#ffffff' : '#f8fafc';
-        tbodyMat += '<tr style="background:' + rowBg + '">';
-        tbodyMat += '<td style="' + _tdBase + ';position:sticky;left:0;background:' + rowBg + ';z-index:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px" title="' + (matDescMap[mc]||mc).replace(/"/g,'&quot;') + '">' + (matDescMap[mc] || mc) + '</td>';
+        var tbodyId = 'tend-mat-subs-' + ri;
+        var rowBg = '#f1f5f9';
+        // Fila de material (clickable)
+        tbodyMat += '<tbody>';
+        tbodyMat += '<tr class="cic-hdr" style="background:' + rowBg + ';cursor:pointer" onclick="sapToggleCicMats(\'' + tbodyId + '\',this)">';
+        tbodyMat += '<td style="' + _tdBase + ';position:sticky;left:0;background:' + rowBg + ';z-index:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px" title="' + (matDescMap[mc]||mc).replace(/"/g,'&quot;') + '">' +
+            '<span id="' + tbodyId + '-arrow" style="margin-right:6px;display:inline-block">▶</span>' +
+            (matDescMap[mc] || mc) + '</td>';
         mesesList.forEach(function(m) {
             var costo = (matMeses[mc] || {})[m] || 0;
             if (!costo) { tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1">—</td>'; return; }
@@ -3613,9 +3659,28 @@ function _sapRenderTendencia(filteredRows, el) {
             tbodyMat += '<td data-tend-val data-costo="' + costo + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="mat" ' +
                 'style="' + _tdBase + ';text-align:right;color:' + (over ? '#dc2626' : '#065f46') + ';font-weight:' + (over ? '700' : '') + '">' + _fmtMat(val) + '</td>';
         });
-        tbodyMat += '</tr>';
+        tbodyMat += '</tr></tbody>';
+        // Sucursales que usaron este material (colapsadas)
+        tbodyMat += '<tbody id="' + tbodyId + '" style="display:none">';
+        campList.forEach(function(camp) {
+            if (!subMatMeses[camp] || !subMatMeses[camp][mc]) return;
+            tbodyMat += '<tr style="background:#ffffff">';
+            tbodyMat += '<td style="' + _tdBase + ';padding-left:28px;position:sticky;left:0;background:#ffffff;z-index:1;font-size:11px;white-space:nowrap">' + (subNames[camp] || camp) + '</td>';
+            mesesList.forEach(function(m) {
+                var costo = (subMatMeses[camp][mc]||{})[m] || 0;
+                if (!costo) { tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1;font-size:11px">—</td>'; return; }
+                var ha   = mesHaBySub[camp][m] || 0;
+                var pts  = m.split('-');
+                var dias = new Date(parseInt(pts[0]), parseInt(pts[1]), 0).getDate();
+                var val      = _calcVal(costo, ha, dias);
+                var matHaDia = ha > 0 && dias > 0 ? costo / (ha * dias) : null;
+                var over     = matHaDia !== null && matHaDia > _budgetVal;
+                tbodyMat += '<td style="' + _tdBase + ';text-align:right;font-size:11px;color:' + (over ? '#dc2626' : '#065f46') + ';font-weight:' + (over ? '700' : '') + '">' + _fmtMat(val) + '</td>';
+            });
+            tbodyMat += '</tr>';
+        });
+        tbodyMat += '</tbody>';
     });
-    tbodyMat += '</tbody>';
 
     // ── Total — tfoot; sticky bottom se aplica por JS ─────────────────────────
     var tfoot = '<tfoot><tr style="background:#1e3a5f;color:#fff">' +
@@ -3633,6 +3698,20 @@ function _sapRenderTendencia(filteredRows, el) {
     });
     tfoot += '</tr></tfoot>';
 
+    // Actualizar botones de vista en la barra de filtros
+    var _vSub = document.getElementById('tend-view-sub-btn');
+    var _vMat = document.getElementById('tend-view-mat-btn');
+    if (_vSub) { _vSub.style.background = _sapTendView==='sub' ? '#1e3a5f' : '#e2e8f0'; _vSub.style.color = _sapTendView==='sub' ? '#fff' : '#475569'; }
+    if (_vMat) { _vMat.style.background = _sapTendView==='mat' ? '#1e3a5f' : '#e2e8f0'; _vMat.style.color = _sapTendView==='mat' ? '#fff' : '#475569'; }
+
+    // Ensamblar tabla según vista activa
+    var _tableBody;
+    if (_sapTendView === 'sub') {
+        _tableBody = thead + tbodySub + tbodyProm;
+    } else {
+        _tableBody = thead + tbodyMat + tfoot;
+    }
+
     var _chartMats = matList;
     var _SAP_PAL   = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EC4899','#14B8A6',
                        '#F97316','#06B6D4','#84CC16','#EF4444','#A855F7','#0EA5E9',
@@ -3646,7 +3725,7 @@ function _sapRenderTendencia(filteredRows, el) {
         '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
             '<div style="flex:1;overflow:auto">' +
                 '<table style="border-collapse:separate;border-spacing:0;width:100%;font-size:12px">' +
-                    thead + tbodySub + tbodyProm + tbodySep + tbodyMatHdr + tbodyMat + tfoot +
+                    _tableBody +
                 '</table>' +
                 '<div class="chart-card" style="margin:14px;padding:14px 16px">' +
                     '<div class="chart-title">' + _chartMats.length + ' Materiales — ' + _metricLabel + ' por Mes' +
@@ -3684,6 +3763,7 @@ function _sapRenderTendencia(filteredRows, el) {
 
     // ── Gráfico de líneas: Top materiales por mes ─────────────────────────────
     if (_sapTendMatChartInst) { _sapTendMatChartInst.destroy(); _sapTendMatChartInst = null; }
+    _tendSel = {};
     var _tendCtx = document.getElementById('tend-mat-chart');
     if (_tendCtx) {
         var _mesLabels = mesesList.map(function(m) {
@@ -3756,16 +3836,18 @@ function _tendUpdateLegend() {
     var ci   = _sapTendMatChartInst;
     var cont = document.getElementById('tend-legend-btns');
     if (!ci || !cont) return;
+    var anySelected = Object.keys(_tendSel).length > 0;
     cont.innerHTML = ci.data.datasets.map(function(ds, i) {
-        var hid = !!ds.hidden;
+        var selected = !!_tendSel[i];
+        var active   = !anySelected || selected;
         var col = ds.borderColor;
         return '<button type="button" onclick="_tendLegendClick(' + i + ')" style="' +
             'display:flex;align-items:center;gap:5px;padding:3px 6px;width:100%;text-align:left;' +
-            'border:none;border-radius:4px;cursor:pointer;' +
-            'background:' + (hid ? 'transparent' : col + '18') + ';' +
-            'color:' + (hid ? '#94a3b8' : '#334155') + ';font-size:10px;font-weight:500;line-height:1.3">' +
-            '<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:' + (hid ? '#cbd5e1' : col) + '"></span>' +
-            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (hid ? 'text-decoration:line-through;opacity:.5' : '') + '">' + ds.label + '</span>' +
+            'border:1px solid ' + (selected ? col : 'transparent') + ';border-radius:4px;cursor:pointer;' +
+            'background:' + (active ? col + '18' : 'transparent') + ';' +
+            'color:' + (active ? '#334155' : '#94a3b8') + ';font-size:10px;font-weight:500;line-height:1.3">' +
+            '<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:' + (active ? col : '#cbd5e1') + '"></span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (active ? '' : 'text-decoration:line-through;opacity:.5') + '">' + ds.label + '</span>' +
             '</button>';
     }).join('');
 }
@@ -3773,11 +3855,16 @@ function _tendUpdateLegend() {
 function _tendLegendClick(idx) {
     var ci = _sapTendMatChartInst;
     if (!ci) return;
-    var n   = ci.data.datasets.length;
-    var nHid = 0;
-    for (var i = 0; i < n; i++) if (ci.data.datasets[i].hidden) nHid++;
-    var solo = nHid === n - 1 && !ci.data.datasets[idx].hidden;
-    for (var i = 0; i < n; i++) ci.data.datasets[i].hidden = solo ? false : (i !== idx);
+    var n = ci.data.datasets.length;
+    if (_tendSel[idx]) {
+        delete _tendSel[idx];
+    } else {
+        _tendSel[idx] = true;
+    }
+    var anySelected = Object.keys(_tendSel).length > 0;
+    for (var i = 0; i < n; i++) {
+        ci.data.datasets[i].hidden = anySelected ? !_tendSel[i] : false;
+    }
     ci.update();
     _tendUpdateLegend();
 }
