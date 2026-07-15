@@ -3706,7 +3706,7 @@ function _sapRenderTendencia(filteredRows, el) {
                 var val      = _calcVal(costo, ha, dias);
                 var matHaDia = ha > 0 && dias > 0 ? costo / (ha * dias) : null;
                 var over     = matHaDia !== null && matHaDia > _budgetVal;
-                tbodySub += '<td style="' + _tdBase + ';text-align:right;font-size:11px;color:' + (over ? '#dc2626' : '#065f46') + ';font-weight:' + (over ? '700' : '') + '">' + _fmtMat(val) + '</td>';
+                tbodySub += '<td data-tend-val data-costo="' + costo + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="mat" style="' + _tdBase + ';text-align:right;font-size:11px;color:' + (over ? '#dc2626' : '#065f46') + ';font-weight:' + (over ? '700' : '') + '">' + _fmtMat(val) + '</td>';
             });
             tbodySub += '</tr>';
         });
@@ -3798,7 +3798,7 @@ function _sapRenderTendencia(filteredRows, el) {
                 var val      = _calcVal(costo, ha, dias);
                 var matHaDia = ha > 0 && dias > 0 ? costo / (ha * dias) : null;
                 var over     = matHaDia !== null && matHaDia > _budgetVal;
-                tbodyMat += '<td style="' + _tdBase + ';text-align:right;font-size:11px;color:' + (over ? '#dc2626' : '#065f46') + ';font-weight:' + (over ? '700' : '') + '">' + _fmtMat(val) + '</td>';
+                tbodyMat += '<td data-tend-val data-costo="' + costo + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="mat" style="' + _tdBase + ';text-align:right;font-size:11px;color:' + (over ? '#dc2626' : '#065f46') + ';font-weight:' + (over ? '700' : '') + '">' + _fmtMat(val) + '</td>';
             });
             tbodyMat += '</tr>';
         });
