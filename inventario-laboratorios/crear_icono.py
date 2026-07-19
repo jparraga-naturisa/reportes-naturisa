@@ -81,7 +81,7 @@ def make_frame(size: int) -> Image.Image:
 sizes = [256, 128, 64, 48, 32, 16]
 frames = [make_frame(s) for s in sizes]
 
-output = r"c:\Scripts\Naturisa\AP1.ico"
+output = r"c:\Scripts\Naturisa\inventario-laboratorios\AP1.ico"
 frames[0].save(
     output,
     format="ICO",

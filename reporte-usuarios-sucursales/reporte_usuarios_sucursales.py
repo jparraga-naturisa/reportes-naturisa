@@ -20,7 +20,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 # ── CONFIGURACION ─────────────────────────────────────────────────────────────
 TOKEN  = "PEGAR_TOKEN_AQUI"   # sin el prefijo "Bearer"
-OUTPUT = rf"C:\Scripts\Naturisa\Usuarios_Sucursales_{date.today().strftime('%Y%m%d')}.xlsx"
+OUTPUT = rf"C:\Scripts\Naturisa\reporte-usuarios-sucursales\Usuarios_Sucursales_{date.today().strftime('%Y%m%d')}.xlsx"
 # ─────────────────────────────────────────────────────────────────────────────
 
 BASE    = "https://gateway.naturisa.com.ec/bff/web/security/backoffice/api"
