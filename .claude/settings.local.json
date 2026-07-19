@@ -14,7 +14,8 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "PowerShell(Start-Process \"c:\\\\Scripts\\\\Naturisa\\\\consumos-insumos.html\")"
+      "PowerShell(Start-Process \"c:\\\\Scripts\\\\Naturisa\\\\consumos-insumos.html\")",
+      "Bash(python -c ' *)"
     ]
   }
 }

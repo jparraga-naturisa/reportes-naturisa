@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Naturisa - Carga Masiva de Muestreos</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --primary: #1a3a5c;
+    --primary-light: #2d6a9f;
+    --accent: #00b4d8;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --border: #e5e5ea;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 10px;
+    --radius-sm: 8px;
+}
+html { height: 100%; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100%; margin: 0; }
+
+.header { background: var(--primary); color: white; padding: 0 20px; height: 52px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
+.header-logo { display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 700; letter-spacing: 0.3px; }
+.header-logo .accent { color: var(--accent); }
+.header-logo .sep { opacity: 0.4; margin: 0 4px; }
+.hdr-right { font-size: 12px; opacity: 0.75; }
+
+.login-bar { background: #fffbeb; border-bottom: 1px solid #fde68a; padding: 8px 20px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; flex-wrap: wrap; }
+.login-bar.connected { background: #f0fdf4; border-color: #bbf7d0; }
+.login-bar input[type="text"], .login-bar input[type="password"] { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12.5px; width: 150px; }
+.btn { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: opacity 0.15s; }
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-ghost { background: white; color: var(--primary); border: 1px solid var(--border); }
+#login-status { font-size: 12px; color: #92400e; }
+#login-status.ok { color: #166534; font-weight: 600; }
+
+.filters { background: white; border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.fg { display: flex; flex-direction: column; gap: 3px; }
+.fg label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.fg select, .fg input[type="text"], .fg input[type="date"], .fg input[type="time"], .fg input[type="number"] { height: 30px; padding: 0 9px; box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: white; min-width: 140px; }
+.btn-apply { height: 30px; padding: 0 20px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.btn-apply:hover { background: var(--primary-light); }
+.btn-apply:disabled { opacity: 0.5; cursor: default; }
+.load-status { font-size: 12px; color: var(--muted); margin-left: auto; }
+.chk-group { display: flex; gap: 10px; height: 30px; align-items: center; font-size: 12px; font-weight: 500; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fafafa; }
+.chk-group label { display: flex; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; font-weight: 500; text-transform: none; letter-spacing: normal; }
+
+.main { padding: 16px 20px; max-width: 1700px; margin: 0 auto; }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-icon { font-size: 40px; margin-bottom: 10px; }
+
+.section-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid var(--border); margin-bottom: 16px; overflow: hidden; }
+.section-title { padding: 10px 16px; font-size: 13px; font-weight: 700; color: var(--primary); background: #f8fafc; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.section-hint { font-size: 11px; font-weight: 500; color: var(--muted); }
+
+.table-scroll { overflow-x: auto; }
+table.grid-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.grid-tbl th { padding: 8px 10px; text-align: center; font-weight: 700; color: #334155; background: #f8fafc; border-bottom: 1px solid var(--border); white-space: normal; line-height: 1.3; max-width: 100px; }
+.grid-tbl td { padding: 6px 8px; border-bottom: 1px solid #f1f1f3; text-align: center; white-space: nowrap; }
+.grid-tbl tr:hover td { background: #fafbfc; }
+.grid-tbl td.pool-col, .grid-tbl th.pool-col { text-align: left; position: sticky; left: 0; background: white; z-index: 1; box-shadow: 1px 0 0 var(--border); }
+.grid-tbl tr:hover td.pool-col { background: #fafbfc; }
+.grid-tbl th.pool-col { background: #f8fafc; }
+.pool-name { font-weight: 700; color: var(--text); }
+.pool-cycle { font-size: 10.5px; color: var(--muted); }
+.uso-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; flex-shrink: 0; }
+.uso-dot.precria { background: var(--accent); }
+.uso-dot.preengorde { background: var(--warning); }
+.uso-dot.engorde { background: var(--success); }
+.ref-val { color: var(--muted); font-variant-numeric: tabular-nums; }
+.ref-val.empty { color: #c7c7cc; }
+
+.grid-tbl input { height: 28px; padding: 0 7px; border: 1px solid var(--border); border-radius: 6px; font-size: 12.5px; text-align: center; background: white; }
+.grid-tbl input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,180,216,0.15); }
+.grid-tbl input.in-date, .grid-tbl input.in-time { width: 108px; }
+.grid-tbl input.in-num { width: 74px; }
+.grid-tbl input.in-obs { width: 170px; text-align: left; }
+.grid-tbl input.filled { border-color: var(--accent); background: #f0fbfe; }
+.grid-tbl input:disabled { background: #f8fafc; color: var(--muted); cursor: not-allowed; }
+.grid-tbl tr.row-confirmed td { background: #f0fdf4; }
+.grid-tbl tr.row-confirmed td.pool-col { background: #f0fdf4; }
+
+.grid-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fafbfc; }
+.grid-footer .spacer { flex: 1; }
+.save-status { font-size: 12.5px; font-weight: 600; }
+.save-status.ok { color: var(--success); }
+.save-status.err { color: var(--danger); }
+
+.preview-box { margin: 0 16px 16px; }
+.preview-box.hidden { display: none; }
+.preview-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.preview-head b { font-size: 12px; color: var(--primary); }
+.preview-pre { background: #0f172a; color: #d1e8ff; font-size: 11.5px; line-height: 1.5; padding: 12px 14px; border-radius: 8px; max-height: 320px; overflow: auto; white-space: pre; }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 6px; vertical-align: -2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-logo">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <circle cx="13" cy="13" r="12" stroke="#00b4d8" stroke-width="1.8"/>
+            <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.85" transform="rotate(-20 13 13)"/>
+            <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.5" transform="rotate(30 13 13)"/>
+        </svg>
+        <span class="accent">NATURISA</span><span class="sep">|</span> Carga Masiva de Muestreos
+    </div>
+    <div class="hdr-right" id="hdr-user-label"></div>
+</header>
+
+<div class="login-bar" id="login-bar">
+    <span style="font-weight:600;color:var(--muted)">Iniciar sesión:</span>
+    <input type="text" id="inp-user" placeholder="Usuario" autocomplete="username">
+    <input type="password" id="inp-pass" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()">
+    <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Ingresar</button>
+    <span id="login-status">⚠ Inicia sesión para cargar piscinas</span>
+    <button class="btn btn-danger" id="btn-logout" onclick="doLogout()" style="display:none;margin-left:auto;">Cerrar sesión</button>
+</div>
+
+<div class="filters">
+    <div class="fg">
+        <label>Campamento (Sucursal)</label>
+        <select id="f-sucursal"></select>
+    </div>
+    <div class="fg">
+        <label>Fecha del Muestreo</label>
+        <input type="date" id="g-fecha">
+    </div>
+    <div class="fg">
+        <label>Hora del Muestreo</label>
+        <input type="time" id="g-hora">
+    </div>
+    <div class="fg">
+        <label>Uso del ciclo</label>
+        <div class="chk-group">
+            <label><input type="checkbox" id="u-precria" checked onchange="applyUsoFilter()"><span class="uso-dot precria"></span>Precrías</label>
+            <label><input type="checkbox" id="u-preengorde" checked onchange="applyUsoFilter()"><span class="uso-dot preengorde"></span>Pre Engorde</label>
+            <label><input type="checkbox" id="u-engorde" checked onchange="applyUsoFilter()"><span class="uso-dot engorde"></span>Engorde</label>
+        </div>
+    </div>
+    <button class="btn-apply" id="btn-cargar" onclick="cargarPiscinas()">↻ Cargar piscinas activas</button>
+    <button class="btn-apply" id="btn-aplicar-fh" style="background:white;color:var(--primary);border:1px solid var(--border)" onclick="aplicarFechaHoraATodas()" disabled>Aplicar fecha/hora a todas las filas</button>
+    <button class="btn-apply" id="btn-guardar-muestreo" onclick="guardarMuestreo()" disabled>💾 Guardar Muestreo</button>
+    <span class="save-status" id="muestreo-save-status"></span>
+    <span class="load-status" id="load-status"></span>
+</div>
+
+<div class="main">
+
+<div class="section-card">
+    <div class="section-title">
+        <span>Muestreo por piscina</span>
+        <span class="section-hint">Ingresa Peso Promedio y/o Sobrevivencia solo en las piscinas que muestreaste hoy</span>
+    </div>
+    <div class="table-scroll">
+        <table class="grid-tbl" id="tbl-muestreo">
+            <thead>
+                <tr>
+                    <th class="pool-col">Piscina</th>
+                    <th>Días</th>
+                    <th>Densidad (an/m²)</th>
+                    <th>Penúltimo Peso</th>
+                    <th>Último Peso</th>
+                    <th>Sobrevivencia Actual (%)</th>
+                    <th>Fecha</th>
+                    <th>Hora</th>
+                    <th>Lances</th>
+                    <th>Peso Promedio (g)</th>
+                    <th>Sobrevivencia (%)</th>
+                    <th>Nueva Densidad (an/m²)</th>
+                    <th>Observación</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-muestreo">
+                <tr><td colspan="13" class="empty-state">Elige un campamento y presiona "Cargar piscinas activas".</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="grid-footer">
+        <span id="muestreo-count" style="font-size:12.5px;color:var(--muted)"></span>
+    </div>
+    <div class="preview-box hidden" id="muestreo-preview">
+        <div class="preview-head">
+            <b>Vista previa del payload (guardado real pendiente de conectar al backend)</b>
+            <button class="btn btn-primary" onclick="confirmarRegistro()">✓ Confirmar registro</button>
+            <button class="btn btn-ghost" onclick="copiarJSON('muestreo')">Copiar JSON</button>
+        </div>
+        <div class="preview-pre" id="muestreo-preview-pre"></div>
+    </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+const _IS_LOCAL = window.location.hostname === 'localhost';
+const AUTH_URL  = _IS_LOCAL ? '/auth' : 'https://gateway.naturisa.com.ec/bff/web/ap1/security/api/auth';
+const API_BASE  = _IS_LOCAL ? '/bff/web/ap1/backoffice/api' : 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api';
+const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
+
+const SUBSIDIARIES = [
+    {id:13,code:'A1',name:'Acualit 1'}, {id:28,code:'A2',name:'Acualit 2'},
+    {id:6,code:'BR',name:'Biorey'}, {id:19,code:'BO',name:'Bonanza'},
+    {id:8,code:'CA',name:'Camaron'}, {id:7,code:'CR',name:'Camino Real'},
+    {id:10034,code:'CO',name:'Coaque'}, {id:11,code:'ES',name:'Esteromar'},
+    {id:14,code:'FI',name:'Fincacua'}, {id:17,code:'GO',name:'Golfomar'},
+    {id:16,code:'GR',name:'Granmar'}, {id:15,code:'IN',name:'Inducam'},
+    {id:5,code:'JO',name:'Josefina'}, {id:4,code:'KA',name:'Kamaclusa'},
+    {id:18,code:'LA',name:'Lanconor'}, {id:21,code:'LG',name:'Los Gelices'},
+    {id:9,code:'MH',name:'Marchena'}, {id:10,code:'MG',name:'Margolfo'},
+    {id:3,code:'MA',name:'Maricultura'}, {id:1,code:'NA',name:'Naturisa'},
+    {id:2,code:'PE',name:'Pesjoya'}, {id:12,code:'RN',name:'Rio Nilo'},
+    {id:20,code:'RO',name:'Roblemar'},
+];
+
+let allActivePools = []; // piscinas activas del campamento elegido, sin filtrar por uso
+let activePools    = []; // subconjunto de allActivePools que pasa el filtro de uso del ciclo (lo que se renderiza)
+
+// ── Login ─────────────────────────────────────────────────────
+function getToken() { return localStorage.getItem('nat_token') || ''; }
+
+function populateSucursales() {
+    const sel = document.getElementById('f-sucursal');
+    sel.innerHTML = '<option value="">— elige un campamento —</option>' + SUBSIDIARIES
+        .slice().sort((a,b) => a.name.localeCompare(b.name, 'es'))
+        .map(s => `<option value="${s.id}" data-code="${s.code}">${s.name}</option>`).join('');
+}
+populateSucursales();
+
+async function doLogin() {
+    const user = document.getElementById('inp-user').value.trim();
+    const pass = document.getElementById('inp-pass').value.trim();
+    if (!user || !pass) return alert('Ingresa usuario y contraseña');
+    const btn = document.getElementById('btn-login');
+    btn.textContent = 'Ingresando...'; btn.disabled = true;
+    try {
+        const res = await fetch(AUTH_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/plain, */*' },
+            body: JSON.stringify({ userName: user, password: pass, codeApplication: CODE_APP, includeUserInfo: true })
+        });
+        const json = await res.json();
+        if (json.code === 200 && json.data?.token) {
+            localStorage.setItem('nat_token', json.data.token);
+            const u = json.data.usuario;
+            const fullName = u ? (u.firstNames + ' ' + u.lastNames).trim() : user;
+            localStorage.setItem('nat_name', fullName);
+            document.getElementById('inp-pass').value = '';
+            applyLoginUI(true, fullName);
+        } else {
+            alert('Usuario o contraseña incorrectos');
+        }
+    } catch(e) {
+        document.getElementById('login-status').textContent = '⚠ Error de conexión: ' + e.message;
+    } finally { btn.textContent = 'Ingresar'; btn.disabled = false; }
+}
+
+function doLogout() {
+    localStorage.removeItem('nat_token');
+    localStorage.removeItem('nat_name');
+    applyLoginUI(false, '');
+}
+
+function applyLoginUI(on, nombre) {
+    const bar = document.getElementById('login-bar');
+    bar.classList.toggle('connected', on);
+    document.getElementById('inp-user').style.display = on ? 'none' : '';
+    document.getElementById('inp-pass').style.display = on ? 'none' : '';
+    document.getElementById('btn-login').style.display = on ? 'none' : '';
+    document.getElementById('btn-logout').style.display = on ? '' : 'none';
+    const status = document.getElementById('login-status');
+    status.className = on ? 'ok' : '';
+    status.textContent = on ? ('✓ Conectado como ' + nombre) : '⚠ Inicia sesión para cargar piscinas';
+    document.getElementById('hdr-user-label').textContent = on ? nombre : '';
+}
+
+(function initLoginState() {
+    const token = getToken();
+    const name = localStorage.getItem('nat_name') || '';
+    if (token) applyLoginUI(true, name);
+})();
+
+// ── Fecha/hora por defecto ──────────────────────────────────────
+(function initFechaHora() {
+    const now = new Date();
+    document.getElementById('g-fecha').value = isoDate(now);
+    document.getElementById('g-hora').value = pad(now.getHours()) + ':' + pad(now.getMinutes());
+})();
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function isoDate(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+
+function isoWeek(d) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+    return { year: date.getUTCFullYear(), week };
+}
+
+// ── API helper ───────────────────────────────────────────────
+async function apiGet(path, params) {
+    let qs = '';
+    if (params) {
+        const usp = new URLSearchParams();
+        params.forEach(([k, v]) => usp.append(k, v));
+        qs = '?' + usp.toString();
+    }
+    const url = `${API_BASE}/${path}${qs}`;
+    const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json, text/plain, */*' }
+    });
+    if (!res.ok) {
+        const bodyText = await res.text().catch(() => '');
+        console.error('[apiGet] fallo', url, res.status, bodyText);
+        throw new Error(`${path}: HTTP ${res.status}${bodyText ? ' — ' + bodyText.slice(0, 200) : ''}`);
+    }
+    const json = await res.json();
+    return json.data;
+}
+
+// ── Cargar piscinas activas del campamento ───────────────────
+// El corte de la semana en curso a veces todavía no está cerrado en el backend
+// y esa combinación cutOffYear/cutOffWeek responde error 500 ("Code":999).
+// Se reintenta con hasta 4 semanas anteriores hasta encontrar un corte válido.
+async function fetchPoolProductionConCorteReciente(subId) {
+    const now = new Date();
+    let lastError = null;
+    for (let back = 0; back <= 4; back++) {
+        const d = new Date(now.getTime() - back * 7 * 86400000);
+        const { year, week } = isoWeek(d);
+        try {
+            const data = await apiGet('report_production/pool_production', [
+                ['subsidiaryIds', subId], ['cutOffYear', year], ['cutOffWeek', week]
+            ]);
+            if (Array.isArray(data) && data.length) return data;
+        } catch (e) {
+            lastError = e;
+            console.warn(`[cargarPiscinas] corte ${year}-W${week} falló:`, e.message);
+        }
+    }
+    if (lastError) throw lastError;
+    return [];
+}
+
+async function cargarPiscinas() {
+    if (!getToken()) { alert('Primero inicia sesión'); return; }
+    const subSel = document.getElementById('f-sucursal');
+    const subId = subSel.value;
+    if (!subId) { alert('Elige un campamento'); return; }
+
+    const btn = document.getElementById('btn-cargar');
+    const status = document.getElementById('load-status');
+    btn.disabled = true;
+    status.innerHTML = '<span class="spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--primary)"></span> Cargando...';
+
+    try {
+        const data = await fetchPoolProductionConCorteReciente(subId);
+        allActivePools = aggregatePools(data);
+        if (allActivePools.length) {
+            status.innerHTML = '<span class="spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--primary)"></span> Cargando historial de pesos...';
+            await fetchPesoHistorial(allActivePools);
+        }
+        applyUsoFilter();
+        status.textContent = allActivePools.length
+            ? `${activePools.length} de ${allActivePools.length} piscina(s) activa(s) — ${subSel.selectedOptions[0].textContent}`
+            : 'No se encontraron piscinas activas para este campamento en la semana actual.';
+    } catch (e) {
+        console.error(e);
+        status.textContent = '⚠ Error al cargar: ' + e.message;
+        allActivePools = [];
+        activePools = [];
+        renderTable();
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ── Filtro por uso del ciclo (Precrías / Pre Engorde / Engorde) ─
+// El valor real de cycleUsageValue para Precría no siempre trae la palabra
+// "precria" (a veces viene vacío o con otra etiqueta) — en vez de exigir que
+// coincida con un texto exacto, se identifica Engorde/Pre Engorde primero y
+// todo lo demás (incluido vacío) cae en Precría, así nunca se queda afuera.
+function usoBucket(usage) {
+    const up = String(usage || '').toUpperCase().replace(/\s+/g, '');
+    if (up.includes('PREENG'))  return 'PREENGORDE';
+    if (up.includes('ENGORDE')) return 'ENGORDE';
+    return 'PRECRIA';
+}
+
+function applyUsoFilter() {
+    const wantPrecria    = document.getElementById('u-precria').checked;
+    const wantPreengorde = document.getElementById('u-preengorde').checked;
+    const wantEngorde    = document.getElementById('u-engorde').checked;
+    activePools = allActivePools.filter(p => {
+        const bucket = usoBucket(p.cycleUsageValue);
+        return (bucket === 'PRECRIA' && wantPrecria)
+            || (bucket === 'PREENGORDE' && wantPreengorde)
+            || (bucket === 'ENGORDE' && wantEngorde);
+    });
+    renderTable();
+    document.getElementById('btn-aplicar-fh').disabled = activePools.length === 0;
+    const status = document.getElementById('load-status');
+    if (allActivePools.length) {
+        status.textContent = `${activePools.length} de ${allActivePools.length} piscina(s) activa(s)`;
+    }
+}
+
+// Un ciclo puede llegar en varias filas (varios lotes sembrados); se agregan
+// cantidad de animales y siembra, y se pondera el peso, igual que en el resto del dashboard.
+function aggregatePools(rows) {
+    const byCycle = new Map();
+    rows.forEach(r => {
+        const id = String(r.idCycle || r.cycleId || `${r.poolName}_${r.cycleNumber}`);
+        if (!byCycle.has(id)) byCycle.set(id, []);
+        byCycle.get(id).push(r);
+    });
+    const out = [];
+    byCycle.forEach(group => {
+        const first = group[0];
+        const animals = group.reduce((s, r) => s + (r.estimatedActualAnimals || 0), 0);
+        const sown    = group.reduce((s, r) => s + (r.sowingQuantity || 0), 0);
+        const wAvgWeight = sown && group.some(r => r.averageWeightGrams)
+            ? group.reduce((s, r) => s + (r.averageWeightGrams || 0) * (r.estimatedActualAnimals || 0), 0) / (animals || 1)
+            : (first.averageWeightGrams || null);
+        const poolSizeHa = first.poolSize ?? first.poolArea ?? first.hectares ?? first.area ?? null;
+        // Si no viene el área directamente, se infiere del campo de densidad que sí trae la API.
+        const poolSizeM2 = poolSizeHa
+            ? poolSizeHa * 10000
+            : (animals && first.estimatedActualDensityPerMeter ? animals / first.estimatedActualDensityPerMeter : null);
+        const density = poolSizeM2
+            ? animals / poolSizeM2
+            : (first.estimatedActualDensityPerMeter ?? null);
+        out.push({
+            idCycle:      first.idCycle ?? first.cycleId ?? null,
+            poolName:     first.poolName || '—',
+            cycleCode:    first.cycleCode || null,
+            cycleNumber:  first.cycleNumber ?? null,
+            cycleUsageValue: first.cycleUsageValue || first.cycleUsage || '',
+            subsidiaryId: Number(document.getElementById('f-sucursal').value),
+            daysProduction: first.daysProduction ?? null,
+            animals:      animals || null,
+            sown:         sown || null,
+            poolSizeM2:   poolSizeM2 || null,
+            density:      density || null,
+            avgWeight:    wAvgWeight || null,
+            survival:     sown ? (animals / sown * 100) : null,
+            pesoUltimo:   null,
+            pesoPenultimo: null,
+        });
+    });
+    return out.sort((a, b) => (a.poolName || '').localeCompare(b.poolName || '', 'es', { numeric: true }));
+}
+
+// Trae el historial de muestreos de peso por ciclo y guarda el último y penúltimo registro.
+async function fetchPesoHistorial(pools) {
+    await Promise.all(pools.map(async p => {
+        if (!p.idCycle) return;
+        try {
+            const data = await apiGet('cycle_sampling_weights/cycle', [
+                ['cycleId', p.idCycle], ['status', 'ACTIVO'], ['orderBy', 'samplingDate asc']
+            ]);
+            const arr = Array.isArray(data) ? data : [];
+            p.pesoUltimo    = arr.length ? { value: arr[arr.length - 1].averageWeightGrams, date: arr[arr.length - 1].samplingDate } : null;
+            p.pesoPenultimo = arr.length > 1 ? { value: arr[arr.length - 2].averageWeightGrams, date: arr[arr.length - 2].samplingDate } : null;
+        } catch (e) { /* deja penúltimo/último como null si el ciclo no tiene historial */ }
+    }));
+}
+
+function formatShortDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+}
+
+function weightCell(w) {
+    if (!w || w.value === null || w.value === undefined) return '<span class="ref-val empty">—</span>';
+    const d = formatShortDate(w.date);
+    return `<span class="ref-val">${fmtNum(w.value, 2)} g</span>${d ? `<div class="pool-cycle">${d}</div>` : ''}`;
+}
+
+function fmtNum(v, dec) {
+    if (v === null || v === undefined || isNaN(v)) return null;
+    return dec ? v.toLocaleString('es-EC', { maximumFractionDigits: dec, minimumFractionDigits: dec }) : v.toLocaleString('es-EC');
+}
+
+function refCell(v, dec, suffix) {
+    const s = fmtNum(v, dec);
+    return s === null ? '<span class="ref-val empty">—</span>' : `<span class="ref-val">${s}${suffix || ''}</span>`;
+}
+
+function emptyMsg() {
+    return allActivePools.length
+        ? 'No hay piscinas activas para el uso de ciclo seleccionado.'
+        : 'Elige un campamento y presiona "Cargar piscinas activas".';
+}
+
+function usoClass(usage) {
+    return usoBucket(usage).toLowerCase();
+}
+
+function cycleLabel(p) {
+    return p.cycleCode || p.poolName || (p.cycleNumber != null ? 'Ciclo ' + p.cycleNumber : '—');
+}
+
+function renderTable() {
+    const tbody = document.getElementById('tbody-muestreo');
+    const gFecha = document.getElementById('g-fecha').value;
+    const gHora  = document.getElementById('g-hora').value;
+    if (!activePools.length) {
+        tbody.innerHTML = `<tr><td colspan="13" class="empty-state">${emptyMsg()}</td></tr>`;
+        document.getElementById('muestreo-count').textContent = '';
+        document.getElementById('btn-guardar-muestreo').disabled = true;
+        return;
+    }
+    tbody.innerHTML = activePools.map((p, i) => `
+        <tr data-idx="${i}">
+            <td class="pool-col"><span class="uso-dot ${usoClass(p.cycleUsageValue)}"></span><span class="pool-name">${cycleLabel(p)}</span></td>
+            <td class="ref-val">${p.daysProduction ?? '—'}</td>
+            <td>${refCell(p.density, 1)}</td>
+            <td>${weightCell(p.pesoPenultimo)}</td>
+            <td>${weightCell(p.pesoUltimo)}</td>
+            <td>${refCell(p.survival, 1, ' %')}</td>
+            <td><input type="date" class="in-date f-fecha" value="${gFecha}"></td>
+            <td><input type="time" class="in-time f-hora" value="${gHora}"></td>
+            <td><input type="number" class="in-num f-lances" min="1" step="1" placeholder="—" oninput="markFilled(this)"></td>
+            <td><input type="number" class="in-num f-peso" min="0" step="0.01" placeholder="—" oninput="markFilled(this)"></td>
+            <td><input type="number" class="in-num f-sv" min="0" max="100" step="0.01" placeholder="—" oninput="markFilled(this); onSvInput(this,${i})"></td>
+            <td><span class="ref-val empty" id="dens-new-${i}">—</span></td>
+            <td><input type="text" class="in-obs f-obs" placeholder="Observación"></td>
+        </tr>`).join('');
+    document.getElementById('muestreo-count').textContent = `${activePools.length} piscina(s)`;
+}
+
+// Recalcula animales/m² nuevos = (siembra original × sobrevivencia tecleada) / área de la piscina.
+function onSvInput(el, idx) {
+    const cell = document.getElementById(`dens-new-${idx}`);
+    if (!cell) return;
+    const pool = activePools[idx];
+    const svVal = el.value;
+    if (svVal === '' || !pool.sown || !pool.poolSizeM2) {
+        cell.textContent = '—';
+        cell.className = 'ref-val empty';
+        return;
+    }
+    const newAnimals = pool.sown * (Number(svVal) / 100);
+    const newDensity = newAnimals / pool.poolSizeM2;
+    cell.textContent = fmtNum(newDensity, 1);
+    cell.className = 'ref-val';
+}
+
+function markFilled(el) {
+    el.classList.toggle('filled', el.value !== '');
+    document.getElementById('btn-guardar-muestreo').disabled = countFilled() === 0;
+    document.getElementById('muestreo-save-status').textContent = '';
+}
+
+function countFilled() {
+    return [...document.querySelectorAll('#tbody-muestreo .f-peso:not(:disabled), #tbody-muestreo .f-sv:not(:disabled)')]
+        .filter(el => el.value !== '').length;
+}
+
+function aplicarFechaHoraATodas() {
+    const gFecha = document.getElementById('g-fecha').value;
+    const gHora  = document.getElementById('g-hora').value;
+    document.querySelectorAll('.f-fecha').forEach(el => el.value = gFecha);
+    document.querySelectorAll('.f-hora').forEach(el => el.value = gHora);
+}
+
+// ── Guardar (vista previa — sin backend de escritura todavía) ─
+let lastConfirmIdxs = [];
+
+function guardarMuestreo() {
+    const rows = [...document.querySelectorAll('#tbody-muestreo tr[data-idx]:not(.row-confirmed)')];
+    const payload = [];
+    const errores = [];
+    const confirmIdxs = [];
+    rows.forEach(tr => {
+        const idx = Number(tr.dataset.idx);
+        const pool = activePools[idx];
+        const pesoVal = tr.querySelector('.f-peso').value;
+        const svVal   = tr.querySelector('.f-sv').value;
+        if (pesoVal === '' && svVal === '') return;
+
+        const entry = {
+            idCycle:      pool.idCycle,
+            poolName:     pool.poolName,
+            cycleCode:    pool.cycleCode,
+            subsidiaryId: pool.subsidiaryId,
+            samplingDate: tr.querySelector('.f-fecha').value,
+            samplingTime: tr.querySelector('.f-hora').value,
+            observation:  tr.querySelector('.f-obs').value.trim() || null,
+        };
+
+        if (pesoVal !== '') {
+            const pesoNum = Number(pesoVal);
+            if (pesoNum <= 0) { errores.push(`${pool.poolName}: el peso promedio debe ser mayor a 0`); return; }
+            const lancesVal = tr.querySelector('.f-lances').value;
+            entry.lances = lancesVal === '' ? null : Number(lancesVal);
+            entry.averageWeightGrams = pesoNum;
+        }
+        if (svVal !== '') {
+            const svNum = Number(svVal);
+            if (svNum < 0 || svNum > 100) { errores.push(`${pool.poolName}: la sobrevivencia debe estar entre 0 y 100`); return; }
+            entry.survivalPercentage = svNum;
+        }
+        payload.push(entry);
+        confirmIdxs.push(idx);
+    });
+    lastConfirmIdxs = confirmIdxs;
+    mostrarResultado('muestreo', payload, errores);
+}
+
+function mostrarResultado(grid, payload, errores) {
+    const statusEl = document.getElementById(`${grid}-save-status`);
+    if (errores.length) {
+        statusEl.className = 'save-status err';
+        statusEl.textContent = '⚠ ' + errores.join(' · ');
+        return;
+    }
+    if (!payload.length) {
+        statusEl.className = 'save-status err';
+        statusEl.textContent = 'No hay filas con datos para guardar.';
+        return;
+    }
+    statusEl.className = 'save-status ok';
+    statusEl.textContent = `${payload.length} registro(s) en vista previa — presiona "Confirmar registro" para bloquearlos`;
+    console.log(`[carga-masiva] payload ${grid}:`, payload);
+    const box = document.getElementById(`${grid}-preview`);
+    box.classList.remove('hidden');
+    document.getElementById(`${grid}-preview-pre`).textContent = JSON.stringify(payload, null, 2);
+}
+
+// Bloquea las filas ya guardadas para que no se reenvíen ni se editen por error.
+// (El envío real al backend queda pendiente de conectar; esto solo fija el registro localmente.)
+function confirmarRegistro() {
+    if (!lastConfirmIdxs.length) return;
+    lastConfirmIdxs.forEach(idx => {
+        const tr = document.querySelector(`#tbody-muestreo tr[data-idx="${idx}"]`);
+        if (!tr) return;
+        tr.classList.add('row-confirmed');
+        tr.querySelectorAll('input').forEach(inp => inp.disabled = true);
+    });
+    const count = lastConfirmIdxs.length;
+    lastConfirmIdxs = [];
+    document.getElementById('muestreo-preview').classList.add('hidden');
+    document.getElementById('btn-guardar-muestreo').disabled = countFilled() === 0;
+    const statusEl = document.getElementById('muestreo-save-status');
+    statusEl.className = 'save-status ok';
+    statusEl.textContent = `✓ ${count} registro(s) confirmado(s)`;
+}
+
+function copiarJSON(grid) {
+    const text = document.getElementById(`${grid}-preview-pre`).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const statusEl = document.getElementById(`${grid}-save-status`);
+        const prev = statusEl.textContent;
+        statusEl.textContent = '✓ JSON copiado al portapapeles';
+        setTimeout(() => { statusEl.textContent = prev; }, 1800);
+    });
+}
+</script>
+</body>
+</html>

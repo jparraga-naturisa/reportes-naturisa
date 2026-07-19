@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Naturisa - Validador de Datos</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --primary: #1a3a5c;
+    --primary-light: #2d6a9f;
+    --accent: #00b4d8;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --border: #e5e5ea;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 10px;
+    --radius-sm: 8px;
+}
+html { height: 100%; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100%; margin: 0; }
+
+.header { background: var(--primary); color: white; padding: 0 20px; height: 40px; display: flex; align-items: center; gap: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.18); position: sticky; top: 0; z-index: 100; }
+.header-logo { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap; }
+.header-logo svg { width: 20px; height: 20px; }
+.header-logo .accent { color: var(--accent); }
+.header-logo .sep { opacity: 0.4; margin: 0 4px; }
+.hdr-right { font-size: 12px; opacity: 0.75; }
+.header-tabs { display: flex; align-items: center; height: 100%; gap: 4px; flex: 1; }
+.htab-btn { height: 100%; padding: 0 12px; border: none; background: none; cursor: pointer; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.65); border-bottom: 2px solid transparent; }
+.htab-btn:hover { color: rgba(255,255,255,0.9); }
+.htab-btn.active { color: white; border-bottom-color: var(--accent); }
+.header-user { position: relative; display: none; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap; user-select: none; }
+.user-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--primary); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.user-name-label { font-size: 12px; font-weight: 600; }
+.user-caret { font-size: 9px; opacity: 0.7; }
+.user-menu { position: absolute; top: calc(100% + 8px); right: 0; background: white; color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); min-width: 150px; display: none; overflow: hidden; z-index: 20; }
+.user-menu.open { display: block; }
+.user-menu button { width: 100%; text-align: left; padding: 10px 14px; border: none; background: none; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--danger); }
+.user-menu button:hover { background: #fef2f2; }
+
+.login-bar { background: #fffbeb; border-bottom: 1px solid #fde68a; padding: 8px 20px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; flex-wrap: wrap; }
+.login-bar.connected { background: #f0fdf4; border-color: #bbf7d0; }
+.login-bar input[type="text"], .login-bar input[type="password"] { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12.5px; width: 150px; }
+.btn { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: opacity 0.15s; }
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-danger { background: var(--danger); color: white; }
+#login-status { font-size: 12px; color: #92400e; }
+#login-status.ok { color: #166534; font-weight: 600; }
+
+.chk-group { display: flex; gap: 10px; height: 30px; align-items: center; font-size: 12px; font-weight: 500; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fafafa; }
+.chk-group label { display: flex; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; }
+.range-pair { display: flex; align-items: center; gap: 6px; }
+.range-pair input[type="number"] { width: 62px; text-align: center; }
+.range-pair .sep { color: var(--muted); font-size: 11px; }
+.fg-group { display: flex; flex-direction: column; gap: 3px; padding: 0 14px; border-left: 1px solid var(--border); }
+.fg-group:first-child { border-left: none; padding-left: 0; }
+.fg-group > label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.fg-row { display: flex; flex-wrap: wrap; gap: 0; align-items: flex-end; row-gap: 10px; }
+
+.filters { background: white; border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.fg { display: flex; flex-direction: column; gap: 3px; }
+.fg label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.fg select, .fg input[type="text"], .fg input[type="number"] { height: 30px; padding: 0 9px; box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: white; min-width: 140px; }
+.btn-apply { height: 30px; padding: 0 20px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.btn-apply:hover { background: var(--primary-light); }
+.btn-apply:disabled { opacity: 0.5; cursor: default; }
+
+.main { padding: 16px 0; }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-icon { font-size: 40px; margin-bottom: 10px; }
+
+.section-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid var(--border); margin-bottom: 16px; }
+.section-title { padding: 10px 16px; font-size: 13px; font-weight: 700; color: var(--primary); background: #f8fafc; border-bottom: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; display: flex; align-items: center; justify-content: space-between; }
+.section-hint { font-size: 11px; font-weight: 500; color: var(--muted); }
+.btn-toggle-empty { height: 26px; padding: 0 12px; background: white; color: var(--primary); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 11.5px; font-weight: 600; }
+.btn-toggle-empty:hover { background: #f8fafc; }
+.btn-toggle-empty.active { background: var(--primary); color: white; border-color: var(--primary); }
+.ciclo-tbl.hide-empty tr.row-empty { display: none; }
+
+table.cmp-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cmp-tbl th { padding: 8px 10px; text-align: right; font-weight: 700; color: #334155; background: #f8fafc; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.ciclo-tbl th { white-space: normal; min-width: 96px; line-height: 1.3; vertical-align: bottom; text-align: center; border: 1px solid #cbd5e1; }
+.cmp-tbl.ciclo-tbl th:first-child { text-align: center; }
+.ciclo-tbl th.concepto-th { min-width: 170px; text-align: left !important; vertical-align: bottom; }
+.ciclo-tbl th.grp-top, .ciclo-tbl th.grp-mid { text-align: center; vertical-align: middle; }
+.ciclo-tbl th.grp-top-plain, .ciclo-tbl th.grp-mid-plain { background: #f8fafc; }
+.cmp-tbl.ciclo-tbl td { text-align: center; }
+.cmp-tbl.ciclo-tbl td:first-child { text-align: left; }
+.cmp-tbl th:first-child { text-align: left; }
+.cmp-tbl td { padding: 7px 10px; border-bottom: 1px solid #f1f1f3; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cmp-tbl td:first-child { text-align: left; font-weight: 600; color: var(--text); white-space: normal; }
+.cmp-tbl tr:hover td { background: #f8fafc; }
+.cmp-tbl td.empty { color: #c7c7cc; }
+.cmp-tbl td.diff { color: var(--danger); font-weight: 700; background: #fef2f2; }
+.cmp-tbl tr.grp-first td { border-top: 2px solid var(--border); border-bottom: none; }
+.cmp-tbl tr.grp-last td { background: #fafafa; color: var(--muted); }
+.cmp-tbl tr.grp-last td.diff { color: var(--danger); font-weight: 700; background: #fef2f2; }
+.cmp-tbl tr.diff td { background: #fef2f2; }
+.cmp-tbl tr.diff td:first-child { color: var(--danger); }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 6px; vertical-align: -2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+</style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-logo">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <circle cx="13" cy="13" r="12" stroke="#00b4d8" stroke-width="1.8"/>
+            <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.85" transform="rotate(-20 13 13)"/>
+            <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.5" transform="rotate(30 13 13)"/>
+        </svg>
+        <span class="accent">NATURISA</span><span class="sep">|</span> Validador de Datos
+    </div>
+    <nav class="header-tabs">
+        <button class="htab-btn active" id="tab-btn-ciclo" onclick="showTab('ciclo')">Por Ciclo</button>
+        <button class="htab-btn" id="tab-btn-resumen" onclick="showTab('resumen')">Resumen vs Piscinas</button>
+    </nav>
+    <div class="header-user" id="header-user" onclick="toggleUserMenu(event)">
+        <div class="user-avatar" id="user-avatar"></div>
+        <span class="user-name-label" id="user-name-label"></span>
+        <span class="user-caret">▾</span>
+        <div class="user-menu" id="user-menu">
+            <button onclick="doLogout()">Cerrar sesión</button>
+        </div>
+    </div>
+</header>
+
+<div class="login-bar" id="login-bar">
+    <span style="font-weight:600;color:var(--muted)">Iniciar sesión:</span>
+    <input type="text" id="inp-user" placeholder="Usuario" autocomplete="username">
+    <input type="password" id="inp-pass" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()">
+    <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Ingresar</button>
+    <span id="login-status">⚠ Inicia sesión para consultar datos</span>
+</div>
+
+<div id="tab-ciclo">
+    <div class="filters">
+        <div class="fg">
+            <label>Sucursal</label>
+            <select id="f-sucursal" onchange="onSucursalChange()"></select>
+        </div>
+        <div class="fg">
+            <label>Piscina <span id="piscina-status" style="font-weight:400;text-transform:none;letter-spacing:0"></span></label>
+            <select id="f-piscina" onchange="onPiscinaChange()"><option value="">— elige sucursal primero —</option></select>
+        </div>
+        <div class="fg">
+            <label>Ciclo</label>
+            <select id="f-ciclo"><option value="">—</option></select>
+        </div>
+        <div class="fg" style="display:none">
+            <label>Buscar desde hace (días)</label>
+            <input type="number" id="f-diasback" value="400" style="min-width:90px" onchange="onSucursalChange()">
+        </div>
+        <button class="btn-apply" id="btn-buscar" onclick="buscarCiclo()">Buscar</button>
+    </div>
+
+    <div class="main" id="main-content">
+        <div class="empty-state">
+            <div class="empty-icon">🔍</div>
+            <div>Elige sucursal, piscina y número de ciclo, luego presiona Buscar.</div>
+        </div>
+    </div>
+</div>
+
+<div id="tab-resumen" style="display:none">
+    <div class="filters">
+        <div class="fg-row">
+            <div class="fg-group">
+                <label>Sucursal</label>
+                <select id="r-sucursal">
+                    <option value="ALL">— Todas las sucursales —</option>
+                </select>
+            </div>
+            <div class="fg-group">
+                <label>Uso del ciclo</label>
+                <div class="chk-group">
+                    <label><input type="checkbox" id="r-uso-precr" value="PRECRIADERO"> Precriadero</label>
+                    <label><input type="checkbox" id="r-uso-preeng" value="PREENGORDE"> Pre Engorde</label>
+                    <label><input type="checkbox" id="r-uso-eng" value="ENGORDE" checked> Engorde</label>
+                </div>
+            </div>
+            <div class="fg-group">
+                <label>Fase</label>
+                <div class="chk-group">
+                    <label><input type="checkbox" id="r-fase-1" value="1"> 1</label>
+                    <label><input type="checkbox" id="r-fase-2" value="2" checked> 2</label>
+                    <label><input type="checkbox" id="r-fase-3" value="3" checked> 3</label>
+                    <label><input type="checkbox" id="r-fase-4" value="4"> 4</label>
+                </div>
+            </div>
+            <div class="fg-group">
+                <label>Días de producción (mín – máx)</label>
+                <div class="range-pair">
+                    <input type="number" id="r-dias-min" value="30" title="Mínimo">
+                    <span class="sep">–</span>
+                    <input type="number" id="r-dias-max" value="100" title="Máximo">
+                </div>
+            </div>
+            <div class="fg-group">
+                <label>Peso promedio, g (mín – máx)</label>
+                <div class="range-pair">
+                    <input type="number" id="r-peso-min" value="15" title="Mínimo">
+                    <span class="sep">–</span>
+                    <input type="number" id="r-peso-max" value="50" title="Máximo">
+                </div>
+            </div>
+            <div class="fg-group">
+                <label>Peso de siembra, g (mín – máx)</label>
+                <div class="range-pair">
+                    <input type="number" id="r-siembra-min" value="0" title="Mínimo">
+                    <span class="sep">–</span>
+                    <input type="number" id="r-siembra-max" value="9999" title="Máximo">
+                </div>
+            </div>
+            <div class="fg-group">
+                <label>Año / Semana</label>
+                <div class="range-pair">
+                    <input type="number" id="r-year" title="Año" style="width:70px">
+                    <span class="sep">/</span>
+                    <input type="number" id="r-week" title="Semana" style="width:54px">
+                </div>
+            </div>
+            <div class="fg-group" style="border-left:none">
+                <label style="visibility:hidden">Acción</label>
+                <button class="btn-apply" id="btn-comparar" onclick="compararResumenPiscinas()">Comparar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main" id="resumen-content">
+        <div class="empty-state">
+            <div class="empty-icon">⚖️</div>
+            <div>Ajusta los filtros y presiona Comparar.<br>
+            "Peso de siembra" es un filtro adicional que el endpoint oficial de Resumen no soporta — cuando lo uses, solo verás el recálculo (sin comparación oficial).</div>
+        </div>
+    </div>
+</div>
+
+<script>
+const _IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const _PROXY    = _IS_LOCAL ? '' : 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const AUTH_URL  = _PROXY + '/bff/web/ap1/security/api/auth';
+const API_BASE  = _PROXY + '/bff/web/ap1/backoffice/api';
+const CODE_APP  = '55ab9cb4-c887-4f42-98ec-b90470be6613';
+
+// code -> {id, name}  (resuelto una vez via report_production/summary la primera busqueda,
+// pero se deja precargado con lo ya confirmado para no depender de esa llamada)
+const SUBSIDIARIES = [
+    {id:13,code:'A1',name:'Acualit 1'}, {id:28,code:'A2',name:'Acualit 2'},
+    {id:6,code:'BR',name:'Biorey'}, {id:19,code:'BO',name:'Bonanza'},
+    {id:8,code:'CA',name:'Camaron'}, {id:7,code:'CR',name:'Camino Real'},
+    {id:10034,code:'CO',name:'Coaque'}, {id:11,code:'ES',name:'Esteromar'},
+    {id:14,code:'FI',name:'Fincacua'}, {id:17,code:'GO',name:'Golfomar'},
+    {id:16,code:'GR',name:'Granmar'}, {id:15,code:'IN',name:'Inducam'},
+    {id:5,code:'JO',name:'Josefina'}, {id:4,code:'KA',name:'Kamaclusa'},
+    {id:18,code:'LA',name:'Lanconor'}, {id:21,code:'LG',name:'Los Gelices'},
+    {id:9,code:'MH',name:'Marchena'}, {id:10,code:'MG',name:'Margolfo'},
+    {id:3,code:'MA',name:'Maricultura'}, {id:1,code:'NA',name:'Naturisa'},
+    {id:2,code:'PE',name:'Pesjoya'}, {id:12,code:'RN',name:'Rio Nilo'},
+    {id:20,code:'RO',name:'Roblemar'},
+];
+const SUBSIDIARY_IDS = SUBSIDIARIES.map(s => s.id);
+
+function getToken() { return localStorage.getItem('nat_token') || ''; }
+
+function populateSucursales() {
+    const sel = document.getElementById('f-sucursal');
+    sel.innerHTML = SUBSIDIARIES
+        .slice().sort((a,b) => a.name.localeCompare(b.name, 'es'))
+        .map(s => `<option value="${s.code}">${s.name} (${s.code})</option>`).join('');
+    const rSel = document.getElementById('r-sucursal');
+    rSel.innerHTML = '<option value="ALL">— Todas las sucursales —</option>' + SUBSIDIARIES
+        .slice().sort((a,b) => a.name.localeCompare(b.name, 'es'))
+        .map(s => `<option value="${s.code}">${s.name} (${s.code})</option>`).join('');
+}
+populateSucursales();
+
+(function initResumenDefaults() {
+    const { year, week } = isoWeek(new Date());
+    document.getElementById('r-year').value = year;
+    document.getElementById('r-week').value = week;
+})();
+
+function showTab(name) {
+    document.getElementById('tab-ciclo').style.display = name === 'ciclo' ? '' : 'none';
+    document.getElementById('tab-resumen').style.display = name === 'resumen' ? '' : 'none';
+    document.getElementById('tab-btn-ciclo').classList.toggle('active', name === 'ciclo');
+    document.getElementById('tab-btn-resumen').classList.toggle('active', name === 'resumen');
+}
+
+// ── Autocompletado de piscina/ciclo ───────────────────────────
+let _poolCycleMap = {};
+
+async function onSucursalChange() {
+    const subCode = document.getElementById('f-sucursal').value;
+    const sub = SUBSIDIARIES.find(s => s.code === subCode);
+    const pSel = document.getElementById('f-piscina');
+    const cSel = document.getElementById('f-ciclo');
+    const statusEl = document.getElementById('piscina-status');
+    if (!sub || !getToken()) return;
+
+    pSel.innerHTML = '<option value="">Cargando...</option>';
+    cSel.innerHTML = '<option value="">—</option>';
+    statusEl.textContent = '';
+    try {
+        const daysBack = parseInt(document.getElementById('f-diasback').value, 10) || 400;
+        const end = new Date();
+        const start = new Date(end.getTime() - daysBack * 86400000);
+        const { year, week } = isoWeek(end);
+
+        const [siembras, piscinasProd] = await Promise.all([
+            apiGet('cycle_sowing_report', [['subsidiaryIds', sub.id], ['startDate', isoDate(start)], ['endDate', isoDate(end)]]).catch(() => []),
+            apiGet('report_production/pool_production', [['subsidiaryIds', sub.id], ['cutOffYear', year], ['cutOffWeek', week]]).catch(() => []),
+        ]);
+
+        // Agrupar por nombre de piscina NORMALIZADO (sin ceros a la izquierda) para que
+        // "1" y "0001" (mismo piscina, distinto formato segun el endpoint de origen) no
+        // aparezcan como 2 entradas separadas en el dropdown.
+        const byKey = {};
+        [...(siembras || []), ...(piscinasProd || [])].forEach(r => {
+            const pn = r.poolName, cn = r.cycleNumber;
+            if (pn === undefined || pn === null || cn === undefined || cn === null) return;
+            const key = normPool(pn);
+            if (!byKey[key]) byKey[key] = { display: canonicalPoolName(pn), cycles: new Set() };
+            byKey[key].cycles.add(cn);
+        });
+
+        const map = {};
+        Object.values(byKey).forEach(({ display, cycles }) => { map[display] = cycles; });
+
+        _poolCycleMap = map;
+        const poolNames = Object.keys(map).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+        if (!poolNames.length) {
+            pSel.innerHTML = '<option value="">(sin ciclos en el rango elegido)</option>';
+            return;
+        }
+        pSel.innerHTML = poolNames.map(p => `<option value="${p}">${p}</option>`).join('');
+        statusEl.textContent = `(${poolNames.length})`;
+        onPiscinaChange();
+    } catch (e) {
+        pSel.innerHTML = '<option value="">Error cargando piscinas</option>';
+    }
+}
+
+function onPiscinaChange() {
+    const pool = document.getElementById('f-piscina').value;
+    const cSel = document.getElementById('f-ciclo');
+    const cycles = Array.from(_poolCycleMap[pool] || []).sort((a, b) => b - a);
+    cSel.innerHTML = cycles.length
+        ? cycles.map(c => `<option value="${c}">${c}</option>`).join('')
+        : '<option value="">—</option>';
+    // Auto-carga: al elegir sucursal (por defecto o manual) o piscina, ya queda seleccionado
+    // un ciclo valido (el mas reciente) - se busca de una vez sin esperar clic en "Buscar".
+    if (pool && cycles.length) buscarCiclo();
+}
+
+async function doLogin() {
+    const user = document.getElementById('inp-user').value.trim();
+    const pass = document.getElementById('inp-pass').value.trim();
+    if (!user || !pass) return alert('Ingresa usuario y contraseña');
+    const btn = document.getElementById('btn-login');
+    btn.textContent = 'Ingresando...'; btn.disabled = true;
+    try {
+        const res = await fetch(AUTH_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/plain, */*' },
+            body: JSON.stringify({ userName: user, password: pass, codeApplication: CODE_APP, includeUserInfo: true })
+        });
+        const json = await res.json();
+        if (json.code === 200 && json.data?.token) {
+            localStorage.setItem('nat_token', json.data.token);
+            const u = json.data.usuario;
+            const fullName = u ? (u.firstNames + ' ' + u.lastNames).trim() : user;
+            localStorage.setItem('nat_name', fullName);
+            document.getElementById('inp-pass').value = '';
+            applyLoginUI(true, fullName);
+        } else {
+            alert('Usuario o contraseña incorrectos');
+        }
+    } catch(e) {
+        document.getElementById('login-status').textContent = '⚠ Error de conexión: ' + e.message;
+    } finally { btn.textContent = 'Ingresar'; btn.disabled = false; }
+}
+
+function doLogout() {
+    localStorage.removeItem('nat_token');
+    localStorage.removeItem('nat_name');
+    applyLoginUI(false, '');
+}
+
+function applyLoginUI(on, nombre) {
+    document.getElementById('login-bar').style.display = on ? 'none' : '';
+    const status = document.getElementById('login-status');
+    status.className = on ? 'ok' : '';
+    status.textContent = on ? ('✓ Conectado como ' + nombre) : '⚠ Inicia sesión para consultar datos';
+
+    const userBox = document.getElementById('header-user');
+    userBox.style.display = on ? 'flex' : 'none';
+    if (on) {
+        const initials = nombre.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+        document.getElementById('user-avatar').textContent = initials;
+        document.getElementById('user-name-label').textContent = nombre;
+    }
+    if (on) onSucursalChange();
+}
+
+function toggleUserMenu(e) {
+    e.stopPropagation();
+    document.getElementById('user-menu').classList.toggle('open');
+}
+document.addEventListener('click', () => document.getElementById('user-menu').classList.remove('open'));
+
+(function initLoginState() {
+    const token = getToken();
+    const name = localStorage.getItem('nat_name') || '';
+    if (token) applyLoginUI(true, name);
+})();
+
+// ── API helpers ──────────────────────────────────────────────
+async function apiGet(path, params) {
+    let qs = '';
+    if (params) {
+        const usp = new URLSearchParams();
+        params.forEach(([k, v]) => usp.append(k, v));
+        qs = '?' + usp.toString();
+    }
+    const fullUrl = API_BASE + '/' + path + qs;
+    const res = await fetch(fullUrl, {
+        headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json, text/plain, */*' }
+    });
+    if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+    const json = await res.json();
+    return json.data;
+}
+
+async function apiPost(path, body) {
+    const fullUrl = API_BASE + '/' + path;
+    const res = await fetch(fullUrl, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json, text/plain, */*', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+    const json = await res.json();
+    return json.data;
+}
+
+function subParams(list) {
+    return list.map(i => ['subsidiaryIds', i]);
+}
+
+function normPool(name) {
+    const s = String(name || '').trim().toUpperCase();
+    const stripped = s.replace(/^0+/, '');
+    return stripped || s;
+}
+
+// Formato de display consistente (4 digitos con ceros) sin importar como vino de cada
+// endpoint: "1"->"0001", "459B"->"0459B", "030B"->"0030B". Deja intacto lo no-numerico.
+function canonicalPoolName(name) {
+    const s = String(name || '').trim().toUpperCase();
+    const m = s.match(/^(\d+)([A-Z]*)$/);
+    if (!m) return s;
+    const [, digits, suffix] = m;
+    // 4 caracteres en total (numero + sufijo de letras), no 4 digitos + sufijo aparte
+    const targetDigits = Math.max(4 - suffix.length, digits.length);
+    return digits.padStart(targetDigits, '0') + suffix;
+}
+
+function findAll(rows, subField, poolField, cycleField, subCode, poolName, cycleNumber) {
+    if (!rows) return [];
+    return rows.filter(r =>
+        String(r[subField] || '').toUpperCase() === subCode.toUpperCase() &&
+        normPool(r[poolField]) === normPool(poolName) &&
+        Number(r[cycleField]) === Number(cycleNumber)
+    );
+}
+
+// Un mismo ciclo puede tener varias filas (varios "lotes"/genéticas sembradas o
+// varias cosechas parciales) - hay que sumarlas, no quedarse con la primera.
+function aggregateRows(rows, { sum = [], weightedAvg = [], max = [] } = {}) {
+    if (!rows.length) return null;
+    const out = { ...rows[0], _nLotes: rows.length };
+    if (rows.length === 1) return out;
+    sum.forEach(f => { out[f] = rows.reduce((s, r) => s + (r[f] || 0), 0); });
+    max.forEach(f => { out[f] = Math.max(...rows.map(r => r[f] || 0)); });
+    weightedAvg.forEach(([f, w]) => {
+        const tw = rows.reduce((s, r) => s + (r[w] || 0), 0);
+        out[f] = tw ? rows.reduce((s, r) => s + (r[f] || 0) * (r[w] || 0), 0) / tw : rows[0][f];
+    });
+    return out;
+}
+
+function isoWeek(d) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+    return { year: date.getUTCFullYear(), week };
+}
+
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+
+// ── Fetchers por modulo ──────────────────────────────────────
+
+async function fetchPiscinasProduccion(subId, subCode, poolName, cycleNumber) {
+    const { year, week } = isoWeek(new Date());
+    const data = await apiGet('report_production/pool_production', [['subsidiaryIds', subId], ['cutOffYear', year], ['cutOffWeek', week]]);
+    const rows = findAll(data, 'subsidiaryCode', 'poolName', 'cycleNumber', subCode, poolName, cycleNumber);
+    return aggregateRows(rows, {
+        sum: ['sowingQuantity', 'totalFeeding', 'estimatedActualAnimals'],
+        weightedAvg: [['averageWeightGrams', 'estimatedActualAnimals'], ['growthFactor', 'estimatedTotalBiomassPounds']],
+    });
+}
+
+function matchSiembras(data, subCode, poolName, cycleNumber) {
+    const rows = findAll(data, 'subsidiaryCode', 'poolName', 'cycleNumber', subCode, poolName, cycleNumber);
+    const agg = aggregateRows(rows, {
+        sum: ['quantitySown', 'totalCost', 'totalWeightPounds'],
+        weightedAvg: [['averageWeightGrams', 'quantitySown']],
+    });
+    if (agg && rows.length > 1 && agg.poolSize) {
+        // la densidad de siembra hay que recalcularla desde el total sembrado, no sumarla ni promediarla
+        agg.densityPerHectare = agg.quantitySown / agg.poolSize;
+        agg.densityPerMeter = agg.densityPerHectare / 10000;
+    }
+    return agg;
+}
+
+async function fetchSiembras(subId, subCode, poolName, cycleNumber, start, end) {
+    const data = await apiGet('cycle_sowing_report', [['subsidiaryIds', subId], ['startDate', start], ['endDate', end]]);
+    return matchSiembras(data, subCode, poolName, cycleNumber);
+}
+
+function matchCosechas(data, subCode, poolName, cycleNumber) {
+    const rows = findAll(data, 'subsidiaryCode', 'poolName', 'cycleNumber', subCode, poolName, cycleNumber);
+    const agg = aggregateRows(rows, {
+        sum: ['sentPounds', 'netPounds', 'wholePounds', 'wholeAnimals', 'finalAnimals', 'sowingAnimals', 'totalSale', 'totalSettlement'],
+        weightedAvg: [['wholeWeight', 'wholePounds'], ['generalWeight', 'wholePounds']],
+        max: ['daysProduction', 'daysCycle'],
+    });
+    if (agg && rows.length > 1 && agg.poolSize) {
+        agg.poundsByHectare = agg.netPounds / agg.poolSize;
+        agg.saleByPound = agg.netPounds ? agg.totalSale / agg.netPounds : null;
+        agg.wholeYield = agg.netPounds ? agg.wholePounds / agg.netPounds * 100 : null;
+    }
+    // Densidad por tipo de cosecha: PARCIAL -> "Densidad parcial", FINAL/PREFINAL -> "Densidad
+    // actual", TODOS los tipos sumados -> "Densidad total". Como cada densidad ya esta normalizada
+    // por la misma Ha/piscina, sumar las densidades de varios eventos de cosecha equivale a sumar
+    // las cantidades y dividir una sola vez (no hace falta poolSize por fila).
+    if (agg) {
+        const sumDensidad = (subset) => subset.length
+            ? { ha: subset.reduce((s, r) => s + (r.densityByHectare || 0), 0), m2: subset.reduce((s, r) => s + (r.densityByMeter || 0), 0) }
+            : { ha: null, m2: null };
+        const parciales = rows.filter(r => r.harvestType === 'PARCIAL');
+        const actuales = rows.filter(r => r.harvestType === 'FINAL' || r.harvestType === 'PREFINAL');
+        const dParcial = sumDensidad(parciales);
+        const dActual = sumDensidad(actuales);
+        // "Densidad total" (suma de todos los tipos) solo tiene sentido una vez que el ciclo ya
+        // tuvo cosecha FINAL/PREFINAL - mientras solo haya parciales, mostrarla seria enganoso
+        // (se veria igual a la parcial, como si ya fuera el total real del ciclo).
+        const dTotal = actuales.length ? sumDensidad(rows) : { ha: null, m2: null };
+        agg.partialDensityByHectare = dParcial.ha; agg.partialDensityByMeter = dParcial.m2;
+        agg.actualDensityByHectare = dActual.ha; agg.actualDensityByMeter = dActual.m2;
+        agg.totalDensityByHectare = dTotal.ha; agg.totalDensityByMeter = dTotal.m2;
+    }
+    return agg;
+}
+
+async function fetchCosechas(subId, subCode, poolName, cycleNumber, start, end) {
+    const data = await apiGet('report_harvest/HarvestsByDate', [['subsidiaryIds', subId], ['startDate', start], ['endDate', end]]);
+    return matchCosechas(data, subCode, poolName, cycleNumber);
+}
+
+// Un mismo ciclo puede tener varias liquidaciones (una por cada lote/batch de cosecha parcial) - se suman.
+function matchLiquidaciones(data, subCode, poolName, cycleNumber) {
+    const rows = findAll(data, 'subsidiaryCode', 'poolName', 'cycleNumber', subCode, poolName, cycleNumber);
+    const agg = aggregateRows(rows, {
+        sum: ['sentPounds', 'netPounds', 'wholePounds', 'tailPounds', 'harvestedAnimals', 'wholeHarvestedAnimals', 'tailHarvestedAnimals', 'totalSale', 'totalSettlement'],
+        weightedAvg: [['harvestAverageWeightGrams', 'netPounds']],
+    });
+    if (agg && rows.length > 1) {
+        agg.yieldWhole = agg.netPounds ? agg.wholePounds / agg.netPounds * 100 : null;
+        agg.yieldTail = agg.netPounds ? agg.tailPounds / agg.netPounds * 100 : null;
+    }
+    return agg;
+}
+
+async function fetchLiquidaciones(subId, subCode, poolName, cycleNumber, start, end) {
+    const data = await apiGet('report_harvest/settlements', [['StartDate', start], ['EndDate', end], ['subsidiaryIds', subId], ['PageSize', 1000]]);
+    return matchLiquidaciones(data, subCode, poolName, cycleNumber);
+}
+
+async function fetchPiscinasLiquidadas(subId, subCode, poolName, cycleNumber, start, end) {
+    const data = await apiGet('report_harvest/settledPools', [['subsidiaryIds', subId], ['startDate', start], ['endDate', end]]);
+    const rows = findAll(data, 'subsidiaryCode', 'poolName', 'cycleNumber', subCode, poolName, cycleNumber);
+    return rows[0] || null;
+}
+
+// Informe de Rentabilidad - pestana "Detallado" (report_profitability/general?type=DETAILED).
+// Mismo P&L por ciclo que Costos/Valoracion pero con nombres de campo propios.
+async function fetchInformeRentabilidad(subCode, poolName, cycleNumber, start, end) {
+    try {
+        const data = await apiGet('report_profitability/general', [['from', start], ['to', end], ['PageSize', 1000], ['type', 'DETAILED']]);
+        const rows = findAll(data, 'subsidiaryCode', 'poolName', 'cycleNumber', subCode, poolName, cycleNumber);
+        return rows[0] || null;
+    } catch (e) { return null; }
+}
+
+function matchPrecrias(data, subCode, poolName, cycleNumber) {
+    const rows = findAll(data, 'subsidiaryCode', 'poolName', 'cycleNumber', subCode, poolName, cycleNumber);
+    const agg = aggregateRows(rows, {
+        sum: ['transferQuantity', 'sowingQuantity', 'accumulatedFeed', 'biomass', 'totalCost'],
+        weightedAvg: [['sowingAverageWeightGrams', 'sowingQuantity'], ['harvestAverageWeightGrams', 'transferQuantity']],
+    });
+    if (agg && rows.length > 1) {
+        agg.finalSurvival = agg.sowingQuantity ? agg.transferQuantity / agg.sowingQuantity * 100 : null;
+        if (agg.poolSize) {
+            agg.sowingDensityPerHectare = agg.sowingQuantity / agg.poolSize;
+            agg.harvestDensityPerHectare = agg.transferQuantity / agg.poolSize;
+        }
+    }
+    return agg;
+}
+
+async function fetchPrecrias(subId, subCode, poolName, cycleNumber, start, end) {
+    const data = await apiGet('report_harvest/NurseryYield', [['startDate', start], ['endDate', end], ['subsidiaryIds', subId], ['PageSize', 1000]]);
+    return matchPrecrias(data, subCode, poolName, cycleNumber);
+}
+
+async function fetchPlanCosechas(subCode, poolName, cycleNumber) {
+    try {
+        const data = await apiGet('harvest_programs/report', [['PageSize', 1000]]);
+        const rows = (data && data.report) || [];
+        const matches = findAll(rows, 'poolSubsidiaryCode', 'poolName', 'cycleNumber', subCode, poolName, cycleNumber);
+        return matches[0] || null;
+    } catch (e) { return null; }
+}
+
+// "Listado de piscinas" (report_production/pool_list) - listado liviano de todas las piscinas de
+// todas las sucursales, sin filtro por sucursal/piscina/ciclo; hay que traer todo y filtrar aqui.
+// cycleCode viene como "COD-POOL-CICLO" (ej. "MA-0261-0001"), el ultimo segmento es el numero de ciclo.
+async function fetchListadoPiscinas(subId, poolName, cycleNumber) {
+    try {
+        const params = subParams(SUBSIDIARY_IDS).concat([['status', 'ACTIVO'], ['status', 'INACTIVO'], ['status', 'MANTENIMIENTO'], ['PageSize', 1000]]);
+        const data = await apiGet('report_production/pool_list', params);
+        const rows = (data || []).filter(r => r.subsidiaryId === subId && normPool(r.poolName) === normPool(poolName));
+        return rows.find(r => {
+            const parts = String(r.cycleCode || '').split('-');
+            return parseInt(parts[parts.length - 1], 10) === Number(cycleNumber);
+        }) || null;
+    } catch (e) { return null; }
+}
+
+// Una transferencia de larvas/juveniles genera 2 filas reales en movements_report para el mismo
+// evento (misma fecha/cantidad/costo): una "SIEMBRA ..." y otra "TRANSFERENCIA" - se descarta la
+// "TRANSFERENCIA" cuando tiene su pareja "SIEMBRA ..." para no mostrar el mismo movimiento 2 veces.
+function dedupMovimientos(rows) {
+    return rows.filter(r => {
+        if (r.type !== 'TRANSFERENCIA') return true;
+        const tienePareja = rows.some(o =>
+            o !== r && String(o.type || '').startsWith('SIEMBRA') &&
+            o.sourceTransactionDate === r.sourceTransactionDate && o.quantity === r.quantity && o.totalCost === r.totalCost);
+        return !tienePareja;
+    });
+}
+
+async function fetchMovimientos(subCode, poolName, cycleNumber, start, end) {
+    const params = subParams(SUBSIDIARY_IDS).map(p => ['destinationSubsidiaryIds', p[1]]).concat([['startDate', start], ['endDate', end]]);
+    const data = await apiGet('movements_report', params);
+    const entradas = dedupMovimientos((data || []).filter(r =>
+        String(r.destinationSubsidiaryCode || '').toUpperCase() === subCode.toUpperCase() &&
+        normPool(r.destinationPoolName) === normPool(poolName) &&
+        Number(r.destinationCycleNumber) === Number(cycleNumber)));
+    const salidas = dedupMovimientos((data || []).filter(r =>
+        String(r.sourceSubsidiaryCode || '').toUpperCase() === subCode.toUpperCase() &&
+        normPool(r.sourcePoolName) === normPool(poolName)));
+    return { entradas, salidas };
+}
+
+// "Historia del ciclo - Siembra/Calendario" - endpoint unico que trae, por semana, todo lo que
+// muestra esa pantalla nativa (peso, regresion, crecimiento, sobrevivencia, biomasa, densidad
+// actual /m2, alimento, FCA). Se toma la ULTIMA fila (semana mas reciente) como valor actual.
+async function fetchCicloTablero(cycleId) {
+    if (!cycleId) return null;
+    try {
+        const rows = await apiGet(`cycle_histories/production/${cycleId}`, []);
+        return (rows && rows.length) ? rows[rows.length - 1] : null;
+    } catch (e) { return null; }
+}
+
+function g(row, ...fields) {
+    if (!row) return null;
+    for (const f of fields) {
+        const v = row[f];
+        if (v !== null && v !== undefined) return v;
+    }
+    return null;
+}
+
+function fmt(v) {
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'number') {
+        return Number.isInteger(v) ? v.toLocaleString('es-EC') : v.toLocaleString('es-EC', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+    }
+    return String(v);
+}
+
+// Fuente directa y autoritativa del panel "Datos generales" del tablero nativo.
+async function fetchCycleDetail(cycleId) {
+    if (!cycleId) return null;
+    try {
+        return await apiGet(`cycles/${cycleId}`, [['IncludeCodes', 'true'], ['IncludeCycleUsage', 'true']]);
+    } catch (e) { return null; }
+}
+
+// Modulo "Valoracion" (tendencia actual) - POST cycle_projections {cycleId}.
+// Se toma el ultimo dia de data.actual.dailyResults (el mas reciente con datos reales)
+// y se aplana su optimalStatement (venta/costos/utilidad) para comparar contra Costos (Detalle).
+async function fetchValoracion(cycleId) {
+    if (!cycleId) return null;
+    try {
+        const data = await apiPost('cycle_projections', { cycleId });
+        const rows = (data && data.actual && data.actual.dailyResults) || [];
+        if (!rows.length) return null;
+        const last = rows[rows.length - 1];
+        const os = last.optimalStatement || {};
+        return {
+            day: last.day,
+            averageWeightGrams: last.averageWeightGrams,
+            survival: last.survival,
+            fca: last.fca,
+            totalSales: last.totalSales,
+            totalCost: last.totalCost,
+            grossProfit: last.grossProfit,
+            netProfit: last.netProfit,
+            saleThinnedTotal: os.sales && os.sales.thinned && os.sales.thinned.total,
+            saleFinalTotal: os.sales && os.sales.final && os.sales.final.total,
+            saleTotal: os.sales && os.sales.total,
+            costLarvaeTotal: os.directCosts && os.directCosts.larvae && os.directCosts.larvae.total,
+            costFeedTotal: os.directCosts && os.directCosts.feed && os.directCosts.feed.total,
+            costSuppliesTotal: os.directCosts && os.directCosts.supplies && os.directCosts.supplies.total,
+            costFuelTotal: os.grossProfit && os.grossProfit.fuel && os.grossProfit.fuel.total,
+            costElectricityTotal: os.grossProfit && os.grossProfit.electricity && os.grossProfit.electricity.total,
+            costLaborTotal: os.grossProfit && os.grossProfit.labor && os.grossProfit.labor.total,
+            costMaintenanceTotal: os.grossProfit && os.grossProfit.maintenance && os.grossProfit.maintenance.total,
+            costIndirectTotal: os.grossProfit && os.grossProfit.indirectCosts && os.grossProfit.indirectCosts.total,
+            grossProfitTotal: os.grossProfit && os.grossProfit.total,
+            administrativeExpensesTotal: os.ebitda && os.ebitda.administrativeExpenses && os.ebitda.administrativeExpenses.total,
+            ebitdaTotal: os.ebitda && os.ebitda.total,
+            depreciationTotal: os.ebit && os.ebit.depreciation && os.ebit.depreciation.total,
+            ebitTotal: os.ebit && os.ebit.total,
+            financialExpensesTotal: os.totalCostsExpenses && os.totalCostsExpenses.financialExpenses && os.totalCostsExpenses.financialExpenses.total,
+            costAndExpensesTotal: os.totalCostsExpenses && os.totalCostsExpenses.total,
+            ebtTotal: os.ebt && os.ebt.total,
+        };
+    } catch (e) { return null; }
+}
+
+// "Detalle Resultados" (report_profitability/detailed_result) necesita subsidiaryId+poolId+cycleId -
+// sin cycleId el endpoint mezcla varios ciclos de la misma piscina dentro del rango de fechas (bug
+// detectado antes: Ha/dias salian sumados/incorrectos). poolId se resuelve una vez via /pools.
+async function resolvePoolId(subId, poolName) {
+    const poolsResp = await apiGet('pools', [['subsidiaryIds', subId], ['pageSize', 1000], ['status', 'ACTIVO'], ['status', 'MANTENIMIENTO']]);
+    const list = (poolsResp && poolsResp.data) || [];
+    const match = list.find(p => normPool(p.name) === normPool(poolName));
+    return match ? match.idPool : null;
+}
+
+async function fetchDetalleResultados(subId, poolName, cycleId, start, end) {
+    if (!cycleId) return null;
+    try {
+        const poolId = await resolvePoolId(subId, poolName);
+        if (!poolId) return null;
+        return await apiGet('report_profitability/detailed_result', [['from', start], ['to', end], ['subsidiaryId', subId], ['poolId', poolId], ['cycleId', cycleId]]);
+    } catch (e) { return null; }
+}
+
+// "Siembras de larvas" (Detalle: Siembra) - detalle de siembra por cycleId directo, puede tener
+// varios lotes; se suma cantidad/costo y se pondera el peso promedio por cantidad, igual que Siembras.
+// cycle_sowing/larvae y /juveniles no traen poolSize en la fila, asi que al sumar varios lotes
+// densityPerHectare/Meter se quedaban con el valor del PRIMER lote (no recalculado sobre el total).
+// El poolSize es el mismo para todas las filas (misma piscina destino), se deriva de una fila
+// cualquiera (cantidad/densidad = poolSize) y se usa para recalcular la densidad del agregado.
+function recalcDensidadLotes(agg, rows) {
+    if (!agg || rows.length <= 1) return agg;
+    const base = rows.find(r => r.quantitySown && r.densityPerHectare);
+    if (!base) return agg;
+    const poolSize = base.quantitySown / base.densityPerHectare;
+    if (!poolSize) return agg;
+    agg.densityPerHectare = agg.quantitySown / poolSize;
+    agg.densityPerMeter = agg.densityPerHectare / 10000;
+    return agg;
+}
+
+async function fetchSiembraLarvas(cycleId) {
+    if (!cycleId) return null;
+    try {
+        const data = await apiGet('cycle_sowing/larvae', [['cycleId', cycleId], ['includeCodes', 'true'], ['includeLot', 'true']]);
+        const rows = data || [];
+        if (!rows.length) return null;
+        const agg = aggregateRows(rows, {
+            sum: ['quantitySown', 'totalCost', 'totalWeightPounds'],
+            weightedAvg: [['averageWeightGrams', 'quantitySown']],
+        });
+        return recalcDensidadLotes(agg, rows);
+    } catch (e) { return null; }
+}
+
+// "Siembra de juveniles" - mismo endpoint/estructura que larvas pero para ciclos sembrados por
+// transferencia desde precria/pre-engorde (misma agregacion multi-lote).
+async function fetchSiembraJuveniles(cycleId) {
+    if (!cycleId) return null;
+    try {
+        const data = await apiGet('cycle_sowing/juveniles', [['cycleId', cycleId], ['includeCodes', 'true'], ['includeLot', 'true']]);
+        const rows = data || [];
+        if (!rows.length) return null;
+        const agg = aggregateRows(rows, {
+            sum: ['quantitySown', 'totalCost', 'totalWeightPounds'],
+            weightedAvg: [['averageWeightGrams', 'quantitySown']],
+        });
+        return recalcDensidadLotes(agg, rows);
+    } catch (e) { return null; }
+}
+
+// "Cosechas" - detalle crudo de eventos de cosecha por cycleId directo (puede tener varias
+// filas: parcial + final), se suman cantidades/libras/venta y se pondera el peso por libras netas.
+async function fetchCosechasPorCiclo(cycleId) {
+    if (!cycleId) return null;
+    try {
+        const data = await apiGet('cycle_harvests', [['cycleId', cycleId]]);
+        const rows = data || [];
+        if (!rows.length) return null;
+        const agg = aggregateRows(rows, {
+            sum: ['quantityHarvest', 'totalWeightPounds', 'netPounds', 'wholePounds', 'totalSale', 'finalAnimals', 'wholeAnimals'],
+            weightedAvg: [['averageFarmWeightGrams', 'netPounds']],
+            max: ['daysProduction', 'daysCycle'],
+        });
+        // Densidad por tipo de cosecha: PARCIAL -> "Densidad parcial", FINAL/PREFINAL -> "Densidad
+        // actual", TODOS los tipos sumados -> "Densidad total" (sumar densidades ya normalizadas
+        // por Ha equivale a sumar cantidades y dividir una sola vez, no hace falta poolSize).
+        if (agg) {
+            const sumDensidad = (subset) => subset.length
+                ? { ha: subset.reduce((s, r) => s + (r.densityPerHectare || 0), 0), m2: subset.reduce((s, r) => s + (r.densityPerMeter || 0), 0) }
+                : { ha: null, m2: null };
+            const parciales = rows.filter(r => r.harvestType === 'PARCIAL');
+            const actuales = rows.filter(r => r.harvestType === 'FINAL' || r.harvestType === 'PREFINAL');
+            const dParcial = sumDensidad(parciales);
+            const dActual = sumDensidad(actuales);
+            // "Densidad total" solo tiene sentido una vez que el ciclo ya tuvo cosecha
+            // FINAL/PREFINAL - mientras solo haya parciales seria enganoso mostrarla.
+            const dTotal = actuales.length ? sumDensidad(rows) : { ha: null, m2: null };
+            agg.partialDensityByHectare = dParcial.ha; agg.partialDensityByMeter = dParcial.m2;
+            agg.actualDensityByHectare = dActual.ha; agg.actualDensityByMeter = dActual.m2;
+            agg.totalDensityByHectare = dTotal.ha; agg.totalDensityByMeter = dTotal.m2;
+        }
+        return agg;
+    } catch (e) { return null; }
+}
+
+// ── Resumen de Producción vs Piscinas en Producción ───────────
+// Formulas confirmadas empiricamente comparando report_production/summary contra
+// report_production/pool_production fila por fila (ver conversación / validacion/validar_resumen_produccion.py).
+const USO_TO_CYCLE_USAGE_ID = { PRECRIADERO: '9', PREENGORDE: '8', ENGORDE: '7' };
+const KG_PER_LB = 0.453592;
+const LB_PER_KG = 1 / KG_PER_LB;
+
+function sumBy(rows, key) { return rows.reduce((s, r) => s + (r[key] || 0), 0); }
+function wavgBy(rows, key, weightKey) {
+    const tw = sumBy(rows, weightKey);
+    return tw ? rows.reduce((s, r) => s + (r[key] || 0) * (r[weightKey] || 0), 0) / tw : null;
+}
+// FCA real hay que ponderarlo por la GANANCIA de biomasa (total - inicial), no por la biomasa total:
+// wavg(growthFactor_i, peso=total_i) != Σfeed_i/Σ(total_i-inicial_i) en general - solo por total-inicial
+// da el resultado correcto (identidad matemática: Σ(x_i*w_i)/Σw_i = Σfeed_i/Σw_i cuando x_i=feed_i/w_i).
+function gainBiomass(r) { return (r.estimatedTotalBiomassPounds || 0) - (r.initialBiomassPounds || 0); }
+function wavgByGain(rows, key) {
+    const tw = rows.reduce((s, r) => s + gainBiomass(r), 0);
+    return tw ? rows.reduce((s, r) => s + (r[key] || 0) * gainBiomass(r), 0) / tw : null;
+}
+
+function recomputeSummary(rows) {
+    if (!rows.length) return null;
+    return {
+        quantity: rows.length,
+        poolSize: sumBy(rows, 'poolSize'),
+        daysProduction: wavgBy(rows, 'daysProduction', 'sowingQuantity'),
+        stockingDensity: wavgBy(rows, 'sowingDensityPerMeter', 'poolSize'),
+        harvestDensity: wavgBy(rows, 'estimatedActualDensityPerMeter', 'poolSize'),
+        oneWeekGrowth: wavgBy(rows, 'growthLastWeek', 'estimatedActualAnimals'),
+        twoWeekGrowth: wavgBy(rows, 'growthTwoWeeks', 'estimatedActualAnimals'),
+        fourWeekGrowth: wavgBy(rows, 'growthFourWeeks', 'estimatedActualAnimals'),
+        growthSinceStart: wavgBy(rows, 'initialGrowth', 'estimatedActualAnimals'),
+        weight: wavgBy(rows, 'averageWeightGrams', 'estimatedActualAnimals'),
+        survival: sumBy(rows, 'sowingQuantity') ? sumBy(rows, 'estimatedActualAnimals') / sumBy(rows, 'sowingQuantity') * 100 : null,
+        biomassTotal: sumBy(rows, 'estimatedTotalBiomassPounds'),
+        biomassActual: sumBy(rows, 'estimatedActualBiomassPounds'),
+        biomassHarvested: sumBy(rows, 'estimatedThinnedBiomassPounds'),
+        biomassInitial: sumBy(rows, 'initialBiomassPounds'),
+        feedAccumulated: sumBy(rows, 'totalFeeding'),
+        feedFromLarvae: sumBy(rows, 'feedingFromLarvae') * LB_PER_KG,
+        grossFCR: wavgBy(rows, 'grossGrowthFactor', 'estimatedTotalBiomassPounds'),
+        realFCR: wavgByGain(rows, 'growthFactor'),
+        larvaeFCR: wavgByGain(rows, 'growthFactorFromLarvae'), // aproximado - no confirmado al 100% fuera del rango 30-100 dias
+        estimatedActualAnimals: sumBy(rows, 'estimatedActualAnimals'),
+        sowingQuantity: sumBy(rows, 'sowingQuantity'),
+        feedWeekHectareDay: sumBy(rows, 'totalFeedingLastWeek') / sumBy(rows, 'poolSize') / 7, // igual formula que Indicadores
+        biomassPerHectare: sumBy(rows, 'estimatedActualBiomassPounds') / sumBy(rows, 'poolSize'),
+    };
+}
+
+function getResumenFilters() {
+    const usos = ['r-uso-precr', 'r-uso-preeng', 'r-uso-eng']
+        .map(id => document.getElementById(id))
+        .filter(el => el.checked).map(el => el.value);
+    const fases = [1, 2, 3, 4].filter(n => document.getElementById(`r-fase-${n}`).checked);
+    return {
+        subCode: document.getElementById('r-sucursal').value,
+        usos, fases,
+        minDays: Number(document.getElementById('r-dias-min').value),
+        maxDays: Number(document.getElementById('r-dias-max').value),
+        minWeight: Number(document.getElementById('r-peso-min').value),
+        maxWeight: Number(document.getElementById('r-peso-max').value),
+        minSow: Number(document.getElementById('r-siembra-min').value),
+        maxSow: Number(document.getElementById('r-siembra-max').value),
+        year: Number(document.getElementById('r-year').value),
+        week: Number(document.getElementById('r-week').value),
+    };
+}
+
+function rowMatchesFilters(r, f) {
+    const days = r.daysProduction || 0, w = r.averageWeightGrams || 0, sw = r.sowingAverageWeightGrams || 0;
+    return f.fases.includes(Number(r.stage))
+        && f.usos.includes(_cycleUsageIdToCode(r.cycleUsageId))
+        && days >= f.minDays && days <= f.maxDays
+        && w >= f.minWeight && w <= f.maxWeight
+        && sw >= f.minSow && sw <= f.maxSow;
+}
+
+function _cycleUsageIdToCode(id) {
+    const s = String(id);
+    return Object.keys(USO_TO_CYCLE_USAGE_ID).find(k => USO_TO_CYCLE_USAGE_ID[k] === s) || null;
+}
+
+async function fetchOfficialSummary(subIds, f) {
+    const cycleUsageIds = f.usos.map(u => USO_TO_CYCLE_USAGE_ID[u]);
+    const params = subIds.map(id => ['subsidiaryIds', id])
+        .concat([['minProductionDays', f.minDays], ['maxProductionDays', f.maxDays],
+                 ['minWeightGrams', f.minWeight], ['maxWeightGrams', f.maxWeight]])
+        .concat(f.fases.map(s => ['stages', s]))
+        .concat(cycleUsageIds.map(id => ['cycleUsageIds', id]))
+        .concat(f.usos.map(u => ['usesTypes', u]))
+        .concat([['status', 'ACTIVO'], ['PageSize', 1000], ['cutOffYear', f.year], ['cutOffWeek', f.week]])
+        .concat(cycleUsageIds.length ? [['cycleUsageId', cycleUsageIds[0]]] : [])
+        .concat(f.fases.map(s => ['stage', s]));
+    const data = await apiGet('report_production/summary', params);
+    const map = {};
+    (data || []).forEach(r => { map[r.subsidiaryId] = r; });
+    return map;
+}
+
+// ── Por Semana (report_production/summary_history) - mismos filtros, historial semanal ──
+// Solo tiene sentido con UNA sucursal a la vez (si no, habria que pedir pool_production
+// de las ~23 sucursales x N semanas = cientos de llamadas).
+async function fetchOfficialSummaryHistory(subId, f) {
+    const cycleUsageIds = f.usos.map(u => USO_TO_CYCLE_USAGE_ID[u]);
+    const params = [['subsidiaryIds', subId]]
+        .concat([['minProductionDays', f.minDays], ['maxProductionDays', f.maxDays],
+                 ['minWeightGrams', f.minWeight], ['maxWeightGrams', f.maxWeight]])
+        .concat(f.fases.map(s => ['stages', s]))
+        .concat(cycleUsageIds.map(id => ['cycleUsageIds', id]))
+        .concat(f.usos.map(u => ['usesTypes', u]))
+        .concat([['status', 'ACTIVO'], ['PageSize', 1000], ['cutOffYear', f.year], ['cutOffWeek', f.week]])
+        .concat(cycleUsageIds.length ? [['cycleUsageId', cycleUsageIds[0]]] : [])
+        .concat(f.fases.map(s => ['stage', s]));
+    return await apiGet('report_production/summary_history', params);
+}
+
+// Concepto unificado entre los 3 modulos (los nombres de campo difieren entre
+// recomputeSummary()/summary_history y recomputeIndicatorBand()/indicators GroupType=WEEK).
+// getter(obj) recibe el objeto recalc/oficial correspondiente; null = ese modulo no lo reporta.
+const POR_SEMANA_CONCEPTS = [
+    ['Conteo', o => o.quantity, o => o.quantity, o => o.quantity, 0], // Indicadores no lo reporta oficialmente - se calcula (piscinas que entran a la suma)
+    ['Ha', o => o.poolSize, o => o.poolSize, o => o.poolSize, 1],
+    ['Días Producción', o => o.daysProduction, o => o.daysProduction, o => o.productionDays, 1],
+    ['Peso Promedio (g)', o => o.weight, o => o.weight, o => o.weight, 2],
+    ['Sobrevivencia (%)', o => o.survival, o => o.survival, o => o.survival, 2],
+    ['Biomasa Actual/Ha', o => o.biomassActual / o.poolSize, o => o.biomassPerHectare, o => o.biomassActualHectare, 0],
+    ['Crec. Últ. Semana (g)', o => o.oneWeekGrowth, o => o.oneWeekGrowth, o => o.growthLastWeek, 2],
+    ['Alim. Semanal/Ha/Día', o => o.feedWeekHectareDay, null, o => o.totalFeedWeekHectareDay, 2],
+    ['Densidad Actual (/m2)', o => o.harvestDensity, o => o.harvestDensity, o => o.actualDensity, 2],
+    ['FCA Bruto', o => o.grossFCR, o => o.grossFCR, o => o.fcrGross, 2],
+    ['FCA Real', o => o.realFCR, o => o.realFCR, o => o.fcrReal, 2],
+];
+
+async function compararPorSemana(subId, f) {
+    const [official, indicatorsByWeek] = await Promise.all([
+        fetchOfficialSummaryHistory(subId, f).catch(() => []),
+        fetchOfficialIndicatorsByWeek(subId, f).catch(() => ({})),
+    ]);
+    const weeks = (official || []).map(o => ({ year: o.year, week: o.weekNumber }));
+    if (!weeks.length) return [];
+
+    const perWeek = await Promise.all(weeks.map(async ({ year, week }) => {
+        const detail = await apiGet('report_production/pool_production', [['subsidiaryIds', subId], ['cutOffYear', year], ['cutOffWeek', week]]).catch(() => []);
+        const matchedResumen = (detail || []).filter(r => rowMatchesFilters(r, f));
+        const matchedIndicators = (detail || []).filter(r => rowMatchesIndicatorFilters(r, f));
+        return {
+            year, week,
+            recalcPP: recomputeSummary(matchedResumen),
+            recalcInd: recomputeIndicatorBand(matchedIndicators),
+        };
+    }));
+
+    const officialByWeek = {};
+    official.forEach(o => { officialByWeek[`${o.year}-${o.weekNumber}`] = o; });
+    return perWeek.map(({ year, week, recalcPP, recalcInd }) => {
+        const oficialInd = indicatorsByWeek[`${year}-${week}`];
+        return {
+            label: `${year} S${week}`, recalcPP, recalcInd,
+            oficialResumen: officialByWeek[`${year}-${week}`],
+            // El endpoint oficial de Indicadores no trae Conteo - se completa con el nuestro (recalcInd.quantity)
+            oficialIndicadores: oficialInd ? { ...recalcInd, ...oficialInd } : recalcInd,
+        };
+    });
+}
+
+function porSemanaCell(getter, obj, decimals) {
+    if (!getter || !obj) return { s: null, v: null };
+    let v;
+    try { v = getter(obj); } catch (e) { v = null; }
+    if (v === undefined || v === null || Number.isNaN(v)) return { s: null, v: null };
+    if (v === 0) return { s: null, v: null }; // 0 se muestra como "—", igual que sin dato
+    return { s: fmtField(v, decimals), v };
+}
+
+function renderPorSemanaComparacion(weekResults, subName) {
+    let html = `<div class="section-card"><div class="section-title"><span>Por Semana — ${subName}</span>
+        <span class="section-hint">summary_history + indicators (GroupType=WEEK), mismos filtros de Uso/Fase/Días/Peso</span></div>`;
+    html += `<div style="overflow-x:auto"><table class="cmp-tbl"><thead><tr><th>Semana</th><th>Módulo</th>${POR_SEMANA_CONCEPTS.map(([label]) => `<th>${label}</th>`).join('')}</tr></thead><tbody>`;
+
+    let totalDiff = 0, totalChecked = 0;
+    for (const { label, recalcPP, recalcInd, oficialResumen, oficialIndicadores } of weekResults) {
+        if (!recalcPP && !recalcInd) continue;
+        totalChecked++;
+        const rows = [
+            ['grp-first', 'Piscinas en Producción', recalcPP, POR_SEMANA_CONCEPTS.map(c => c[1])],
+            ['', 'Resumen', oficialResumen, POR_SEMANA_CONCEPTS.map(c => c[2])],
+            ['grp-last', 'Indicadores', oficialIndicadores || recalcInd, POR_SEMANA_CONCEPTS.map(c => c[3])],
+        ];
+        let rowDiff = false;
+        // baseline = valor de "Piscinas en Producción" (getter índice 1) para cada concepto,
+        // contra el cual se comparan las otras 2 líneas de esa misma semana.
+        const baselineVals = POR_SEMANA_CONCEPTS.map(c => (recalcPP ? porSemanaCell(c[1], recalcPP, c[4]).v : null));
+        rows.forEach(([cls, moduleLabel, obj, getters], i) => {
+            html += `<tr class="${cls}">${i === 0 ? `<td rowspan="3">${label}</td>` : ''}<td>${moduleLabel}</td>`;
+            POR_SEMANA_CONCEPTS.forEach(([, , , , decimals], ci) => {
+                const { s, v } = porSemanaCell(getters[ci], obj, decimals);
+                let cellDiff = false;
+                // Se resalta diferencia en cualquier linea contra el baseline (Piscinas en
+                // Produccion), salvo cuando esa linea no tiene valor para ese concepto.
+                if (i > 0 && v !== null && baselineVals[ci] !== null) {
+                    const bv = baselineVals[ci];
+                    const tol = Math.max(Math.abs(bv) * 0.03, 0.5);
+                    cellDiff = Math.abs(v - bv) > tol;
+                    if (cellDiff) rowDiff = true;
+                }
+                html += s === null ? `<td class="empty">—</td>` : `<td class="${cellDiff ? 'diff' : ''}">${s}</td>`;
+            });
+            html += '</tr>';
+        });
+        if (rowDiff) totalDiff++;
+    }
+    html += '</tbody></table></div>';
+    html += `<div style="padding:8px 16px;font-size:11.5px;color:var(--muted)">Semanas comparadas: ${totalChecked} · con alguna diferencia: ${totalDiff}</div>`;
+    html += '</div>';
+    return html;
+}
+
+const RESUMEN_FIELDS = [
+    ['quantity', 'Conteo', 0], ['poolSize', 'Ha', 1], ['daysProduction', 'Días Prod.', 3],
+    ['weight', 'Peso Prom (g)', 2], ['survival', 'Sobrev. %', 3], ['biomassTotal', 'Biomasa Total (lb)', 0],
+    ['biomassActual', 'Biomasa Actual (lb)', 0], ['grossFCR', 'FCA Bruto', 2], ['realFCR', 'FCA Real', 2],
+];
+
+// ── Indicadores por Rango de Peso (report_production/indicators, GroupType=WEIGHT_RANGE) ──
+// Formulas confirmadas empiricamente: 0 discrepancias en 5 bandas x 8 metricas.
+const WEIGHT_BANDS = [
+    ['< 7', null, 7], ['7 - 10', 7, 10], ['10 - 15', 10, 15], ['15 - 20', 15, 20], ['20 - 25', 20, 25],
+    ['25 - 30', 25, 30], ['30 - 35', 30, 35], ['35 - 40', 35, 40], ['> 40', 40, null],
+];
+function rowInWeightBand(r, lo, hi) {
+    const w = r.averageWeightGrams || 0;
+    if (lo === null) return w < hi;
+    if (hi === null) return w > lo;
+    return w > lo && w <= hi;
+}
+
+function recomputeIndicatorBand(rows) {
+    if (!rows.length) return null;
+    const pool = sumBy(rows, 'poolSize');
+    return {
+        quantity: rows.length, // el endpoint oficial no reporta conteo - este es el nuestro (piscinas que entran a la suma)
+        poolSize: pool,
+        productionDays: wavgBy(rows, 'daysProduction', 'poolSize'), // ponderado por Ha
+        biomassActualHectare: sumBy(rows, 'estimatedActualBiomassPounds') / pool,
+        growthLastWeek: wavgBy(rows, 'growthLastWeek', 'estimatedActualAnimals'),
+        totalFeedWeekHectareDay: sumBy(rows, 'totalFeedingLastWeek') / pool / 7,
+        actualDensity: sumBy(rows, 'estimatedActualAnimals') / pool / 10000,
+        fcrGross: sumBy(rows, 'totalFeeding') / (sumBy(rows, 'estimatedTotalBiomassPounds') * KG_PER_LB),
+        fcrReal: sumBy(rows, 'totalFeeding') / ((sumBy(rows, 'estimatedTotalBiomassPounds') - sumBy(rows, 'initialBiomassPounds')) * KG_PER_LB),
+        // Indicadores (oficial) no reporta peso promedio ni sobrevivencia - se calculan igual
+        // que en recomputeSummary() para que "Piscinas en Producción" los muestre completos.
+        weight: wavgBy(rows, 'averageWeightGrams', 'estimatedActualAnimals'),
+        survival: sumBy(rows, 'sowingQuantity') ? sumBy(rows, 'estimatedActualAnimals') / sumBy(rows, 'sowingQuantity') * 100 : null,
+    };
+}
+
+// Filtro para Indicadores: NO aplica "Peso promedio" (eso es justo lo que agrupa GroupType=WEIGHT_RANGE),
+// pero SI aplica "Peso de siembra" como filtro real del endpoint (MinWeightSowing/MaxWeightSowing).
+function rowMatchesIndicatorFilters(r, f) {
+    const days = r.daysProduction || 0, sw = r.sowingAverageWeightGrams || 0;
+    return f.fases.includes(Number(r.stage))
+        && f.usos.includes(_cycleUsageIdToCode(r.cycleUsageId))
+        && days >= f.minDays && days <= f.maxDays
+        && sw >= f.minSow && sw <= f.maxSow;
+}
+
+async function fetchOfficialIndicators(subIds, f) {
+    const cycleUsageIds = f.usos.map(u => USO_TO_CYCLE_USAGE_ID[u]);
+    const params = [['MinProductionDays', f.minDays], ['MaxProductionDays', f.maxDays],
+                     ['MinWeightSowing', f.minSow], ['MaxWeightSowing', f.maxSow],
+                     ['GroupType', 'WEIGHT_RANGE'], ['cutOffYear', f.year], ['cutOffWeek', f.week]]
+        .concat(subIds.map(id => ['SubsidiaryIds', id]))
+        .concat(cycleUsageIds.map(id => ['CycleUsageIds', id]))
+        .concat(f.fases.map(s => ['stages', s]));
+    const data = await apiGet('report_production/indicators', params);
+    const map = {};
+    (data || []).forEach(o => { map[o.group] = o; });
+    return map;
+}
+
+// GroupType=WEEK - misma agrupacion que GroupType=WEIGHT_RANGE pero por semana en vez de
+// rango de peso. Se comprobo empiricamente que funciona igual que summary_history: cada
+// semana refleja el snapshot de pool_production DE ESA semana (no la semana actual).
+async function fetchOfficialIndicatorsByWeek(subId, f) {
+    const cycleUsageIds = f.usos.map(u => USO_TO_CYCLE_USAGE_ID[u]);
+    const params = [['GroupType', 'WEEK'], ['MinProductionDays', f.minDays], ['MaxProductionDays', f.maxDays],
+                     ['MinWeightSowing', f.minSow], ['MaxWeightSowing', f.maxSow],
+                     ['cutOffYear', f.year], ['cutOffWeek', f.week], ['SubsidiaryIds', subId]]
+        .concat(cycleUsageIds.map(id => ['CycleUsageIds', id]))
+        .concat(f.fases.map(s => ['stages', s]));
+    const data = await apiGet('report_production/indicators', params);
+    const map = {};
+    (data || []).forEach(o => { map[o.group] = o; }); // group = "YYYY-WW"
+    return map;
+}
+
+function renderIndicadoresComparacion(bandResults) {
+    let html = `<div class="section-card"><div class="section-title"><span>Indicadores por Rango de Peso — Piscinas en Producción vs Resumen vs Indicadores</span>
+        <span class="section-hint">Agrupa por peso actual - usa el filtro "Peso de siembra" (soportado nativamente por Indicadores), ignora "Peso promedio". Resumen aquí es la misma fórmula de report_production/summary aplicada a las piscinas de cada banda (cruce de métodos, no endpoint oficial)</span></div>`;
+    html += `<div style="overflow-x:auto"><table class="cmp-tbl"><thead><tr><th>Grupo (peso, g)</th><th>Módulo</th>${POR_SEMANA_CONCEPTS.map(([label]) => `<th>${label}</th>`).join('')}</tr></thead><tbody>`;
+
+    let totalDiff = 0, totalChecked = 0;
+    for (const { label, recalc, oficial, resumenCalc } of bandResults) {
+        if (!recalc) continue;
+        totalChecked++;
+
+        const lineDefs = [
+            ['grp-first', 'Piscinas en Producción', recalc, POR_SEMANA_CONCEPTS.map(c => c[3])],
+            ['', 'Resumen', resumenCalc, POR_SEMANA_CONCEPTS.map(c => c[2])],
+            ['grp-last', 'Indicadores', oficial, POR_SEMANA_CONCEPTS.map(c => c[3])],
+        ];
+        const baselineVals = POR_SEMANA_CONCEPTS.map(c => porSemanaCell(c[3], recalc, c[4]).v);
+        let rowDiff = false;
+        lineDefs.forEach(([cls, moduleLabel, obj, getters], i) => {
+            html += `<tr class="${cls}">${i === 0 ? `<td rowspan="3">${label}</td>` : ''}<td>${moduleLabel}</td>`;
+            POR_SEMANA_CONCEPTS.forEach(([, , , , decimals], ci) => {
+                const { s, v } = porSemanaCell(getters[ci], obj, decimals);
+                let cellDiff = false;
+                // Se resalta diferencia en cualquier linea contra el baseline (Piscinas en
+                // Produccion), salvo cuando esa linea no tiene valor para ese concepto.
+                if (i > 0 && v !== null && baselineVals[ci] !== null) {
+                    const bv = baselineVals[ci];
+                    const tol = Math.max(Math.abs(bv) * 0.02, 0.1);
+                    cellDiff = Math.abs(v - bv) > tol;
+                    if (cellDiff) rowDiff = true;
+                }
+                html += s === null ? `<td class="empty">—</td>` : `<td class="${cellDiff ? 'diff' : ''}">${s}</td>`;
+            });
+            html += '</tr>';
+        });
+        if (rowDiff) totalDiff++;
+    }
+    html += '</tbody></table></div>';
+    html += `<div style="padding:8px 16px;font-size:11.5px;color:var(--muted)">Bandas con datos: ${totalChecked} · con alguna diferencia (vs Indicadores oficial): ${totalDiff}</div>`;
+    html += '</div>';
+    return html;
+}
+
+function fmtField(v, decimals) {
+    return v === null || v === undefined ? '—' : v.toLocaleString('es-EC', { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+}
+
+function renderResumenComparacion(results, siembraFilterActive, year, week) {
+    let html = '';
+    if (siembraFilterActive) {
+        html += `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#92400e;">
+            ⚠ Filtro de "Peso de siembra" activo — el endpoint oficial de Resumen no lo soporta, así que esa línea no aparece (Indicadores sí, porque ese endpoint lo soporta nativamente).</div>`;
+    }
+    html += `<div class="section-card"><div class="section-title"><span>Piscinas en Producción vs Resumen vs Indicadores — Semana ${year}-S${week}</span>
+        <span class="section-hint">FCA Real = Alimento / (Biomasa Total − Inicial), ya validado en rango amplio y angosto</span></div>`;
+    html += `<div style="overflow-x:auto"><table class="cmp-tbl"><thead><tr><th>Semana</th><th>Campamento</th><th>Módulo</th>${POR_SEMANA_CONCEPTS.map(([label]) => `<th>${label}</th>`).join('')}</tr></thead><tbody>`;
+
+    let totalDiff = 0, totalChecked = 0;
+    for (const { subName, recalc, oficial, recalcInd } of results) {
+        if (!recalc) continue;
+        totalChecked++;
+
+        const lineDefs = [
+            ['grp-first', 'Piscinas en Producción', recalc, POR_SEMANA_CONCEPTS.map(c => c[1])],
+            ['', 'Resumen', siembraFilterActive ? null : oficial, POR_SEMANA_CONCEPTS.map(c => c[2])],
+            ['grp-last', 'Indicadores', recalcInd, POR_SEMANA_CONCEPTS.map(c => c[3])],
+        ];
+        const baselineVals = POR_SEMANA_CONCEPTS.map(c => porSemanaCell(c[1], recalc, c[4]).v);
+        let rowDiff = false;
+        lineDefs.forEach(([cls, moduleLabel, obj, getters], i) => {
+            if (i === 1 && siembraFilterActive) return; // no se muestra la linea Resumen con este filtro
+            const nLines = siembraFilterActive ? 2 : 3;
+            html += `<tr class="${cls}">`;
+            if (i === 0) html += `<td rowspan="${nLines}">${year}-S${week}</td><td rowspan="${nLines}">${subName}</td>`;
+            html += `<td>${moduleLabel}</td>`;
+            POR_SEMANA_CONCEPTS.forEach(([, , , , decimals], ci) => {
+                const { s, v } = porSemanaCell(getters[ci], obj, decimals);
+                let cellDiff = false;
+                // Se resalta diferencia en cualquier linea contra el baseline (Piscinas en
+                // Produccion), salvo cuando esa linea no tiene valor para ese concepto.
+                if (i > 0 && v !== null && baselineVals[ci] !== null) {
+                    const bv = baselineVals[ci];
+                    const tol = Math.max(Math.abs(bv) * 0.03, 0.5);
+                    cellDiff = Math.abs(v - bv) > tol;
+                    if (cellDiff) rowDiff = true;
+                }
+                html += s === null ? `<td class="empty">—</td>` : `<td class="${cellDiff ? 'diff' : ''}">${s}</td>`;
+            });
+            html += '</tr>';
+        });
+        if (rowDiff) totalDiff++;
+    }
+    html += '</tbody></table></div>';
+    html += `<div style="padding:8px 16px;font-size:11.5px;color:var(--muted)">Campamentos comparados: ${totalChecked} · con alguna diferencia: ${totalDiff}</div>`;
+    html += '</div>';
+    return html;
+}
+
+async function compararResumenPiscinas() {
+    if (!getToken()) { alert('Inicia sesión primero'); return; }
+    const f = getResumenFilters();
+    if (!f.usos.length || !f.fases.length) { alert('Elige al menos un Uso y una Fase'); return; }
+
+    const subIds = f.subCode === 'ALL' ? SUBSIDIARY_IDS : [SUBSIDIARIES.find(s => s.code === f.subCode).id];
+    const siembraFilterActive = !(f.minSow <= 0 && f.maxSow >= 9999);
+
+    const container = document.getElementById('resumen-content');
+    const btn = document.getElementById('btn-comparar');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Comparando...';
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><div>Consultando ${subIds.length} sucursal(es)...</div></div>`;
+
+    try {
+        const [officialMap, officialIndicators, perSub] = await Promise.all([
+            siembraFilterActive ? Promise.resolve({}) : fetchOfficialSummary(subIds, f).catch(() => ({})),
+            fetchOfficialIndicators(subIds, f).catch(() => ({})),
+            Promise.all(subIds.map(async id => {
+                const sub = SUBSIDIARIES.find(s => s.id === id);
+                const detail = await apiGet('report_production/pool_production', [['subsidiaryIds', id], ['cutOffYear', f.year], ['cutOffWeek', f.week]]).catch(() => []);
+                const matched = (detail || []).filter(r => rowMatchesFilters(r, f));
+                const matchedIndicators = (detail || []).filter(r => rowMatchesIndicatorFilters(r, f));
+                return {
+                    subId: id, subName: sub ? sub.name : id, recalc: recomputeSummary(matched),
+                    indicatorRows: matchedIndicators, recalcInd: recomputeIndicatorBand(matchedIndicators),
+                };
+            })),
+        ]);
+
+        const results = perSub.map(({ subId, subName, recalc, recalcInd }) => ({ subName, recalc, oficial: officialMap[subId], recalcInd }));
+        const allIndicatorRows = perSub.flatMap(p => p.indicatorRows);
+        const bandResults = WEIGHT_BANDS.map(([label, lo, hi]) => {
+            const rows = allIndicatorRows.filter(r => rowInWeightBand(r, lo, hi));
+            const recalc = recomputeIndicatorBand(rows);
+            const oficialRaw = officialIndicators[label];
+            return {
+                label, recalc,
+                // El endpoint oficial de Indicadores no trae Conteo - se completa con el nuestro (recalc.quantity)
+                oficial: oficialRaw ? { ...recalc, ...oficialRaw } : oficialRaw,
+                resumenCalc: recomputeSummary(rows), // mismas piscinas de la banda, formulas de Resumen (cruce de metodos)
+            };
+        });
+
+        if (!results.some(r => r.recalc) && !bandResults.some(b => b.recalc)) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-icon">🤷</div><div>Ninguna piscina cumple esos filtros para año/semana ${f.year}/${f.week}.</div></div>`;
+            return;
+        }
+
+        let porSemanaHtml = '';
+        if (f.subCode !== 'ALL' && !siembraFilterActive) {
+            const weekResults = await compararPorSemana(subIds[0], f).catch(() => []);
+            if (weekResults.length) {
+                porSemanaHtml = renderPorSemanaComparacion(weekResults, SUBSIDIARIES.find(s => s.id === subIds[0]).name);
+            }
+        } else if (f.subCode === 'ALL') {
+            porSemanaHtml = `<div class="section-card"><div class="section-title"><span>Por Semana</span></div>
+                <div style="padding:14px 16px;color:var(--muted);font-size:12.5px">Elige una sola sucursal (no "Todas") para ver el historial semanal - si no, habría que pedir el detalle de las ~23 sucursales por cada semana.</div></div>`;
+        }
+
+        container.innerHTML = renderResumenComparacion(results, siembraFilterActive, f.year, f.week) + renderIndicadoresComparacion(bandResults) + porSemanaHtml;
+    } catch (e) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Error: ${e.message}</div></div>`;
+    } finally {
+        btn.disabled = false; btn.textContent = 'Comparar';
+    }
+}
+
+// ── Ver todas las piscinas de una sucursal (mismo cuadro que "Por Ciclo", para cada piscina activa) ──
+// Estructura de columnas = jerarquia real del tablero nativo (Widget / Analitica > Produccion,
+// Cosechas, Rentabilidad / ingreso de datos). 'lp' (Listado de piscinas) queda sin fuente todavia
+// - no se ha conseguido el endpoint de esa pantalla, por eso su columna sale siempre en blanco.
+const CICLO_BULK_GROUPS = [
+    { top: 'Widget', sections: [
+        { section: null, cols: [
+            { key: 'cd', label: 'Datos generales' },
+            { key: 'ct', label: 'Historia siembra' },
+            { key: 'cal', label: 'Historia calendario' },
+            { key: 'val', label: 'Valoración' },
+        ] },
+    ] },
+    { top: 'Ingreso de datos', plain: true, sections: [
+        { section: null, cols: [
+            { key: 'sl', label: 'Siembra larva' },
+            { key: 'sj', label: 'Siembra juvenil' },
+            { key: 'ch', label: 'Cosecha' },
+        ] },
+    ] },
+    { top: 'Analítica', sections: [
+        { section: 'Producción', cols: [
+            { key: 'pp', label: 'Piscinas en producción' },
+            { key: 'lp', label: 'Listado de piscinas' },
+            { key: 'si', label: 'Siembras' },
+            { key: 'mv', label: 'Movimientos' },
+        ] },
+        { section: 'Cosechas', cols: [
+            { key: 'pc', label: 'Plan de cosecha' },
+            { key: 'll', label: 'Liquidaciones' },
+            { key: 'co', label: 'Cosechas por fecha' },
+            { key: 'sp', label: 'Piscinas liquidadas' },
+            { key: 'pr', label: 'Resultado de precría' },
+        ] },
+        { section: 'Rentabilidad', cols: [
+            { key: 'ir', label: 'Informe' },
+            { key: 'dr', label: 'Detalle de resultado' },
+        ] },
+    ] },
+];
+const CICLO_BULK_COLS_FLAT = CICLO_BULK_GROUPS.flatMap(g => g.sections.flatMap(s => s.cols));
+// dr = report_profitability/detailed_result (por piscina, trio Estimado/Cosecha(Harvest)/Planta + costos).
+// Algunos conceptos de la lista del usuario no tienen un campo confirmado en dr todavia
+// (quedan con dr:null y un comentario "sin confirmar") - se dejan en la lista para no perderlos,
+// pero no se debe asumir que ese "-" es un error hasta confirmar la fuente real.
+const CICLO_BULK_CONCEPTS = [
+    { label: 'Ha', static: true, decimals: 1, g: {
+        cd: o => o.poolSize, pp: o => o.poolSize, si: o => o.poolSize, co: o => o.poolSize, pr: o => o.poolSize, ct: null, dr: o => o.poolSize, pc: o => o.poolSize, sp: o => o.poolSize, ir: o => o.poolSize, ch: o => o.poolSize, lp: o => o.poolSize } },
+    { label: 'Días secos', static: false, decimals: 0, g: {
+        cd: o => o.daysDry, pp: o => o.daysDry, si: null, co: o => o.daysDry, pr: o => o.daysDry, ct: null, dr: o => o.daysDry, sp: o => o.daysDry, ir: o => o.daysDry, lp: o => o.daysDry } },
+    { label: 'Días de producción', static: false, decimals: 0, g: {
+        // ct/cal: sin dato confiable - cycle_sampling_weights solo trae el dia EN QUE se tomo la
+        // ultima muestra (no es diario), asi que queda atrasado respecto al dia actual del ciclo.
+        cd: o => o.daysProduction, pp: o => o.daysProduction, si: null, co: o => o.daysProduction, pr: o => o.daysProduction, dr: o => o.daysProduction, pc: o => o.daysProduction, sp: o => o.daysProduction, ir: o => o.daysProduction, ch: o => o.daysProduction, lp: o => o.daysProduction } },
+    { label: 'Días de ciclo', static: false, decimals: 0, g: {
+        cd: o => o.daysCycle, pp: o => (o.daysProduction || 0) + (o.daysDry || 0), si: null, co: o => o.daysCycle, pr: o => o.daysCycle, ct: null, dr: o => o.daysCycle, sp: o => o.daysCycle, ir: o => o.daysCycle, ch: o => o.daysCycle, lp: o => o.daysCycle } },
+    { label: 'Fase', static: true, decimals: 0, g: {
+        cd: o => o.stage, pp: o => o.stage, si: o => o.stage, co: o => o.stage, pr: o => o.stage, sp: o => o.stage, ir: o => o.stage, lp: o => o.stage, dr: o => o.stage } },
+    { label: 'Densidad sembrada', static: true, decimals: 0, g: {
+        cd: o => o.sowingQuantity, pp: o => o.sowingQuantity, si: o => o.quantitySown, co: null, pr: o => o.sowingQuantity, ct: null, dr: o => o.stockingQuantity, pc: o => o.sowingQuantity, sp: o => o.sowingQuantity, ir: o => o.stockingQuantity, sl: o => o.quantitySown, sj: o => o.quantitySown } },
+    { label: 'Densidad siembra (/Ha)', static: true, decimals: 1, g: {
+        cd: o => o.sowingDensityPerHectare, pp: o => o.sowingDensityPerHectare, si: o => o.densityPerHectare, co: null, pr: o => o.sowingDensityPerHectare, ct: null, dr: null, sl: o => o.densityPerHectare, sj: o => o.densityPerHectare } },
+    { label: 'Densidad siembra (/m2)', static: true, decimals: 2, g: {
+        cd: o => o.sowingDensityPerMeter, pp: o => o.sowingDensityPerMeter, si: o => o.densityPerMeter, co: null, pr: o => o.sowingDensityPerMeter, ct: null, dr: o => o.densityByMeterStocking, sp: o => o.sowingDensityByMeter, ir: o => o.stockingDensityM2, sl: o => o.densityPerMeter, sj: o => o.densityPerMeter } },
+    { label: 'Densidad total', static: false, decimals: 0, g: {
+        // pp (Piscinas en Producción) no muestra un "Total" propio en su grilla nativa - lo que
+        // ahi se llama "Total" es en realidad la densidad ACTUAL (ver "Densidad actual"). El
+        // desglose Total/Parcial/Transf/Actual real solo existe en Datos Generales (cd).
+        cd: o => o.estimatedTotalAnimals } },
+    { label: 'Densidad total (/Ha)', static: false, decimals: 1, g: {
+        // co/ch: SOLO cosecha final (harvestType=FINAL), no el agregado con la parcial
+        cd: o => o.estimatedTotalDensityPerHectare, co: o => o.totalDensityByHectare, ch: o => o.totalDensityByHectare } },
+    { label: 'Densidad total (/m2)', static: false, decimals: 2, g: {
+        cd: o => o.estimatedTotalDensityPerMeter, dr: o => o.totalDensityPlant, co: o => o.totalDensityByMeter, ch: o => o.totalDensityByMeter } },
+    { label: 'Densidad parcial', static: false, decimals: 0, g: {
+        // pp tampoco muestra "Parcial" en su grilla nativa (solo Total/Cos-Ha/Cos-m2/Transf).
+        cd: o => o.estimatedThinnedAnimals } },
+    { label: 'Densidad parcial (/Ha)', static: false, decimals: 1, g: {
+        // co/ch: SOLO cosecha parcial (harvestType=PARCIAL), no el agregado con la final
+        cd: o => o.estimatedThinnedPerHectare, co: o => o.partialDensityByHectare, ch: o => o.partialDensityByHectare } },
+    { label: 'Densidad parcial (/m2)', static: false, decimals: 2, g: {
+        cd: o => o.estimatedThinnedPerMeter, dr: o => o.thinnedDensityPlant, co: o => o.partialDensityByMeter, ch: o => o.partialDensityByMeter } },
+    { label: 'Densidad transferida', static: false, decimals: 0, g: {
+        cd: o => o.estimatedTransferredAnimals, pp: o => o.quantiyTransferred } },
+    { label: 'Densidad transferida (/Ha)', static: false, decimals: 1, g: {
+        cd: o => o.estimatedTransferredPerHectare, pp: o => o.estimatedTransferredPerHectare } },
+    { label: 'Densidad transferida (/m2)', static: false, decimals: 2, g: {
+        cd: o => o.estimatedTransferredPerMeter, pp: o => o.estimatedTransferredPerMeter } },
+    { label: 'Densidad actual', static: false, decimals: 0, g: {
+        cd: o => o.estimatedActualAnimals, pp: o => o.estimatedActualAnimals } },
+    { label: 'Densidad actual (/Ha)', static: false, decimals: 1, g: {
+        cd: o => o.estimatedActualDensityPerHectare, pp: o => o.estimatedActualDensityPerHectare, si: null, co: o => o.actualDensityByHectare, pr: o => o.harvestDensityPerHectare, ct: null, dr: null, pc: o => o.estimatedActualDensityPerHectare, ch: o => o.actualDensityByHectare } },
+    { label: 'Densidad actual (/m2)', static: false, decimals: 2, g: {
+        cd: o => o.estimatedActualDensityPerMeter, pp: o => o.estimatedActualDensityPerMeter, si: null, co: o => o.actualDensityByMeter, pr: null, ct: o => o.totalActualAnimalsPerSquareMeter, cal: o => o.totalActualAnimalsPerSquareMeter, dr: o => o.densityByMeterHarvest, pc: o => o.estimatedActualDensityPerMeter, sp: o => o.totalDensityPerMeter, ir: o => o.harvestDensityM2, ch: o => o.actualDensityByMeter } },
+    { label: 'Peso siembra (g)', static: true, decimals: 2, g: {
+        cd: o => o.sowingAverageWeightGrams, pp: o => o.sowingAverageWeightGrams, si: o => o.averageWeightGrams, co: null, pr: o => o.sowingAverageWeightGrams, ct: null, dr: o => o.averageSeedWeightGrams, sp: o => o.sowingWeight, ir: o => o.averageSeedWeightGrams, sl: o => o.averageWeightGrams, sj: o => o.averageWeightGrams, ch: o => o.averageSeedWeightGrams } },
+    { label: 'Peso actual/cosecha (g)', static: false, decimals: 2, g: {
+        cd: o => o.averageWeightGrams, pp: o => o.averageWeightGrams, si: null, co: o => (o.wholeWeight ?? o.generalWeight), pr: o => o.harvestAverageWeightGrams, ct: o => o.weight, cal: o => o.weight, dr: null, pc: o => o.averageWeightGrams, ll: o => o.harvestAverageWeightGrams, sp: o => o.farmAverageWeightGrams, ir: o => o.averageFarmWeightGrams, ch: o => o.averageFarmWeightGrams } },
+    { label: 'Sobrevivencia (%)', static: false, decimals: 1, g: {
+        // sj: NO se muestra - el estimatedSurvival de cycle_sowing/juveniles es la sobrevivencia
+        // del CICLO DE ORIGEN (de donde se transfirieron los juveniles), no del ciclo destino.
+        cd: o => o.estimatedSurvival, pp: o => o.estimatedSurvival, si: null, co: null, pr: o => o.finalSurvival, ct: o => o.survival, cal: o => o.survival, dr: o => o.survivalPlant, val: o => o.survival, pc: o => o.estimatedSurvival, sp: o => o.estimatedSurvival, ir: o => o.estimatedSurvival, sl: o => o.estimatedSurvival } },
+    { label: 'Alimento acumulado (kg)', static: false, decimals: 0, g: {
+        cd: o => o.accumulatedFeedKilograms, pp: o => o.totalFeeding, si: null, co: null, pr: o => o.accumulatedFeed, ct: o => o.totalAccumulateFeed, cal: o => o.totalAccumulateFeed, dr: o => o.accumulatedFeed, pc: o => o.accumulatedFeedkilograms, sp: o => o.feedKilograms, ir: o => o.accumulatedFeedKilograms } },
+    { label: 'Alimento desde Larvas (kg)', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: o => o.feedFromLarvae, cal: o => o.feedFromLarvae, dr: o => o.accumulatedFeedFromLarvae, pc: o => o.feedingFromLarvae, sp: o => o.feedFromLarvaePounds * 0.453592, ir: o => o.feedFromLarvaePounds * 0.453592 } },
+    { label: 'FCA Bruto', static: false, decimals: 2, g: {
+        cd: o => o.grossGrowthFactor, pp: o => o.grossGrowthFactor, si: null, co: null, pr: o => o.grossFCR, ct: o => o.fcaGross, cal: o => o.fcaGross, dr: o => o.grossFCRPlant, pc: o => o.grossGrowthFactor, sp: o => o.grossGrowthFactor, ir: o => o.grossGrowthFactor } },
+    { label: 'FCA Real', static: false, decimals: 2, g: {
+        cd: o => o.growthFactor, pp: o => o.growthFactor, si: null, co: null, pr: o => o.realFCR, ct: o => o.fca, cal: o => o.fca, dr: o => o.realFCRPlant, pc: o => o.growthFactor, sp: o => o.growthFactor, ir: o => o.growthFactor } },
+    { label: 'FCA Larvas', static: false, decimals: 2, g: {
+        cd: o => o.estimatedGrowthFactorFromLarvae, pp: o => o.growthFactorFromLarvae, si: null, co: null, pr: o => o.larvaeFCR, dr: o => o.larvaeFCRPlant, pc: o => o.estimatedGrowthFactorFromLarvae, sp: o => o.growthFactorFromLarvae, ir: o => o.growthFactorFromLarvae } },
+    { label: 'FCA Bruto Estimado', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.grossFCREstimated } },
+    { label: 'FCA Real Estimado', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.realFCREstimated } },
+    { label: 'FCA Larvas Estimado', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.larvaeFCREstimated } },
+
+    // ── Identificación (texto, no se compara numéricamente) ──
+    { label: 'Fecha de siembra', static: false, decimals: 0, g: {
+        cd: o => (o.sowingDate || '').slice(0, 10), pp: null, si: o => (o.dateSowing || '').slice(0, 10), co: null, pr: null, ct: null, dr: o => o.sowingDate, sl: o => (o.dateSowing || '').slice(0, 10), sj: o => (o.dateSowing || '').slice(0, 10) } },
+    { label: 'Fecha de cosecha', static: false, decimals: 0, g: {
+        cd: o => (o.harvestDate || '').slice(0, 10), pp: null, si: null, co: o => (o.endHarvest || '').slice(0, 10), pr: o => (o.endHarvestDate || '').slice(0, 10), ct: null, dr: o => o.harvestDate } },
+    { label: 'Lote de siembra', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: o => o.lotCode, co: null, pr: null, ct: null, dr: null, sl: o => o.lotCode, sj: o => o.lotCode } },
+    { label: 'Código genético', static: true, decimals: 0, g: {
+        cd: o => o.geneticCode, pp: o => o.geneticCode, si: o => o.geneticCode, co: o => o.geneticCode, pr: o => o.geneticCode, ct: null, dr: o => o.geneticCode, pc: o => o.geneticCode, sp: o => o.geneticCode, ir: o => o.geneticCode, sl: o => o.geneticCode, sj: o => o.geneticCode, ch: o => o.geneticCode } },
+    { label: 'Laboratorio', static: true, decimals: 0, g: {
+        cd: o => o.supplierLaboratoryCode, pp: o => o.supplierLaboratoryCode, si: o => o.supplierLaboratoryCode, co: o => o.supplierLaboratoryCode, pr: o => o.supplierLaboratoryCode, ct: null, dr: o => o.supplierLaboratoryCode, pc: o => o.supplierLaboratoryCode, sp: o => o.supplierLaboratoryCode, ir: o => o.supplierLaboratoryCode, sl: o => o.supplierLaboratoryCode, sj: o => o.supplierLaboratoryCode, ch: o => o.supplierLaboratoryCode } },
+    { label: 'Maduración', static: true, decimals: 0, g: {
+        cd: o => o.supplierMaturationCode, pp: o => o.supplierMaturationCode, si: o => o.supplierMaturationCode, co: o => o.supplierMaturationCode, pr: o => o.supplierMaturationCode, ct: null, dr: o => o.supplierMaturationCode, pc: o => o.supplierMaturationCode, sp: o => o.supplierMaturationCode, ir: o => o.supplierMaturationCode, sl: o => o.supplierMaturationCode, sj: o => o.supplierMaturationCode, ch: o => o.supplierMaturationCode } },
+
+    // ── Crecimiento ──
+    { label: 'Crecimiento Inicio (g)', static: false, decimals: 2, g: {
+        cd: null, pp: o => o.initialGrowth, si: null, co: null, pr: null, ct: o => o.growthFromTheBeginning, cal: o => o.growthFromTheBeginning, dr: o => o.initialGrowthPlant, pc: o => o.initialGrowth, sp: o => o.initialGrowth, ir: o => o.initialGrowth, ch: o => o.initialGrowth } },
+    { label: 'Crecimiento Última Semana (g)', static: false, decimals: 2, g: {
+        cd: o => o.growthLastWeek, pp: o => o.growthLastWeek, si: null, co: null, pr: null, ct: o => o.growthlastWeeks, cal: o => o.growthlastWeeks, dr: null } },
+    { label: 'Crecimiento 2 Semanas (g)', static: false, decimals: 2, g: {
+        cd: o => o.growthTwoWeeks, pp: o => o.growthTwoWeeks, si: null, co: null, pr: null, ct: o => o.growth2Weeks, cal: o => o.growth2Weeks, dr: null, pc: o => o.growthTwoWeeks } },
+    { label: 'Crecimiento 4 Semanas (g)', static: false, decimals: 2, g: {
+        cd: o => o.growthFourWeeks, pp: o => o.growthFourWeeks, si: null, co: null, pr: null, ct: null, dr: null, pc: o => o.growthFourWeeks } },
+
+    // ── Peso (Estimado / Cosecha(Real) / Planta, desde Detailed Result) ──
+    { label: 'Peso Raleo Estimado (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWeightEstimated } },
+    { label: 'Peso Raleo Real (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWeightHarvest } },
+    { label: 'Peso Raleo Planta (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWeightPlant } },
+    { label: 'Peso Final Estimado (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightEstimated } },
+    { label: 'Peso Final Real (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightHarvest } },
+    { label: 'Peso Final Planta (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightPlant } },
+    { label: 'Peso Promedio Finca (g)', static: false, decimals: 2, g: {
+        // sin campo propio confirmado en Detailed Result - se usa el peso actual de Piscinas Prod. como referencia
+        cd: null, pp: o => o.averageWeightGrams, si: null, co: null, pr: null, ct: null, dr: null } },
+    { label: 'Peso Promedio Finca Regresión (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: o => o.estimatedWeightByRegresion, cal: o => o.estimatedWeightByRegresion, dr: null, val: o => o.averageWeightGrams } },
+    { label: 'Peso Entero Planta (g)', static: false, decimals: 2, g: {
+        // calculado: libras totales planta convertidas a gramos / animales totales planta
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null,
+        dr: o => (o.totalQuantityPlant ? o.totalPoundsPlant * 453.592 / o.totalQuantityPlant : null) } },
+    { label: 'Peso Cola Planta (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null } }, // sin confirmar (no hay campo "cola" en Detailed Result)
+    { label: 'Peso Promedio Planta (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null,
+        dr: o => (o.totalQuantityPlant ? o.totalPoundsPlant * 453.592 / o.totalQuantityPlant : null) } },
+    { label: 'Peso Promedio General (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null } }, // viene de report_profitability/general (finca), no de detailed_result por piscina
+
+    // ── Biomasa ──
+    { label: 'Biomasa Inicial (lb)', static: false, decimals: 0, g: {
+        cd: o => o.initialBiomassPounds, pp: o => o.initialBiomassPounds, si: null, co: null, pr: null, ct: null, dr: o => o.initialBiomass, pc: o => o.initialBiomassPounds, sp: o => o.initialBiomassPounds, ir: o => o.initialBiomass } },
+    { label: 'Biomasa Transferida (lb)', static: false, decimals: 0, g: {
+        cd: o => o.estimatedTransferredBiomassPounds, pp: null, si: null, co: null, pr: null, ct: null, dr: null } },
+    { label: 'Animales Transferidos - Entrada', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null, mv: o => o.entradaAnimales } },
+    { label: 'Animales Transferidos - Salida', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null, mv: o => o.salidaAnimales } },
+    { label: 'Biomasa Total (lb)', static: false, decimals: 0, g: {
+        cd: o => o.estimatedTotalBiomassPounds, pp: o => o.estimatedTotalBiomassPounds, si: null, co: null, pr: null, ct: null, dr: null, pc: o => o.estimatedTotalBiomassPounds } },
+    { label: 'Biomasa Semanal (lb)', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: o => o.biomassWeek, cal: o => o.biomassWeek, dr: null } },
+    { label: 'Biomasa /Ha (lb)', static: false, decimals: 0, g: {
+        cd: o => o.estimatedTotalBiomassHectarePounds, pp: o => o.estimatedTotalBiomassHectarePounds, si: null, co: null, pr: null, ct: null, dr: null, pc: o => o.estimatedTotalBiomassHectarePounds } },
+    { label: 'Biomasa /Ha/Día (lb)', static: false, decimals: 1, g: {
+        cd: o => o.estimatedTotalBiomassHectareDayPounds, pp: o => o.estimatedTotalBiomassHectareDayPounds, si: null, co: null, pr: null, ct: null, dr: null } },
+    { label: 'Biomasa /Ha proyectada 1 Semana', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null } }, // solo existe a nivel finca (report_production/summary), no por piscina
+    { label: 'Biomasa /Ha proyectada 2 Semanas', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null } },
+    { label: 'Biomasa /Ha proyectada 3 Semanas', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null } },
+    { label: 'Biomasa /Ha proyectada 4 Semanas', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null } },
+    { label: 'Biomasa /m2 (lb)', static: false, decimals: 2, g: {
+        cd: o => o.estimatedTotalBiomassPerMeter, pp: o => o.estimatedTotalBiomassPerMeter, si: null, co: null, pr: null, ct: null, dr: null } },
+    { label: 'Biomasa por Millar sembrado (lb)', static: false, decimals: 2, g: {
+        cd: o => (o.sowingQuantity ? o.estimatedTotalBiomassPounds / (o.sowingQuantity / 1000) : null),
+        pp: o => (o.sowingQuantity ? o.estimatedTotalBiomassPounds / (o.sowingQuantity / 1000) : null),
+        si: null, co: null, pr: null, ct: null, dr: null } },
+    { label: 'Biomasa Total por Alimentador (lb)', static: false, decimals: 0, g: {
+        cd: o => o.estimatedTotalBiomassPerFeeder, pp: o => o.estimatedTotalBiomassPerFeeder, si: null, co: null, pr: null, ct: null, dr: null } },
+    { label: 'Biomasa Actual (lb)', static: false, decimals: 0, g: {
+        cd: o => o.estimatedActualBiomassPounds, pp: o => o.estimatedActualBiomassPounds, si: null, co: null, pr: null, ct: o => o.biomassActual, cal: o => o.biomassActual, dr: null } },
+    { label: 'Biomasa Actual /Ha (lb)', static: false, decimals: 0, g: {
+        cd: o => o.estimatedActualBiomassHectarePounds, pp: o => o.estimatedActualBiomassHectarePounds, si: null, co: o => o.densityByHectare, pr: o => o.harvestDensityPerHectare, ct: null, dr: null } },
+    { label: 'Biomasa Cosechada (lb)', static: false, decimals: 0, g: {
+        cd: o => o.estimatedThinnedBiomassPounds, pp: o => o.estimatedThinnedBiomassPounds, si: null, co: null, pr: null, ct: o => o.biomassHarvested, cal: o => o.biomassHarvested, dr: o => o.totalPoundsHarvest, pc: o => o.biomassThinnedHarvested } },
+    { label: 'Biomasa Cosecha Parcial (lb)', static: false, decimals: 0, g: {
+        cd: o => o.estimatedThinnedBiomassPounds, pp: o => o.estimatedThinnedBiomassPounds, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedPoundsHarvest } },
+    { label: 'Biomasa Cosecha Parcial /Ha (lb)', static: false, decimals: 0, g: {
+        cd: o => o.estimatedThinnedBiomassHectarePounds, pp: o => o.estimatedThinnedBiomassHectarePounds, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedPoundsHarvestHa } },
+    { label: 'Biomasa Cosecha Final (lb)', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: o => o.wholePounds, pr: null, ct: null, dr: o => o.finalPoundsHarvest } },
+    { label: 'Biomasa Cosecha Final /Ha (lb)', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: o => o.poundsByHectare, pr: null, ct: null, dr: o => o.finalPoundsHarvestHa } },
+
+    // ── Libras (Detailed Result: Estimado / Cosecha(Real) / Planta) ──
+    { label: 'Libras Parcial Estimado', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedPoundsEstimated } },
+    { label: 'Libras Final Estimado', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalPoundsEstimated } },
+    { label: 'Libras Parcial Planta', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedPoundsPlant } },
+    { label: 'Libras Final Planta', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalPoundsPlant } },
+    { label: 'Libras Iniciales', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.initialBiomass } },
+    { label: 'Libras Enviadas', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: o => o.sentPounds, pr: null, ct: null, dr: null, ll: o => o.sentPounds, sp: o => o.sentPounds, ir: o => o.sentPounds } },
+    { label: 'Libras Cola', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: o => o.tailPounds, pr: null, ct: null, dr: null, ll: o => o.tailPounds, ir: o => o.tailPounds } },
+    { label: 'Libras Netas', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: o => o.netPounds, pr: null, ct: null, dr: o => o.netPounds, ll: o => o.netPounds, sp: o => o.netPounds, ir: o => o.netPounds, ch: o => o.netPounds } },
+    { label: 'Libras Entero', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: o => o.wholePounds, pr: null, ct: null, dr: o => o.totalPoundsPlant, ll: o => o.wholePounds, ir: o => o.wholePounds, ch: o => o.wholePounds } },
+    { label: 'Libras /Ha', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: o => o.poundsByHectare, pr: null, ct: null, dr: o => o.totalPoundsPlantHa } },
+    { label: 'Libras /Día', static: false, decimals: 1, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => (o.daysProduction ? o.totalPoundsPlant / o.daysProduction : null) } },
+    { label: 'Libras /Ha Raleo Estimado', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedPoundsEstimatedHa } },
+    { label: 'Libras /Ha Final Estimado', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalPoundsEstimatedHa } },
+    { label: 'Libras /Ha Raleo Real', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedPoundsHarvestHa } },
+    { label: 'Libras /Ha Final Real', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalPoundsHarvestHa } },
+
+    { label: 'Rendimiento Entero Planta (%)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: o => o.wholeYield, pr: null, ct: null, dr: o => o.finalWholeYield, ll: o => o.yieldWhole, sp: o => o.wholeYield, ch: o => o.wholeYield } },
+    { label: 'Rendimiento Cola Planta (%)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWholeYield, ll: o => o.yieldTail } },
+
+    // ── Densidad (Detailed Result) ──
+    { label: 'Densidad Cosecha Parcial (/m2)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedDensityPlant } },
+    { label: 'Densidad Cosecha Final (/m2)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalDensityPlant } },
+    { label: 'Densidad Cosechas Totales (/m2)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.totalDensityPlant } },
+    { label: 'Densidad Raleo Estimado (/m2)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedDensityEstimated } },
+    { label: 'Densidad Final Estimado (/m2)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalDensityEstimated } },
+    { label: 'Densidad Raleo Real (/m2)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedDensityHarvest } },
+    { label: 'Densidad Final Real (/m2)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalDensityHarvest } },
+
+    // ── Animales (Detailed Result) ──
+    { label: 'Animales Totales Planta', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.totalQuantityPlant, ll: o => o.harvestedAnimals, ir: o => o.harvestQuantity, ch: o => o.finalAnimals } },
+    { label: 'Animales Totales /m2', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.totalDensityPlant } },
+    { label: 'Animales Entero Planta', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: o => o.wholeAnimals, pr: null, ct: null, dr: o => o.finalQuantityPlant, ll: o => o.wholeHarvestedAnimals, sp: o => o.wholeAnimals, ir: o => o.wholeQuantity, ch: o => o.wholeAnimals } },
+    { label: 'Animales Cola Planta', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedQuantityPlant, ll: o => o.tailHarvestedAnimals } },
+
+    // ── Alimento ──
+    { label: 'Alimento Cantidad/Día (kg)', static: false, decimals: 1, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null,
+        dr: o => (o.daysProduction ? o.accumulatedFeed / o.daysProduction : null) } },
+    { label: 'Alimento Cantidad /Ha/Día (kg)', static: false, decimals: 2, g: {
+        cd: null, pp: o => o.totalFeedingPerHectareDay, si: null, co: null, pr: null, ct: o => o.totalFeedWeekPerHectareDay, cal: o => o.totalFeedWeekPerHectareDay, dr: null } },
+    { label: 'Alimento Última Semana (kg)', static: false, decimals: 0, g: {
+        cd: null, pp: o => o.totalFeedingLastWeek, si: null, co: null, pr: null, ct: o => o.totalFeedWeek, cal: o => o.totalFeedWeek, dr: null } },
+    { label: 'Alimento Última Semana /Ha/Día (kg)', static: false, decimals: 2, g: {
+        cd: null, pp: o => o.totalFeedingLastWeekPerHectareDay, si: null, co: null, pr: null, ct: null, dr: null } },
+    { label: 'Alimento Costo (USD)', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costFeedTotal } },
+    { label: 'Alimento Estimado /m2 (kg)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null } }, // sin confirmar
+
+    // ── Venta ──
+    { label: 'Venta Total (USD)', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: o => o.totalSale, pr: null, ct: null, dr: o => o.saleTotal, val: o => o.saleTotal, ll: o => o.totalSale, sp: o => o.totalSale, ch: o => o.totalSale } },
+    { label: 'Venta /Ha (USD)', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: o => o.saleHa, pr: null, ct: null, dr: o => o.saleHa } },
+    { label: 'Venta /Ha/Día (USD)', static: false, decimals: 1, g: {
+        cd: null, pp: null, si: null, co: o => o.saleHaDay, pr: null, ct: null, dr: o => o.saleHaDay } },
+    { label: 'Venta /Libra (USD)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: o => o.saleByPound, pr: null, ct: null, dr: o => o.salePerPound } },
+    { label: 'Venta Cosecha Parcial (USD)', static: false, decimals: 0, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.saleThinnedTotal, val: o => o.saleThinnedTotal } },
+
+    // ── Costos (report_profitability/detailed_result - Total / Ha / Ha-Día / Lb) ──
+    { label: 'Semilla - Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: o => o.totalCost, co: null, pr: null, ct: null, dr: o => o.costSeedTotal, val: o => o.costLarvaeTotal, ir: o => o.dcSeedstockCost, sl: o => o.totalCost, sj: o => o.totalCost } },
+    { label: 'Semilla - /Ha (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costSeedHa } },
+    { label: 'Semilla - /Ha/Día (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costSeedHaDay } },
+    { label: 'Semilla - /Libra (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costSeedPerPound, sl: o => o.costPerPound, sj: o => o.costPerPound } },
+
+    { label: 'Alimento (costo) - Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: o => o.totalCost, ct: null, dr: o => o.costFeedTotal, val: o => o.costFeedTotal, ir: o => o.dcFeedCost } },
+    { label: 'Alimento (costo) - /Ha (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costFeedHa } },
+    { label: 'Alimento (costo) - /Ha/Día (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costFeedHaDay } },
+    { label: 'Alimento (costo) - /Libra (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costFeedPerPound } },
+
+    { label: 'Insumos - Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costSuppliesTotal, val: o => o.costSuppliesTotal, ir: o => o.dcSupplies } },
+    { label: 'Insumos - /Ha (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costSuppliesHa } },
+    { label: 'Insumos - /Ha/Día (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costSuppliesHaDay } },
+    { label: 'Insumos - /Libra (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costSuppliesPerPound } },
+
+    { label: 'Combustible - Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costFuelTotal, val: o => o.costFuelTotal, ir: o => o.icFuel } },
+    { label: 'Combustible - /Ha (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costFuelHa } },
+    { label: 'Combustible - /Ha/Día (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costFuelHaDay } },
+    { label: 'Combustible - /Libra (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costFuelPerPound } },
+
+    { label: 'Electricidad - Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costElectricityTotal, val: o => o.costElectricityTotal, ir: o => o.icElectricity } },
+    { label: 'Electricidad - /Ha (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costElectricityHa } },
+    { label: 'Electricidad - /Ha/Día (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costElectricityHaDay } },
+    { label: 'Electricidad - /Libra (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costElectricityPerPound } },
+
+    { label: 'Mano de Obra - Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costLaborCostTotal, val: o => o.costLaborTotal, ir: o => o.icLaborCost } },
+    { label: 'Mano de Obra - /Ha (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costLaborCostHa } },
+    { label: 'Mano de Obra - /Ha/Día (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costLaborCostHaDay } },
+    { label: 'Mano de Obra - /Libra (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costLaborCostPerPound } },
+
+    { label: 'Mantenimiento - Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costMaintenanceTotal, val: o => o.costMaintenanceTotal, ir: o => o.icMaintenance } },
+    { label: 'Mantenimiento - /Ha (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costMaintenanceHa } },
+    { label: 'Mantenimiento - /Ha/Día (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costMaintenanceHaDay } },
+    { label: 'Mantenimiento - /Libra (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costMaintenancePerPound } },
+
+    { label: 'Indirectos (Otros) - Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costOtherIndirectCostTotal, val: o => o.costIndirectTotal, ir: o => o.icOther } },
+    { label: 'Indirectos (Otros) - /Ha (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costOtherIndirectCostHa } },
+    { label: 'Indirectos (Otros) - /Ha/Día (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costOtherIndirectCostHaDay } },
+    { label: 'Indirectos (Otros) - /Libra (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costOtherIndirectCostPerPound } },
+
+    { label: 'Costo + Gastos - Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costAndExpensesTotal, val: o => o.costAndExpensesTotal, ir: o => o.totalCost } },
+    { label: 'Costo + Gastos - /Ha (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costAndExpensesHa } },
+    { label: 'Costo + Gastos - /Ha/Día (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costAndExpensesHaDay } },
+
+    // ── Utilidad / Rentabilidad ──
+    { label: 'Utilidad Operativa = Utilidad Bruta (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.grossProfitTotal, val: o => o.grossProfitTotal, ir: o => o.operatingProfit } },
+    { label: 'Flujo Neto = EBITDA (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.ebitdaTotal, val: o => o.ebitdaTotal, ir: o => o.netCashFlow } },
+    { label: 'Utilidad Neta = EBIT (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.ebitTotal, val: o => o.ebitTotal, ir: o => o.netProfit } },
+    { label: 'Utilidad Neta /Ha/Día Prod (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.ebitHaDay } },
+    { label: 'Utilidad Neta /Ha/Día Ciclo (USD)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null,
+        dr: o => (o.daysCycle ? o.ebitTotal / o.poolSize / o.daysCycle : null) } },
+
+    { label: 'Gastos Administrativos - Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.administrativeExpensesTotal, val: o => o.administrativeExpensesTotal, ir: o => o.expAdministrative } },
+    { label: 'Gastos Administrativos - /Ha (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.administrativeExpensesHa } },
+    { label: 'Gastos Administrativos - /Ha/Día (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.administrativeExpensesHaDay } },
+
+    { label: 'Gastos Financieros - Total (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.financialExpensesTotal, val: o => o.financialExpensesTotal, ir: o => o.expFinancial } },
+    { label: 'Gastos Financieros - /Ha (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.financialExpensesHa } },
+
+    { label: 'Depreciación - Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.depreciationTotal, val: o => o.depreciationTotal, ir: o => o.expDepreciation } },
+    { label: 'Depreciación - /Ha (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.depreciationHa } },
+    { label: 'Depreciación - /Ha/Día (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.depreciationHaDay } },
+
+    { label: 'Costo Total (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.totalCost } },
+    { label: 'Costo Biomasa (USD/lb)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null,
+        dr: o => (o.totalPoundsPlant ? o.totalCost / o.totalPoundsPlant : null) } },
+    { label: 'Costo por Millar (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.costSeedPerThousand, sl: o => o.costPerThousand, sj: o => o.costPerThousand } },
+    { label: 'Costo por Kilogramo (USD)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null,
+        dr: o => (o.totalPoundsPlant ? o.totalCost / (o.totalPoundsPlant * 0.453592) : null) } },
+    { label: 'Costo por Libra (USD)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null,
+        dr: o => (o.totalPoundsPlant ? o.totalCost / o.totalPoundsPlant : null) } },
+
+    { label: 'Margen (%)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.grossProfitPercentage, ir: o => o.profitMargin } },
+    { label: 'ROI (%)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null, ir: o => o.roi } },
+    { label: 'EBT (USD)', static: false, decimals: 0, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.ebtTotal, val: o => o.ebtTotal, ir: o => o.netProfit - (o.expFinancial || 0) } },
+    { label: 'EBT /Ha (USD)', static: false, decimals: 2, g: { cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.ebtHa } },
+];
+
+// Construye las 3 filas del encabezado agrupado (Widget/Analitica/ingreso de datos, Produccion/
+// Cosechas/Rentabilidad, nombres de columna).
+// Marca como "diff" las celdas que NO coinciden con el grupo mayoritario de valores presentes en
+// la fila (agrupando numeros dentro de 1% de tolerancia, y strings por igualdad exacta). Se usa el
+// grupo MAS GRANDE como referencia (no el primer valor) para no marcar todo como raro cuando el
+// primer modulo en aparecer es justo el que tiene el dato equivocado.
+function detectarDiferencias(cells) {
+    const cellDiff = cells.map(() => false);
+    const present = cells.map((c, i) => ({ v: c.v, i })).filter(c => c.v !== null && c.v !== undefined);
+    if (present.length < 2) return cellDiff;
+    const isNum = typeof present[0].v === 'number';
+    const groups = [];
+    present.forEach(p => {
+        const g = groups.find(g => isNum
+            ? Math.abs(g.val - p.v) / Math.max(Math.abs(g.val), 1) <= 0.01
+            : String(g.val) === String(p.v));
+        if (g) g.items.push(p); else groups.push({ val: p.v, items: [p] });
+    });
+    if (groups.length < 2) return cellDiff;
+    groups.sort((a, b) => b.items.length - a.items.length);
+    const mainGroup = groups[0];
+    present.forEach(p => { if (!mainGroup.items.includes(p)) cellDiff[p.i] = true; });
+    return cellDiff;
+}
+
+function toggleFilasVacias(btn) {
+    const table = btn.closest('.section-card').querySelector('.ciclo-tbl');
+    const oculto = table.classList.toggle('hide-empty');
+    btn.classList.toggle('active', oculto);
+    btn.textContent = oculto ? 'Mostrar todos' : 'Ocultar vacíos';
+    aplicarOcultarColumnasVacias(table, oculto);
+}
+
+// Oculta tambien columnas (modulos) enteras sin ningun dato en toda la tabla, ajustando el
+// colspan de las filas de grupo (Widget/Analitica/Produccion/Cosechas/...) para que no queden
+// desalineadas con las columnas que sí se muestran.
+function aplicarOcultarColumnasVacias(table, ocultar) {
+    const bodyRows = Array.from(table.querySelectorAll('tbody tr'));
+    const colEmpty = CICLO_BULK_COLS_FLAT.map((_, i) => bodyRows.every(row => {
+        const td = row.children[i + 1]; // +1 por la columna "Concepto"
+        return !td || td.classList.contains('empty');
+    }));
+
+    const theadRows = table.querySelectorAll('thead tr');
+    // Fila 3: un <th> por columna, mismo orden que CICLO_BULK_COLS_FLAT.
+    Array.from(theadRows[2].children).forEach((th, i) => {
+        th.style.display = (ocultar && colEmpty[i]) ? 'none' : '';
+    });
+    // Celdas de datos del cuerpo.
+    bodyRows.forEach(row => {
+        CICLO_BULK_COLS_FLAT.forEach((_, i) => {
+            const td = row.children[i + 1];
+            if (td) td.style.display = (ocultar && colEmpty[i]) ? 'none' : '';
+        });
+    });
+
+    const isFlat = g => g.sections.length === 1 && g.sections[0].section === null;
+    const contarVisibles = (offset, span) => colEmpty.slice(offset, offset + span).filter(empty => !(ocultar && empty)).length;
+
+    // Fila 1: un <th> por grupo top-level (Widget, Ingreso de datos, Analitica), en orden.
+    const topCells = Array.from(theadRows[0].children).slice(1); // saltar "Concepto"
+    let offset = 0;
+    CICLO_BULK_GROUPS.forEach((g, gi) => {
+        const span = g.sections.reduce((s, sec) => s + sec.cols.length, 0);
+        const visibles = contarVisibles(offset, span);
+        const th = topCells[gi];
+        th.style.display = visibles === 0 ? 'none' : '';
+        if (visibles > 0) th.colSpan = visibles;
+        offset += span;
+    });
+
+    // Fila 2: un <th> por seccion con nombre (Produccion, Cosechas, Rentabilidad) - los grupos
+    // "planos" (Widget, Ingreso de datos) no tienen celda aqui (rowspan=2 desde la fila 1).
+    const midCells = Array.from(theadRows[1].children);
+    let midIdx = 0, offset2 = 0;
+    CICLO_BULK_GROUPS.forEach(g => {
+        if (isFlat(g)) { offset2 += g.sections[0].cols.length; return; }
+        g.sections.forEach(sec => {
+            const visibles = contarVisibles(offset2, sec.cols.length);
+            const th = midCells[midIdx];
+            th.style.display = visibles === 0 ? 'none' : '';
+            if (visibles > 0) th.colSpan = visibles;
+            offset2 += sec.cols.length;
+            midIdx++;
+        });
+    });
+}
+
+function buildCicloHeaderRows() {
+    const isFlat = g => g.sections.length === 1 && g.sections[0].section === null;
+    const topRow = CICLO_BULK_GROUPS.map(g => {
+        const span = g.sections.reduce((s, sec) => s + sec.cols.length, 0);
+        const cls = g.plain ? 'grp-top grp-top-plain' : 'grp-top';
+        const rowspanAttr = isFlat(g) ? ' rowspan="2"' : '';
+        return `<th colspan="${span}"${rowspanAttr} class="${cls}">${g.top || ''}</th>`;
+    }).join('');
+    // Los grupos "planos" (Widget, Ingreso de datos) no tienen fila propia aqui - su celda de
+    // arriba ya ocupa esta fila via rowspan=2.
+    const midRow = CICLO_BULK_GROUPS.filter(g => !isFlat(g)).flatMap(g => g.sections).map(sec =>
+        sec.section
+            ? `<th colspan="${sec.cols.length}" class="grp-mid">${sec.section}</th>`
+            : `<th colspan="${sec.cols.length}" class="grp-mid grp-mid-plain"></th>`
+    ).join('');
+    const colRow = CICLO_BULK_COLS_FLAT.map(c => `<th>${c.label}</th>`).join('');
+    return { topRow, midRow, colRow };
+}
+
+function renderPiscinasTable(subName, piscinas) {
+    const colKeys = CICLO_BULK_COLS_FLAT.map(c => c.key);
+    const { poolName, cycleNumber, cd, pp, si, co, pr, ct, cal, val, mv, pc, ll, sp, ir, dr, sl, sj, ch, lp } = piscinas[0];
+    let html = `<div class="section-card"><div class="section-title"><span>${subName} — ${poolName} / ${cycleNumber}</span>
+        <button class="btn-toggle-empty" onclick="toggleFilasVacias(this)">Ocultar vacíos</button></div>`;
+
+    const { topRow, midRow, colRow } = buildCicloHeaderRows();
+    html += `<div style="overflow:auto;max-height:calc(100vh - 170px)"><table class="cmp-tbl ciclo-tbl"><thead style="position:sticky;top:0;z-index:2">
+        <tr><th rowspan="3" class="concepto-th">Concepto</th>${topRow}</tr>
+        <tr>${midRow}</tr>
+        <tr>${colRow}</tr>
+    </thead><tbody>`;
+
+    const objs = { cd, pp, si, co, pr, ct, cal, val, mv, pc, ll, sp, ir, dr, sl, sj, ch, lp };
+    CICLO_BULK_CONCEPTS.forEach((concept) => {
+        const cells = colKeys.map(k => porSemanaCell(concept.g[k], objs[k], concept.decimals));
+        const cellDiff = detectarDiferencias(cells);
+        const filaVacia = cells.every(c => c.s === null);
+        html += `<tr class="${filaVacia ? 'row-empty' : ''}"><td>${concept.label}</td>`;
+        cells.forEach((c, i) => {
+            html += c.s === null ? `<td class="empty">—</td>` : `<td class="${cellDiff[i] ? 'diff' : ''}">${c.s}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    html += '</div>';
+    return html;
+}
+
+async function buscarCiclo() {
+    if (!getToken()) { alert('Inicia sesión primero'); return; }
+    const subCode = document.getElementById('f-sucursal').value;
+    const poolName = document.getElementById('f-piscina').value.trim();
+    const cycleNumber = parseInt(document.getElementById('f-ciclo').value, 10);
+    const daysBack = parseInt(document.getElementById('f-diasback').value, 10) || 400;
+    if (!poolName || !cycleNumber) { alert('Completa piscina y ciclo'); return; }
+
+    const sub = SUBSIDIARIES.find(s => s.code === subCode);
+    const main = document.getElementById('main-content');
+    const btn = document.getElementById('btn-buscar');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Buscando...';
+    main.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><div>Consultando módulos para ${sub.name} / piscina ${poolName} / ciclo ${cycleNumber}...</div></div>`;
+
+    const end = new Date();
+    const start = new Date(end.getTime() - daysBack * 86400000);
+    const startStr = isoDate(start), endStr = isoDate(end);
+
+    try {
+        const [pp, si, co, pr, mv, pc, ll, sp, ir, lp] = await Promise.all([
+            fetchPiscinasProduccion(sub.id, sub.code, poolName, cycleNumber).catch(() => null),
+            fetchSiembras(sub.id, sub.code, poolName, cycleNumber, startStr, endStr).catch(() => null),
+            fetchCosechas(sub.id, sub.code, poolName, cycleNumber, startStr, endStr).catch(() => null),
+            fetchPrecrias(sub.id, sub.code, poolName, cycleNumber, startStr, endStr).catch(() => null),
+            fetchMovimientos(sub.code, poolName, cycleNumber, startStr, endStr).catch(() => ({ entradas: [], salidas: [] })),
+            fetchPlanCosechas(sub.code, poolName, cycleNumber).catch(() => null),
+            fetchLiquidaciones(sub.id, sub.code, poolName, cycleNumber, startStr, endStr).catch(() => null),
+            fetchPiscinasLiquidadas(sub.id, sub.code, poolName, cycleNumber, startStr, endStr).catch(() => null),
+            fetchInformeRentabilidad(sub.code, poolName, cycleNumber, startStr, endStr).catch(() => null),
+            fetchListadoPiscinas(sub.id, poolName, cycleNumber).catch(() => null),
+        ]);
+
+        if (!pp && !si && !co && !pr && !mv.entradas.length) {
+            main.innerHTML = `<div class="empty-state"><div class="empty-icon">🤷</div>
+                <div>No se encontró ese ciclo en ningún módulo dentro del rango de fechas.<br>
+                Prueba ampliando "Buscar desde hace (días)" o revisa sucursal/piscina/ciclo.</div></div>`;
+            return;
+        }
+
+        const cycleId = g(pp, 'idCycle') || g(si, 'cycleId') || g(co, 'cycleId') || g(pr, 'cycleId') ||
+            (mv.entradas[0] && mv.entradas[0].destinationCycleId);
+        const [ct, cycleDetail, val, dr, sl, sj, ch] = await Promise.all([
+            cycleId ? fetchCicloTablero(cycleId).catch(() => ({})) : {},
+            fetchCycleDetail(cycleId),
+            cycleId ? fetchValoracion(cycleId).catch(() => null) : null,
+            fetchDetalleResultados(sub.id, poolName, cycleId, startStr, endStr).catch(() => null),
+            fetchSiembraLarvas(cycleId).catch(() => null),
+            fetchSiembraJuveniles(cycleId).catch(() => null),
+            fetchCosechasPorCiclo(cycleId).catch(() => null),
+        ]);
+
+        const mvFlat = {
+            entradaAnimales: mv.entradas.reduce((s, m) => s + (m.quantity || 0), 0),
+            salidaAnimales: mv.salidas.reduce((s, m) => s + (m.quantity || 0), 0),
+        };
+        // "Historia del ciclo - Calendario" es la misma pestana que "Historia del ciclo - Siembra"
+        // (mismo endpoint cycle_histories/production) solo que agrupada por semana calendario en vez
+        // de semana relativa a la siembra - la ultima fila (valor actual) es identica.
+        const piscinas = [{ poolName, cycleNumber, cd: cycleDetail, pp, si, co, pr, ct, cal: ct, val, mv: mvFlat, pc, ll, sp, ir, dr, sl, sj, ch, lp }];
+
+        let html = '';
+        html += renderPiscinasTable(sub.name, piscinas);
+
+        main.innerHTML = html;
+    } catch (e) {
+        main.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Error consultando la API: ${e.message}</div></div>`;
+    } finally {
+        btn.disabled = false; btn.textContent = 'Buscar';
+    }
+}
+
+</script>
+</body>
+</html>
