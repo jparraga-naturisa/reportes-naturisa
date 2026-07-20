@@ -1432,6 +1432,37 @@ const CICLO_BULK_CONCEPTS = [
         cd: o => o.sowingAverageWeightGrams, pp: o => o.sowingAverageWeightGrams, si: o => o.averageWeightGrams, co: null, pr: o => o.sowingAverageWeightGrams, ct: null, dr: o => o.averageSeedWeightGrams, sp: o => o.sowingWeight, ir: o => o.averageSeedWeightGrams, sl: o => o.averageWeightGrams, sj: o => o.averageWeightGrams, ch: o => o.averageSeedWeightGrams } },
     { label: 'Peso actual/cosecha (g)', static: false, decimals: 2, g: {
         cd: o => o.averageWeightGrams, pp: o => o.averageWeightGrams, si: null, co: o => (o.wholeWeight ?? o.generalWeight), pr: o => o.harvestAverageWeightGrams, ct: o => o.weight, cal: o => o.weight, dr: null, pc: o => o.averageWeightGrams, ll: o => o.harvestAverageWeightGrams, sp: o => o.farmAverageWeightGrams, ir: o => o.averageFarmWeightGrams, ch: o => o.averageFarmWeightGrams } },
+
+    // ── Peso (Estimado / Cosecha(Real) / Planta, desde Detailed Result) ──
+    { label: 'Peso Raleo Estimado (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWeightEstimated } },
+    { label: 'Peso Raleo Real (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWeightHarvest } },
+    { label: 'Peso Raleo Planta (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWeightPlant } },
+    { label: 'Peso Final Estimado (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightEstimated } },
+    { label: 'Peso Final Real (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightHarvest } },
+    { label: 'Peso Final Planta (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightPlant } },
+    { label: 'Peso Promedio Finca (g)', static: false, decimals: 2, g: {
+        // sin campo propio confirmado en Detailed Result - se usa el peso actual de Piscinas Prod. como referencia
+        cd: null, pp: o => o.averageWeightGrams, si: null, co: null, pr: null, ct: null, dr: null } },
+    { label: 'Peso Promedio Finca Regresión (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: o => o.estimatedWeightByRegresion, cal: o => o.estimatedWeightByRegresion, dr: null, val: o => o.averageWeightGrams } },
+    { label: 'Peso Entero Planta (g)', static: false, decimals: 2, g: {
+        // calculado: libras totales planta convertidas a gramos / animales totales planta
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null,
+        dr: o => (o.totalQuantityPlant ? o.totalPoundsPlant * 453.592 / o.totalQuantityPlant : null) } },
+    { label: 'Peso Cola Planta (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null } }, // sin confirmar (no hay campo "cola" en Detailed Result)
+    { label: 'Peso Promedio Planta (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null,
+        dr: o => (o.totalQuantityPlant ? o.totalPoundsPlant * 453.592 / o.totalQuantityPlant : null) } },
+    { label: 'Peso Promedio General (g)', static: false, decimals: 2, g: {
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null } }, // viene de report_profitability/general (finca), no de detailed_result por piscina
+
     { label: 'Sobrevivencia (%)', static: false, decimals: 1, g: {
         // sj: NO se muestra - el estimatedSurvival de cycle_sowing/juveniles es la sobrevivencia
         // del CICLO DE ORIGEN (de donde se transfirieron los juveniles), no del ciclo destino.
@@ -1476,36 +1507,6 @@ const CICLO_BULK_CONCEPTS = [
         cd: o => o.growthTwoWeeks, pp: o => o.growthTwoWeeks, si: null, co: null, pr: null, ct: o => o.growth2Weeks, cal: o => o.growth2Weeks, dr: null, pc: o => o.growthTwoWeeks } },
     { label: 'Crecimiento 4 Semanas (g)', static: false, decimals: 2, g: {
         cd: o => o.growthFourWeeks, pp: o => o.growthFourWeeks, si: null, co: null, pr: null, ct: null, dr: null, pc: o => o.growthFourWeeks } },
-
-    // ── Peso (Estimado / Cosecha(Real) / Planta, desde Detailed Result) ──
-    { label: 'Peso Raleo Estimado (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWeightEstimated } },
-    { label: 'Peso Raleo Real (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWeightHarvest } },
-    { label: 'Peso Raleo Planta (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWeightPlant } },
-    { label: 'Peso Final Estimado (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightEstimated } },
-    { label: 'Peso Final Real (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightHarvest } },
-    { label: 'Peso Final Planta (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightPlant } },
-    { label: 'Peso Promedio Finca (g)', static: false, decimals: 2, g: {
-        // sin campo propio confirmado en Detailed Result - se usa el peso actual de Piscinas Prod. como referencia
-        cd: null, pp: o => o.averageWeightGrams, si: null, co: null, pr: null, ct: null, dr: null } },
-    { label: 'Peso Promedio Finca Regresión (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: o => o.estimatedWeightByRegresion, cal: o => o.estimatedWeightByRegresion, dr: null, val: o => o.averageWeightGrams } },
-    { label: 'Peso Entero Planta (g)', static: false, decimals: 2, g: {
-        // calculado: libras totales planta convertidas a gramos / animales totales planta
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null,
-        dr: o => (o.totalQuantityPlant ? o.totalPoundsPlant * 453.592 / o.totalQuantityPlant : null) } },
-    { label: 'Peso Cola Planta (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null } }, // sin confirmar (no hay campo "cola" en Detailed Result)
-    { label: 'Peso Promedio Planta (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null,
-        dr: o => (o.totalQuantityPlant ? o.totalPoundsPlant * 453.592 / o.totalQuantityPlant : null) } },
-    { label: 'Peso Promedio General (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: null } }, // viene de report_profitability/general (finca), no de detailed_result por piscina
 
     // ── Biomasa ──
     { label: 'Biomasa Inicial (lb)', static: false, decimals: 0, g: {
