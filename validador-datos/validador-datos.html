@@ -735,6 +735,12 @@ function cdField(o, base) {
     return o.status === 'PRODUCCION' ? o['estimated' + base] : o['final' + base];
 }
 
+function fmtFechaCorta(isoDateStr) {
+    if (!isoDateStr) return '—';
+    const [y, m, d] = isoDateStr.split('-');
+    return `${d}/${m}/${y}`;
+}
+
 function fmt(v) {
     if (v === null || v === undefined) return null;
     if (typeof v === 'number') {
@@ -1843,8 +1849,10 @@ async function buscarPorConcepto() {
         const bulkFetches = {
             siembras: () => apiGet('cycle_sowing_report', [['subsidiaryIds', sub.id], ['startDate', startStr], ['endDate', endStr]]),
             pp: () => apiGet('report_production/pool_production', [['subsidiaryIds', sub.id], ['cutOffYear', year], ['cutOffWeek', week]]),
+            // co (cosechas) se pide siempre, no solo cuando el concepto lo necesita, porque
+            // tambien se usa para mostrar la fecha de cosecha del ciclo en cada fila.
+            co: () => apiGet('report_harvest/HarvestsByDate', [['subsidiaryIds', sub.id], ['startDate', startStr], ['endDate', endStr]]),
         };
-        if (relevantKeys.includes('co')) bulkFetches.co = () => apiGet('report_harvest/HarvestsByDate', [['subsidiaryIds', sub.id], ['startDate', startStr], ['endDate', endStr]]);
         if (relevantKeys.includes('pr')) bulkFetches.pr = () => apiGet('report_harvest/NurseryYield', [['startDate', startStr], ['endDate', endStr], ['subsidiaryIds', sub.id], ['PageSize', 1000]]);
         if (relevantKeys.includes('pc')) bulkFetches.pc = () => apiGet('harvest_programs/report', [['PageSize', 1000]]);
         if (relevantKeys.includes('ll')) bulkFetches.ll = () => apiGet('report_harvest/settlements', [['StartDate', startStr], ['EndDate', endStr], ['subsidiaryIds', sub.id], ['PageSize', 1000]]);
@@ -1885,7 +1893,7 @@ async function buscarPorConcepto() {
         const total = pares.length;
         container.innerHTML = `<div class="section-card"><div class="section-title"><span>Diferencias en "${concept.label}"</span>
             <span class="section-hint progreso-concepto">Escaneando 0/${total} piscinas/ciclos...</span></div>
-            <table class="cmp-tbl"><thead><tr><th>Piscina</th><th>Ciclo</th><th>Módulo</th><th>Valor</th></tr></thead><tbody id="concepto-tbody"></tbody></table>
+            <table class="cmp-tbl"><thead><tr><th>Piscina</th><th>Ciclo</th><th>Fecha siembra</th><th>Fecha cosecha</th><th>Módulo</th><th>Valor</th></tr></thead><tbody id="concepto-tbody"></tbody></table>
             <div id="concepto-empty" style="padding:24px;text-align:center;color:var(--muted);display:none"></div></div>`;
         const tbody = document.getElementById('concepto-tbody');
         const hint = container.querySelector('.progreso-concepto');
@@ -1899,6 +1907,13 @@ async function buscarPorConcepto() {
             // pp solo existe para el ciclo ACTIVO de la piscina (pool_production no
             // guarda ciclos previos) - para el ciclo anterior quedara null, y eso esta bien.
             const si = matchSiembras(siembrasData, sub.code, poolName, cycleNumber);
+            // Fecha siembra = la mas antigua entre los lotes sembrados; fecha cosecha = la mas
+            // reciente entre los eventos de cosecha (puede ser parcial) - se calculan sobre las
+            // filas crudas (no el agregado), que es lo unico que da la fecha correcta con multiples lotes.
+            const siRowsRaw = findAll(siembrasData, 'subsidiaryCode', 'poolName', 'cycleNumber', sub.code, poolName, cycleNumber);
+            const fechaSiembra = siRowsRaw.length ? siRowsRaw.map(r => r.dateSowing).sort()[0].slice(0, 10) : null;
+            const coRowsRaw = findAll(bulk.co, 'subsidiaryCode', 'poolName', 'cycleNumber', sub.code, poolName, cycleNumber);
+            const fechaCosecha = coRowsRaw.length ? coRowsRaw.map(r => r.endHarvest).sort().slice(-1)[0].slice(0, 10) : null;
             const ppRows = findAll(ppData, 'subsidiaryCode', 'poolName', 'cycleNumber', sub.code, poolName, cycleNumber);
             const pp = aggregateRows(ppRows, {
                 sum: ['sowingQuantity', 'totalFeeding', 'estimatedActualAnimals'],
@@ -1941,7 +1956,9 @@ async function buscarPorConcepto() {
                 const detalles = relevantKeys.map((k, i) => ({ modulo: MODULO_LABEL[k] || k, valor: cells[i].s, esDiff: cellDiff[i] }))
                     .filter(d => d.valor !== null);
                 const rowsHtml = detalles.map((d, i) => `<tr class="${i === 0 ? 'grp-first' : ''}">`
-                    + (i === 0 ? `<td>${poolName}</td><td>${cycleNumber}</td>` : '<td></td><td></td>')
+                    + (i === 0
+                        ? `<td>${poolName}</td><td>${cycleNumber}</td><td>${fmtFechaCorta(fechaSiembra)}</td><td>${fmtFechaCorta(fechaCosecha)}</td>`
+                        : '<td></td><td></td><td></td><td></td>')
                     + `<td>${d.modulo}</td><td class="${d.esDiff ? 'diff' : ''}">${d.valor}</td></tr>`).join('');
                 tbody.insertAdjacentHTML('beforeend', rowsHtml);
             }
