@@ -905,7 +905,6 @@ function applyLoginUI(on, nombre) {
     const modal  = document.getElementById('login-modal');
 
     modal.style.display = on ? 'none' : 'flex';
-    const navTabs = document.getElementById('nav-tabs'); if (navTabs) navTabs.style.display = on ? 'flex' : 'none';
 
     bar.classList.toggle('connected', on);
     btnIn.style.display   = on ? 'none' : 'inline-block';
