@@ -5,5 +5,5 @@ echo.
 echo  Iniciando Dashboard Naturisa...
 echo  El navegador se abrira automaticamente.
 echo.
-python ..\comun\server.py ..\dashboard-produccion\dashboard-produccion.html 3001
+python ..\comun\server.py ..\dashboard-produccion\dashboard-produccion.html 3000
 pause
