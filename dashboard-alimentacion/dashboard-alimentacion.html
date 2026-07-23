@@ -197,6 +197,10 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         Consumo Tolva
     </button>
+    <button class="nav-tab" id="tab-pedido" onclick="showScreen('pedido')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Sugerencia de Pedido
+    </button>
 </div>
 
 <!-- ── PANTALLA: Alimentación ──────────────────────────────── -->
@@ -591,6 +595,80 @@
 
 </div><!-- /screen-tolva-report -->
 
+<!-- ── PANTALLA: Sugerencia de Pedido ──────────────────────── -->
+<div class="screen" id="screen-pedido">
+
+<div class="filters">
+    <div class="fg">
+        <label>Año</label>
+        <select id="p-year" style="min-width:90px"></select>
+    </div>
+    <div class="fg">
+        <label>Alcance</label>
+        <select id="p-scope" style="min-width:160px" onchange="onPedidoScopeChange()">
+            <option value="all">Todas las sucursales</option>
+            <option value="subsidiary">Sucursal</option>
+            <option value="cluster">Cluster</option>
+        </select>
+    </div>
+    <div class="fg" id="fg-p-sub" style="display:none">
+        <label>Sucursal</label>
+        <select id="p-sub" style="min-width:180px"></select>
+    </div>
+    <div class="fg" id="fg-p-cluster" style="display:none">
+        <label>Cluster</label>
+        <select id="p-cluster" style="min-width:160px" onchange="onPedidoClusterChange()">
+            <option value="Josefina Norte">Josefina Norte</option>
+            <option value="Josefina Sur">Josefina Sur</option>
+            <option value="Río Nilo">Río Nilo</option>
+            <option value="Puna Sur">Puna Sur</option>
+            <option value="Aquanaturisa">Aquanaturisa</option>
+            <option value="Golfomar">Golfomar</option>
+            <option value="Lanconor">Lanconor</option>
+            <option value="Inducam">Inducam</option>
+            <option value="Granmar">Granmar</option>
+        </select>
+    </div>
+    <div class="fg" id="fg-p-cluster-sub" style="display:none">
+        <label>Sucursal (opcional)</label>
+        <select id="p-cluster-sub" style="min-width:180px"></select>
+    </div>
+    <div class="fg">
+        <label>Unidad</label>
+        <div class="toggle-group">
+            <button class="toggle-btn active" id="btn-p-kg"    onclick="setPedidoSUnit('kg')">Kg</button>
+            <button class="toggle-btn"        id="btn-p-sacos" onclick="setPedidoSUnit('sacks')">Sacos</button>
+        </div>
+    </div>
+    <div class="fg">
+        <label>Cobertura (días)</label>
+        <input type="number" id="p-cobertura" value="14" min="1" max="90"
+            style="width:72px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
+            onchange="actualizarPedidoScreen()">
+    </div>
+    <button class="btn-apply" onclick="consultarPedidoScreen()">↻ Consultar</button>
+    <span id="p-status" style="font-size:12px;color:var(--muted);align-self:center;"></span>
+</div>
+
+<main class="main">
+    <div class="table-card">
+        <div class="chart-title" style="margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+            📦 Sugerencia de Pedido
+            <div style="display:flex;align-items:center;gap:12px;font-size:12px;font-weight:400;color:#64748b;flex-wrap:wrap">
+                <div style="display:flex;border:1.5px solid #e2e8f0;border-radius:7px;overflow:hidden;font-size:12px">
+                    <button id="btn-p-producto" onclick="setPedidoSVista('producto')"
+                        style="padding:4px 14px;border:none;cursor:pointer;font-weight:600;background:#3b82f6;color:white">Por Producto</button>
+                    <button id="btn-p-piscina" onclick="setPedidoSVista('piscina')"
+                        style="padding:4px 14px;border:none;cursor:pointer;font-weight:600;background:white;color:#64748b">Por Piscina</button>
+                </div>
+            </div>
+        </div>
+        <div id="p-area"><p style="color:#94a3b8;padding:8px 0">Selecciona los filtros y presiona Consultar.</p></div>
+        <div id="p-nota" style="margin-top:10px;font-size:11px;color:#94a3b8;padding:0 4px"></div>
+    </div>
+</main>
+
+</div><!-- /screen-pedido -->
 
 
 
@@ -1053,8 +1131,12 @@ function populateSubsidiaries(list) {
     document.getElementById('f-subsidiary').innerHTML = opts;
     document.getElementById('f-subsidiary-all').innerHTML =
         '<option value="">Todas las sucursales</option>' + opts;
-    // Refrescar cluster-sub si el agrupador ya estaba en cluster
     if (document.getElementById('f-groupby').value === 'cluster') onClusterChange();
+    // Poblar sucursal en pantalla pedido si ya fue inicializada
+    const pSub = document.getElementById('p-sub');
+    if (pSub) pSub.innerHTML = opts;
+    const pcSub = document.getElementById('p-cluster-sub');
+    if (pcSub) onPedidoClusterChange();
 }
 
 // ── Fetch ─────────────────────────────────────────────────────
@@ -1687,13 +1769,14 @@ function showEmpty(msg) {
 }
 
 function showScreen(name) {
-    if (!['alimentacion','tolva-report'].includes(name)) name = 'alimentacion';
-    ['alimentacion','tolva-report'].forEach(s => {
+    if (!['alimentacion','tolva-report','pedido'].includes(name)) name = 'alimentacion';
+    ['alimentacion','tolva-report','pedido'].forEach(s => {
         document.getElementById('screen-'+s).classList.toggle('active', s === name);
         document.getElementById('tab-'+s).classList.toggle('active', s === name);
     });
     localStorage.setItem('nat_last_screen', name);
     if (name === 'tolva-report') initTolvaScreen();
+    if (name === 'pedido')       initPedidoScreen();
 }
 
 
@@ -1726,6 +1809,354 @@ const TOLVA_COLORS = [
     '#F97316','#06B6D4','#84CC16','#EC4899','#0EA5E9','#FBBF24',
     '#A78BFA','#34D399','#F472B6','#60A5FA','#FB7185','#4ADE80'
 ];
+
+// ═══════════════════════════════════════════════════════════════
+// PANTALLA SUGERENCIA DE PEDIDO
+// ═══════════════════════════════════════════════════════════════
+
+let _pedidoSInited  = false;
+let _pedidoSUnit    = 'kg';
+let _pedidoSVista   = 'producto';
+let _pedidoSParams  = null;   // { initDate, endDate, vo, subIds }
+let _pedidoSLastProducto = null;
+
+function initPedidoScreen() {
+    if (_pedidoSInited) return;
+    _pedidoSInited = true;
+
+    const yearSel = document.getElementById('p-year');
+    const curY = new Date().getFullYear();
+    for (let y = curY; y >= 2020; y--) {
+        const opt = document.createElement('option');
+        opt.value = y; opt.textContent = y;
+        yearSel.appendChild(opt);
+    }
+
+    const opts = subsidiaries.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    document.getElementById('p-sub').innerHTML = opts;
+    onPedidoClusterChange();
+}
+
+function onPedidoScopeChange() {
+    const scope = document.getElementById('p-scope').value;
+    document.getElementById('fg-p-sub').style.display         = scope === 'subsidiary' ? '' : 'none';
+    document.getElementById('fg-p-cluster').style.display     = scope === 'cluster'    ? '' : 'none';
+    document.getElementById('fg-p-cluster-sub').style.display = scope === 'cluster'    ? '' : 'none';
+}
+
+function onPedidoClusterChange() {
+    const cl  = document.getElementById('p-cluster').value;
+    const ids = CLUSTERS[cl] || [];
+    const subs = subsidiaries.filter(s => ids.includes(s.id));
+    document.getElementById('p-cluster-sub').innerHTML =
+        '<option value="">Todas del cluster</option>' +
+        subs.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function setPedidoSUnit(u) {
+    _pedidoSUnit = u;
+    document.getElementById('btn-p-kg').classList.toggle('active',    u === 'kg');
+    document.getElementById('btn-p-sacos').classList.toggle('active', u === 'sacks');
+}
+
+function setPedidoSVista(vista) {
+    _pedidoSVista = vista;
+    document.getElementById('btn-p-producto').style.background = vista === 'producto' ? '#3b82f6' : 'white';
+    document.getElementById('btn-p-producto').style.color      = vista === 'producto' ? 'white'   : '#64748b';
+    document.getElementById('btn-p-piscina').style.background  = vista === 'piscina'  ? '#3b82f6' : 'white';
+    document.getElementById('btn-p-piscina').style.color       = vista === 'piscina'  ? 'white'   : '#64748b';
+    if (vista === 'producto') {
+        if (_pedidoSLastProducto) {
+            const { pivot, products, vo } = _pedidoSLastProducto;
+            _renderPedidoSProducto(pivot, products, vo);
+        }
+    } else {
+        _renderPedidoSPiscina();
+    }
+}
+
+function actualizarPedidoScreen() {
+    if (_pedidoSVista === 'piscina') {
+        _renderPedidoSPiscina();
+    } else if (_pedidoSLastProducto) {
+        const { pivot, products, vo } = _pedidoSLastProducto;
+        _renderPedidoSProducto(pivot, products, vo);
+    }
+}
+
+function _pedidoSGetSubIds() {
+    const scope = document.getElementById('p-scope').value;
+    if (scope === 'subsidiary') {
+        const sid = document.getElementById('p-sub').value;
+        if (!sid) { alert('Selecciona una sucursal'); return null; }
+        return [sid];
+    } else if (scope === 'cluster') {
+        const csid = document.getElementById('p-cluster-sub').value;
+        if (csid) return [csid];
+        const cl = document.getElementById('p-cluster').value;
+        return (CLUSTERS[cl] || []).map(String);
+    } else {
+        return subsidiaries.map(s => String(s.id));
+    }
+}
+
+async function consultarPedidoScreen() {
+    const token = getToken();
+    if (!token) { alert('Inicia sesión primero'); return; }
+
+    const y      = parseInt(document.getElementById('p-year').value);
+    const subIds = _pedidoSGetSubIds();
+    if (!subIds) return;
+    const vo = _pedidoSUnit === 'kg' ? 'kg' : 'sacks';
+
+    _pedidoSParams  = { initDate:`${y}-01-01`, endDate:`${y}-12-31`, vo, subIds };
+    _pedidoSVista   = 'producto';
+    document.getElementById('btn-p-producto').style.background = '#3b82f6';
+    document.getElementById('btn-p-producto').style.color      = 'white';
+    document.getElementById('btn-p-piscina').style.background  = 'white';
+    document.getElementById('btn-p-piscina').style.color       = '#64748b';
+
+    document.getElementById('p-status').innerHTML = '<span class="spinner"></span> Cargando...';
+    document.getElementById('p-area').innerHTML   = '';
+    document.getElementById('p-nota').innerHTML   = '';
+
+    try {
+        const headers = { Authorization:`Bearer ${token}`, Accept:'application/json, text/plain, */*' };
+        const qs = new URLSearchParams({ initDate:_pedidoSParams.initDate, endDate:_pedidoSParams.endDate,
+            timeGranularity:'month', valueOptions:vo, groupBy:'product', PageSize:5000 });
+        qs.append('businessTypes', 'HopperConsumption');
+        subIds.forEach(id => qs.append('subsidiaryIds', id));
+
+        const res  = await fetch(`${API_FEEDING}?${qs}`, { headers });
+        if (res.status === 401) {
+            document.getElementById('p-status').textContent = 'Token inválido o expirado.';
+            applyLoginUI(false, '');
+            return;
+        }
+        const json = await res.json();
+        const data = json.data || [];
+
+        if (!data.length) {
+            document.getElementById('p-status').textContent = 'Sin datos para el período.';
+            document.getElementById('p-area').innerHTML = '<p style="color:#94a3b8;padding:8px 0">Sin datos para el período y alcance seleccionados.</p>';
+            return;
+        }
+
+        const dateField = ['initDate','startDate','period','date','periodStart','weekStart','monthStart']
+            .find(f => data[0][f]) || 'initDate';
+        const field = vo === 'kg' ? 'kilograms' : 'sacks';
+        const pivot = {};
+        data.forEach(r => {
+            const prod = normalizarProducto(r.groupValue || 'Sin nombre');
+            const raw  = String(r[dateField] || '');
+            const mMatch = raw.match(/\d{4}-(\d{2})/);
+            if (!mMatch) return;
+            const m = parseInt(mMatch[1]);
+            if (m < 1 || m > 12) return;
+            if (!pivot[prod]) pivot[prod] = {};
+            pivot[prod][m] = (pivot[prod][m] || 0) + (Number(r[field]) || 0);
+        });
+
+        const products = Object.keys(pivot).sort((a, b) => {
+            const tA = Object.values(pivot[a]).reduce((s,v)=>s+v,0);
+            const tB = Object.values(pivot[b]).reduce((s,v)=>s+v,0);
+            return tB - tA;
+        });
+
+        document.getElementById('p-status').textContent = `${products.length} productos · ${y}`;
+        _renderPedidoSProducto(pivot, products, vo);
+    } catch(e) {
+        console.error('[consultarPedidoScreen]', e);
+        document.getElementById('p-status').textContent = 'Error al conectar con la API.';
+    }
+}
+
+function _pedidoSCalcStats(pivot, name, cobertura) {
+    const meses = [1,2,3,4,5,6,7,8,9,10,11,12];
+    const vals  = meses.map(m => (pivot[name]?.[m] || 0)).filter(v => v > 0);
+    if (!vals.length) return null;
+    vals.sort((a, b) => a - b);
+    const n   = vals.length;
+    const avg = vals.reduce((s,v)=>s+v,0) / n;
+    const min = vals[0], max = vals[n-1];
+    const p25 = vals[Math.floor(n*0.25)] || min;
+    const p75 = vals[Math.min(Math.floor(n*0.75), n-1)] || max;
+    const variance = vals.reduce((s,v)=>s+(v-avg)**2,0)/n;
+    const cv  = avg > 0 ? Math.sqrt(variance)/avg : 0;
+    const sf  = Math.min(0.35, cv*0.6);
+    const avgDia = avg/30, avgSemana = avgDia*7;
+    const pedidoDias = avgDia*cobertura*(1+sf);
+    const pedidoMes  = avg*(1+sf);
+    const mesesConDatos = meses.filter(m => (pivot[name]?.[m]||0) > 0);
+    const ultimoMes  = mesesConDatos.length ? Math.max(...mesesConDatos) : 0;
+    const consumoUlt = pivot[name]?.[ultimoMes] || 0;
+    const tendencia  = avg > 0 ? (consumoUlt - avg)/avg : 0;
+    let rango = 'normal';
+    if (consumoUlt > 0 && consumoUlt <= p25) rango = 'bajo';
+    else if (consumoUlt >= p75) rango = 'alto';
+    return { p:name, avg, avgDia, avgSemana, min, max, p25, p75, cv, sf, pedidoDias, pedidoMes, tendencia, consumoUlt, rango, n };
+}
+
+function _pedidoSSparkline(pivot, name, color) {
+    const meses = [1,2,3,4,5,6,7,8,9,10,11,12];
+    const vals  = meses.map(m => pivot[name]?.[m] || 0);
+    const maxV  = Math.max(...vals, 1);
+    return vals.map((v, i) => {
+        const h  = Math.max(Math.round((v/maxV)*28), v>0?2:1);
+        const bg = v > 0 ? color : '#e2e8f0';
+        return `<div style="width:6px;height:${h}px;background:${bg};border-radius:2px 2px 0 0;align-self:flex-end" title="${TOLVA_MONTH_NAMES[i]}: ${Math.round(v).toLocaleString('es-EC')}"></div>`;
+    }).join('');
+}
+
+function _pedidoSBuildTable(stats, lbl, cobertura, getLabel, getSparkline, getSub) {
+    const fmt2       = v => Math.round(v).toLocaleString('es-EC');
+    const rangoBadge = r => {
+        const m = { bajo:['#3b82f6','Bajo'], normal:['#10b981','Normal'], alto:['#f59e0b','Alto'] };
+        const [c,t] = m[r];
+        return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${c}20;color:${c};font-weight:700">${t}</span>`;
+    };
+    const tendArrow = t => {
+        if (Math.abs(t)<0.04) return `<span style="color:#94a3b8;font-size:11px">→ estable</span>`;
+        const up = t > 0;
+        return `<span style="color:${up?'#f59e0b':'#10b981'};font-size:11px">${up?'↑':'↓'} ${Math.abs(Math.round(t*100))}%</span>`;
+    };
+    const totalDias = stats.reduce((s,r)=>s+r.pedidoDias,0);
+    const totalMes  = stats.reduce((s,r)=>s+r.pedidoMes,0);
+
+    return `<div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+          <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700;min-width:180px">Nombre</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Historial mensual</th>
+          <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Prom/día</th>
+          <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Prom/semana</th>
+          <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Prom/mes</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Último mes</th>
+          <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#1d4ed8;font-weight:700;background:#eff6ff">📦 Pedido ${cobertura} días</th>
+          <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#6d28d9;font-weight:700;background:#f5f3ff">📅 Pedido mensual</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${stats.map((s,i) => `
+        <tr style="border-bottom:1px solid #f1f5f9;${i%2?'background:#fafafa':''}">
+          <td style="padding:12px;font-weight:600;color:#1e293b;max-width:200px">
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${getLabel(s)}">${getLabel(s)}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px">${getSub(s)}</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center">
+            <div style="display:flex;gap:2px;align-items:flex-end;justify-content:center;height:32px">${getSparkline(s)}</div>
+            <div style="font-size:9px;color:#94a3b8;margin-top:2px">min ${fmt2(s.min)} · max ${fmt2(s.max)}</div>
+          </td>
+          <td style="padding:12px;text-align:right;color:#475569">${fmt2(s.avgDia)}<br><span style="font-size:10px;color:#94a3b8">${lbl}</span></td>
+          <td style="padding:12px;text-align:right;color:#475569">${fmt2(s.avgSemana)}<br><span style="font-size:10px;color:#94a3b8">${lbl}</span></td>
+          <td style="padding:12px;text-align:right;color:#475569">${fmt2(s.avg)}<br><span style="font-size:10px;color:#94a3b8">${lbl}</span></td>
+          <td style="padding:12px;text-align:center">
+            ${rangoBadge(s.rango)}<br>
+            <span style="display:block;margin-top:4px">${tendArrow(s.tendencia)}</span>
+          </td>
+          <td style="padding:12px;text-align:right;background:#eff6ff">
+            <div style="font-size:18px;font-weight:700;color:#1d4ed8">${fmt2(s.pedidoDias)}</div>
+            <div style="font-size:10px;color:#3b82f6">${lbl} · +${Math.round(s.sf*100)}% seg.</div>
+          </td>
+          <td style="padding:12px;text-align:right;background:#f5f3ff">
+            <div style="font-size:18px;font-weight:700;color:#6d28d9">${fmt2(s.pedidoMes)}</div>
+            <div style="font-size:10px;color:#7c3aed">${lbl} · +${Math.round(s.sf*100)}% seg.</div>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:#f1f5f9;border-top:2px solid #e2e8f0;font-weight:700">
+          <td colspan="6" style="padding:10px 12px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Total</td>
+          <td style="padding:10px 12px;text-align:right;background:#dbeafe;color:#1e40af;font-size:15px">${fmt2(totalDias)} ${lbl}</td>
+          <td style="padding:10px 12px;text-align:right;background:#ede9fe;color:#5b21b6;font-size:15px">${fmt2(totalMes)} ${lbl}</td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>`;
+}
+
+function _renderPedidoSProducto(pivot, products, vo) {
+    _pedidoSLastProducto = { pivot, products, vo };
+    const cobertura = parseInt(document.getElementById('p-cobertura').value || '14');
+    const lbl  = vo === 'kg' ? 'kg' : 'sacos';
+    const stats = products.map(p => _pedidoSCalcStats(pivot, p, cobertura)).filter(Boolean);
+
+    if (!stats.length) {
+        document.getElementById('p-area').innerHTML = '<p style="color:#94a3b8;padding:8px 0">Sin datos de productos.</p>';
+        return;
+    }
+    document.getElementById('p-area').innerHTML = _pedidoSBuildTable(
+        stats, lbl, cobertura,
+        s => s.p,
+        s => _pedidoSSparkline(pivot, s.p, '#3b82f6'),
+        s => `${s.n} meses con datos · CV ${Math.round(s.cv*100)}%`
+    );
+    document.getElementById('p-nota').innerHTML = `💡 <strong>Stock de seguridad</strong> calculado automáticamente según variabilidad histórica (CV = coeficiente de variación por producto).
+    Mayor irregularidad en el consumo → mayor colchón (máx. 35%).
+    El pedido de <strong>${cobertura} días</strong> cubre: promedio diario × ${cobertura} días + stock de seguridad.
+    <strong>Rangos:</strong> Bajo = consumo último mes ≤ percentil 25 · Normal = entre P25 y P75 · Alto = ≥ percentil 75.`;
+}
+
+async function _renderPedidoSPiscina() {
+    if (!_pedidoSParams) {
+        document.getElementById('p-area').innerHTML = '<p style="color:#94a3b8;padding:8px 0">Primero presiona Consultar.</p>';
+        return;
+    }
+    document.getElementById('p-area').innerHTML  = '<p style="padding:8px 0"><span class="spinner"></span> Cargando datos por piscina...</p>';
+    document.getElementById('p-nota').innerHTML  = '';
+    try {
+        const token  = getToken();
+        const { initDate, endDate, vo, subIds } = _pedidoSParams;
+        const headers = { Authorization:`Bearer ${token}`, Accept:'application/json, text/plain, */*' };
+        const qs = new URLSearchParams({ initDate, endDate, timeGranularity:'month', valueOptions:vo, groupBy:'pool', PageSize:5000 });
+        qs.append('businessTypes','HopperConsumption');
+        subIds.forEach(id => qs.append('subsidiaryIds', id));
+
+        const res  = await fetch(`${API_FEEDING}?${qs}`, { headers });
+        if (res.status === 401) { document.getElementById('p-area').innerHTML = '<p style="color:#ef4444;padding:8px 0">Token inválido o expirado.</p>'; return; }
+        const json = await res.json();
+        const data = json.data || [];
+        if (!data.length) { document.getElementById('p-area').innerHTML = '<p style="color:#94a3b8;padding:8px 0">Sin datos por piscina para el período.</p>'; return; }
+
+        const dateField = ['initDate','startDate','period','date','periodStart','weekStart','monthStart'].find(f=>data[0][f]) || 'initDate';
+        const field = vo === 'kg' ? 'kilograms' : 'sacks';
+        const lbl   = vo === 'kg' ? 'kg' : 'sacos';
+        const pivot = {};
+        data.forEach(r => {
+            const pool = r.groupValue || 'Sin nombre';
+            const raw  = String(r[dateField]||'');
+            const mMatch = raw.match(/\d{4}-(\d{2})/);
+            if (!mMatch) return;
+            const m = parseInt(mMatch[1]);
+            if (m < 1 || m > 12) return;
+            if (!pivot[pool]) pivot[pool] = {};
+            pivot[pool][m] = (pivot[pool][m]||0) + (Number(r[field])||0);
+        });
+
+        const cobertura = parseInt(document.getElementById('p-cobertura').value || '14');
+        const pools = Object.keys(pivot).sort((a,b) => {
+            const tA = Object.values(pivot[a]).reduce((s,v)=>s+v,0);
+            const tB = Object.values(pivot[b]).reduce((s,v)=>s+v,0);
+            return tB - tA;
+        });
+
+        const stats = pools.map(pool => _pedidoSCalcStats(pivot, pool, cobertura)).filter(Boolean);
+        document.getElementById('p-area').innerHTML = _pedidoSBuildTable(
+            stats, lbl, cobertura,
+            s => s.p,
+            s => _pedidoSSparkline(pivot, s.p, '#0ea5e9'),
+            s => `${s.n} meses · CV ${Math.round(s.cv*100)}%`
+        );
+        document.getElementById('p-nota').innerHTML = `💡 Consumo <strong>total de todos los productos</strong> por piscina. Stock de seguridad basado en variabilidad mensual histórica (máx. 35%).
+        El pedido de <strong>${cobertura} días</strong> cubre: promedio diario × ${cobertura} días + stock de seguridad.`;
+    } catch(e) {
+        console.error('[_renderPedidoSPiscina]', e);
+        document.getElementById('p-area').innerHTML = '<p style="color:#ef4444;padding:8px 0">Error al cargar datos por piscina.</p>';
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
 
 function initTolvaScreen() {
     if (_tolvaInited) return;
