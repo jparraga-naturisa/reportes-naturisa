@@ -559,12 +559,15 @@
             <div style="font-size:12px;color:#64748b;margin-bottom:8px;font-weight:600">Selecciona los ciclos a comparar:</div>
             <div id="ciclos-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
 
-            <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600">Rangos de días (etapas del ciclo):</div>
+            <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600">Etapas del ciclo:</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-                <input id="inp-rangos" value="0-30,31-60,61-90,91-120,121-999"
-                    style="padding:4px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;width:280px"
-                    placeholder="ej: 0-30,31-60,61-90">
-                <span style="font-size:11px;color:#94a3b8">días desde siembra</span>
+                <button onclick="setRangosSemanal(20)" style="padding:4px 12px;border:1.5px solid #3b82f6;border-radius:6px;font-size:12px;cursor:pointer;background:#eff6ff;color:#1d4ed8;font-weight:600">Semanal (20 sem)</button>
+                <button onclick="setRangosSemanal(16)" style="padding:4px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;background:white;color:#64748b">16 sem</button>
+                <button onclick="setRangosSemanal(12)" style="padding:4px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;background:white;color:#64748b">12 sem</button>
+                <span style="color:#94a3b8;font-size:11px">o personalizado:</span>
+                <input id="inp-rangos" value=""
+                    style="padding:4px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;width:220px"
+                    placeholder="ej: 0-7,8-14,15-21">
             </div>
 
             <button onclick="compararEtapasCiclo()" style="padding:6px 18px;background:#1d4ed8;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Comparar</button>
@@ -2248,6 +2251,15 @@ function actualizarSugerencia() {
 
 let _ciclosCargados = []; // ciclos del pool actual
 
+function setRangosSemanal(numSemanas) {
+    const rangos = [];
+    for (let s = 0; s < numSemanas - 1; s++) {
+        rangos.push(`${s * 7}-${s * 7 + 6}`);
+    }
+    rangos.push(`${(numSemanas - 1) * 7}-999`);
+    document.getElementById('inp-rangos').value = rangos.join(',');
+}
+
 function _isoWeek(d) {
     const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
     dt.setUTCDate(dt.getUTCDate() + 4 - (dt.getUTCDay() || 7));
@@ -2409,6 +2421,8 @@ function mostrarListaCiclos() {
         </label>`).join('');
 
     paso2.style.display = '';
+    // Inicializar preset semanal si el input está vacío
+    if (!document.getElementById('inp-rangos').value) setRangosSemanal(20);
 }
 
 async function compararEtapasCiclo() {
@@ -2422,10 +2436,16 @@ async function compararEtapasCiclo() {
     if (!ciclos.length) { alert('Selecciona al menos un ciclo'); return; }
 
     // Rangos de días
-    const rangosRaw = (document.getElementById('inp-rangos').value || '0-30,31-60,61-90,91-120,121-999').trim();
-    const rangos = rangosRaw.split(',').map(r => {
+    const rangosRaw = (document.getElementById('inp-rangos').value ||
+        Array.from({length:19},(_,s)=>`${s*7}-${s*7+6}`).join(',') + ',133-999').trim();
+    const rangos = rangosRaw.split(',').map((r, idx) => {
         const [a, b] = r.trim().split('-').map(Number);
-        return { min: a, max: b, label: b >= 999 ? `${a}+ días` : `${a}–${b} días` };
+        const esSemanal = (b - a) <= 7 || b >= 999 && (a % 7 === 0);
+        const semNum = Math.floor(a / 7) + 1;
+        const label = esSemanal
+            ? (b >= 999 ? `Sem ${semNum}+` : `Sem ${semNum}`)
+            : (b >= 999 ? `${a}+ días` : `${a}–${b} días`);
+        return { min: a, max: b, label };
     }).filter(r => !isNaN(r.min) && !isNaN(r.max));
     if (!rangos.length) { alert('Define al menos un rango'); return; }
 
