@@ -543,13 +543,13 @@
     <div class="table-card" id="tolva-ciclos-card" style="margin-top:14px">
         <div class="chart-title" style="margin-bottom:14px">📊 Consumo por Etapa del Ciclo</div>
 
-        <!-- Paso 1: cargar piscinas -->
+        <!-- Paso 1: sucursal → piscina → buscar -->
         <div id="ciclos-paso1" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-            <select id="sel-ciclo-sub" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:180px;background:white">
-                <option value="">— Sucursal / alcance —</option>
+            <select id="sel-ciclo-sub" onchange="cargarPiscinasPorSucursal()" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:180px;background:white">
+                <option value="">— Sucursal —</option>
             </select>
-            <select id="sel-ciclo-pool" onchange="mostrarListaCiclos()" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:180px;background:white">
-                <option value="">— Piscina —</option>
+            <select id="sel-ciclo-pool" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:200px;background:white">
+                <option value="">— Selecciona una piscina —</option>
             </select>
             <button onclick="cargarCiclosPiscina()" style="padding:5px 14px;background:#0ea5e9;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Buscar ciclos</button>
         </div>
@@ -1727,7 +1727,7 @@ function initTolvaScreen() {
 
     // Poblar selector de sucursal en sección ciclos
     const cicloSubSel = document.getElementById('sel-ciclo-sub');
-    cicloSubSel.innerHTML = '<option value="">— Todas las sucursales —</option>' +
+    cicloSubSel.innerHTML = '<option value="">— Sucursal —</option>' +
         subsidiaries.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
 
     // Poblar selector de cluster desde CLUSTERS global
@@ -2254,76 +2254,66 @@ function _addDays(dateStr, days) {
     return d.toISOString().substring(0, 10);
 }
 
+async function cargarPiscinasPorSucursal() {
+    const token = getToken();
+    if (!token) return;
+    const subId = document.getElementById('sel-ciclo-sub').value;
+    if (!subId) return;
+
+    const poolSel = document.getElementById('sel-ciclo-pool');
+    poolSel.innerHTML = '<option value="">Cargando piscinas...</option>';
+    try {
+        const hdrs = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+        const res  = await fetch(`${API_POOLS}?subsidiaryIds=${subId}&pageSize=2000&status=ACTIVO&status=INACTIVO&status=MANTENIMIENTO`, { headers: hdrs });
+        const json = await res.json();
+        let data = [];
+        if (Array.isArray(json))                                          data = json;
+        else if (Array.isArray(json.data))                                data = json.data;
+        else if (json.data?.data   && Array.isArray(json.data.data))     data = json.data.data;
+        else if (json.data?.content && Array.isArray(json.data.content)) data = json.data.content;
+        else if (json.content      && Array.isArray(json.content))        data = json.content;
+        else if (json.data?.items  && Array.isArray(json.data.items))     data = json.data.items;
+        console.log('[cargarPiscinasPorSucursal]', data.length, data[0]);
+
+        const getName = p => p.name || p.poolName || p.code || '';
+        data = data.filter(p => getName(p)).sort((a,b) => getName(a).localeCompare(getName(b), 'es'));
+        poolSel.innerHTML = '<option value="">— Selecciona una piscina —</option>' +
+            data.map(p => `<option value="${getName(p)}">${getName(p)}</option>`).join('');
+    } catch(e) {
+        poolSel.innerHTML = '<option value="">Error al cargar piscinas</option>';
+    }
+}
+
 async function cargarCiclosPiscina() {
     const token = getToken();
     if (!token) { alert('Primero ingresa tu Bearer token'); return; }
 
-    const subSelVal = document.getElementById('sel-ciclo-sub').value;
-    const subIds = subSelVal ? [subSelVal]
-                 : (_tolvaFetchParams ? _tolvaFetchParams.subIds
-                 : subsidiaries.map(s => String(s.id)));
-    if (!subIds.length) { alert('No hay sucursales disponibles'); return; }
+    const subSelVal  = document.getElementById('sel-ciclo-sub').value;
+    const poolFiltro = document.getElementById('sel-ciclo-pool').value.trim();
+    if (!subSelVal) { alert('Selecciona una sucursal'); return; }
+    if (!poolFiltro) { alert('Selecciona una piscina'); return; }
 
+    const subIds = [subSelVal];
     const status = document.getElementById('ciclos-status');
     const paso2  = document.getElementById('ciclos-paso2');
-    const lista  = document.getElementById('ciclos-lista');
-    status.textContent = 'Buscando ciclos...';
+    status.textContent = `Buscando ciclos de ${poolFiltro}...`;
     paso2.style.display = 'none';
     document.getElementById('ciclos-area').innerHTML = '';
 
-    const hdrs  = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
-    const now   = new Date();
-    const { year: curY, week: curW } = _isoWeek(now);
-    const idsQS = subIds.map(id => `subsidiaryIds=${id}`).join('&');
+    const hdrs   = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+    const now    = new Date();
+    const todayStr = now.toISOString().substring(0, 10);
+    const pad    = n => String(n).padStart(2, '0');
+    const idsQS  = subIds.map(id => `subsidiaryIds=${id}`).join('&');
 
-    // Fetch pool_production: semana actual + 8 trimestres atrás
-    // Guardamos la fecha aproximada del snapshot para usarla como endDate en cosechados
-    const quarters = Array.from({ length: 8 }, (_, q) => {
-        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (q + 1) * 91);
-        const iw = _isoWeek(d);
-        return { ...iw, snapDate: d.toISOString().substring(0, 10) };
-    });
-
-    const parseItems = async res => {
+    const parseItems = res => {
         if (!res.ok) return [];
-        const j = await res.json();
-        return Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+        return res.json().then(j => Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : [])).catch(() => []);
     };
 
-    const snapshots = [
-        { isActivo: true,  snapDate: now.toISOString().substring(0, 10),
-          res: fetch(`${API_POOL_PROD}?${idsQS}&cutOffYear=${curY}&cutOffWeek=${curW}`, { headers: hdrs }) },
-        ...quarters.map(q => ({
-            isActivo: false, snapDate: q.snapDate,
-            res: fetch(`${API_POOL_PROD}?${idsQS}&cutOffYear=${q.year}&cutOffWeek=${q.week}`, { headers: hdrs })
-        }))
-    ];
-
-    // Esperar todas las respuestas
-    for (const snap of snapshots) snap.res = await snap.res;
-
     const cycleMap = new Map();
-    const todayStr = now.toISOString().substring(0, 10);
 
-    for (const { isActivo, snapDate, res } of snapshots) {
-        const items = await parseItems(res);
-        items.forEach(c => {
-            const id = String(c.idCycle || c.cycleId || '');
-            if (!id || cycleMap.has(id)) return;
-            const dProd = c.daysProduction || 0;
-            const dDry  = c.daysDry || 0;
-            const total = dProd + dDry;
-            // Activos: endDate = hoy. Cosechados: endDate = fecha del snapshot (aprox. cosecha)
-            const endDate   = isActivo ? todayStr : snapDate;
-            const startDate = total > 0 ? _addDays(endDate, -total) : null;
-            cycleMap.set(id, { ...c, idCycle: id, _status: isActivo ? 'ACTIVO' : 'COSECHADO',
-                _startDate: startDate, _endDate: endDate,
-                _totalDays: total, _dProd: dProd, _dDry: dDry, _fromNY: false });
-        });
-    }
-
-    // NurseryYield: cosechados últimos 3 años (para obtener harvestDate)
-    const pad = n => String(n).padStart(2, '0');
+    // ── 1. NurseryYield mensual 3 años: fuente principal de cosechados con fechas reales ──
     const nyPeriods = Array.from({ length: 36 }, (_, i) => {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         return { s: `${d.getFullYear()}-${pad(d.getMonth()+1)}-01`,
@@ -2332,47 +2322,88 @@ async function cargarCiclosPiscina() {
 
     await Promise.all(nyPeriods.map(async ({ s, e }) => {
         try {
-            const res  = await fetch(`${API_NURSERY_YIELD}?${idsQS}&startDate=${s}&endDate=${e}&PageSize=1000`, { headers: hdrs });
-            const json = await res.json();
-            const items = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : []);
+            const res   = await fetch(`${API_NURSERY_YIELD}?${idsQS}&startDate=${s}&endDate=${e}&PageSize=1000`, { headers: hdrs });
+            const items = await parseItems(res);
             items.forEach(c => {
                 const id = String(c.idCycle || c.cycleId || c.cycleCode || '');
                 if (!id) return;
+                if ((c.poolName || '').trim().toLowerCase() !== poolFiltro.toLowerCase()) return;
                 const harv   = c.endHarvestDate ? c.endHarvestDate.substring(0, 10) : null;
+                const seed   = c.startDate      ? c.startDate.substring(0, 10)      : null;
                 const dProd  = c.daysProduction || 0;
                 const dDry   = c.daysDry || 0;
                 const total  = dProd + dDry;
                 const endD   = harv || todayStr;
-                const startD = total > 0 ? _addDays(endD, -total) : null;
+                // Fecha de siembra: campo startDate del API si existe, si no calcula desde días
+                const startD = seed || (total > 0 ? _addDays(endD, -total) : null);
+                const realDays = (startD && endD)
+                    ? Math.round((new Date(endD) - new Date(startD)) / 86400000)
+                    : total;
                 if (!cycleMap.has(id)) {
                     cycleMap.set(id, { ...c, idCycle: id, _status: 'COSECHADO',
                         _startDate: startD, _endDate: endD,
-                        _totalDays: total, _dProd: dProd, _dDry: dDry, _fromNY: true });
-                } else {
-                    // NurseryYield tiene fechas reales — siempre tiene prioridad
-                    const existing = cycleMap.get(id);
-                    if (!existing._fromNY && harv) {
-                        existing._endDate   = endD;
-                        existing._startDate = startD || existing._startDate;
-                        existing._fromNY    = true;
-                    }
+                        _totalDays: realDays || total, _dProd: dProd, _dDry: dDry, _fromNY: !!harv });
+                } else if (harv && !cycleMap.get(id)._fromNY) {
+                    // NurseryYield con harvestDate real tiene prioridad
+                    const ex = cycleMap.get(id);
+                    ex._endDate   = endD;
+                    ex._startDate = startD || ex._startDate;
+                    ex._totalDays = realDays || total || ex._totalDays;
+                    ex._fromNY    = true;
                 }
             });
         } catch(_) {}
     }));
 
+    // ── 2. pool_production semanal 2 años: captura activos y cosechados no en NurseryYield ──
+    const { year: curY, week: curW } = _isoWeek(now);
+    // Una snapshot por semana durante 104 semanas (2 años) — en paralelo
+    const weekSnaps = Array.from({ length: 104 }, (_, w) => {
+        const d  = new Date(now.getFullYear(), now.getMonth(), now.getDate() - w * 7);
+        const iw = _isoWeek(d);
+        return { isActivo: w === 0, snapDate: d.toISOString().substring(0, 10), ...iw };
+    });
+
+    await Promise.all(weekSnaps.map(async ({ isActivo, snapDate, year, week }) => {
+        try {
+            const res   = await fetch(`${API_POOL_PROD}?${idsQS}&cutOffYear=${year}&cutOffWeek=${week}`, { headers: hdrs });
+            const items = await parseItems(res);
+            items.forEach(c => {
+                const id = String(c.idCycle || c.cycleId || '');
+                if (!id) return;
+                if ((c.poolName || '').trim().toLowerCase() !== poolFiltro.toLowerCase()) return;
+                if (cycleMap.has(id)) {
+                    // Si ya existe desde NurseryYield con fecha real, solo completar días faltantes
+                    const ex = cycleMap.get(id);
+                    if (!ex._totalDays && (c.daysProduction || c.daysDry)) {
+                        const dProd = c.daysProduction || 0;
+                        const dDry  = c.daysDry || 0;
+                        ex._totalDays = dProd + dDry;
+                        ex._dProd = dProd; ex._dDry = dDry;
+                        if (!ex._startDate && ex._totalDays > 0)
+                            ex._startDate = _addDays(ex._endDate, -ex._totalDays);
+                    }
+                    return;
+                }
+                const dProd = c.daysProduction || 0;
+                const dDry  = c.daysDry || 0;
+                const total = dProd + dDry;
+                const endD  = isActivo ? todayStr : snapDate;
+                const startD= total > 0 ? _addDays(endD, -total) : null;
+                cycleMap.set(id, { ...c, idCycle: id,
+                    _status: isActivo ? 'ACTIVO' : 'COSECHADO',
+                    _startDate: startD, _endDate: endD,
+                    _totalDays: total, _dProd: dProd, _dDry: dDry, _fromNY: false });
+            });
+        } catch(_) {}
+    }));
+
     _ciclosCargados = [...cycleMap.values()]
-        .filter(c => c._startDate && c._totalDays > 0)
+        .filter(c => c._startDate)
         .sort((a, b) => (b._endDate || '').localeCompare(a._endDate || ''));
 
-    // Agrupar por piscina para el selector de pool
-    const poolSel = document.getElementById('sel-ciclo-pool');
-    const pools   = [...new Set(_ciclosCargados.map(c => (c.poolName || '').trim()).filter(Boolean))].sort();
-    poolSel.innerHTML = '<option value="">— Todas las piscinas —</option>' +
-        pools.map(p => `<option value="${p}">${p}</option>`).join('');
-
     if (!_ciclosCargados.length) {
-        document.getElementById('ciclos-status').textContent = 'No se encontraron ciclos.';
+        document.getElementById('ciclos-status').textContent = `No se encontraron ciclos para ${poolFiltro}.`;
         return;
     }
 
@@ -2381,13 +2412,9 @@ async function cargarCiclosPiscina() {
 }
 
 function mostrarListaCiclos() {
-    const poolFiltro = document.getElementById('sel-ciclo-pool').value;
     const lista  = document.getElementById('ciclos-lista');
     const paso2  = document.getElementById('ciclos-paso2');
-
-    const ciclos = poolFiltro
-        ? _ciclosCargados.filter(c => (c.poolName || '').trim() === poolFiltro)
-        : _ciclosCargados;
+    const ciclos = _ciclosCargados;
 
     if (!ciclos.length) {
         lista.innerHTML = '<span style="color:#94a3b8;font-size:12px">Sin ciclos para esta piscina.</span>';
