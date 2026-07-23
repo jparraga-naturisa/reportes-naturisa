@@ -508,22 +508,6 @@
         </div>
     </div>
 
-    <!-- Gráfico Tolva -->
-    <div class="chart-card" style="margin-bottom:14px;">
-        <div class="chart-title">
-            Consumo Tolva por Producto — Evolución Mensual
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                <span style="display:flex;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;">
-                    <button class="toggle-btn active" id="btn-tolva-stacked" onclick="setTolvaChartType('stacked')">Apilado</button>
-                    <button class="toggle-btn" id="btn-tolva-grouped" onclick="setTolvaChartType('grouped')">Agrupado</button>
-                </span>
-            </div>
-        </div>
-        <div id="tolva-chart-area" style="position:relative;min-height:380px;">
-            <div class="empty-state"><div class="empty-icon">📊</div><p>Aplica los filtros y presiona Actualizar</p></div>
-        </div>
-    </div>
-
     <!-- Tabla Tolva -->
     <div class="table-card">
         <div class="chart-title" style="margin-bottom:12px;">
@@ -1648,7 +1632,6 @@ function showScreen(name) {
 
 let rawTolvaData   = [];
 let tolvaUnit      = 'kg';
-let tolvaChartType = 'stacked';
 let _tolvaInited   = false;
 let _tolvaPivot    = {};
 let _tolvaProducts = [];
@@ -1702,12 +1685,6 @@ function setTolvaUnit(u) {
     if (rawTolvaData.length) renderTolvaReport(rawTolvaData, _tolvaYear, u);
 }
 
-function setTolvaChartType(t) {
-    tolvaChartType = t;
-    document.getElementById('btn-tolva-stacked').classList.toggle('active', t === 'stacked');
-    document.getElementById('btn-tolva-grouped').classList.toggle('active', t === 'grouped');
-    if (rawTolvaData.length) renderTolvaReport(rawTolvaData, _tolvaYear, tolvaUnit);
-}
 
 async function loadTolvaData() {
     const token = getToken();
@@ -1734,8 +1711,6 @@ async function loadTolvaData() {
     }
 
     document.getElementById('tolva-status').textContent = 'Cargando...';
-    document.getElementById('tolva-chart-area').innerHTML =
-        '<div class="loading"><span class="spinner"></span> Cargando datos...</div>';
     document.getElementById('tolva-table-area').innerHTML = '';
     document.getElementById('tolva-kpi-total').textContent = '...';
     document.getElementById('tolva-kpi-prods').textContent = '...';
@@ -1763,8 +1738,6 @@ async function loadTolvaData() {
     } catch(e) {
         console.error('[loadTolvaData]', e);
         document.getElementById('tolva-status').textContent = 'Error al conectar con la API.';
-        document.getElementById('tolva-chart-area').innerHTML =
-            '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Error al conectar con la API.</p></div>';
     }
 }
 
@@ -1815,67 +1788,10 @@ function renderTolvaReport(data, year, vo) {
     document.getElementById('tolva-kpi-avg-u').textContent   = `${lbl} / mes`;
 
     if (products.length === 0) {
-        document.getElementById('tolva-chart-area').innerHTML =
+        document.getElementById('tolva-table-area').innerHTML =
             '<div class="empty-state"><div class="empty-icon">🔍</div><p>No hay datos de Consumo Tolva para este período.</p></div>';
-        document.getElementById('tolva-table-area').innerHTML = '';
         return;
     }
-
-    // ── Gráfico ────────────────────────────────────────────
-    const visMonths = [...monthSet].sort((a,b)=>a-b);
-    const xLabels   = visMonths.map(m => TOLVA_MONTH_NAMES[m-1]);
-    const stacked   = tolvaChartType === 'stacked';
-
-    const chartArea = document.getElementById('tolva-chart-area');
-    chartArea.innerHTML = '<canvas id="ch-tolva-trend"></canvas>';
-    document.getElementById('ch-tolva-trend').style.height = '400px';
-
-    if (charts['ch-tolva-trend']) { charts['ch-tolva-trend'].destroy(); delete charts['ch-tolva-trend']; }
-
-    charts['ch-tolva-trend'] = new Chart(document.getElementById('ch-tolva-trend'), {
-        type: 'bar',
-        data: {
-            labels: xLabels,
-            datasets: products.map((p, i) => ({
-                label: p,
-                data: visMonths.map(m => pivot[p][m] || 0),
-                backgroundColor: TOLVA_COLORS[i % TOLVA_COLORS.length],
-                borderWidth: 0,
-                borderRadius: stacked ? 0 : 3
-            }))
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { font: { size: 11 }, boxWidth: 14, padding: 10 }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y, vo)} ${lbl}`,
-                        footer: items => {
-                            const total = items.reduce((s, c) => s + c.parsed.y, 0);
-                            return `Total: ${fmt(total, vo)} ${lbl}`;
-                        }
-                    }
-                },
-                datalabels: { display: false }
-            },
-            scales: {
-                x: {
-                    stacked,
-                    ticks: { font: { size: 12 } },
-                    grid: { display: false }
-                },
-                y: {
-                    stacked,
-                    grid: { color: '#f0f4f8' },
-                    ticks: { font: { size: 11 }, callback: v => fmt(v, vo) }
-                }
-            }
-        }
-    });
 
     // ── Tabla pivote ───────────────────────────────────────
     const allMonths = [1,2,3,4,5,6,7,8,9,10,11,12];
