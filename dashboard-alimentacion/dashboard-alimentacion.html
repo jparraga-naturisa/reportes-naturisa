@@ -2277,9 +2277,11 @@ async function cargarCiclosPiscina() {
     const idsQS = subIds.map(id => `subsidiaryIds=${id}`).join('&');
 
     // Fetch pool_production: semana actual + 8 trimestres atrás
+    // Guardamos la fecha aproximada del snapshot para usarla como endDate en cosechados
     const quarters = Array.from({ length: 8 }, (_, q) => {
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (q + 1) * 91);
-        return _isoWeek(d);
+        const iw = _isoWeek(d);
+        return { ...iw, snapDate: d.toISOString().substring(0, 10) };
     });
 
     const parseItems = async res => {
@@ -2288,30 +2290,35 @@ async function cargarCiclosPiscina() {
         return Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
     };
 
-    const allRes = await Promise.all([
-        fetch(`${API_POOL_PROD}?${idsQS}&cutOffYear=${curY}&cutOffWeek=${curW}`, { headers: hdrs }),
-        ...quarters.map(({ year, week }) =>
-            fetch(`${API_POOL_PROD}?${idsQS}&cutOffYear=${year}&cutOffWeek=${week}`, { headers: hdrs })
-        )
-    ]);
+    const snapshots = [
+        { isActivo: true,  snapDate: now.toISOString().substring(0, 10),
+          res: fetch(`${API_POOL_PROD}?${idsQS}&cutOffYear=${curY}&cutOffWeek=${curW}`, { headers: hdrs }) },
+        ...quarters.map(q => ({
+            isActivo: false, snapDate: q.snapDate,
+            res: fetch(`${API_POOL_PROD}?${idsQS}&cutOffYear=${q.year}&cutOffWeek=${q.week}`, { headers: hdrs })
+        }))
+    ];
+
+    // Esperar todas las respuestas
+    for (const snap of snapshots) snap.res = await snap.res;
 
     const cycleMap = new Map();
     const todayStr = now.toISOString().substring(0, 10);
 
-    for (let i = 0; i < allRes.length; i++) {
-        const items  = await parseItems(allRes[i]);
-        const status = i === 0 ? 'ACTIVO' : 'COSECHADO';
+    for (const { isActivo, snapDate, res } of snapshots) {
+        const items = await parseItems(res);
         items.forEach(c => {
             const id = String(c.idCycle || c.cycleId || '');
             if (!id || cycleMap.has(id)) return;
             const dProd = c.daysProduction || 0;
             const dDry  = c.daysDry || 0;
             const total = dProd + dDry;
-            const endDate   = status === 'ACTIVO' ? todayStr : null; // se calcula después
-            const startDate = total > 0 ? _addDays(todayStr, -total) : null;
-            cycleMap.set(id, { ...c, idCycle: id, _status: status,
-                _startDate: startDate, _endDate: endDate || todayStr,
-                _totalDays: total, _dProd: dProd, _dDry: dDry });
+            // Activos: endDate = hoy. Cosechados: endDate = fecha del snapshot (aprox. cosecha)
+            const endDate   = isActivo ? todayStr : snapDate;
+            const startDate = total > 0 ? _addDays(endDate, -total) : null;
+            cycleMap.set(id, { ...c, idCycle: id, _status: isActivo ? 'ACTIVO' : 'COSECHADO',
+                _startDate: startDate, _endDate: endDate,
+                _totalDays: total, _dProd: dProd, _dDry: dDry, _fromNY: false });
         });
     }
 
@@ -2340,13 +2347,14 @@ async function cargarCiclosPiscina() {
                 if (!cycleMap.has(id)) {
                     cycleMap.set(id, { ...c, idCycle: id, _status: 'COSECHADO',
                         _startDate: startD, _endDate: endD,
-                        _totalDays: total, _dProd: dProd, _dDry: dDry });
+                        _totalDays: total, _dProd: dProd, _dDry: dDry, _fromNY: true });
                 } else {
-                    // Actualizar fecha de cosecha si no la teníamos
+                    // NurseryYield tiene fechas reales — siempre tiene prioridad
                     const existing = cycleMap.get(id);
-                    if (!existing._endDate || existing._endDate === todayStr) {
-                        existing._endDate  = endD;
+                    if (!existing._fromNY && harv) {
+                        existing._endDate   = endD;
                         existing._startDate = startD || existing._startDate;
+                        existing._fromNY    = true;
                     }
                 }
             });
