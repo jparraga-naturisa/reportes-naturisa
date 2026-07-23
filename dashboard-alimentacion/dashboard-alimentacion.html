@@ -2316,6 +2316,12 @@ async function cargarCiclosPiscina() {
     if (!poolFiltro) { alert('Selecciona una piscina'); return; }
 
     const subIds = [subSelVal];
+    // Función de coincidencia flexible: exacto, o contiene, o el filtro está contenido en el nombre
+    const poolF  = poolFiltro.toLowerCase();
+    const matchPool = nm => {
+        const n = (nm || '').trim().toLowerCase();
+        return n === poolF || n.includes(poolF) || poolF.includes(n);
+    };
     const status = document.getElementById('ciclos-status');
     document.getElementById('ciclo-picker-wrap').style.display = 'none';
     document.getElementById('ciclo-comparar-wrap').style.display = 'none';
@@ -2349,7 +2355,7 @@ async function cargarCiclosPiscina() {
             items.forEach(c => {
                 const id = String(c.idCycle || c.cycleId || c.cycleCode || '');
                 if (!id) return;
-                if ((c.poolName || '').trim().toLowerCase() !== poolFiltro.toLowerCase()) return;
+                if (!matchPool(c.poolName)) return;
                 const harv   = c.endHarvestDate ? c.endHarvestDate.substring(0, 10) : null;
                 const seed   = c.startDate      ? c.startDate.substring(0, 10)      : null;
                 const dProd  = c.daysProduction || 0;
@@ -2393,7 +2399,7 @@ async function cargarCiclosPiscina() {
             items.forEach(c => {
                 const id = String(c.idCycle || c.cycleId || '');
                 if (!id) return;
-                if ((c.poolName || '').trim().toLowerCase() !== poolFiltro.toLowerCase()) return;
+                if (!matchPool(c.poolName)) return;
                 if (cycleMap.has(id)) {
                     // Si ya existe desde NurseryYield con fecha real, solo completar días faltantes
                     const ex = cycleMap.get(id);
