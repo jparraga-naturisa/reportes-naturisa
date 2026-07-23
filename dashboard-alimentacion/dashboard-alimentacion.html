@@ -541,25 +541,47 @@
 
     <!-- Comparación de consumo por etapa del ciclo -->
     <div class="table-card" id="tolva-ciclos-card" style="margin-top:14px">
-        <div class="chart-title" style="margin-bottom:14px">📊 Consumo por Etapa del Ciclo</div>
+        <div class="chart-title" style="margin-bottom:16px">📊 Consumo por Etapa del Ciclo</div>
 
-        <!-- Paso 1: sucursal → piscina → buscar -->
-        <div id="ciclos-paso1" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-            <select id="sel-ciclo-sub" onchange="cargarPiscinasPorSucursal()" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:180px;background:white">
-                <option value="">— Sucursal —</option>
-            </select>
-            <select id="sel-ciclo-pool" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:200px;background:white">
-                <option value="">— Selecciona una piscina —</option>
-            </select>
-            <button onclick="cargarCiclosPiscina()" style="padding:5px 14px;background:#0ea5e9;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Buscar ciclos</button>
-        </div>
-
-        <!-- Paso 2: selección de ciclos y rangos -->
-        <div id="ciclos-paso2" style="display:none;margin-bottom:12px">
-            <div style="font-size:12px;color:#64748b;margin-bottom:8px;font-weight:600">Selecciona los ciclos a comparar:</div>
-            <div id="ciclos-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
-
-            <button onclick="compararEtapasCiclo()" style="padding:6px 18px;background:#1d4ed8;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Comparar</button>
+        <!-- Filtros en cascada -->
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
+            <!-- Sucursal -->
+            <div>
+                <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Sucursal</div>
+                <select id="sel-ciclo-sub" onchange="cargarPiscinasPorSucursal()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:160px;background:white">
+                    <option value="">— Selecciona —</option>
+                </select>
+            </div>
+            <!-- Piscina -->
+            <div>
+                <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Piscina</div>
+                <select id="sel-ciclo-pool" onchange="cargarCiclosPiscina()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:160px;background:white">
+                    <option value="">— Selecciona —</option>
+                </select>
+            </div>
+            <!-- Ciclo (multi-select con búsqueda) -->
+            <div id="ciclo-picker-wrap" style="display:none">
+                <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Ciclo</div>
+                <div style="position:relative">
+                    <div id="ciclo-picker-btn" onclick="toggleCicloPicker()"
+                        style="padding:6px 32px 6px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:200px;background:white;cursor:pointer;user-select:none;position:relative">
+                        <span id="ciclo-picker-label">Todos los ciclos</span>
+                        <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);color:#94a3b8">▾</span>
+                    </div>
+                    <div id="ciclo-picker-drop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:999;background:white;border:1.5px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:280px;max-height:320px;overflow:hidden;display:none;flex-direction:column">
+                        <div style="padding:8px">
+                            <input id="ciclo-picker-search" placeholder="Buscar ciclo..." oninput="filtrarCiclosPicker()"
+                                style="width:100%;padding:5px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box">
+                        </div>
+                        <div id="ciclo-picker-list" style="overflow-y:auto;max-height:240px;padding:4px 8px 8px"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Botón comparar -->
+            <div id="ciclo-comparar-wrap" style="display:none">
+                <div style="font-size:11px;margin-bottom:4px;opacity:0">&nbsp;</div>
+                <button onclick="compararEtapasCiclo()" style="padding:7px 20px;background:#1d4ed8;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Comparar</button>
+            </div>
         </div>
 
         <div id="ciclos-status" style="font-size:12px;color:#94a3b8;margin-bottom:8px"></div>
@@ -2295,9 +2317,9 @@ async function cargarCiclosPiscina() {
 
     const subIds = [subSelVal];
     const status = document.getElementById('ciclos-status');
-    const paso2  = document.getElementById('ciclos-paso2');
+    document.getElementById('ciclo-picker-wrap').style.display = 'none';
+    document.getElementById('ciclo-comparar-wrap').style.display = 'none';
     status.textContent = `Buscando ciclos de ${poolFiltro}...`;
-    paso2.style.display = 'none';
     document.getElementById('ciclos-area').innerHTML = '';
 
     const hdrs   = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
@@ -2411,32 +2433,73 @@ async function cargarCiclosPiscina() {
     mostrarListaCiclos();
 }
 
+// ── Ciclo picker (dropdown con búsqueda + checkboxes) ────────────
+
+function toggleCicloPicker() {
+    const drop = document.getElementById('ciclo-picker-drop');
+    const open = drop.style.display === 'flex';
+    drop.style.display = open ? 'none' : 'flex';
+    if (!open) document.getElementById('ciclo-picker-search').focus();
+}
+
+function filtrarCiclosPicker() {
+    const q = document.getElementById('ciclo-picker-search').value.toLowerCase();
+    document.querySelectorAll('#ciclo-picker-list .ciclo-item').forEach(el => {
+        el.style.display = el.dataset.label.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+function actualizarLabelPicker() {
+    const checks = document.querySelectorAll('#ciclo-picker-list input[type=checkbox]');
+    const total  = checks.length;
+    const sel    = [...checks].filter(c => c.checked).length;
+    document.getElementById('ciclo-picker-label').textContent =
+        sel === 0 ? 'Ninguno' : sel === total ? 'Todos los ciclos' : `${sel} ciclo${sel>1?'s':''} seleccionado${sel>1?'s':''}`;
+}
+
 function mostrarListaCiclos() {
-    const lista  = document.getElementById('ciclos-lista');
-    const paso2  = document.getElementById('ciclos-paso2');
-    const ciclos = _ciclosCargados;
+    const ciclos  = _ciclosCargados;
+    const pickerW = document.getElementById('ciclo-picker-wrap');
+    const compW   = document.getElementById('ciclo-comparar-wrap');
+    const list    = document.getElementById('ciclo-picker-list');
 
     if (!ciclos.length) {
-        lista.innerHTML = '<span style="color:#94a3b8;font-size:12px">Sin ciclos para esta piscina.</span>';
-        paso2.style.display = '';
+        pickerW.style.display = 'none';
+        compW.style.display   = 'none';
         return;
     }
 
     const fmtDate = s => { if (!s) return '?'; const [y,m,d] = s.split('-'); return `${d}/${m}/${y.slice(2)}`; };
 
-    lista.innerHTML = ciclos.map(c => `
-        <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:7px;cursor:pointer;font-size:12px;background:white;user-select:none"
-               title="${c.poolName || ''} · ${c._totalDays} días">
-            <input type="checkbox" value="${c.idCycle}" checked style="margin:0">
-            <span style="font-weight:600;color:#1e293b">${c.cycleCode || c.idCycle}</span>
-            <span style="color:#94a3b8">${c.poolName ? `· ${c.poolName}` : ''}</span>
-            <span style="color:#64748b">${fmtDate(c._startDate)} – ${fmtDate(c._endDate)}</span>
-            ${c._status === 'ACTIVO'
-                ? `<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:#dcfce7;color:#16a34a;font-weight:700">Activo</span>`
-                : `<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:#f1f5f9;color:#64748b">Cosechado</span>`}
-        </label>`).join('');
+    list.innerHTML = ciclos.map(c => {
+        const label  = `${c.cycleCode || c.idCycle} · ${c.poolName || ''}`;
+        const badge  = c._status === 'ACTIVO'
+            ? `<span style="font-size:10px;padding:1px 6px;border-radius:6px;background:#dcfce7;color:#16a34a;font-weight:700;margin-left:4px">Activo</span>`
+            : '';
+        return `<label class="ciclo-item" data-label="${label}" onclick="actualizarLabelPicker()"
+            style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:6px;cursor:pointer;font-size:13px;user-select:none"
+            onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">
+            <input type="checkbox" value="${c.idCycle}" checked style="margin:0;width:15px;height:15px;cursor:pointer">
+            <span>
+                <span style="font-weight:600;color:#1e293b">${c.cycleCode || c.idCycle}</span>
+                <span style="color:#94a3b8;font-size:11px;margin-left:4px">· ${c.poolName || ''}</span>
+                ${badge}
+                <span style="display:block;font-size:11px;color:#94a3b8">${fmtDate(c._startDate)} – ${fmtDate(c._endDate)} · ${c._totalDays}d</span>
+            </span>
+        </label>`;
+    }).join('');
 
-    paso2.style.display = '';
+    actualizarLabelPicker();
+    pickerW.style.display = '';
+    compW.style.display   = '';
+
+    // Cerrar picker al hacer click fuera
+    document.addEventListener('click', function closePicker(e) {
+        if (!document.getElementById('ciclo-picker-wrap')?.contains(e.target)) {
+            document.getElementById('ciclo-picker-drop').style.display = 'none';
+            document.removeEventListener('click', closePicker);
+        }
+    });
 }
 
 async function compararEtapasCiclo() {
@@ -2444,7 +2507,7 @@ async function compararEtapasCiclo() {
     if (!token) { alert('Primero ingresa tu Bearer token'); return; }
 
     // Ciclos seleccionados
-    const checks = document.querySelectorAll('#ciclos-lista input[type=checkbox]:checked');
+    const checks = document.querySelectorAll('#ciclo-picker-list input[type=checkbox]:checked');
     const selIds = new Set([...checks].map(c => c.value));
     const ciclos = _ciclosCargados.filter(c => selIds.has(c.idCycle));
     if (!ciclos.length) { alert('Selecciona al menos un ciclo'); return; }
