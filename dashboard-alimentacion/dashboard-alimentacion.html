@@ -516,6 +516,22 @@
         </div>
         <div id="tolva-table-area"></div>
     </div>
+
+    <!-- Sugerencia de Pedido -->
+    <div class="table-card" id="tolva-pedido-card" style="margin-top:14px;display:none">
+        <div class="chart-title" style="margin-bottom:12px;">
+            📦 Sugerencia de Pedido
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:400;color:#64748b">
+                Cobertura deseada:
+                <input type="number" id="inp-cobertura" value="14" min="1" max="90"
+                    style="width:56px;padding:3px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;text-align:center"
+                    onchange="actualizarSugerencia()">
+                días
+            </div>
+        </div>
+        <div id="tolva-pedido-area"></div>
+        <div id="tolva-pedido-nota" style="margin-top:10px;font-size:11px;color:#94a3b8;padding:0 4px"></div>
+    </div>
 </main>
 
 </div><!-- /screen-tolva-report -->
@@ -1835,6 +1851,144 @@ function renderTolvaReport(data, year, vo) {
         </div>`;
 
     document.getElementById('tolva-table-area').innerHTML = tableHtml;
+    renderSugerenciaPedido(pivot, products, vo);
+}
+
+function renderSugerenciaPedido(pivot, products, vo) {
+    const card  = document.getElementById('tolva-pedido-card');
+    const area  = document.getElementById('tolva-pedido-area');
+    const nota  = document.getElementById('tolva-pedido-nota');
+    if (!products.length) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    const cobertura = parseInt(document.getElementById('inp-cobertura')?.value || '14');
+    const lbl  = vo === 'kg' ? 'kg' : 'sacos';
+    const meses = [1,2,3,4,5,6,7,8,9,10,11,12];
+    const fmt2  = v => Math.round(v).toLocaleString('es-EC');
+
+    // Calcular estadísticas históricas por producto
+    const stats = products.map(p => {
+        const vals = meses.map(m => pivot[p][m] || 0).filter(v => v > 0);
+        if (!vals.length) return null;
+        vals.sort((a, b) => a - b);
+        const n      = vals.length;
+        const total  = vals.reduce((s, v) => s + v, 0);
+        const avg    = total / n;
+        const min    = vals[0];
+        const max    = vals[n - 1];
+        const p25    = vals[Math.floor(n * 0.25)] || min;
+        const p75    = vals[Math.min(Math.floor(n * 0.75), n - 1)] || max;
+        // Coeficiente de variación → factor de seguridad (más variabilidad = más colchón)
+        const variance = vals.reduce((s, v) => s + (v - avg) ** 2, 0) / n;
+        const cv     = avg > 0 ? Math.sqrt(variance) / avg : 0;
+        const sf     = Math.min(0.35, cv * 0.6); // máx 35%
+        // Promedios
+        const avgDia     = avg / 30;
+        const avgSemana  = avgDia * 7;
+        // Sugerencias
+        const pedidoDias = avgDia * cobertura * (1 + sf);
+        const pedidoMes  = avg * (1 + sf);
+        // Tendencia: último mes con datos vs promedio
+        const ultimoMes  = Math.max(...meses.filter(m => (pivot[p][m] || 0) > 0));
+        const consumoUlt = pivot[p][ultimoMes] || 0;
+        const tendencia  = avg > 0 ? (consumoUlt - avg) / avg : 0;
+        // Rango del último mes
+        let rango = 'normal';
+        if (consumoUlt > 0 && consumoUlt <= p25) rango = 'bajo';
+        else if (consumoUlt >= p75) rango = 'alto';
+        return { p, avg, avgDia, avgSemana, min, max, p25, p75, cv, sf, pedidoDias, pedidoMes, tendencia, consumoUlt, rango, n };
+    }).filter(Boolean);
+
+    const rangoBadge = r => {
+        const m = { bajo: ['#3b82f6','Bajo'], normal: ['#10b981','Normal'], alto: ['#f59e0b','Alto'] };
+        const [c, t] = m[r];
+        return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${c}20;color:${c};font-weight:700">${t}</span>`;
+    };
+    const tendArrow = t => {
+        if (Math.abs(t) < 0.04) return `<span style="color:#94a3b8;font-size:11px">→ estable</span>`;
+        const up = t > 0;
+        return `<span style="color:${up?'#f59e0b':'#10b981'};font-size:11px">${up?'↑':'↓'} ${Math.abs(Math.round(t*100))}%</span>`;
+    };
+    // Sparkline de 12 barras por producto
+    const sparkline = p => {
+        const maxV = Math.max(...meses.map(m => pivot[p][m] || 0), 1);
+        return meses.map(m => {
+            const v  = pivot[p][m] || 0;
+            const h  = Math.max(Math.round((v / maxV) * 28), v > 0 ? 2 : 1);
+            const bg = v > 0 ? '#3b82f6' : '#e2e8f0';
+            return `<div style="width:6px;height:${h}px;background:${bg};border-radius:2px 2px 0 0;align-self:flex-end" title="${TOLVA_MONTH_NAMES[m-1]}: ${fmt2(v)} ${lbl}"></div>`;
+        }).join('');
+    };
+
+    const totalPedidoDias = stats.reduce((s, r) => s + r.pedidoDias, 0);
+    const totalPedidoMes  = stats.reduce((s, r) => s + r.pedidoMes,  0);
+
+    area.innerHTML = `
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+          <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700;min-width:180px">Producto</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Historial mensual</th>
+          <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Prom/día</th>
+          <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Prom/semana</th>
+          <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Prom/mes</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Último mes</th>
+          <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#1d4ed8;font-weight:700;background:#eff6ff">📦 Pedido ${cobertura} días</th>
+          <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#6d28d9;font-weight:700;background:#f5f3ff">📅 Pedido mensual</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${stats.map((s, i) => `
+        <tr style="border-bottom:1px solid #f1f5f9;${i%2?'background:#fafafa':''}">
+          <td style="padding:12px;font-weight:600;color:#1e293b;max-width:200px">
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.p}">${s.p}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px">${s.n} meses con datos · CV ${Math.round(s.cv*100)}%</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center">
+            <div style="display:flex;gap:2px;align-items:flex-end;justify-content:center;height:32px">${sparkline(s.p)}</div>
+            <div style="font-size:9px;color:#94a3b8;margin-top:2px">min ${fmt2(s.min)} · max ${fmt2(s.max)}</div>
+          </td>
+          <td style="padding:12px;text-align:right;color:#475569">${fmt2(s.avgDia)}<br><span style="font-size:10px;color:#94a3b8">${lbl}</span></td>
+          <td style="padding:12px;text-align:right;color:#475569">${fmt2(s.avgSemana)}<br><span style="font-size:10px;color:#94a3b8">${lbl}</span></td>
+          <td style="padding:12px;text-align:right;color:#475569">${fmt2(s.avg)}<br><span style="font-size:10px;color:#94a3b8">${lbl}</span></td>
+          <td style="padding:12px;text-align:center">
+            ${rangoBadge(s.rango)}<br>
+            <span style="display:block;margin-top:4px">${tendArrow(s.tendencia)}</span>
+          </td>
+          <td style="padding:12px;text-align:right;background:#eff6ff">
+            <div style="font-size:18px;font-weight:700;color:#1d4ed8">${fmt2(s.pedidoDias)}</div>
+            <div style="font-size:10px;color:#3b82f6">${lbl} · +${Math.round(s.sf*100)}% seg.</div>
+          </td>
+          <td style="padding:12px;text-align:right;background:#f5f3ff">
+            <div style="font-size:18px;font-weight:700;color:#6d28d9">${fmt2(s.pedidoMes)}</div>
+            <div style="font-size:10px;color:#7c3aed">${lbl} · +${Math.round(s.sf*100)}% seg.</div>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:#f1f5f9;border-top:2px solid #e2e8f0;font-weight:700">
+          <td colspan="6" style="padding:10px 12px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Total</td>
+          <td style="padding:10px 12px;text-align:right;background:#dbeafe;color:#1e40af;font-size:15px">${fmt2(totalPedidoDias)} ${lbl}</td>
+          <td style="padding:10px 12px;text-align:right;background:#ede9fe;color:#5b21b6;font-size:15px">${fmt2(totalPedidoMes)} ${lbl}</td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>`;
+
+    nota.innerHTML = `💡 <strong>Stock de seguridad</strong> calculado automáticamente según variabilidad histórica (CV = coeficiente de variación por producto).
+    Mayor irregularidad en el consumo → mayor colchón (máx. 35%).
+    El pedido de <strong>${cobertura} días</strong> cubre: promedio diario × ${cobertura} días + stock de seguridad.
+    <strong>Rangos:</strong> Bajo = consumo último mes ≤ percentil 25 histórico · Normal = entre P25 y P75 · Alto = ≥ percentil 75.`;
+
+    window._lastPedidoArgs = { pivot, products, vo };
+}
+
+function actualizarSugerencia() {
+    if (window._lastPedidoArgs) {
+        const { pivot, products, vo } = window._lastPedidoArgs;
+        renderSugerenciaPedido(pivot, products, vo);
+    }
 }
 
 function exportTolvaExcel() {
