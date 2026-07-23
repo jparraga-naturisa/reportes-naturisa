@@ -538,6 +538,21 @@
         <div id="tolva-pedido-area"></div>
         <div id="tolva-pedido-nota" style="margin-top:10px;font-size:11px;color:#94a3b8;padding:0 4px"></div>
     </div>
+
+    <!-- Consumo por Ciclo -->
+    <div class="table-card" id="tolva-ciclos-card" style="margin-top:14px">
+        <div class="chart-title" style="margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            🔄 Consumo por Ciclo
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:400;color:#64748b;flex-wrap:wrap">
+                <select id="sel-ciclo-pool" style="padding:4px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:180px;background:white">
+                    <option value="">— Selecciona una piscina —</option>
+                </select>
+                <button onclick="loadCiclosConsumo()" style="padding:4px 14px;background:#0ea5e9;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Cargar</button>
+            </div>
+        </div>
+        <div id="ciclos-status" style="font-size:12px;color:#94a3b8;margin-bottom:8px"></div>
+        <div id="ciclos-area"></div>
+    </div>
 </main>
 
 </div><!-- /screen-tolva-report -->
@@ -1871,6 +1886,7 @@ function renderTolvaReport(data, year, vo) {
 
     document.getElementById('tolva-table-area').innerHTML = tableHtml;
     renderSugerenciaPedido(pivot, products, vo);
+    initCiclosPoolSelector();
 }
 
 function renderSugerenciaPedido(pivot, products, vo) {
@@ -2199,6 +2215,279 @@ function actualizarSugerencia() {
     } else if (window._lastPedidoArgs) {
         const { pivot, products, vo } = window._lastPedidoArgs;
         renderSugerenciaPedido(pivot, products, vo);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONSUMO POR CICLO POR PISCINA
+// ═══════════════════════════════════════════════════════════════
+
+async function initCiclosPoolSelector() {
+    const token  = getToken();
+    if (!token) return;
+    const subIds = _tolvaFetchParams ? _tolvaFetchParams.subIds
+                 : subsidiaries.map(s => String(s.id));
+    if (!subIds.length) return;
+
+    const sel = document.getElementById('sel-ciclo-pool');
+    sel.innerHTML = '<option value="">Cargando piscinas...</option>';
+    try {
+        const hdrs = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+        const qs   = subIds.map(id => `subsidiaryIds=${id}`).join('&');
+        const res  = await fetch(`${API_POOLS}?${qs}&pageSize=2000&status=ACTIVO&status=INACTIVO&orderBy=name`, { headers: hdrs });
+        const json = await res.json();
+        let data = Array.isArray(json) ? json
+                 : Array.isArray(json.data) ? json.data
+                 : json.data?.content || json.content || json.data?.items || [];
+        data.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es'));
+        sel.innerHTML = '<option value="">— Selecciona una piscina —</option>' +
+            data.map(p => `<option value="${p.name || p.poolName}" data-sub="${p.subsidiaryId || p.subsidiaryID || ''}" data-ha="${p.size || p.hectares || p.area || ''}">${p.name || p.poolName}</option>`).join('');
+    } catch(e) {
+        sel.innerHTML = '<option value="">Error al cargar piscinas</option>';
+    }
+}
+
+async function loadCiclosConsumo() {
+    const token  = getToken();
+    if (!token) { alert('Primero ingresa tu Bearer token'); return; }
+
+    const sel    = document.getElementById('sel-ciclo-pool');
+    const poolNm = sel.value;
+    if (!poolNm) { alert('Selecciona una piscina'); return; }
+
+    const opt   = sel.options[sel.selectedIndex];
+    const subId = opt.dataset.sub || '';
+    const poolHa = parseFloat(opt.dataset.ha) || 0;
+
+    const status = document.getElementById('ciclos-status');
+    const area   = document.getElementById('ciclos-area');
+    status.textContent = 'Cargando ciclos y consumo...';
+    area.innerHTML = '';
+
+    try {
+        const hdrs = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+        const pad  = n => String(n).padStart(2, '0');
+        const now  = new Date();
+
+        // Determinar subIds para consulta
+        const subIds = subId ? [subId]
+                     : (_tolvaFetchParams ? _tolvaFetchParams.subIds
+                     : subsidiaries.map(s => String(s.id)));
+
+        // ── 1. Ciclos activos (semana actual) ─────────────────────
+        function getISOWeekLocal(d) {
+            const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            dt.setUTCDate(dt.getUTCDate() + 4 - (dt.getUTCDay() || 7));
+            const y0 = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+            return { year: dt.getUTCFullYear(), week: Math.ceil((((dt - y0) / 86400000) + 1) / 7) };
+        }
+        const { year: curY, week: curW } = getISOWeekLocal(now);
+
+        // Fetch activos + 8 trimestres atrás en paralelo
+        const quarters = Array.from({ length: 8 }, (_, q) => {
+            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (q + 1) * 91);
+            return getISOWeekLocal(d);
+        });
+
+        const idsQS = subIds.map(id => `subsidiaryIds=${id}`).join('&');
+
+        const [activosRes, ...histRes] = await Promise.all([
+            fetch(`${API_POOL_PROD}?${idsQS}&cutOffYear=${curY}&cutOffWeek=${curW}`, { headers: hdrs }),
+            ...quarters.map(({ year, week }) =>
+                fetch(`${API_POOL_PROD}?${idsQS}&cutOffYear=${year}&cutOffWeek=${week}`, { headers: hdrs })
+            )
+        ]);
+
+        const parseArr = async res => {
+            if (!res.ok) return [];
+            const j = await res.json();
+            return Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+        };
+
+        const cycleMap = new Map();
+        const addCycles = (items, status) => items.forEach(c => {
+            const id = String(c.idCycle || c.cycleId || '');
+            if (!id) return;
+            const nm = (c.poolName || '').trim();
+            if (!nm.toLowerCase().includes(poolNm.toLowerCase()) && nm !== poolNm) return;
+            if (!cycleMap.has(id)) cycleMap.set(id, { ...c, idCycle: id, _status: status });
+        });
+
+        addCycles(await parseArr(activosRes), 'ACTIVO');
+        for (const res of histRes) addCycles(await parseArr(res), 'COSECHADO');
+
+        let cycles = [...cycleMap.values()];
+
+        // ── 2. Ciclos cosechados desde NurseryYield (últimos 3 años) ──
+        const nyPeriods = [];
+        for (let i = 0; i < 36; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            nyPeriods.push({
+                startDate: `${d.getFullYear()}-${pad(d.getMonth()+1)}-01`,
+                endDate:   `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(new Date(d.getFullYear(), d.getMonth()+1, 0).getDate())}`
+            });
+        }
+        await Promise.all(nyPeriods.map(async ({ startDate, endDate }) => {
+            try {
+                const url  = `${API_NURSERY_YIELD}?${idsQS}&startDate=${startDate}&endDate=${endDate}&PageSize=1000`;
+                const res  = await fetch(url, { headers: hdrs });
+                const json = await res.json();
+                const items = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : []);
+                items.forEach(c => {
+                    const nm = (c.poolName || '').trim();
+                    if (!nm.toLowerCase().includes(poolNm.toLowerCase()) && nm !== poolNm) return;
+                    const id = String(c.idCycle || c.cycleId || c.cycleCode || '');
+                    if (!id || cycleMap.has(id)) return;
+                    cycleMap.set(id, {
+                        ...c, idCycle: id, _status: 'COSECHADO',
+                        _harvestDate: c.endHarvestDate ? c.endHarvestDate.substring(0, 10) : null
+                    });
+                });
+            } catch(_) {}
+        }));
+
+        cycles = [...cycleMap.values()];
+
+        if (!cycles.length) {
+            status.textContent = 'No se encontraron ciclos para esta piscina.';
+            return;
+        }
+
+        // ── 3. Consumo mensual de la piscina (últimos 3 años) ─────
+        const vo      = _tolvaFetchParams?.vo || (tolvaUnit === 'kg' ? 'kg' : 'sacks');
+        const lbl     = vo === 'kg' ? 'kg' : 'sacos';
+        const field   = vo === 'kg' ? 'kilograms' : 'sacks';
+        const y0      = now.getFullYear() - 2;
+        const feedQS  = new URLSearchParams({ initDate: `${y0}-01-01`, endDate: `${now.getFullYear()}-12-31`,
+            timeGranularity: 'month', valueOptions: vo, groupBy: 'pool', PageSize: 5000 });
+        feedQS.append('businessTypes', 'HopperConsumption');
+        subIds.forEach(id => feedQS.append('subsidiaryIds', id));
+
+        const feedRes  = await fetch(`${API_FEEDING}?${feedQS}`, { headers: hdrs });
+        const feedJson = await feedRes.json();
+        const feedData = (feedJson.data || []).filter(r =>
+            (r.groupValue || '').trim().toLowerCase() === poolNm.toLowerCase()
+        );
+
+        // Construir mapa: 'YYYY-MM' → consumo
+        const feedMap = {};
+        const dateField = feedData.length
+            ? (['initDate','startDate','period','date','periodStart','monthStart'].find(f => feedData[0][f]) || 'initDate')
+            : 'initDate';
+        feedData.forEach(r => {
+            const raw = String(r[dateField] || '');
+            const ym  = raw.substring(0, 7); // 'YYYY-MM'
+            if (!ym.match(/^\d{4}-\d{2}$/)) return;
+            feedMap[ym] = (feedMap[ym] || 0) + (Number(r[field]) || 0);
+        });
+
+        // ── 4. Para cada ciclo: calcular fechas y consumo ─────────
+        const addDays = (dateStr, days) => {
+            const d = new Date(dateStr + 'T00:00:00');
+            d.setDate(d.getDate() + days);
+            return d.toISOString().substring(0, 10);
+        };
+        const todayStr = now.toISOString().substring(0, 10);
+
+        const rows = cycles.map(c => {
+            const isActivo = c._status === 'ACTIVO';
+            const dProd    = c.daysProduction || 0;
+            const dDry     = c.daysDry || 0;
+            const totalDays= dProd + dDry;
+
+            let endDate   = isActivo ? todayStr : (c._harvestDate || todayStr);
+            let startDate = totalDays > 0 ? addDays(endDate, -totalDays) : null;
+
+            // Sumar meses que caigan dentro del rango del ciclo
+            let consumo = 0;
+            if (startDate) {
+                const [sy, sm] = startDate.split('-').map(Number);
+                const [ey, em] = endDate.split('-').map(Number);
+                for (let y = sy, m = sm; y < ey || (y === ey && m <= em); ) {
+                    const ym = `${y}-${String(m).padStart(2,'0')}`;
+                    consumo += feedMap[ym] || 0;
+                    m++;
+                    if (m > 12) { m = 1; y++; }
+                }
+            }
+
+            return {
+                cycleCode: c.cycleCode || c.idCycle,
+                startDate,
+                endDate,
+                totalDays,
+                dProd,
+                dDry,
+                consumo,
+                isActivo,
+                kgDia: totalDays > 0 ? consumo / totalDays : 0,
+                kgHaDia: (totalDays > 0 && poolHa > 0) ? consumo / totalDays / poolHa : 0,
+            };
+        })
+        .filter(r => r.startDate && r.totalDays > 0)
+        .sort((a, b) => b.endDate.localeCompare(a.endDate));
+
+        status.textContent = `${rows.length} ciclos · ${poolNm}${poolHa ? ` · ${poolHa} Ha` : ''}`;
+
+        if (!rows.length) {
+            area.innerHTML = '<p style="color:#94a3b8;padding:12px">No hay datos suficientes para mostrar ciclos.</p>';
+            return;
+        }
+
+        const fmt  = v => Math.round(v).toLocaleString('es-EC');
+        const fmt1 = v => v.toFixed(1);
+        const fmtDate = s => {
+            if (!s) return '—';
+            const [y,m,d] = s.split('-');
+            return `${d}/${m}/${y.slice(2)}`;
+        };
+
+        area.innerHTML = `
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+              <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Ciclo</th>
+              <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Siembra</th>
+              <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Cosecha / Hoy</th>
+              <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Días</th>
+              <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#0ea5e9;font-weight:700;background:#f0f9ff">Consumo total</th>
+              <th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">kg/día</th>
+              ${poolHa ? `<th style="text-align:right;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">kg/Ha/día</th>` : ''}
+              <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r, i) => `
+            <tr style="border-bottom:1px solid #f1f5f9;${i%2?'background:#fafafa':''}">
+              <td style="padding:12px;font-weight:600;color:#1e293b">${r.cycleCode}</td>
+              <td style="padding:12px;text-align:center;color:#475569">${fmtDate(r.startDate)}</td>
+              <td style="padding:12px;text-align:center;color:#475569">${fmtDate(r.endDate)}</td>
+              <td style="padding:12px;text-align:right;color:#475569">${r.totalDays}
+                ${r.dDry > 0 ? `<div style="font-size:10px;color:#94a3b8">${r.dProd}p + ${r.dDry}s</div>` : ''}</td>
+              <td style="padding:12px;text-align:right;background:#f0f9ff">
+                <div style="font-size:17px;font-weight:700;color:#0369a1">${r.consumo > 0 ? fmt(r.consumo) : '—'}</div>
+                <div style="font-size:10px;color:#38bdf8">${lbl}</div>
+              </td>
+              <td style="padding:12px;text-align:right;color:#475569">${r.kgDia > 0 ? fmt1(r.kgDia) : '—'}</td>
+              ${poolHa ? `<td style="padding:12px;text-align:right;color:#475569">${r.kgHaDia > 0 ? fmt1(r.kgHaDia) : '—'}</td>` : ''}
+              <td style="padding:12px;text-align:center">
+                ${r.isActivo
+                    ? `<span style="font-size:11px;padding:3px 10px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:700">Activo</span>`
+                    : `<span style="font-size:11px;padding:3px 10px;border-radius:10px;background:#f1f5f9;color:#64748b;font-weight:600">Cosechado</span>`}
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:#94a3b8;padding:0 4px">
+          💡 Consumo calculado sumando los meses del API de tolva que caen dentro del rango de cada ciclo.
+          ${poolHa ? `Área de la piscina: <strong>${poolHa} Ha</strong>.` : ''}
+        </div>`;
+
+    } catch(e) {
+        console.error('[loadCiclosConsumo]', e);
+        status.textContent = 'Error al cargar datos.';
     }
 }
 
