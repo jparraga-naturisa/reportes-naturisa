@@ -539,17 +539,37 @@
         <div id="tolva-pedido-nota" style="margin-top:10px;font-size:11px;color:#94a3b8;padding:0 4px"></div>
     </div>
 
-    <!-- Consumo por Ciclo -->
+    <!-- Comparación de consumo por etapa del ciclo -->
     <div class="table-card" id="tolva-ciclos-card" style="margin-top:14px">
-        <div class="chart-title" style="margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-            🔄 Consumo por Ciclo
-            <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:400;color:#64748b;flex-wrap:wrap">
-                <select id="sel-ciclo-pool" style="padding:4px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:180px;background:white">
-                    <option value="">— Selecciona una piscina —</option>
-                </select>
-                <button onclick="loadCiclosConsumo()" style="padding:4px 14px;background:#0ea5e9;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Cargar</button>
-            </div>
+        <div class="chart-title" style="margin-bottom:14px">📊 Consumo por Etapa del Ciclo</div>
+
+        <!-- Paso 1: cargar piscinas -->
+        <div id="ciclos-paso1" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+            <select id="sel-ciclo-sub" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:180px;background:white">
+                <option value="">— Sucursal / alcance —</option>
+            </select>
+            <select id="sel-ciclo-pool" onchange="mostrarListaCiclos()" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;min-width:180px;background:white">
+                <option value="">— Piscina —</option>
+            </select>
+            <button onclick="cargarCiclosPiscina()" style="padding:5px 14px;background:#0ea5e9;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Buscar ciclos</button>
         </div>
+
+        <!-- Paso 2: selección de ciclos y rangos -->
+        <div id="ciclos-paso2" style="display:none;margin-bottom:12px">
+            <div style="font-size:12px;color:#64748b;margin-bottom:8px;font-weight:600">Selecciona los ciclos a comparar:</div>
+            <div id="ciclos-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+
+            <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600">Rangos de días (etapas del ciclo):</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+                <input id="inp-rangos" value="0-30,31-60,61-90,91-120,121-999"
+                    style="padding:4px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;width:280px"
+                    placeholder="ej: 0-30,31-60,61-90">
+                <span style="font-size:11px;color:#94a3b8">días desde siembra</span>
+            </div>
+
+            <button onclick="compararEtapasCiclo()" style="padding:6px 18px;background:#1d4ed8;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Comparar</button>
+        </div>
+
         <div id="ciclos-status" style="font-size:12px;color:#94a3b8;margin-bottom:8px"></div>
         <div id="ciclos-area"></div>
     </div>
@@ -1713,6 +1733,11 @@ function initTolvaScreen() {
     subSel.innerHTML = '<option value="">— Sucursal —</option>' +
         subsidiaries.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
 
+    // Poblar selector de sucursal en sección ciclos
+    const cicloSubSel = document.getElementById('sel-ciclo-sub');
+    cicloSubSel.innerHTML = '<option value="">— Todas las sucursales —</option>' +
+        subsidiaries.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
     // Poblar selector de cluster desde CLUSTERS global
     const clSel = document.getElementById('f-tolva-cluster');
     clSel.innerHTML = Object.keys(CLUSTERS).map(k => `<option value="${k}">${k}</option>`).join('');
@@ -1886,7 +1911,6 @@ function renderTolvaReport(data, year, vo) {
 
     document.getElementById('tolva-table-area').innerHTML = tableHtml;
     renderSugerenciaPedido(pivot, products, vo);
-    initCiclosPoolSelector();
 }
 
 function renderSugerenciaPedido(pivot, products, vo) {
@@ -2219,53 +2243,350 @@ function actualizarSugerencia() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CONSUMO POR CICLO POR PISCINA
+// COMPARACIÓN DE CONSUMO POR ETAPA DEL CICLO
 // ═══════════════════════════════════════════════════════════════
 
-async function initCiclosPoolSelector() {
-    const token  = getToken();
-    if (!token) return;
-    const subIds = _tolvaFetchParams ? _tolvaFetchParams.subIds
-                 : subsidiaries.map(s => String(s.id));
-    if (!subIds.length) return;
+let _ciclosCargados = []; // ciclos del pool actual
 
-    const sel = document.getElementById('sel-ciclo-pool');
-    sel.innerHTML = '<option value="">Cargando piscinas...</option>';
-    try {
-        const hdrs = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
-        const qs   = subIds.map(id => `subsidiaryIds=${id}`).join('&');
-        const res  = await fetch(`${API_POOLS}?${qs}&pageSize=2000&status=ACTIVO&status=INACTIVO&status=MANTENIMIENTO`, { headers: hdrs });
-        const json = await res.json();
-        console.log('[initCiclosPoolSelector] API_POOLS response:', json);
+function _isoWeek(d) {
+    const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    dt.setUTCDate(dt.getUTCDate() + 4 - (dt.getUTCDay() || 7));
+    const y0 = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+    return { year: dt.getUTCFullYear(), week: Math.ceil((((dt - y0) / 86400000) + 1) / 7) };
+}
 
-        let data = [];
-        if (Array.isArray(json))                                         data = json;
-        else if (Array.isArray(json.data))                               data = json.data;
-        else if (json.data?.data   && Array.isArray(json.data.data))    data = json.data.data;
-        else if (json.data?.content && Array.isArray(json.data.content)) data = json.data.content;
-        else if (json.content      && Array.isArray(json.content))       data = json.content;
-        else if (json.data?.items  && Array.isArray(json.data.items))    data = json.data.items;
+function _addDays(dateStr, days) {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    return d.toISOString().substring(0, 10);
+}
 
-        console.log('[initCiclosPoolSelector] pools parsed:', data.length, data[0]);
+async function cargarCiclosPiscina() {
+    const token = getToken();
+    if (!token) { alert('Primero ingresa tu Bearer token'); return; }
 
-        const getName = p => p.name || p.poolName || p.code || p.poolCode || '';
-        const getSub  = p => p.subsidiaryId || p.subsidiaryID || p.subsidiaryIds?.[0] || '';
-        const getHa   = p => p.size || p.hectares || p.area || p.poolArea || p.areaHectares || '';
+    const subSelVal = document.getElementById('sel-ciclo-sub').value;
+    const subIds = subSelVal ? [subSelVal]
+                 : (_tolvaFetchParams ? _tolvaFetchParams.subIds
+                 : subsidiaries.map(s => String(s.id)));
+    if (!subIds.length) { alert('No hay sucursales disponibles'); return; }
 
-        data = data.filter(p => getName(p));
-        data.sort((a, b) => getName(a).localeCompare(getName(b), 'es'));
+    const status = document.getElementById('ciclos-status');
+    const paso2  = document.getElementById('ciclos-paso2');
+    const lista  = document.getElementById('ciclos-lista');
+    status.textContent = 'Buscando ciclos...';
+    paso2.style.display = 'none';
+    document.getElementById('ciclos-area').innerHTML = '';
 
-        if (!data.length) {
-            sel.innerHTML = '<option value="">Sin piscinas disponibles</option>';
+    const hdrs  = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+    const now   = new Date();
+    const { year: curY, week: curW } = _isoWeek(now);
+    const idsQS = subIds.map(id => `subsidiaryIds=${id}`).join('&');
+
+    // Fetch pool_production: semana actual + 8 trimestres atrás
+    const quarters = Array.from({ length: 8 }, (_, q) => {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (q + 1) * 91);
+        return _isoWeek(d);
+    });
+
+    const parseItems = async res => {
+        if (!res.ok) return [];
+        const j = await res.json();
+        return Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+    };
+
+    const allRes = await Promise.all([
+        fetch(`${API_POOL_PROD}?${idsQS}&cutOffYear=${curY}&cutOffWeek=${curW}`, { headers: hdrs }),
+        ...quarters.map(({ year, week }) =>
+            fetch(`${API_POOL_PROD}?${idsQS}&cutOffYear=${year}&cutOffWeek=${week}`, { headers: hdrs })
+        )
+    ]);
+
+    const cycleMap = new Map();
+    const todayStr = now.toISOString().substring(0, 10);
+
+    for (let i = 0; i < allRes.length; i++) {
+        const items  = await parseItems(allRes[i]);
+        const status = i === 0 ? 'ACTIVO' : 'COSECHADO';
+        items.forEach(c => {
+            const id = String(c.idCycle || c.cycleId || '');
+            if (!id || cycleMap.has(id)) return;
+            const dProd = c.daysProduction || 0;
+            const dDry  = c.daysDry || 0;
+            const total = dProd + dDry;
+            const endDate   = status === 'ACTIVO' ? todayStr : null; // se calcula después
+            const startDate = total > 0 ? _addDays(todayStr, -total) : null;
+            cycleMap.set(id, { ...c, idCycle: id, _status: status,
+                _startDate: startDate, _endDate: endDate || todayStr,
+                _totalDays: total, _dProd: dProd, _dDry: dDry });
+        });
+    }
+
+    // NurseryYield: cosechados últimos 3 años (para obtener harvestDate)
+    const pad = n => String(n).padStart(2, '0');
+    const nyPeriods = Array.from({ length: 36 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        return { s: `${d.getFullYear()}-${pad(d.getMonth()+1)}-01`,
+                 e: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(new Date(d.getFullYear(), d.getMonth()+1, 0).getDate())}` };
+    });
+
+    await Promise.all(nyPeriods.map(async ({ s, e }) => {
+        try {
+            const res  = await fetch(`${API_NURSERY_YIELD}?${idsQS}&startDate=${s}&endDate=${e}&PageSize=1000`, { headers: hdrs });
+            const json = await res.json();
+            const items = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : []);
+            items.forEach(c => {
+                const id = String(c.idCycle || c.cycleId || c.cycleCode || '');
+                if (!id) return;
+                const harv   = c.endHarvestDate ? c.endHarvestDate.substring(0, 10) : null;
+                const dProd  = c.daysProduction || 0;
+                const dDry   = c.daysDry || 0;
+                const total  = dProd + dDry;
+                const endD   = harv || todayStr;
+                const startD = total > 0 ? _addDays(endD, -total) : null;
+                if (!cycleMap.has(id)) {
+                    cycleMap.set(id, { ...c, idCycle: id, _status: 'COSECHADO',
+                        _startDate: startD, _endDate: endD,
+                        _totalDays: total, _dProd: dProd, _dDry: dDry });
+                } else {
+                    // Actualizar fecha de cosecha si no la teníamos
+                    const existing = cycleMap.get(id);
+                    if (!existing._endDate || existing._endDate === todayStr) {
+                        existing._endDate  = endD;
+                        existing._startDate = startD || existing._startDate;
+                    }
+                }
+            });
+        } catch(_) {}
+    }));
+
+    _ciclosCargados = [...cycleMap.values()]
+        .filter(c => c._startDate && c._totalDays > 0)
+        .sort((a, b) => (b._endDate || '').localeCompare(a._endDate || ''));
+
+    // Agrupar por piscina para el selector de pool
+    const poolSel = document.getElementById('sel-ciclo-pool');
+    const pools   = [...new Set(_ciclosCargados.map(c => (c.poolName || '').trim()).filter(Boolean))].sort();
+    poolSel.innerHTML = '<option value="">— Todas las piscinas —</option>' +
+        pools.map(p => `<option value="${p}">${p}</option>`).join('');
+
+    if (!_ciclosCargados.length) {
+        document.getElementById('ciclos-status').textContent = 'No se encontraron ciclos.';
+        return;
+    }
+
+    document.getElementById('ciclos-status').textContent = `${_ciclosCargados.length} ciclos encontrados`;
+    mostrarListaCiclos();
+}
+
+function mostrarListaCiclos() {
+    const poolFiltro = document.getElementById('sel-ciclo-pool').value;
+    const lista  = document.getElementById('ciclos-lista');
+    const paso2  = document.getElementById('ciclos-paso2');
+
+    const ciclos = poolFiltro
+        ? _ciclosCargados.filter(c => (c.poolName || '').trim() === poolFiltro)
+        : _ciclosCargados;
+
+    if (!ciclos.length) {
+        lista.innerHTML = '<span style="color:#94a3b8;font-size:12px">Sin ciclos para esta piscina.</span>';
+        paso2.style.display = '';
+        return;
+    }
+
+    const fmtDate = s => { if (!s) return '?'; const [y,m,d] = s.split('-'); return `${d}/${m}/${y.slice(2)}`; };
+
+    lista.innerHTML = ciclos.map(c => `
+        <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:7px;cursor:pointer;font-size:12px;background:white;user-select:none"
+               title="${c.poolName || ''} · ${c._totalDays} días">
+            <input type="checkbox" value="${c.idCycle}" checked style="margin:0">
+            <span style="font-weight:600;color:#1e293b">${c.cycleCode || c.idCycle}</span>
+            <span style="color:#94a3b8">${c.poolName ? `· ${c.poolName}` : ''}</span>
+            <span style="color:#64748b">${fmtDate(c._startDate)} – ${fmtDate(c._endDate)}</span>
+            ${c._status === 'ACTIVO'
+                ? `<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:#dcfce7;color:#16a34a;font-weight:700">Activo</span>`
+                : `<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:#f1f5f9;color:#64748b">Cosechado</span>`}
+        </label>`).join('');
+
+    paso2.style.display = '';
+}
+
+async function compararEtapasCiclo() {
+    const token = getToken();
+    if (!token) { alert('Primero ingresa tu Bearer token'); return; }
+
+    // Ciclos seleccionados
+    const checks = document.querySelectorAll('#ciclos-lista input[type=checkbox]:checked');
+    const selIds = new Set([...checks].map(c => c.value));
+    const ciclos = _ciclosCargados.filter(c => selIds.has(c.idCycle));
+    if (!ciclos.length) { alert('Selecciona al menos un ciclo'); return; }
+
+    // Rangos de días
+    const rangosRaw = (document.getElementById('inp-rangos').value || '0-30,31-60,61-90,91-120,121-999').trim();
+    const rangos = rangosRaw.split(',').map(r => {
+        const [a, b] = r.trim().split('-').map(Number);
+        return { min: a, max: b, label: b >= 999 ? `${a}+ días` : `${a}–${b} días` };
+    }).filter(r => !isNaN(r.min) && !isNaN(r.max));
+    if (!rangos.length) { alert('Define al menos un rango'); return; }
+
+    const status = document.getElementById('ciclos-status');
+    const area   = document.getElementById('ciclos-area');
+    status.textContent = 'Cargando consumo por etapas...';
+    area.innerHTML = '';
+
+    const hdrs  = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+    const vo    = _tolvaFetchParams?.vo || (tolvaUnit === 'kg' ? 'kg' : 'sacks');
+    const lbl   = vo === 'kg' ? 'kg' : 'sacos';
+    const field = vo === 'kg' ? 'kilograms' : 'sacks';
+
+    // Obtener subIds de los ciclos seleccionados
+    const subIdSet = new Set(ciclos.map(c => String(c._subsidiaryId || c.subsidiaryId || '')).filter(Boolean));
+    const subIds   = subIdSet.size ? [...subIdSet]
+                   : (_tolvaFetchParams ? _tolvaFetchParams.subIds : subsidiaries.map(s => String(s.id)));
+
+    // Para cada ciclo × rango: calcular fechas y llamar al API
+    // Estructura: resultados[cicloId][rangoIdx] = { [producto]: kg }
+    const resultados = {};
+
+    const tareas = [];
+    ciclos.forEach(c => {
+        resultados[c.idCycle] = {};
+        rangos.forEach((r, ri) => {
+            const rangoStart = _addDays(c._startDate, r.min);
+            const rangoEnd   = r.max >= 999
+                ? c._endDate
+                : _addDays(c._startDate, Math.min(r.max, c._totalDays));
+            if (rangoStart > c._endDate || rangoStart > rangoEnd) {
+                resultados[c.idCycle][ri] = {};
+                return;
+            }
+            tareas.push({ cicloId: c.idCycle, ri, initDate: rangoStart, endDate: rangoEnd });
+        });
+    });
+
+    await Promise.all(tareas.map(async ({ cicloId, ri, initDate, endDate }) => {
+        try {
+            const qs = new URLSearchParams({ initDate, endDate,
+                timeGranularity: 'month', valueOptions: vo, groupBy: 'product', PageSize: 5000 });
+            qs.append('businessTypes', 'HopperConsumption');
+            subIds.forEach(id => qs.append('subsidiaryIds', id));
+            const res  = await fetch(`${API_FEEDING}?${qs}`, { headers: hdrs });
+            const json = await res.json();
+            const data = json.data || [];
+            const prodMap = {};
+            data.forEach(r => {
+                const prod = normalizarProducto(r.groupValue || 'Sin nombre');
+                prodMap[prod] = (prodMap[prod] || 0) + (Number(r[field]) || 0);
+            });
+            resultados[cicloId][ri] = prodMap;
+        } catch(_) {
+            resultados[cicloId][ri] = {};
+        }
+    }));
+
+    // Construir tabla
+    const fmt = v => v > 0 ? Math.round(v).toLocaleString('es-EC') : '—';
+    const fmtDate = s => { if (!s) return '?'; const [y,m,d] = s.split('-'); return `${d}/${m}/${y.slice(2)}`; };
+
+    // Columnas: un ciclo por columna
+    const cols = ciclos.map(c => ({
+        id: c.idCycle,
+        label: c.cycleCode || c.idCycle,
+        sub: `${fmtDate(c._startDate)}–${fmtDate(c._endDate)} · ${c._totalDays}d`,
+        status: c._status
+    }));
+
+    let html = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead>
+      <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+        <th style="text-align:left;padding:10px 12px;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;min-width:100px">Etapa</th>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;min-width:200px">Producto</th>
+        ${cols.map(c => `<th style="text-align:right;padding:10px 12px;font-size:11px;color:#1d4ed8;font-weight:700;text-transform:uppercase;background:#eff6ff;min-width:110px">
+          ${c.label}
+          <div style="font-size:9px;color:#94a3b8;font-weight:400;margin-top:2px">${c.sub}</div>
+          ${c.status === 'ACTIVO' ? `<div style="font-size:9px;color:#16a34a;font-weight:600">● Activo</div>` : ''}
+        </th>`).join('')}
+        <th style="text-align:right;padding:10px 12px;font-size:11px;color:#6d28d9;font-weight:700;text-transform:uppercase;background:#f5f3ff;min-width:100px">Promedio</th>
+      </tr>
+    </thead><tbody>`;
+
+    rangos.forEach((r, ri) => {
+        // Recopilar todos los productos que aparecen en este rango
+        const prodsTotals = {};
+        ciclos.forEach(c => {
+            const pm = resultados[c.idCycle][ri] || {};
+            Object.entries(pm).forEach(([prod, kg]) => {
+                prodsTotals[prod] = (prodsTotals[prod] || 0) + kg;
+            });
+        });
+
+        const prods = Object.keys(prodsTotals).sort((a, b) => prodsTotals[b] - prodsTotals[a]);
+
+        if (!prods.length) {
+            html += `<tr style="border-bottom:1px solid #f1f5f9;background:#fafafa">
+              <td style="padding:10px 12px;font-weight:700;color:#1e293b;vertical-align:top">${r.label}</td>
+              <td colspan="${cols.length + 1}" style="padding:10px 12px;color:#94a3b8;font-style:italic">Sin datos para esta etapa</td>
+            </tr>`;
             return;
         }
-        sel.innerHTML = '<option value="">— Selecciona una piscina —</option>' +
-            data.map(p => `<option value="${getName(p)}" data-sub="${getSub(p)}" data-ha="${getHa(p)}">${getName(p)}</option>`).join('');
-    } catch(e) {
-        console.error('[initCiclosPoolSelector]', e);
-        sel.innerHTML = '<option value="">Error al cargar piscinas</option>';
-    }
+
+        // Subtotales por ciclo para este rango
+        const subTotales = ciclos.map(c =>
+            Object.values(resultados[c.idCycle][ri] || {}).reduce((s, v) => s + v, 0)
+        );
+
+        prods.forEach((prod, pi) => {
+            const vals = ciclos.map(c => (resultados[c.idCycle][ri] || {})[prod] || 0);
+            const conDatos = vals.filter(v => v > 0);
+            const prom = conDatos.length ? conDatos.reduce((s,v) => s+v, 0) / conDatos.length : 0;
+            const isFirst = pi === 0;
+            const bgRow = ri % 2 === 0 ? '' : 'background:#fafafa';
+
+            html += `<tr style="border-bottom:1px solid #f1f5f9;${bgRow}">
+              <td style="padding:${isFirst?'10px':'4px'} 12px;font-weight:700;color:#1e293b;vertical-align:top;border-right:2px solid #e2e8f0">
+                ${isFirst ? r.label : ''}
+              </td>
+              <td style="padding:6px 12px;color:#475569">${prod}</td>
+              ${vals.map(v => `<td style="padding:6px 12px;text-align:right;background:#eff6ff;color:${v>0?'#1e40af':'#cbd5e1'}">${fmt(v)}</td>`).join('')}
+              <td style="padding:6px 12px;text-align:right;background:#f5f3ff;color:${prom>0?'#5b21b6':'#cbd5e1'};font-weight:${prom>0?'600':'400'}">${fmt(prom)}</td>
+            </tr>`;
+        });
+
+        // Fila subtotal del rango
+        const promSub = subTotales.filter(v=>v>0).length
+            ? subTotales.filter(v=>v>0).reduce((s,v)=>s+v,0) / subTotales.filter(v=>v>0).length : 0;
+        html += `<tr style="border-bottom:2px solid #e2e8f0;background:#f1f5f9;font-weight:700">
+          <td style="padding:8px 12px;color:#64748b;font-size:11px;text-transform:uppercase;border-right:2px solid #e2e8f0">Subtotal</td>
+          <td style="padding:8px 12px;color:#64748b;font-size:11px">${r.label}</td>
+          ${subTotales.map(v => `<td style="padding:8px 12px;text-align:right;background:#dbeafe;color:#1e40af">${fmt(v)} <span style="font-size:10px;font-weight:400">${lbl}</span></td>`).join('')}
+          <td style="padding:8px 12px;text-align:right;background:#ede9fe;color:#5b21b6">${fmt(promSub)} <span style="font-size:10px;font-weight:400">${lbl}</span></td>
+        </tr>`;
+    });
+
+    // Total general por ciclo
+    const totalesCiclo = ciclos.map(c =>
+        rangos.reduce((s, _, ri) =>
+            s + Object.values(resultados[c.idCycle][ri] || {}).reduce((ss,v) => ss+v, 0), 0)
+    );
+    const promTotal = totalesCiclo.filter(v=>v>0).length
+        ? totalesCiclo.filter(v=>v>0).reduce((s,v)=>s+v,0) / totalesCiclo.filter(v=>v>0).length : 0;
+
+    html += `<tr style="background:#e2e8f0;font-weight:700;font-size:13px">
+      <td colspan="2" style="padding:10px 12px;color:#475569;text-transform:uppercase;font-size:11px">Total ciclo completo</td>
+      ${totalesCiclo.map(v => `<td style="padding:10px 12px;text-align:right;background:#bfdbfe;color:#1e3a8a">${fmt(v)} <span style="font-size:10px;font-weight:400">${lbl}</span></td>`).join('')}
+      <td style="padding:10px 12px;text-align:right;background:#ddd6fe;color:#4c1d95">${fmt(promTotal)} <span style="font-size:10px;font-weight:400">${lbl}</span></td>
+    </tr>`;
+
+    html += `</tbody></table></div>
+    <div style="margin-top:8px;font-size:11px;color:#94a3b8;padding:0 4px">
+      💡 Consumo por producto en cada etapa del ciclo. El promedio excluye ciclos sin datos en esa etapa.
+      Los rangos de días se miden desde la fecha de siembra de cada ciclo.
+    </div>`;
+
+    area.innerHTML = html;
+    status.textContent = `${ciclos.length} ciclos · ${rangos.length} etapas`;
 }
+
 
 async function loadCiclosConsumo() {
     const token  = getToken();
