@@ -2234,15 +2234,35 @@ async function initCiclosPoolSelector() {
     try {
         const hdrs = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
         const qs   = subIds.map(id => `subsidiaryIds=${id}`).join('&');
-        const res  = await fetch(`${API_POOLS}?${qs}&pageSize=2000&status=ACTIVO&status=INACTIVO&orderBy=name`, { headers: hdrs });
+        const res  = await fetch(`${API_POOLS}?${qs}&pageSize=2000&status=ACTIVO&status=INACTIVO&status=MANTENIMIENTO`, { headers: hdrs });
         const json = await res.json();
-        let data = Array.isArray(json) ? json
-                 : Array.isArray(json.data) ? json.data
-                 : json.data?.content || json.content || json.data?.items || [];
-        data.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es'));
+        console.log('[initCiclosPoolSelector] API_POOLS response:', json);
+
+        let data = [];
+        if (Array.isArray(json))                                         data = json;
+        else if (Array.isArray(json.data))                               data = json.data;
+        else if (json.data?.data   && Array.isArray(json.data.data))    data = json.data.data;
+        else if (json.data?.content && Array.isArray(json.data.content)) data = json.data.content;
+        else if (json.content      && Array.isArray(json.content))       data = json.content;
+        else if (json.data?.items  && Array.isArray(json.data.items))    data = json.data.items;
+
+        console.log('[initCiclosPoolSelector] pools parsed:', data.length, data[0]);
+
+        const getName = p => p.name || p.poolName || p.code || p.poolCode || '';
+        const getSub  = p => p.subsidiaryId || p.subsidiaryID || p.subsidiaryIds?.[0] || '';
+        const getHa   = p => p.size || p.hectares || p.area || p.poolArea || p.areaHectares || '';
+
+        data = data.filter(p => getName(p));
+        data.sort((a, b) => getName(a).localeCompare(getName(b), 'es'));
+
+        if (!data.length) {
+            sel.innerHTML = '<option value="">Sin piscinas disponibles</option>';
+            return;
+        }
         sel.innerHTML = '<option value="">— Selecciona una piscina —</option>' +
-            data.map(p => `<option value="${p.name || p.poolName}" data-sub="${p.subsidiaryId || p.subsidiaryID || ''}" data-ha="${p.size || p.hectares || p.area || ''}">${p.name || p.poolName}</option>`).join('');
+            data.map(p => `<option value="${getName(p)}" data-sub="${getSub(p)}" data-ha="${getHa(p)}">${getName(p)}</option>`).join('');
     } catch(e) {
+        console.error('[initCiclosPoolSelector]', e);
         sel.innerHTML = '<option value="">Error al cargar piscinas</option>';
     }
 }
