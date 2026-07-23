@@ -1662,6 +1662,15 @@ let _tolvaYear     = new Date().getFullYear();
 let _pedidoVista   = 'producto'; // 'producto' | 'piscina'
 let _tolvaFetchParams = null;    // guarda los últimos parámetros de loadTolvaData para reusar en vista piscina
 
+// Aliases de productos: nombre variante → nombre canónico
+const PRODUCT_ALIASES = {
+    'Carg Naturisa Maxima Ext 35% 1.8Mm': 'Cargill Naturisa Maxima Ext 35% 1.8Mm',
+    'Carg Aqax Rapid Fd Ext 35% 2.0Mm':  'Cargill Aquaxcel Rapid Fd Ext 35% 2.0Mm',
+};
+function normalizarProducto(nombre) {
+    return PRODUCT_ALIASES[nombre] || nombre;
+}
+
 const TOLVA_MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const TOLVA_COLORS = [
     '#14B8A6','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#10B981',
@@ -1782,7 +1791,7 @@ function renderTolvaReport(data, year, vo) {
     const monthSet = new Set();
 
     data.forEach(r => {
-        const prod = r.groupValue || 'Sin nombre';
+        const prod = normalizarProducto(r.groupValue || 'Sin nombre');
         const raw  = String(r[dateField] || '');
         const mMatch = raw.match(/\d{4}-(\d{2})/);
         if (!mMatch) return;
