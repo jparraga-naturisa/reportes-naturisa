@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naturisa – Sugerencia de Pedido</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --primary: #1a3a5c;
+            --primary-light: #2d6a9f;
+            --accent: #00b4d8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f0f4f8;
+            --card: #ffffff;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: #e2e8f0;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        .header { background: var(--primary); color: white; padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+        .header-logo { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; letter-spacing: 0.5px; }
+        .header-logo .accent { color: var(--accent); }
+        .header-logo .sep { opacity: 0.4; margin: 0 4px; }
+
+        .login-bar { background: #fffbeb; border-bottom: 1px solid #fde68a; padding: 8px 24px; display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+        .login-bar.connected { background: #f0fdf4; border-color: #bbf7d0; }
+        .login-bar input[type="text"], .login-bar input[type="password"] { padding: 5px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; width: 150px; }
+        .btn { padding: 5px 14px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; transition: opacity 0.15s; }
+        .btn:hover { opacity: 0.85; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger  { background: var(--danger);  color: white; }
+        #login-status { font-size: 12px; color: #92400e; }
+        #login-status.ok { color: #166534; font-weight: 600; }
+        .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--primary-light); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+
+        .filters { background: white; border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+        .fg { display: flex; flex-direction: column; gap: 3px; }
+        .fg label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+        .fg select, .fg input[type="number"] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; min-width: 130px; }
+        .toggle-group { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+        .toggle-btn { padding: 6px 14px; border: none; background: white; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); transition: background 0.15s; }
+        .toggle-btn.active { background: var(--primary); color: white; }
+        .btn-apply { padding: 7px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; align-self: flex-end; }
+        .btn-apply:hover { background: var(--primary-light); }
+
+        .main { padding: 16px 20px; }
+
+        .table-card { background: white; border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 20px; }
+        .card-title { font-size: 13px; font-weight: 700; color: var(--text); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+
+        .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 8px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #f8fafc; padding: 9px 12px; text-align: left; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border-bottom: 2px solid var(--border); white-space: nowrap; }
+        td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; }
+        tr:hover td { background: #f8fafc; }
+
+        @media (max-width: 700px) { .filters { flex-direction: column; } }
+    </style>
+</head>
+<body>
+
+<!-- Modal login -->
+<div id="login-modal" style="position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:18px;padding:48px 40px;width:390px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,0.45);">
+        <div style="text-align:center;margin-bottom:32px;">
+            <svg width="60" height="60" viewBox="0 0 26 26" fill="none" style="display:block;margin:0 auto 14px;">
+                <circle cx="13" cy="13" r="12" stroke="#00b4d8" stroke-width="1.8"/>
+                <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.85" transform="rotate(-20 13 13)"/>
+                <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.5" transform="rotate(30 13 13)"/>
+            </svg>
+            <div style="font-size:24px;font-weight:800;color:#1a3a5c;letter-spacing:1px;">NATURISA</div>
+            <div style="font-size:13px;color:#64748b;margin-top:6px;">Sugerencia de Pedido</div>
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">Usuario</label>
+            <input type="text" id="modal-user" placeholder="Ingresa tu usuario" autocomplete="username"
+                style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color 0.15s;"
+                onfocus="this.style.borderColor='#2d6a9f'" onblur="this.style.borderColor='#e2e8f0'"
+                onkeydown="if(event.key==='Enter') document.getElementById('modal-pass').focus()">
+        </div>
+        <div style="margin-bottom:26px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">Contraseña</label>
+            <input type="password" id="modal-pass" placeholder="Ingresa tu contraseña" autocomplete="current-password"
+                style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color 0.15s;"
+                onfocus="this.style.borderColor='#2d6a9f'" onblur="this.style.borderColor='#e2e8f0'"
+                onkeydown="if(event.key==='Enter') doModalLogin()">
+        </div>
+        <button id="modal-btn-login" onclick="doModalLogin()"
+            style="width:100%;padding:13px;background:#1a3a5c;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:0.3px;transition:background 0.15s;"
+            onmouseover="this.style.background='#2d6a9f'" onmouseout="this.style.background='#1a3a5c'">
+            Ingresar
+        </button>
+        <div id="modal-status" style="text-align:center;margin-top:14px;font-size:13px;color:#ef4444;min-height:18px;"></div>
+    </div>
+</div>
+
+<header class="header">
+    <div class="header-logo">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <circle cx="13" cy="13" r="12" stroke="#00b4d8" stroke-width="1.8"/>
+            <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.85" transform="rotate(-20 13 13)"/>
+            <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.5" transform="rotate(30 13 13)"/>
+        </svg>
+        <span class="accent">NATURISA</span><span class="sep">|</span> Sugerencia de Pedido
+    </div>
+    <span style="font-size:12px;opacity:0.65;" id="header-date"></span>
+</header>
+
+<div class="login-bar" id="login-bar">
+    <span id="login-label" style="font-weight:600;color:var(--muted)">Iniciar sesión:</span>
+    <input type="text"     id="inp-user" placeholder="Usuario" autocomplete="username">
+    <input type="password" id="inp-pass" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()">
+    <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Ingresar</button>
+    <span id="login-status">⚠ Inicia sesión para cargar datos</span>
+    <button class="btn btn-danger" id="btn-logout" onclick="doLogout()" style="display:none;margin-left:auto;">Cerrar sesión</button>
+</div>
+
+<div class="filters" id="filters-bar" style="display:none">
+    <div class="fg">
+        <label>Año</label>
+        <select id="f-year"></select>
+    </div>
+    <div class="fg">
+        <label>Alcance</label>
+        <select id="f-scope" onchange="onScopeChange()">
+            <option value="all">Todas las sucursales</option>
+            <option value="subsidiary">Por sucursal</option>
+            <option value="cluster">Por cluster</option>
+        </select>
+    </div>
+    <div class="fg" id="fg-sub" style="display:none">
+        <label>Sucursal</label>
+        <select id="f-sub" style="min-width:180px"></select>
+    </div>
+    <div class="fg" id="fg-cluster" style="display:none">
+        <label>Cluster</label>
+        <select id="f-cluster" style="min-width:180px" onchange="onClusterChange()">
+            <option value="Josefina Norte">Josefina Norte</option>
+            <option value="Josefina Sur">Josefina Sur</option>
+            <option value="Río Nilo">Río Nilo</option>
+            <option value="Puna Sur">Puna Sur</option>
+            <option value="Aquanaturisa">Aquanaturisa</option>
+            <option value="Golfomar">Golfomar</option>
+            <option value="Lanconor">Lanconor</option>
+            <option value="Inducam">Inducam</option>
+            <option value="Granmar">Granmar</option>
+        </select>
+    </div>
+    <div class="fg" id="fg-cluster-sub" style="display:none">
+        <label>Sucursal (opcional)</label>
+        <select id="f-cluster-sub" style="min-width:180px"></select>
+    </div>
+    <div class="fg">
+        <label>Unidad</label>
+        <div class="toggle-group">
+            <button id="btn-kg"    class="toggle-btn active" onclick="setUnit('kg')">Kg</button>
+            <button id="btn-sacos" class="toggle-btn"        onclick="setUnit('sacks')">Sacos</button>
+        </div>
+    </div>
+    <div class="fg">
+        <label>Cobertura (días)</label>
+        <input type="number" id="inp-cobertura" value="14" min="1" max="90"
+            style="width:72px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
+            onchange="actualizarSugerencia()">
+    </div>
+    <button class="btn-apply" onclick="consultar()">Consultar</button>
+</div>
+
+<div class="main">
+    <div class="table-card" id="pedido-card">
+        <div class="card-title">
+            📦 Sugerencia de Pedido
+            <div style="display:flex;align-items:center;gap:10px;font-weight:400;font-size:12px;color:var(--muted)">
+                <div style="display:flex;border:1.5px solid var(--border);border-radius:7px;overflow:hidden;font-size:12px">
+                    <button id="btn-producto" onclick="setPedidoVista('producto')"
+                        style="padding:4px 14px;border:none;cursor:pointer;font-weight:600;background:#3b82f6;color:white">Por Producto</button>
+                    <button id="btn-piscina" onclick="setPedidoVista('piscina')"
+                        style="padding:4px 14px;border:none;cursor:pointer;font-weight:600;background:white;color:#64748b">Por Piscina</button>
+                </div>
+                <span id="status-text" style="font-size:12px;color:var(--muted)">Selecciona filtros y presiona Consultar</span>
+            </div>
+        </div>
+        <div id="pedido-area"></div>
+        <div id="pedido-nota" style="margin-top:10px;font-size:11px;color:#94a3b8;padding:0 4px"></div>
+    </div>
+</div>
+
+<script>
+const AUTH_URL   = window.location.hostname === 'localhost'
+    ? '/auth'
+    : 'https://gateway.naturisa.com.ec/bff/web/ap1/security/api/auth';
+const CODE_APP   = '55ab9cb4-c887-4f42-98ec-b90470be6613';
+const API_FEEDING    = 'https://gateway.naturisa.com.ec/bff/mobile/feedcontrol/balanceado/api/report/feeding_general';
+const API_WAREHOUSES = 'https://gateway.naturisa.com.ec/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
+
+const CLUSTERS = {
+    'Josefina Norte': [1,2,3,5,4,33],
+    'Josefina Sur':   [6,7,8,9,11,10],
+    'Río Nilo':       [12],
+    'Puna Sur':       [20,19,21],
+    'Aquanaturisa':   [13,28,14],
+    'Golfomar':       [17],
+    'Lanconor':       [18],
+    'Inducam':        [15],
+    'Granmar':        [16]
+};
+
+const CAMPAMENTOS_DEFAULT = [
+    { id: 13, name: 'Acualit 1' }, { id: 28, name: 'Acualit 2' }, { id: 6,  name: 'Biorey' },
+    { id: 19, name: 'Bonanza' },   { id: 8,  name: 'Camarón' },   { id: 7,  name: 'Camino Real' },
+    { id: 33, name: 'Coaque NC' }, { id: 11, name: 'Esteromar' }, { id: 14, name: 'Fincacua' },
+    { id: 21, name: 'Gélices' },   { id: 17, name: 'Golfomar' },  { id: 16, name: 'Granmar' },
+    { id: 15, name: 'Inducam' },   { id: 5,  name: 'Josefina' },  { id: 4,  name: 'Kamaclusa' },
+    { id: 18, name: 'Lanconor' },  { id: 9,  name: 'Marchena' },  { id: 10, name: 'Margolfo' },
+    { id: 3,  name: 'Maricultura'}, { id: 1, name: 'Naturisa' },  { id: 2,  name: 'Pesjoya' },
+    { id: 12, name: 'Río Nilo' },  { id: 20, name: 'Roblemar' }
+];
+
+const PRODUCT_ALIASES = {
+    'Carg Naturisa Maxima Ext 35% 1.8Mm': 'Cargill Naturisa Maxima Ext 35% 1.8Mm',
+    'Carg Aqax Rapid Fd Ext 35% 2.0Mm':  'Cargill Aquaxcel Rapid Fd Ext 35% 2.0Mm',
+};
+const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+let subsidiaries = [];
+let unit = 'kg';
+let _vista = 'producto';
+let _fetchParams = null;
+let _lastProductoArgs = null;
+
+function normalizarProducto(n) { return PRODUCT_ALIASES[n] || n; }
+function getToken() { return localStorage.getItem('nat_token') || ''; }
+
+// ── Auth ──────────────────────────────────────────────────────
+async function doLogin() {
+    const user = document.getElementById('inp-user').value.trim();
+    const pass = document.getElementById('inp-pass').value.trim();
+    if (!user || !pass) return alert('Ingresa usuario y contraseña');
+    const btn = document.getElementById('btn-login');
+    btn.textContent = 'Ingresando...'; btn.disabled = true;
+    try {
+        const res  = await fetch(AUTH_URL, { method:'POST', headers:{'Content-Type':'application/json',Accept:'application/json'},
+            body: JSON.stringify({ userName:user, password:pass, codeApplication:CODE_APP, includeUserInfo:true }) });
+        const json = await res.json();
+        if (json.code === 200 && json.data?.token) {
+            localStorage.setItem('nat_token', json.data.token);
+            localStorage.setItem('nat_user', user);
+            const u = json.data.usuario;
+            const fullName = u ? `${u.firstNames} ${u.lastNames}`.trim() : user;
+            localStorage.setItem('nat_name', fullName);
+            document.getElementById('inp-pass').value = '';
+            applyLoginUI(true, fullName);
+            loadSubsidiaries();
+        } else { alert('Usuario o contraseña incorrectos'); }
+    } catch(e) { document.getElementById('login-status').textContent = '⚠ Error de conexión'; }
+    finally { btn.textContent = 'Ingresar'; btn.disabled = false; }
+}
+
+async function doModalLogin() {
+    const user   = document.getElementById('modal-user').value.trim();
+    const pass   = document.getElementById('modal-pass').value.trim();
+    const status = document.getElementById('modal-status');
+    const btn    = document.getElementById('modal-btn-login');
+    if (!user || !pass) { status.textContent = 'Ingresa usuario y contraseña'; return; }
+    btn.textContent = 'Ingresando...'; btn.disabled = true; status.textContent = '';
+    try {
+        const res  = await fetch(AUTH_URL, { method:'POST', headers:{'Content-Type':'application/json',Accept:'application/json'},
+            body: JSON.stringify({ userName:user, password:pass, codeApplication:CODE_APP, includeUserInfo:true }) });
+        const json = await res.json();
+        if (json.code === 200 && json.data?.token) {
+            localStorage.setItem('nat_token', json.data.token);
+            localStorage.setItem('nat_user', user);
+            const u = json.data.usuario;
+            const fullName = u ? `${u.firstNames} ${u.lastNames}`.trim() : user;
+            localStorage.setItem('nat_name', fullName);
+            applyLoginUI(true, fullName);
+            loadSubsidiaries();
+        } else { status.textContent = '⚠ Usuario o contraseña incorrectos'; }
+    } catch(e) { status.textContent = '⚠ Error de conexión'; }
+    finally { btn.textContent = 'Ingresar'; btn.disabled = false; }
+}
+
+function doLogout() {
+    localStorage.removeItem('nat_token');
+    localStorage.removeItem('nat_name');
+    applyLoginUI(false, '');
+}
+
+function applyLoginUI(on, nombre) {
+    document.getElementById('login-modal').style.display = on ? 'none' : 'flex';
+    document.getElementById('filters-bar').style.display = on ? '' : 'none';
+    const bar = document.getElementById('login-bar');
+    bar.classList.toggle('connected', on);
+    document.getElementById('btn-login').style.display  = on ? 'none' : 'inline-block';
+    document.getElementById('btn-logout').style.display = on ? 'inline-block' : 'none';
+    document.getElementById('inp-pass').style.display   = on ? 'none' : 'inline-block';
+    document.getElementById('inp-user').style.display   = on ? 'none' : 'inline-block';
+    document.getElementById('login-label').style.display= on ? 'none' : 'inline';
+    const st = document.getElementById('login-status');
+    if (on) {
+        const words = nombre.split(' ').filter(w => w);
+        const fn = words[0] || '', fl = words[Math.floor(words.length/2)] || '';
+        const initials = `${fn[0]||''}${fl[0]||''}`.toUpperCase();
+        st.innerHTML = `<span class="user-avatar">${initials}</span>&nbsp;${fn} ${fl}`;
+        st.className = 'ok';
+    } else {
+        st.textContent = '⚠ Inicia sesión para cargar datos'; st.className = '';
+        document.getElementById('inp-user').value = '';
+        document.getElementById('modal-user').value = '';
+        document.getElementById('modal-pass').value = '';
+    }
+}
+
+// ── Subsidiaries ──────────────────────────────────────────────
+async function loadSubsidiaries() {
+    const token = getToken();
+    try {
+        const res  = await fetch(API_WAREHOUSES, { headers:{ Authorization:`Bearer ${token}`, Accept:'application/json' } });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const warehouses = (json.data?.data || json.data || [])
+            .filter(w => !w.name.startsWith('BA ') && !w.name.includes('Matriz'));
+        const subsMap = {};
+        warehouses.forEach(w => {
+            const sid = w.subsidiaryId;
+            if (!subsMap[sid] || w.name.startsWith('BF ')) subsMap[sid] = w;
+        });
+        const rawList = Object.values(subsMap).map(w => ({
+            id: w.subsidiaryId,
+            rawName: w.name,
+            cleanName: w.name.replace(/^(BA|BF|BM)\s+/, '').trim()
+        }));
+        const nameCounts = {};
+        rawList.forEach(s => { nameCounts[s.cleanName] = (nameCounts[s.cleanName]||0)+1; });
+        const list = rawList
+            .map(s => ({ id:s.id, name: nameCounts[s.cleanName]>1 ? s.rawName : s.cleanName }))
+            .sort((a,b) => a.name.localeCompare(b.name,'es'));
+        populateSubsidiaries(list.length ? list : CAMPAMENTOS_DEFAULT);
+    } catch(e) {
+        populateSubsidiaries(CAMPAMENTOS_DEFAULT);
+    }
+}
+
+function populateSubsidiaries(list) {
+    subsidiaries = list;
+    const opts = list.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    document.getElementById('f-sub').innerHTML = opts;
+    onClusterChange();
+}
+
+function onScopeChange() {
+    const scope = document.getElementById('f-scope').value;
+    document.getElementById('fg-sub').style.display        = scope === 'subsidiary' ? '' : 'none';
+    document.getElementById('fg-cluster').style.display    = scope === 'cluster'    ? '' : 'none';
+    document.getElementById('fg-cluster-sub').style.display= scope === 'cluster'    ? '' : 'none';
+}
+
+function onClusterChange() {
+    const cl   = document.getElementById('f-cluster').value;
+    const ids  = CLUSTERS[cl] || [];
+    const subs = subsidiaries.filter(s => ids.includes(s.id));
+    document.getElementById('f-cluster-sub').innerHTML =
+        '<option value="">Todas del cluster</option>' +
+        subs.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function setUnit(u) {
+    unit = u;
+    document.getElementById('btn-kg').classList.toggle('active', u==='kg');
+    document.getElementById('btn-sacos').classList.toggle('active', u==='sacks');
+}
+
+function setPedidoVista(vista) {
+    _vista = vista;
+    const pBtn = document.getElementById('btn-producto');
+    const piBtn = document.getElementById('btn-piscina');
+    pBtn.style.background  = vista==='producto' ? '#3b82f6' : 'white';
+    pBtn.style.color       = vista==='producto' ? 'white' : '#64748b';
+    piBtn.style.background = vista==='piscina'  ? '#3b82f6' : 'white';
+    piBtn.style.color      = vista==='piscina'  ? 'white' : '#64748b';
+    if (vista === 'producto') {
+        if (_lastProductoArgs) {
+            const { pivot, products, vo } = _lastProductoArgs;
+            renderPorProducto(pivot, products, vo);
+        }
+    } else {
+        renderPorPiscina();
+    }
+}
+
+function actualizarSugerencia() {
+    if (_vista === 'piscina') {
+        renderPorPiscina();
+    } else if (_lastProductoArgs) {
+        const { pivot, products, vo } = _lastProductoArgs;
+        renderPorProducto(pivot, products, vo);
+    }
+}
+
+// ── Obtener subIds ────────────────────────────────────────────
+function getSubIds() {
+    const scope = document.getElementById('f-scope').value;
+    if (scope === 'subsidiary') {
+        const sid = document.getElementById('f-sub').value;
+        if (!sid) { alert('Selecciona una sucursal'); return null; }
+        return [sid];
+    } else if (scope === 'cluster') {
+        const csid = document.getElementById('f-cluster-sub').value;
+        if (csid) return [csid];
+        const cl = document.getElementById('f-cluster').value;
+        return (CLUSTERS[cl]||[]).map(String);
+    } else {
+        return subsidiaries.map(s => String(s.id));
+    }
+}
+
+// ── Consultar ─────────────────────────────────────────────────
+async function consultar() {
+    const token = getToken();
+    if (!token) { alert('Inicia sesión primero'); return; }
+    const y = parseInt(document.getElementById('f-year').value);
+    const subIds = getSubIds();
+    if (!subIds) return;
+    const vo = unit === 'kg' ? 'kg' : 'sacks';
+
+    _fetchParams = { initDate:`${y}-01-01`, endDate:`${y}-12-31`, vo, subIds };
+    _vista = 'producto';
+    document.getElementById('btn-producto').style.background = '#3b82f6';
+    document.getElementById('btn-producto').style.color = 'white';
+    document.getElementById('btn-piscina').style.background = 'white';
+    document.getElementById('btn-piscina').style.color = '#64748b';
+
+    setStatus('<span class="spinner"></span> Cargando datos...');
+    document.getElementById('pedido-area').innerHTML = '';
+    document.getElementById('pedido-nota').innerHTML = '';
+
+    try {
+        const headers = { Authorization:`Bearer ${token}`, Accept:'application/json' };
+        const qs = new URLSearchParams({ initDate:_fetchParams.initDate, endDate:_fetchParams.endDate,
+            timeGranularity:'month', valueOptions:vo, groupBy:'product', PageSize:5000 });
+        qs.append('businessTypes', 'HopperConsumption');
+        subIds.forEach(id => qs.append('subsidiaryIds', id));
+
+        const res  = await fetch(`${API_FEEDING}?${qs}`, { headers });
+        if (res.status === 401) { setStatus('Token inválido o expirado'); return; }
+        const json = await res.json();
+        const data = json.data || [];
+
+        if (!data.length) { setStatus('Sin datos para el período seleccionado'); return; }
+
+        const dateField = ['initDate','startDate','period','date','periodStart','weekStart','monthStart']
+            .find(f => data[0][f]) || 'initDate';
+        const field = vo === 'kg' ? 'kilograms' : 'sacks';
+        const pivot = {};
+        data.forEach(r => {
+            const prod = normalizarProducto(r.groupValue || 'Sin nombre');
+            const raw  = String(r[dateField] || '');
+            const mMatch = raw.match(/\d{4}-(\d{2})/);
+            if (!mMatch) return;
+            const m = parseInt(mMatch[1]);
+            if (m < 1 || m > 12) return;
+            if (!pivot[prod]) pivot[prod] = {};
+            pivot[prod][m] = (pivot[prod][m] || 0) + (Number(r[field]) || 0);
+        });
+
+        const products = Object.keys(pivot).sort((a,b) => {
+            const tA = Object.values(pivot[a]).reduce((s,v)=>s+v,0);
+            const tB = Object.values(pivot[b]).reduce((s,v)=>s+v,0);
+            return tB - tA;
+        });
+
+        setStatus(`${products.length} productos · ${y}`);
+        renderPorProducto(pivot, products, vo);
+    } catch(e) {
+        console.error(e);
+        setStatus('Error al conectar con la API');
+    }
+}
+
+function setStatus(html) {
+    document.getElementById('status-text').innerHTML = html;
+}
+
+// ── Render Por Producto ───────────────────────────────────────
+function renderPorProducto(pivot, products, vo) {
+    _lastProductoArgs = { pivot, products, vo };
+    const area = document.getElementById('pedido-area');
+    const nota = document.getElementById('pedido-nota');
+    if (!products.length) { area.innerHTML = '<p style="color:#94a3b8;padding:16px">Sin datos de productos.</p>'; return; }
+
+    const cobertura = parseInt(document.getElementById('inp-cobertura').value || '14');
+    const lbl  = vo === 'kg' ? 'kg' : 'sacos';
+    const meses = [1,2,3,4,5,6,7,8,9,10,11,12];
+    const fmt2  = v => Math.round(v).toLocaleString('es-EC');
+
+    const stats = products.map(p => calcStats(meses.map(m => pivot[p][m]||0), p, pivot, cobertura)).filter(Boolean);
+
+    area.innerHTML = buildTable(stats, lbl, cobertura,
+        s => s.p,
+        s => sparkline(meses, m => pivot[s.p][m]||0, '#3b82f6'),
+        s => `${s.n} meses con datos · CV ${Math.round(s.cv*100)}%`
+    );
+
+    nota.innerHTML = `💡 <strong>Stock de seguridad</strong> calculado automáticamente según variabilidad histórica (CV = coeficiente de variación).
+    El pedido de <strong>${cobertura} días</strong> cubre: promedio diario × ${cobertura} días + stock de seguridad (máx. 35%).
+    <strong>Rangos:</strong> Bajo = consumo último mes ≤ P25 · Normal = entre P25 y P75 · Alto = ≥ P75.`;
+}
+
+// ── Render Por Piscina ────────────────────────────────────────
+async function renderPorPiscina() {
+    if (!_fetchParams) {
+        document.getElementById('pedido-area').innerHTML = '<p style="color:#94a3b8;padding:16px">Primero presiona Consultar.</p>';
+        return;
+    }
+    const area = document.getElementById('pedido-area');
+    const nota = document.getElementById('pedido-nota');
+    area.innerHTML = '<p style="padding:16px"><span class="spinner"></span> Cargando datos por piscina...</p>';
+    nota.innerHTML = '';
+
+    try {
+        const token  = getToken();
+        const { initDate, endDate, vo, subIds } = _fetchParams;
+        const headers = { Authorization:`Bearer ${token}`, Accept:'application/json' };
+        const qs = new URLSearchParams({ initDate, endDate, timeGranularity:'month',
+            valueOptions:vo, groupBy:'pool', PageSize:5000 });
+        qs.append('businessTypes','HopperConsumption');
+        subIds.forEach(id => qs.append('subsidiaryIds', id));
+
+        const res  = await fetch(`${API_FEEDING}?${qs}`, { headers });
+        if (res.status === 401) { area.innerHTML = '<p style="color:#ef4444;padding:16px">Token inválido o expirado.</p>'; return; }
+        const json = await res.json();
+        const data = json.data || [];
+        if (!data.length) { area.innerHTML = '<p style="color:#94a3b8;padding:16px">Sin datos por piscina para el período.</p>'; return; }
+
+        const dateField = ['initDate','startDate','period','date','periodStart','weekStart','monthStart']
+            .find(f => data[0][f]) || 'initDate';
+        const field = vo === 'kg' ? 'kilograms' : 'sacks';
+        const lbl   = vo === 'kg' ? 'kg' : 'sacos';
+
+        const pivot = {};
+        data.forEach(r => {
+            const pool = r.groupValue || 'Sin nombre';
+            const raw  = String(r[dateField]||'');
+            const mMatch = raw.match(/\d{4}-(\d{2})/);
+            if (!mMatch) return;
+            const m = parseInt(mMatch[1]);
+            if (m < 1 || m > 12) return;
+            if (!pivot[pool]) pivot[pool] = {};
+            pivot[pool][m] = (pivot[pool][m]||0) + (Number(r[field])||0);
+        });
+
+        const meses = [1,2,3,4,5,6,7,8,9,10,11,12];
+        const cobertura = parseInt(document.getElementById('inp-cobertura').value||'14');
+        const pools = Object.keys(pivot).sort((a,b) => {
+            const tA = Object.values(pivot[a]).reduce((s,v)=>s+v,0);
+            const tB = Object.values(pivot[b]).reduce((s,v)=>s+v,0);
+            return tB - tA;
+        });
+
+        const stats = pools.map(pool => calcStats(meses.map(m => pivot[pool][m]||0), pool, pivot, cobertura)).filter(Boolean);
+
+        area.innerHTML = buildTable(stats, lbl, cobertura,
+            s => s.p,
+            s => sparkline(meses, m => pivot[s.p][m]||0, '#0ea5e9'),
+            s => `${s.n} meses · CV ${Math.round(s.cv*100)}%`
+        );
+
+        nota.innerHTML = `💡 Consumo <strong>total de todos los productos</strong> por piscina. Stock de seguridad basado en variabilidad mensual (máx. 35%).`;
+    } catch(e) {
+        console.error(e);
+        document.getElementById('pedido-area').innerHTML = '<p style="color:#ef4444;padding:16px">Error al cargar datos por piscina.</p>';
+    }
+}
+
+// ── Helpers compartidos ───────────────────────────────────────
+function calcStats(vals12, name, pivot, cobertura) {
+    const vals = vals12.filter(v => v > 0);
+    if (!vals.length) return null;
+    vals.sort((a,b) => a - b);
+    const n   = vals.length;
+    const total = vals.reduce((s,v)=>s+v,0);
+    const avg = total/n;
+    const min = vals[0], max = vals[n-1];
+    const p25 = vals[Math.floor(n*0.25)]||min;
+    const p75 = vals[Math.min(Math.floor(n*0.75),n-1)]||max;
+    const variance = vals.reduce((s,v)=>s+(v-avg)**2,0)/n;
+    const cv  = avg > 0 ? Math.sqrt(variance)/avg : 0;
+    const sf  = Math.min(0.35, cv*0.6);
+    const avgDia = avg/30, avgSemana = avgDia*7;
+    const pedidoDias = avgDia*cobertura*(1+sf);
+    const pedidoMes  = avg*(1+sf);
+    const meses = [1,2,3,4,5,6,7,8,9,10,11,12];
+    const mesesConDatos = meses.filter(m => (pivot[name]?.[m]||0) > 0);
+    const ultimoMes = mesesConDatos.length ? Math.max(...mesesConDatos) : 0;
+    const consumoUlt = pivot[name]?.[ultimoMes] || 0;
+    const tendencia  = avg > 0 ? (consumoUlt - avg)/avg : 0;
+    let rango = 'normal';
+    if (consumoUlt > 0 && consumoUlt <= p25) rango = 'bajo';
+    else if (consumoUlt >= p75) rango = 'alto';
+    return { p:name, avg, avgDia, avgSemana, min, max, p25, p75, cv, sf, pedidoDias, pedidoMes, tendencia, consumoUlt, rango, n };
+}
+
+function sparkline(meses, getVal, color) {
+    const vals = meses.map(m => getVal(m));
+    const maxV = Math.max(...vals, 1);
+    return vals.map((v, i) => {
+        const h  = Math.max(Math.round((v/maxV)*28), v>0 ? 2 : 1);
+        const bg = v > 0 ? color : '#e2e8f0';
+        return `<div style="width:6px;height:${h}px;background:${bg};border-radius:2px 2px 0 0;align-self:flex-end" title="${MONTH_NAMES[i]}: ${Math.round(v).toLocaleString('es-EC')}"></div>`;
+    }).join('');
+}
+
+function buildTable(stats, lbl, cobertura, getLabel, getSparkline, getSub) {
+    const fmt2 = v => Math.round(v).toLocaleString('es-EC');
+    const rangoBadge = r => {
+        const m = { bajo:['#3b82f6','Bajo'], normal:['#10b981','Normal'], alto:['#f59e0b','Alto'] };
+        const [c,t] = m[r];
+        return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${c}20;color:${c};font-weight:700">${t}</span>`;
+    };
+    const tendArrow = t => {
+        if (Math.abs(t)<0.04) return `<span style="color:#94a3b8;font-size:11px">→ estable</span>`;
+        const up = t > 0;
+        return `<span style="color:${up?'#f59e0b':'#10b981'};font-size:11px">${up?'↑':'↓'} ${Math.abs(Math.round(t*100))}%</span>`;
+    };
+
+    const totalDias = stats.reduce((s,r)=>s+r.pedidoDias,0);
+    const totalMes  = stats.reduce((s,r)=>s+r.pedidoMes,0);
+
+    return `<div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr>
+          <th style="min-width:180px">Nombre</th>
+          <th style="text-align:center">Historial mensual</th>
+          <th style="text-align:right">Prom/día</th>
+          <th style="text-align:right">Prom/semana</th>
+          <th style="text-align:right">Prom/mes</th>
+          <th style="text-align:center">Último mes</th>
+          <th style="text-align:right;background:#eff6ff;color:#1d4ed8">📦 Pedido ${cobertura} días</th>
+          <th style="text-align:right;background:#f5f3ff;color:#6d28d9">📅 Pedido mensual</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${stats.map((s,i) => `
+        <tr style="${i%2?'background:#fafafa':''}">
+          <td style="font-weight:600;max-width:200px">
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${getLabel(s)}">${getLabel(s)}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px">${getSub(s)}</div>
+          </td>
+          <td style="text-align:center;padding:8px 12px">
+            <div style="display:flex;gap:2px;align-items:flex-end;justify-content:center;height:32px">${getSparkline(s)}</div>
+            <div style="font-size:9px;color:#94a3b8;margin-top:2px">min ${fmt2(s.min)} · max ${fmt2(s.max)}</div>
+          </td>
+          <td style="text-align:right;color:#475569">${fmt2(s.avgDia)}<br><span style="font-size:10px;color:#94a3b8">${lbl}</span></td>
+          <td style="text-align:right;color:#475569">${fmt2(s.avgSemana)}<br><span style="font-size:10px;color:#94a3b8">${lbl}</span></td>
+          <td style="text-align:right;color:#475569">${fmt2(s.avg)}<br><span style="font-size:10px;color:#94a3b8">${lbl}</span></td>
+          <td style="text-align:center">
+            ${rangoBadge(s.rango)}<br>
+            <span style="display:block;margin-top:4px">${tendArrow(s.tendencia)}</span>
+          </td>
+          <td style="text-align:right;background:#eff6ff">
+            <div style="font-size:18px;font-weight:700;color:#1d4ed8">${fmt2(s.pedidoDias)}</div>
+            <div style="font-size:10px;color:#3b82f6">${lbl} · +${Math.round(s.sf*100)}% seg.</div>
+          </td>
+          <td style="text-align:right;background:#f5f3ff">
+            <div style="font-size:18px;font-weight:700;color:#6d28d9">${fmt2(s.pedidoMes)}</div>
+            <div style="font-size:10px;color:#7c3aed">${lbl} · +${Math.round(s.sf*100)}% seg.</div>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:#f1f5f9;border-top:2px solid #e2e8f0;font-weight:700">
+          <td colspan="6" style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Total</td>
+          <td style="text-align:right;background:#dbeafe;color:#1e40af;font-size:15px">${fmt2(totalDias)} ${lbl}</td>
+          <td style="text-align:right;background:#ede9fe;color:#5b21b6;font-size:15px">${fmt2(totalMes)} ${lbl}</td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>`;
+}
+
+// ── Init ──────────────────────────────────────────────────────
+(function() {
+    const now = new Date();
+    document.getElementById('header-date').textContent =
+        now.toLocaleDateString('es-EC', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+    const yearSel = document.getElementById('f-year');
+    for (let y = now.getFullYear(); y >= 2020; y--) {
+        const opt = document.createElement('option');
+        opt.value = y; opt.textContent = y;
+        yearSel.appendChild(opt);
+    }
+
+    const t = localStorage.getItem('nat_token');
+    if (t) {
+        const name = localStorage.getItem('nat_name') || localStorage.getItem('nat_user') || '';
+        applyLoginUI(true, name);
+        loadSubsidiaries();
+    }
+})();
+</script>
+</body>
+</html>
