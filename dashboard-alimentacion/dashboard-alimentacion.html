@@ -1814,11 +1814,13 @@ const TOLVA_COLORS = [
 // PANTALLA SUGERENCIA DE PEDIDO
 // ═══════════════════════════════════════════════════════════════
 
-let _pedidoSInited  = false;
-let _pedidoSUnit    = 'kg';
-let _pedidoSVista   = 'producto';
-let _pedidoSParams  = null;   // { initDate, endDate, vo, subIds }
+let _pedidoSInited      = false;
+let _pedidoSUnit        = 'kg';
+let _pedidoSVista       = 'producto';
+let _pedidoSParams      = null;   // { initDate, endDate, subIds }
 let _pedidoSLastProducto = null;
+let _pedidoSRawData     = null;   // raw API response (producto)
+let _pedidoSDateField   = 'initDate';
 
 function initPedidoScreen() {
     if (_pedidoSInited) return;
@@ -1858,7 +1860,31 @@ function setPedidoSUnit(u) {
     _pedidoSUnit = u;
     document.getElementById('btn-p-kg').classList.toggle('active',    u === 'kg');
     document.getElementById('btn-p-sacos').classList.toggle('active', u === 'sacks');
-    consultarPedidoScreen();
+    if (!_pedidoSRawData) return;
+    const vo = u === 'kg' ? 'kg' : 'sacks';
+    _pedidoSRepivotAndRender(vo);
+}
+
+function _pedidoSRepivotAndRender(vo) {
+    if (!_pedidoSRawData) return;
+    const field = vo === 'kg' ? 'kilograms' : 'sacks';
+    const pivot = {};
+    _pedidoSRawData.forEach(r => {
+        const prod = normalizarProducto(r.groupValue || 'Sin nombre');
+        const raw  = String(r[_pedidoSDateField] || '');
+        const mMatch = raw.match(/\d{4}-(\d{2})/);
+        if (!mMatch) return;
+        const m = parseInt(mMatch[1]);
+        if (m < 1 || m > 12) return;
+        if (!pivot[prod]) pivot[prod] = {};
+        pivot[prod][m] = (pivot[prod][m] || 0) + (Number(r[field]) || 0);
+    });
+    const products = Object.keys(pivot).sort((a,b) => {
+        const tA = Object.values(pivot[a]).reduce((s,v)=>s+v,0);
+        const tB = Object.values(pivot[b]).reduce((s,v)=>s+v,0);
+        return tB - tA;
+    });
+    _renderPedidoSProducto(pivot, products, vo);
 }
 
 function setPedidoSVista(vista) {
@@ -1878,11 +1904,11 @@ function setPedidoSVista(vista) {
 }
 
 function actualizarPedidoScreen() {
+    const vo = _pedidoSUnit === 'kg' ? 'kg' : 'sacks';
     if (_pedidoSVista === 'piscina') {
         _renderPedidoSPiscina();
-    } else if (_pedidoSLastProducto) {
-        const { pivot, products, vo } = _pedidoSLastProducto;
-        _renderPedidoSProducto(pivot, products, vo);
+    } else if (_pedidoSRawData) {
+        _pedidoSRepivotAndRender(vo);
     }
 }
 
@@ -1911,7 +1937,8 @@ async function consultarPedidoScreen() {
     if (!subIds) return;
     const vo = _pedidoSUnit === 'kg' ? 'kg' : 'sacks';
 
-    _pedidoSParams  = { initDate:`${y}-01-01`, endDate:`${y}-12-31`, vo, subIds };
+    _pedidoSParams   = { initDate:`${y}-01-01`, endDate:`${y}-12-31`, subIds };
+    _pedidoSRawData  = null;
     _pedidoSVista   = 'producto';
     document.getElementById('btn-p-producto').style.background = '#3b82f6';
     document.getElementById('btn-p-producto').style.color      = 'white';
@@ -1925,7 +1952,7 @@ async function consultarPedidoScreen() {
     try {
         const headers = { Authorization:`Bearer ${token}`, Accept:'application/json, text/plain, */*' };
         const qs = new URLSearchParams({ initDate:_pedidoSParams.initDate, endDate:_pedidoSParams.endDate,
-            timeGranularity:'month', valueOptions:vo, groupBy:'product', PageSize:5000 });
+            timeGranularity:'month', valueOptions:'kg', groupBy:'product', PageSize:5000 });
         qs.append('businessTypes', 'HopperConsumption');
         qs.append('businessTypes', 'VoleoConsumption');
         subIds.forEach(id => qs.append('subsidiaryIds', id));
@@ -1945,29 +1972,12 @@ async function consultarPedidoScreen() {
             return;
         }
 
-        const dateField = ['initDate','startDate','period','date','periodStart','weekStart','monthStart']
+        _pedidoSRawData  = data;
+        _pedidoSDateField = ['initDate','startDate','period','date','periodStart','weekStart','monthStart']
             .find(f => data[0][f]) || 'initDate';
-        const field = vo === 'kg' ? 'kilograms' : 'sacks';
-        const pivot = {};
-        data.forEach(r => {
-            const prod = normalizarProducto(r.groupValue || 'Sin nombre');
-            const raw  = String(r[dateField] || '');
-            const mMatch = raw.match(/\d{4}-(\d{2})/);
-            if (!mMatch) return;
-            const m = parseInt(mMatch[1]);
-            if (m < 1 || m > 12) return;
-            if (!pivot[prod]) pivot[prod] = {};
-            pivot[prod][m] = (pivot[prod][m] || 0) + (Number(r[field]) || 0);
-        });
 
-        const products = Object.keys(pivot).sort((a, b) => {
-            const tA = Object.values(pivot[a]).reduce((s,v)=>s+v,0);
-            const tB = Object.values(pivot[b]).reduce((s,v)=>s+v,0);
-            return tB - tA;
-        });
-
-        document.getElementById('p-status').textContent = `${products.length} productos · ${y}`;
-        _renderPedidoSProducto(pivot, products, vo);
+        document.getElementById('p-status').textContent = `${y}`;
+        _pedidoSRepivotAndRender(vo);
     } catch(e) {
         console.error('[consultarPedidoScreen]', e);
         document.getElementById('p-status').textContent = 'Error al conectar con la API.';
