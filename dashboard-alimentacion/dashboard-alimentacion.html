@@ -1926,6 +1926,7 @@ async function consultarPedidoScreen() {
         const qs = new URLSearchParams({ initDate:_pedidoSParams.initDate, endDate:_pedidoSParams.endDate,
             timeGranularity:'month', valueOptions:vo, groupBy:'product', PageSize:5000 });
         qs.append('businessTypes', 'HopperConsumption');
+        qs.append('businessTypes', 'VoleoConsumption');
         subIds.forEach(id => qs.append('subsidiaryIds', id));
 
         const res  = await fetch(`${API_FEEDING}?${qs}`, { headers });
@@ -2111,7 +2112,8 @@ async function _renderPedidoSPiscina() {
         const { initDate, endDate, vo, subIds } = _pedidoSParams;
         const headers = { Authorization:`Bearer ${token}`, Accept:'application/json, text/plain, */*' };
         const qs = new URLSearchParams({ initDate, endDate, timeGranularity:'month', valueOptions:vo, groupBy:'pool', PageSize:5000 });
-        qs.append('businessTypes','HopperConsumption');
+        qs.append('businessTypes', 'HopperConsumption');
+        qs.append('businessTypes', 'VoleoConsumption');
         subIds.forEach(id => qs.append('subsidiaryIds', id));
 
         const res  = await fetch(`${API_FEEDING}?${qs}`, { headers });
