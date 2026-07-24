@@ -201,6 +201,10 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
         Sugerencia de Pedido
     </button>
+    <button class="nav-tab" id="tab-analisis-ciclo" onclick="showScreen('analisis-ciclo')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Análisis por Ciclo
+    </button>
 </div>
 
 <!-- ── PANTALLA: Alimentación ──────────────────────────────── -->
@@ -669,6 +673,105 @@
 </main>
 
 </div><!-- /screen-pedido -->
+
+<!-- ── PANTALLA: Análisis por Ciclo ────────────────────────── -->
+<div class="screen" id="screen-analisis-ciclo">
+
+<div class="filters">
+    <div class="fg">
+        <label>Sucursal</label>
+        <select id="ac-sub" onchange="cargarPiscinasAC()" style="min-width:180px">
+            <option value="">— Selecciona —</option>
+        </select>
+    </div>
+    <div class="fg">
+        <label>Piscina</label>
+        <select id="ac-pool" onchange="analizarCiclosAC()" style="min-width:160px">
+            <option value="">— Selecciona —</option>
+        </select>
+    </div>
+    <div class="fg">
+        <label>Unidad</label>
+        <div class="toggle-group">
+            <button class="toggle-btn active" id="btn-ac-kg"    onclick="setACUnit('kg')">Kg</button>
+            <button class="toggle-btn"        id="btn-ac-sacos" onclick="setACUnit('sacks')">Sacos</button>
+        </div>
+    </div>
+    <span id="ac-status" style="font-size:12px;color:var(--muted);align-self:center"></span>
+</div>
+
+<main class="main">
+
+    <!-- KPIs -->
+    <div id="ac-kpis" style="display:none;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;max-width:900px">
+            <div class="kpi-card blue" style="border-left-color:#3b82f6">
+                <div class="kpi-label">Prom. consumo/día</div>
+                <div class="kpi-value" id="ac-kpi-avg">—</div>
+                <div class="kpi-sub" id="ac-kpi-avg-u">kg</div>
+            </div>
+            <div class="kpi-card blue" style="border-left-color:#10b981">
+                <div class="kpi-label">Ciclos analizados</div>
+                <div class="kpi-value" id="ac-kpi-ciclos">—</div>
+                <div class="kpi-sub">con datos de consumo</div>
+            </div>
+            <div class="kpi-card blue" style="border-left-color:#f59e0b">
+                <div class="kpi-label">Ciclo más largo</div>
+                <div class="kpi-value" id="ac-kpi-max">—</div>
+                <div class="kpi-sub">días</div>
+            </div>
+            <div class="kpi-card blue" style="border-left-color:#8b5cf6">
+                <div class="kpi-label">Ciclo más corto</div>
+                <div class="kpi-value" id="ac-kpi-min">—</div>
+                <div class="kpi-sub">días</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico día del ciclo -->
+    <div class="table-card" id="ac-chart-card" style="display:none;margin-bottom:16px">
+        <div class="chart-title" style="margin-bottom:14px">
+            📈 Consumo por semana del ciclo
+            <span class="chart-sub" id="ac-chart-sub">Histórico consolidado · Promedio / Mín / Máx</span>
+        </div>
+        <div style="position:relative;height:300px">
+            <canvas id="ac-chart"></canvas>
+        </div>
+    </div>
+
+    <!-- Rangos -->
+    <div class="table-card" id="ac-ranges-card" style="display:none;margin-bottom:16px">
+        <div class="chart-title" style="margin-bottom:14px">📊 Consumo por rangos del ciclo</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+            <div id="ac-ranges-table"></div>
+            <div style="position:relative;height:220px"><canvas id="ac-bar-chart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Proyección -->
+    <div class="table-card" id="ac-proj-card" style="display:none">
+        <div class="chart-title" style="margin-bottom:16px">🎯 Proyección de pedido</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px">
+            <div class="fg">
+                <label>Semana actual del ciclo</label>
+                <input type="number" id="ac-sem-actual" min="1" value="1"
+                    style="width:80px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
+                    oninput="calcularProyeccionAC()">
+            </div>
+            <div class="fg">
+                <label>Horizonte de cobertura</label>
+                <div class="toggle-group">
+                    <button class="toggle-btn active" id="btn-ac-h1" onclick="setACHorizonte(1)">1 sem</button>
+                    <button class="toggle-btn"        id="btn-ac-h2" onclick="setACHorizonte(2)">2 sem</button>
+                    <button class="toggle-btn"        id="btn-ac-h4" onclick="setACHorizonte(4)">4 sem</button>
+                </div>
+            </div>
+        </div>
+        <div id="ac-proj-area"></div>
+    </div>
+
+</main>
+</div><!-- /screen-analisis-ciclo -->
 
 
 
@@ -1769,14 +1872,15 @@ function showEmpty(msg) {
 }
 
 function showScreen(name) {
-    if (!['alimentacion','tolva-report','pedido'].includes(name)) name = 'alimentacion';
-    ['alimentacion','tolva-report','pedido'].forEach(s => {
+    if (!['alimentacion','tolva-report','pedido','analisis-ciclo'].includes(name)) name = 'alimentacion';
+    ['alimentacion','tolva-report','pedido','analisis-ciclo'].forEach(s => {
         document.getElementById('screen-'+s).classList.toggle('active', s === name);
         document.getElementById('tab-'+s).classList.toggle('active', s === name);
     });
     localStorage.setItem('nat_last_screen', name);
-    if (name === 'tolva-report') initTolvaScreen();
-    if (name === 'pedido')       initPedidoScreen();
+    if (name === 'tolva-report')   initTolvaScreen();
+    if (name === 'pedido')         initPedidoScreen();
+    if (name === 'analisis-ciclo') initACScreen();
 }
 
 
@@ -3454,6 +3558,381 @@ function exportTolvaExcel() {
 
     XLSX.utils.book_append_sheet(wb, ws, `Tolva ${_tolvaYear}`);
     XLSX.writeFile(wb, `consumo_tolva_${_tolvaYear}.xlsx`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PANTALLA: ANÁLISIS POR CICLO
+// ═══════════════════════════════════════════════════════════════
+
+let _acInited      = false;
+let _acUnit        = 'kg';
+let _acHorizonte   = 1;       // semanas de cobertura
+let _acWeekMap     = {};      // semana_ciclo(1-N) → [kg values across cycles]
+let _acMaxWeek     = 0;
+let _acDuraciones  = [];      // duración en semanas de cada ciclo con datos
+let _acChartInst   = null;
+let _acBarInst     = null;
+
+function initACScreen() {
+    if (_acInited) return;
+    _acInited = true;
+    const subSel = document.getElementById('ac-sub');
+    subSel.innerHTML = '<option value="">— Selecciona —</option>' +
+        subsidiaries.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function setACUnit(u) {
+    _acUnit = u;
+    document.getElementById('btn-ac-kg').classList.toggle('active',    u === 'kg');
+    document.getElementById('btn-ac-sacos').classList.toggle('active', u === 'sacks');
+    if (_acMaxWeek > 0) {
+        _renderACChart();
+        _renderACRanges();
+        calcularProyeccionAC();
+        _renderACKpis();
+    }
+}
+
+function setACHorizonte(h) {
+    _acHorizonte = h;
+    [1,2,4].forEach(x => document.getElementById(`btn-ac-h${x}`).classList.toggle('active', h === x));
+    calcularProyeccionAC();
+}
+
+async function cargarPiscinasAC() {
+    const token = getToken();
+    if (!token) return;
+    const subId = document.getElementById('ac-sub').value;
+    if (!subId) return;
+    const poolSel = document.getElementById('ac-pool');
+    poolSel.innerHTML = '<option value="">Cargando piscinas...</option>';
+    try {
+        const hdrs = { Authorization:`Bearer ${token}`, Accept:'application/json' };
+        const res  = await fetch(`${API_POOLS}?subsidiaryIds=${subId}&pageSize=2000&status=ACTIVO&status=INACTIVO&status=MANTENIMIENTO`, { headers:hdrs });
+        const json = await res.json();
+        let data = [];
+        if (Array.isArray(json))                                         data = json;
+        else if (Array.isArray(json.data))                               data = json.data;
+        else if (json.data?.data    && Array.isArray(json.data.data))    data = json.data.data;
+        else if (json.data?.content && Array.isArray(json.data.content)) data = json.data.content;
+        else if (json.content       && Array.isArray(json.content))      data = json.content;
+        else if (json.data?.items   && Array.isArray(json.data.items))   data = json.data.items;
+        data.sort((a,b) => String(a.name||a.poolName||'').localeCompare(String(b.name||b.poolName||''),'es'));
+        poolSel.innerHTML = '<option value="">— Selecciona piscina —</option>' +
+            data.map(p => { const n = p.name||p.poolName||p.nombre||p.id; return `<option value="${n}">${n}</option>`; }).join('');
+    } catch(e) {
+        poolSel.innerHTML = '<option value="">Error al cargar</option>';
+    }
+}
+
+async function analizarCiclosAC() {
+    const token    = getToken();
+    if (!token) return;
+    const subId    = document.getElementById('ac-sub').value;
+    const poolName = document.getElementById('ac-pool').value;
+    if (!subId || !poolName) return;
+
+    document.getElementById('ac-status').innerHTML = '<span class="spinner"></span> Cargando ciclos...';
+    ['ac-kpis','ac-chart-card','ac-ranges-card','ac-proj-card'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+    });
+    _acWeekMap = {}; _acMaxWeek = 0; _acDuraciones = [];
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const hdrs = { Authorization:`Bearer ${token}`, Accept:'application/json, text/plain, */*' };
+    const matchPool = nm => {
+        const n = (nm||'').trim().toLowerCase();
+        const p = poolName.toLowerCase();
+        return n === p || n.includes(p) || p.includes(n);
+    };
+
+    try {
+        // ── 1. Cargar ciclos (NurseryYield + pool_production) ──
+        let ciclos = [];
+        const seenCodes = new Set();
+
+        // NurseryYield: 36 meses
+        for (let mo = 0; mo < 36; mo++) {
+            const d2 = new Date(todayStr); d2.setMonth(d2.getMonth() - mo);
+            const d1 = new Date(todayStr); d1.setMonth(d1.getMonth() - mo - 1);
+            const qs = new URLSearchParams({ pageSize:500, subsidiaryId:subId,
+                cutOffStartDate: d1.toISOString().split('T')[0],
+                cutOffEndDate:   d2.toISOString().split('T')[0] });
+            try {
+                const res  = await fetch(`${API_NURSERY_YIELD}?${qs}`, { headers:hdrs });
+                const json = await res.json();
+                const rows = json.data?.content || json.data?.data || json.data || [];
+                rows.forEach(r => {
+                    if (!matchPool(r.poolName)) return;
+                    const code = r.cycleCode || r.idCycle;
+                    if (seenCodes.has(code)) return;
+                    seenCodes.add(code);
+                    const endDate = r.endHarvestDate || r.endDate;
+                    if (!endDate) return;
+                    const totalDays = (r.daysProduction||0) + (r.daysDry||0);
+                    const startDate = r.startDate || _addDays(endDate, -totalDays);
+                    if (!startDate) return;
+                    ciclos.push({ code, _startDate:startDate, _endDate:endDate });
+                });
+            } catch(e) {}
+        }
+
+        // pool_production: 104 snapshots semanales
+        for (let w = 0; w < 104; w++) {
+            const snapDate = _addDays(todayStr, -w*7);
+            const sd = new Date(snapDate);
+            const qs = new URLSearchParams({ pageSize:500, subsidiaryId:subId,
+                cutOffYear:sd.getFullYear(), cutOffWeek:_isoWeek(sd).week });
+            try {
+                const res  = await fetch(`${API_POOL_PROD}?${qs}`, { headers:hdrs });
+                const json = await res.json();
+                const rows = json.data?.content || json.data?.data || json.data || [];
+                rows.forEach(r => {
+                    if (!matchPool(r.poolName)) return;
+                    const code = r.cycleCode || r.idCycle;
+                    if (seenCodes.has(code)) return;
+                    seenCodes.add(code);
+                    const totalDays = (r.daysProduction||0) + (r.daysDry||0);
+                    if (!totalDays) return;
+                    const isActive = !r.status || r.status.toUpperCase() === 'ACTIVO';
+                    const endDate  = isActive ? todayStr : snapDate;
+                    const startDate = _addDays(endDate, -totalDays);
+                    ciclos.push({ code, _startDate:startDate, _endDate:endDate });
+                });
+            } catch(e) {}
+        }
+
+        if (!ciclos.length) {
+            document.getElementById('ac-status').textContent = 'No se encontraron ciclos para esta piscina.';
+            return;
+        }
+
+        document.getElementById('ac-status').innerHTML = `<span class="spinner"></span> ${ciclos.length} ciclos · Cargando consumo semanal...`;
+
+        // ── 2. Consumo semanal por ciclo ──
+        // Una llamada por ciclo con weekly granularity
+        const weekMap = {};
+        const duraciones = [];
+
+        await Promise.all(ciclos.map(async ciclo => {
+            const numSems = Math.ceil(
+                (new Date(ciclo._endDate) - new Date(ciclo._startDate)) / (7*86400000)
+            ) + 1;
+            if (numSems <= 0) return;
+
+            // Fetch weekly data for this cycle's entire range
+            const qs = new URLSearchParams({
+                initDate: ciclo._startDate, endDate: ciclo._endDate,
+                timeGranularity: 'week', valueOptions: 'kg',
+                groupBy: 'pool', PageSize: 5000
+            });
+            qs.append('businessTypes', 'HopperConsumption');
+            qs.append('businessTypes', 'VoleoConsumption');
+            qs.append('subsidiaryIds', subId);
+            try {
+                const res  = await fetch(`${API_FEEDING}?${qs}`, { headers:hdrs });
+                const json = await res.json();
+                const rows = (json.data||[]).filter(r => matchPool(r.groupValue));
+                if (!rows.length) return;
+
+                const dateF = ['initDate','startDate','weekStart','periodStart','period','date']
+                    .find(f => rows[0][f]) || 'initDate';
+
+                // Ordenar por fecha y asignar semana del ciclo
+                rows.sort((a,b) => String(a[dateF]).localeCompare(String(b[dateF])));
+                let maxSem = 0;
+                rows.forEach((r, i) => {
+                    const semCiclo = i + 1;
+                    const kg = Number(r.kilograms) || 0;
+                    if (kg > 0) {
+                        if (!weekMap[semCiclo]) weekMap[semCiclo] = [];
+                        weekMap[semCiclo].push(kg);
+                        maxSem = Math.max(maxSem, semCiclo);
+                    }
+                });
+                if (maxSem > 0) duraciones.push(maxSem);
+            } catch(e) {}
+        }));
+
+        if (!Object.keys(weekMap).length) {
+            document.getElementById('ac-status').textContent = 'Sin datos de consumo para esta piscina.';
+            return;
+        }
+
+        _acWeekMap    = weekMap;
+        _acMaxWeek    = Math.max(...Object.keys(weekMap).map(Number));
+        _acDuraciones = duraciones;
+
+        const nCiclos = duraciones.length;
+        document.getElementById('ac-status').textContent = `${nCiclos} ciclos · ${_acMaxWeek} semanas máx.`;
+        document.getElementById('ac-sem-actual').max = _acMaxWeek;
+
+        _renderACKpis();
+        _renderACChart();
+        _renderACRanges();
+        calcularProyeccionAC();
+        ['ac-kpis','ac-chart-card','ac-ranges-card','ac-proj-card'].forEach(id => {
+            document.getElementById(id).style.display = '';
+        });
+
+    } catch(e) {
+        console.error('[analizarCiclosAC]', e);
+        document.getElementById('ac-status').textContent = 'Error al cargar datos.';
+    }
+}
+
+function _acConvert(kg) { return _acUnit === 'kg' ? kg : kg / 40; }
+function _acLbl()       { return _acUnit === 'kg' ? 'kg' : 'sacos'; }
+function _acFmt(v)      { return Math.round(_acConvert(v)).toLocaleString('es-EC'); }
+
+function _acStatsForWeeks(weeks) {
+    const vals = weeks.flatMap(w => _acWeekMap[w]||[]).filter(v=>v>0);
+    if (!vals.length) return { avg:0, min:0, max:0, n:0 };
+    const avg = vals.reduce((s,v)=>s+v,0)/vals.length;
+    return { avg, min:Math.min(...vals), max:Math.max(...vals), n:vals.length };
+}
+
+function _renderACKpis() {
+    const allVals = Object.values(_acWeekMap).flat();
+    const avgGen  = allVals.length ? allVals.reduce((s,v)=>s+v,0)/allVals.length : 0;
+    const maxDur  = _acDuraciones.length ? Math.max(..._acDuraciones) : 0;
+    const minDur  = _acDuraciones.length ? Math.min(..._acDuraciones) : 0;
+    document.getElementById('ac-kpi-avg').textContent    = _acFmt(avgGen/7); // por día
+    document.getElementById('ac-kpi-avg-u').textContent  = _acLbl() + ' / día';
+    document.getElementById('ac-kpi-ciclos').textContent = _acDuraciones.length;
+    document.getElementById('ac-kpi-max').textContent    = maxDur * 7 + ' (' + maxDur + ' sem)';
+    document.getElementById('ac-kpi-min').textContent    = minDur * 7 + ' (' + minDur + ' sem)';
+}
+
+function _renderACChart() {
+    const weeks   = Array.from({length:_acMaxWeek},(_,i)=>i+1);
+    const avgData = weeks.map(w => { const s=_acStatsForWeeks([w]); return s.n?+(_acConvert(s.avg)).toFixed(1):null; });
+    const minData = weeks.map(w => { const s=_acStatsForWeeks([w]); return s.n?+(_acConvert(s.min)).toFixed(1):null; });
+    const maxData = weeks.map(w => { const s=_acStatsForWeeks([w]); return s.n?+(_acConvert(s.max)).toFixed(1):null; });
+    const lbl = _acLbl();
+
+    if (_acChartInst) _acChartInst.destroy();
+    _acChartInst = new Chart(document.getElementById('ac-chart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: weeks.map(w=>`Sem ${w}`),
+            datasets: [
+                { label:'Máximo',   data:maxData, borderColor:'#ef4444', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false, tension:0.35 },
+                { label:'Promedio', data:avgData, borderColor:'#3b82f6', borderWidth:2.5, pointRadius:0,    fill:false, tension:0.35 },
+                { label:'Mínimo',   data:minData, borderColor:'#10b981', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false, tension:0.35 },
+            ]
+        },
+        options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins: {
+                datalabels: { display:false },
+                legend: { position:'top', labels:{font:{size:11}} },
+                tooltip: { callbacks: {
+                    title: ctx => ctx[0].label,
+                    label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString('es-EC')} ${lbl}/sem`
+                }}
+            },
+            scales: {
+                x: { title:{display:true,text:'Semana del ciclo',font:{size:11}}, ticks:{font:{size:10},maxTicksLimit:20} },
+                y: { title:{display:true,text:`${lbl} / semana`,font:{size:11}}, ticks:{font:{size:10}} }
+            }
+        }
+    });
+}
+
+function _renderACRanges() {
+    const lbl = _acLbl();
+    // Rangos de 4 semanas
+    const RANGE = 4;
+    const ranges = [];
+    for (let s = 1; s <= _acMaxWeek; s += RANGE) {
+        const e = Math.min(s+RANGE-1, _acMaxWeek);
+        const weeks = Array.from({length:e-s+1},(_,i)=>s+i);
+        const st = _acStatsForWeeks(weeks);
+        ranges.push({ label:`Sem ${s}–${e}`, ...st });
+    }
+
+    let prevAvg = 0;
+    document.getElementById('ac-ranges-table').innerHTML = `
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+          <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#64748b">Rango</th>
+          <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#64748b">Prom/sem</th>
+          <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#64748b">Mín</th>
+          <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#64748b">Máx</th>
+          <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#64748b">% crec.</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${ranges.map((r,i) => {
+            const crec = prevAvg > 0 ? (r.avg-prevAvg)/prevAvg*100 : null;
+            prevAvg = r.avg || prevAvg;
+            const crecHtml = crec !== null
+                ? `<span style="color:${crec>=0?'#f59e0b':'#10b981'}">${crec>=0?'+':''}${Math.round(crec)}%</span>`
+                : '—';
+            return `<tr style="border-bottom:1px solid #f1f5f9;${i%2?'background:#fafafa':''}">
+              <td style="padding:8px 10px;font-weight:600">${r.label}</td>
+              <td style="padding:8px 10px;text-align:right;font-weight:700;color:#1d4ed8">${_acFmt(r.avg)}</td>
+              <td style="padding:8px 10px;text-align:right;color:#10b981">${_acFmt(r.min)}</td>
+              <td style="padding:8px 10px;text-align:right;color:#ef4444">${_acFmt(r.max)}</td>
+              <td style="padding:8px 10px;text-align:right">${crecHtml}</td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>`;
+
+    if (_acBarInst) _acBarInst.destroy();
+    _acBarInst = new Chart(document.getElementById('ac-bar-chart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: ranges.map(r=>r.label),
+            datasets: [
+                { label:`Promedio (${lbl}/sem)`, data:ranges.map(r=>+(_acConvert(r.avg)).toFixed(1)),
+                  backgroundColor: ranges.map((_,i)=>`hsl(${215+i*18},65%,${58-i*3}%)`) },
+            ]
+        },
+        options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins: { datalabels:{display:false}, legend:{display:false} },
+            scales: { y:{ticks:{font:{size:10}}}, x:{ticks:{font:{size:10}}} }
+        }
+    });
+}
+
+function calcularProyeccionAC() {
+    const semActual  = parseInt(document.getElementById('ac-sem-actual')?.value || '1');
+    const horizonte  = _acHorizonte;
+    const semsFutu   = Array.from({length:horizonte},(_,i)=>semActual+i);
+    const st         = _acStatsForWeeks(semsFutu);
+    const lbl        = _acLbl();
+    const fmt        = v => Math.round(_acConvert(v)).toLocaleString('es-EC');
+    const totalSems  = horizonte;
+    const diasCubie  = horizonte * 7;
+
+    const escenarios = [
+        { label:'Conservador', icon:'🟢', color:'#10b981', bg:'#f0fdf4', valSem:st.min  },
+        { label:'Promedio',    icon:'🔵', color:'#3b82f6', bg:'#eff6ff', valSem:st.avg  },
+        { label:'Alto',        icon:'🟡', color:'#f59e0b', bg:'#fffbeb', valSem:st.max  },
+    ];
+
+    document.getElementById('ac-proj-area').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">
+        ${escenarios.map(e => `
+        <div style="background:${e.bg};border-radius:10px;padding:16px 20px;border:1.5px solid ${e.color}30">
+            <div style="font-size:11px;font-weight:700;color:${e.color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${e.icon} ${e.label}</div>
+            <div style="font-size:26px;font-weight:800;color:${e.color};line-height:1.1">${fmt(e.valSem * totalSems)}</div>
+            <div style="font-size:11px;color:#64748b;margin-top:4px">${lbl} · ${diasCubie} días</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px">${fmt(e.valSem/7)} ${lbl}/día</div>
+        </div>`).join('')}
+    </div>
+    <p style="font-size:11px;color:#94a3b8">
+        Semanas ${semActual}–${semActual+horizonte-1} del ciclo ·
+        Basado en <strong>${st.n}</strong> registros históricos de semanas equivalentes.
+        ${st.n < 3 ? '<span style="color:#f59e0b">⚠ Pocos datos, proyección orientativa.</span>' : ''}
+    </p>`;
 }
 
 </script>
