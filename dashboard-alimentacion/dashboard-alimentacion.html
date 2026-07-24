@@ -1858,6 +1858,7 @@ function setPedidoSUnit(u) {
     _pedidoSUnit = u;
     document.getElementById('btn-p-kg').classList.toggle('active',    u === 'kg');
     document.getElementById('btn-p-sacos').classList.toggle('active', u === 'sacks');
+    consultarPedidoScreen();
 }
 
 function setPedidoSVista(vista) {
