@@ -2200,6 +2200,8 @@ function initTolvaScreen() {
     // Poblar selector de cluster desde CLUSTERS global
     const clSel = document.getElementById('f-tolva-cluster');
     clSel.innerHTML = Object.keys(CLUSTERS).map(k => `<option value="${k}">${k}</option>`).join('');
+
+    loadTolvaData();
 }
 
 function onTolvaGroupByChange() {
