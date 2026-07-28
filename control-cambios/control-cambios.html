@@ -1894,10 +1894,10 @@ function renderDashboard(){
   const diasKpiSub  = promDiasGlobal!==null ? 'días promedio de soporte' : 'sin datos de resolución';
 
   document.getElementById('kpi-grid').innerHTML = `
-    <div class="kpi-card blue"><div class="kpi-label">Total registros</div><div class="kpi-value">${total}</div><div class="kpi-sub">${periodoLabel}</div></div>
-    <div class="kpi-card red"><div class="kpi-label">Pendientes</div><div class="kpi-value">${pendientes}</div><div class="kpi-sub">${abiertos} abiertos · ${progreso} en progreso</div></div>
-    <div class="kpi-card green"><div class="kpi-label">Resueltos</div><div class="kpi-value">${resueltos}</div><div class="kpi-sub">${total?((resueltos/total)*100).toFixed(0):0}% del total</div></div>
-    <div class="kpi-card yellow"><div class="kpi-label">Tiempo de soporte</div><div class="kpi-value">${diasKpiVal}${promDiasGlobal!==null?'<span style="font-size:18px;font-weight:500"> días</span>':''}</div><div class="kpi-sub">${diasKpiSub}</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Total registros</div><div class="kpi-value">${total}</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Pendientes</div><div class="kpi-value">${pendientes}</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Resueltos</div><div class="kpi-value">${resueltos}</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Tiempo de soporte</div><div class="kpi-value">${diasKpiVal}${promDiasGlobal!==null?'<span style="font-size:18px;font-weight:500"> días</span>':''}</div></div>
   `;
 
   // ── Casos por Área ──
