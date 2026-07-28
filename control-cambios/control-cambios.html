@@ -1378,7 +1378,7 @@ function openDetail(id){
   `;
   // Footer — modo vista
   const editBtn = document.getElementById('modal-edit-btn');
-  if(editBtn) editBtn.style.display = r.estado==='Resuelto' ? 'none' : '';
+  if(editBtn) editBtn.style.display = '';
   const saveBtn = document.getElementById('modal-save-btn');
   if(saveBtn){ saveBtn.textContent='Guardar Cambios'; saveBtn.onclick = saveModalChanges; saveBtn.style.display='none'; }
   const closeBtn2 = document.querySelector('#modal-overlay .btn-secondary');
