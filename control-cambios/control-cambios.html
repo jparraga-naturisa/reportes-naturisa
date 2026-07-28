@@ -1450,8 +1450,27 @@ function buildSucursalOptions(selected){
 function switchModalToEdit(id){
   const r = loadData().find(x=>x.id===id);
   if(!r) return;
+  const depts = r.departamentos||[];
+  const deptDates = r.deptDoneDates||{};
+  const deptSection = depts.length ? `
+    <div style="grid-column:1/-1;margin-top:4px">
+      <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Fechas de soporte por departamento</label>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-top:6px">
+        ${depts.map(d=>`
+          <div class="fg">
+            <label>${d}</label>
+            <input type="date" id="me-dept-${d.replace(/\s/g,'-')}" value="${deptDates[d]?deptDates[d].slice(0,10):''}" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%">
+          </div>`).join('')}
+      </div>
+    </div>` : '';
   document.getElementById('modal-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div class="fg"><label>Fecha de reporte</label>
+        <input type="date" id="me-fecha-reporte" value="${r.fechaReporte||''}" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%">
+      </div>
+      <div class="fg"><label>Fecha resolución</label>
+        <input type="date" id="me-fecha-resolucion" value="${r.fechaResolucion||''}" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%">
+      </div>
       <div class="fg"><label>Sucursal</label>
         <select id="me-sucursal"><option value="">-- Seleccionar --</option>${buildSucursalOptions(r.sucursal)}</select>
       </div>
@@ -1474,6 +1493,7 @@ function switchModalToEdit(id){
           <option${r.estado==='Resuelto'?' selected':''}>Resuelto</option>
         </select>
       </div>
+      ${deptSection}
     </div>
     <div id="me-accion-section" style="display:none">
       <div class="fg fg-full" style="margin-bottom:8px"><label>Acción</label>
@@ -1588,7 +1608,20 @@ function saveModalEdit(id){
     causa=document.getElementById('me-motivo')?.value||old.causa;
   }
   const nuevoEstado = document.getElementById('me-estado')?.value||old.estado;
+  const fechaReporte = document.getElementById('me-fecha-reporte')?.value||old.fechaReporte;
+  const fechaResolucionInput = document.getElementById('me-fecha-resolucion')?.value;
+  const fechaResolucion = nuevoEstado==='Resuelto'
+    ? (fechaResolucionInput||old.fechaResolucion||today())
+    : null;
+  const depts = old.departamentos||[];
+  const newDeptDoneDates = {...(old.deptDoneDates||{})};
+  depts.forEach(d=>{
+    const el = document.getElementById('me-dept-'+d.replace(/\s/g,'-'));
+    if(el && el.value) newDeptDoneDates[d] = el.value+'T00:00:00.000Z';
+    else if(el && !el.value) delete newDeptDoneDates[d];
+  });
   data[idx]={...old,
+    fechaReporte,
     sucursal:document.getElementById('me-sucursal')?.value||old.sucursal,
     area, modulo, descripcion,
     extras:Object.keys(extrasObj).length?extrasObj:old.extras,
@@ -1596,7 +1629,8 @@ function saveModalEdit(id){
     prioridad:PRIORIDAD_POR_MODULO[modulo]||old.prioridad,
     solicitante:document.getElementById('me-solicitante')?.value.trim()||old.solicitante,
     estado:nuevoEstado,
-    fechaResolucion:nuevoEstado==='Resuelto'?(old.fechaResolucion||today()):null,
+    fechaResolucion,
+    deptDoneDates:newDeptDoneDates,
   };
   saveData(data);
   toast(`Registro #${id} actualizado`,'ok');
