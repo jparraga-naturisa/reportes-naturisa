@@ -1157,11 +1157,11 @@ function renderHistorial(){
   if(!filtered.length){
     tbody.innerHTML='<tr class="empty-row"><td colspan="11">Sin registros para mostrar</td></tr>'; return;
   }
-  tbody.innerHTML = filtered.map(r=>{
+  tbody.innerHTML = filtered.map((r,i)=>{
     const dias = daysOpen(r);
     const diasColor = r.estado==='Resuelto'?'#64748b': dias>7?'#b91c1c': dias>3?'#92400e':'#166534';
     return `<tr>
-      <td style="color:var(--muted);font-size:11px">#${r.id}</td>
+      <td style="color:var(--muted);font-size:11px">${filtered.length-i}</td>
       <td style="white-space:nowrap">${fmtDate(r.fechaReporte)}</td>
       <td style="font-weight:600;white-space:nowrap">${fmtSuc(r.sucursal)}</td>
       <td style="font-weight:600">${r.area||'–'}</td>
