@@ -240,43 +240,14 @@ tbody tr:last-child td{border-bottom:none}
 
     <div class="kpi-grid" id="kpi-grid"></div>
 
-    <div class="section-title">Estado y Tiempo</div>
-    <div class="charts-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
       <div class="chart-card">
-        <div class="chart-title">Estado de Cambios</div>
-        <div class="chart-wrap"><canvas id="chart-estado"></canvas></div>
+        <div class="chart-title">Casos por Área</div>
+        <div id="dash-areas"></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">Tiempo de Resolución (días) – últimos 10</div>
-        <div class="chart-wrap"><canvas id="chart-tiempo"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Cambios por Mes (año actual)</div>
-        <div class="chart-wrap"><canvas id="chart-mes"></canvas></div>
-      </div>
-    </div>
-
-    <div class="section-title">Áreas y Módulos</div>
-    <div class="charts-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
-      <div class="chart-card">
-        <div class="chart-title">Cambios por Área</div>
-        <div class="chart-wrap"><canvas id="chart-area"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Cambios por Módulo</div>
-        <div class="chart-wrap"><canvas id="chart-modulo"></canvas></div>
-      </div>
-    </div>
-
-    <div class="section-title">Departamentos</div>
-    <div id="dept-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px"></div>
-
-    <div class="section-title">Tiempo de Respuesta por Departamento</div>
-    <div id="dept-response-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px"></div>
-    <div class="chart-row" style="margin-bottom:20px">
-      <div class="chart-card" style="flex:1">
-        <div class="chart-title">Tiempo promedio de respuesta por departamento</div>
-        <div class="chart-wrap"><canvas id="chart-dept-tiempo"></canvas></div>
+        <div class="chart-title">Departamentos — intervención en casos</div>
+        <div id="dept-cards"></div>
       </div>
     </div>
 
@@ -1860,78 +1831,52 @@ function renderDashboard(){
   const progreso   = data.filter(r=>r.estado==='En Progreso').length;
   const resueltos  = data.filter(r=>r.estado==='Resuelto').length;
   const pendientes = abiertos + progreso;
-  const resueltosList = data.filter(r=>r.estado==='Resuelto' && r.fechaResolucion);
-  const avgDias = resueltosList.length
-    ? (resueltosList.reduce((s,r)=>s+daysBetween(r.fechaReporte,r.fechaResolucion),0)/resueltosList.length).toFixed(1) : '–';
-  const esteMes = data.filter(r=>r.fechaReporte?.startsWith(`${esteAnio}-${mesPad}`)).length;
+  const esteMes    = data.filter(r=>r.fechaReporte?.startsWith(`${esteAnio}-${mesPad}`)).length;
 
   document.getElementById('kpi-grid').innerHTML = `
     <div class="kpi-card blue"><div class="kpi-label">Total registros</div><div class="kpi-value">${total}</div><div class="kpi-sub">histórico</div></div>
     <div class="kpi-card red"><div class="kpi-label">Pendientes</div><div class="kpi-value">${pendientes}</div><div class="kpi-sub">${abiertos} abiertos · ${progreso} en progreso</div></div>
     <div class="kpi-card green"><div class="kpi-label">Resueltos</div><div class="kpi-value">${resueltos}</div><div class="kpi-sub">${total?((resueltos/total)*100).toFixed(0):0}% del total</div></div>
     <div class="kpi-card yellow"><div class="kpi-label">Este mes</div><div class="kpi-value">${esteMes}</div><div class="kpi-sub">nuevos registros</div></div>
-    <div class="kpi-card purple"><div class="kpi-label">Tiempo prom. resolución</div><div class="kpi-value">${avgDias}</div><div class="kpi-sub">días${resueltosList.length?` (${resueltosList.length} casos)`:''}</div></div>
   `;
 
-  // ── Chart: Estado donut ──
-  destroyChart('estado');
-  charts['estado'] = new Chart(document.getElementById('chart-estado'), {
-    type:'doughnut',
-    data:{ labels:['Abierto','En Progreso','Resuelto'],
-      datasets:[{data:[abiertos,progreso,resueltos],backgroundColor:['#ef4444','#f59e0b','#10b981'],borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}}}}
-  });
-
-  // ── Chart: Tiempo resolución ──
-  destroyChart('tiempo');
-  const resOrd = [...resueltosList].sort((a,b)=>new Date(b.fechaResolucion)-new Date(a.fechaResolucion)).slice(0,10).reverse();
-  charts['tiempo'] = new Chart(document.getElementById('chart-tiempo'), {
-    type:'bar',
-    data:{ labels:resOrd.map(r=>`#${r.id}`),
-      datasets:[{label:'Días',data:resOrd.map(r=>daysBetween(r.fechaReporte,r.fechaResolucion)),backgroundColor:'#6366f1',borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}
-  });
-
-  // ── Chart: Por mes ──
-  destroyChart('mes');
-  const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const byMes=Array(12).fill(0);
-  data.filter(r=>r.fechaReporte?.startsWith(String(esteAnio))).forEach(r=>{ byMes[parseInt(r.fechaReporte.split('-')[1],10)-1]++; });
-  charts['mes'] = new Chart(document.getElementById('chart-mes'), {
-    type:'bar',
-    data:{labels:meses,datasets:[{label:'Cambios',data:byMes,backgroundColor:'#00b4d8',borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}
-  });
-
-  // ── Chart: Por Área (donut) ──
-  destroyChart('area');
+  // ── Casos por Área ──
   const byArea={};
-  data.forEach(r=>{ const k=r.area||'Sin área'; byArea[k]=(byArea[k]||0)+1; });
-  charts['area'] = new Chart(document.getElementById('chart-area'), {
-    type:'doughnut',
-    data:{labels:Object.keys(byArea),
-      datasets:[{data:Object.values(byArea),backgroundColor:['#1a3a5c','#00b4d8','#6366f1','#10b981'],borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}}}}
+  data.forEach(r=>{
+    const a=r.area||'Sin área';
+    if(!byArea[a]) byArea[a]={total:0,abiertos:0,progreso:0,resueltos:0,modulos:{}};
+    byArea[a].total++;
+    if(r.estado==='Abierto') byArea[a].abiertos++;
+    else if(r.estado==='En Progreso') byArea[a].progreso++;
+    else if(r.estado==='Resuelto') byArea[a].resueltos++;
+    if(r.modulo){ byArea[a].modulos[r.modulo]=(byArea[a].modulos[r.modulo]||0)+1; }
   });
-
-  // ── Chart: Por Módulo (bar horizontal) ──
-  destroyChart('modulo');
-  const byMod={};
-  data.forEach(r=>{ if(r.modulo){ byMod[r.modulo]=(byMod[r.modulo]||0)+1; }});
-  const modKeys=Object.keys(byMod).sort((a,b)=>byMod[b]-byMod[a]);
-  const COLORS=['#1a3a5c','#2d6a9f','#00b4d8','#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6'];
-  charts['modulo'] = new Chart(document.getElementById('chart-modulo'), {
-    type:'bar',
-    data:{labels:modKeys,datasets:[{data:modKeys.map(k=>byMod[k]),backgroundColor:modKeys.map((_,i)=>COLORS[i%COLORS.length]),borderRadius:4}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}
-  });
+  document.getElementById('dash-areas').innerHTML = Object.entries(byArea).map(([area,d])=>{
+    const pct = d.total ? Math.round((d.resueltos/d.total)*100) : 0;
+    const modTop = Object.entries(d.modulos).sort((a,b)=>b[1]-a[1]).slice(0,4)
+      .map(([m,c])=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#f1f5f9;border-radius:12px;font-size:11px;margin:2px"><strong>${c}</strong> ${m}</span>`).join('');
+    return `<div style="padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:700;font-size:14px">${area}</span>
+        <div style="display:flex;gap:10px;font-size:12px">
+          <span style="color:var(--danger);font-weight:600">${d.abiertos} abiertos</span>
+          <span style="color:var(--warning);font-weight:600">${d.progreso} progreso</span>
+          <span style="color:var(--success);font-weight:600">${d.resueltos} resueltos</span>
+        </div>
+      </div>
+      <div style="background:#e2e8f0;border-radius:4px;height:6px;width:100%;margin-bottom:8px">
+        <div style="background:var(--success);border-radius:4px;height:6px;width:${pct}%"></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:2px">${modTop||'<span style="font-size:11px;color:var(--muted)">Sin módulos</span>'}</div>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted);font-size:13px;padding:16px 0">Sin registros</div>';
 
   // ── Departamentos ──
   const DEPTS = ['Key User','Auditoría','Desarrollo'];
   const DEPT_COLORS = {
-    'Key User': {bg:'#dbeafe',text:'#1e40af',bar:'#3b82f6'},
-    'Auditoría':{bg:'#fef3c7',text:'#92400e',bar:'#f59e0b'},
-    'Desarrollo':{bg:'#dcfce7',text:'#166534',bar:'#10b981'}
+    'Key User': {bar:'#3b82f6'},
+    'Auditoría':{bar:'#f59e0b'},
+    'Desarrollo':{bar:'#10b981'}
   };
   document.getElementById('dept-cards').innerHTML = DEPTS.map(dept=>{
     const asignados  = data.filter(r=>(r.departamentos||[]).includes(dept)).length;
@@ -1939,67 +1884,21 @@ function renderDashboard(){
     const pendDept   = asignados - completados;
     const pct        = asignados ? Math.round((completados/asignados)*100) : 0;
     const c = DEPT_COLORS[dept];
-    return `<div class="kpi-card" style="border-left-color:${c.bar}">
-      <div class="kpi-label">${dept}</div>
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin:8px 0 10px">
-        <div>
-          <div style="font-size:26px;font-weight:800;color:var(--primary)">${asignados}</div>
-          <div style="font-size:11px;color:var(--muted)">asignados</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:13px;font-weight:700;color:#166534">✓ ${completados}</div>
-          <div style="font-size:13px;font-weight:700;color:#92400e">○ ${pendDept}</div>
-        </div>
+    return `<div style="padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-weight:700;font-size:14px">${dept}</span>
+        <span style="font-size:12px;color:var(--muted)">${asignados} caso${asignados!==1?'s':''}</span>
       </div>
-      <div style="background:#e2e8f0;border-radius:4px;height:7px;width:100%">
-        <div style="background:${c.bar};border-radius:4px;height:7px;width:${pct}%;transition:width .4s"></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:8px">
+        <span style="color:var(--success)">✓ ${completados} completados</span>
+        <span style="color:var(--warning)">○ ${pendDept} pendientes</span>
+      </div>
+      <div style="background:#e2e8f0;border-radius:4px;height:6px">
+        <div style="background:${c.bar};border-radius:4px;height:6px;width:${pct}%;transition:width .4s"></div>
       </div>
       <div style="font-size:10px;color:var(--muted);margin-top:4px;text-align:right">${pct}% completado</div>
     </div>`;
   }).join('');
-
-  // ── Tiempo de Respuesta por Departamento ──
-  const DEPT_RESP = DEPTS.map(dept=>{
-    const tiempos = data
-      .filter(r=>(r.deptDoneDates||{})[dept] && r.creadoEn)
-      .map(r=>(new Date(r.deptDoneDates[dept])-new Date(r.creadoEn))/(1000*60*60));
-    const avg = tiempos.length ? tiempos.reduce((s,v)=>s+v,0)/tiempos.length : null;
-    const pendD = data.filter(r=>(r.departamentos||[]).includes(dept)&&!(r.deptDone||[]).includes(dept)).length;
-    return {dept, avg, count:tiempos.length, pendD};
-  });
-  document.getElementById('dept-response-cards').innerHTML = DEPT_RESP.map(({dept,avg,count,pendD})=>{
-    const c=DEPT_COLORS[dept];
-    const avgStr=avg===null?'–':avg<24?avg.toFixed(1)+'h':(avg/24).toFixed(1)+'d';
-    const avgSub=avg===null?'sin datos':(avg<24?`${count} caso${count!==1?'s':''} completado${count!==1?'s':''}`:`${avg.toFixed(0)}h · ${count} caso${count!==1?'s':''}`);
-    return `<div class="kpi-card" style="border-left-color:${c.bar}">
-      <div class="kpi-label">Respuesta · ${dept}</div>
-      <div style="font-size:30px;font-weight:800;color:var(--primary);margin:6px 0 2px">${avgStr}</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${avgSub}</div>
-      <div style="display:flex;gap:14px;font-size:12px;font-weight:600">
-        <span style="color:#166534">✓ ${count} resuelto${count!==1?'s':''}</span>
-        <span style="color:#92400e">○ ${pendD} pendiente${pendD!==1?'s':''}</span>
-      </div>
-    </div>`;
-  }).join('');
-
-  destroyChart('dept-tiempo');
-  charts['dept-tiempo'] = new Chart(document.getElementById('chart-dept-tiempo'),{
-    type:'bar',
-    data:{
-      labels:DEPT_RESP.map(d=>d.dept),
-      datasets:[{
-        label:'Promedio (horas)',
-        data:DEPT_RESP.map(d=>d.avg!==null?+d.avg.toFixed(1):0),
-        backgroundColor:DEPTS.map(dept=>DEPT_COLORS[dept].bar),
-        borderRadius:6
-      }]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const v=ctx.parsed.y;return v===0?'sin datos':v<24?`${v.toFixed(1)}h`:`${(v/24).toFixed(1)}d (${v.toFixed(0)}h)`;} }}},
-      scales:{y:{beginAtZero:true,title:{display:true,text:'Horas',font:{size:11}},ticks:{callback:v=>v<24?v+'h':(v/24).toFixed(1)+'d'}}}
-    }
-  });
 
   // ── Pendientes más antiguos ──
   const pendList = data.filter(r=>r.estado!=='Resuelto').sort((a,b)=>new Date(a.fechaReporte)-new Date(b.fechaReporte)).slice(0,8);
@@ -2018,12 +1917,7 @@ function renderDashboard(){
       <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${descLabel(r)}</td>
       <td>${badgePrio(r.prioridad)}</td>
       <td>${badgeEstado(r.estado)}</td>
-      <td>
-        <div style="font-weight:700;color:${color};margin-bottom:3px">${d}d</div>
-        <div style="background:#e2e8f0;border-radius:3px;height:5px;width:80px">
-          <div style="background:${color};border-radius:3px;height:5px;width:${Math.min(100,(d/maxD)*100)}%"></div>
-        </div>
-      </td>
+      <td><div style="font-weight:700;color:${color}">${d}d</div></td>
     </tr>`;
   }).join('');
 }
