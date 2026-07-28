@@ -1427,9 +1427,11 @@ function sapPopulateTendMat() {
     }
     var orderToCycle = {};
     _sapCycles.forEach(function(c) { if (c.controlOrderDocument) orderToCycle[c.controlOrderDocument] = c; });
+    var _mat02inExcel = new Set(_sapExcelRows.filter(function(r){ return r.a && r.a.toLowerCase().endsWith('02'); }).map(function(r){ return r.m; }));
     var seen = {}, opts = [];
     _sapExcelRows.forEach(function(r) {
-        if (!r.a || !r.a.toLowerCase().endsWith('02')) return;
+        var _al = r.a ? r.a.toLowerCase() : '';
+        if (!_al.endsWith('02') && !(_al.endsWith('09') && _mat02inExcel.has(r.m))) return;
         var ciclo = orderToCycle[r.o || ''];
         if (!ciclo) return;
         if (yearVal && (r.f || '').slice(0, 4) !== yearVal) return;
@@ -1709,11 +1711,17 @@ function sapSubirNuevoExcel(input) {
             const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
             if (!rawRows.length) { alert('El archivo esta vacio'); return; }
             const keys    = _sapDetectRawKeys(rawRows);
-            const newRows = _sapNormalizeRows(rawRows, keys).filter(function(r) {
-                if (!r.a || !r.a.toLowerCase().endsWith('02')) return false;
-                // Si la columna de movimiento está presente, solo aceptar 261 y 262
+            const _allCandRows = _sapNormalizeRows(rawRows, keys).filter(function(r) {
+                var al = r.a ? r.a.toLowerCase() : '';
+                if (!al.endsWith('02') && !al.endsWith('09')) return false;
                 if (r.mv && r.mv !== '261' && r.mv !== '262') return false;
                 return true;
+            });
+            // Bodega 09: solo materiales que también existen en bodega 02
+            var _mat02set = new Set(_allCandRows.filter(function(r){ return r.a && r.a.toLowerCase().endsWith('02'); }).map(function(r){ return r.m; }));
+            const newRows = _allCandRows.filter(function(r) {
+                var al = r.a ? r.a.toLowerCase() : '';
+                return al.endsWith('02') || (al.endsWith('09') && _mat02set.has(r.m));
             });
 
             if (!newRows.length) { alert('El archivo no contiene filas de almacén tipo 02.'); return; }
