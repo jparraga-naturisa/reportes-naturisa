@@ -240,6 +240,23 @@ tbody tr:last-child td{border-bottom:none}
   <!-- ── TAB: Dashboard ── -->
   <div id="tab-dashboard">
 
+    <!-- Filtro global (KPIs + Áreas + Departamentos) -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <span style="font-size:13px;font-weight:600;color:var(--muted)">Filtrar:</span>
+      <select id="dash-filter-anio" onchange="renderDashboard()" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text)">
+        <option value="">Todos los años</option>
+      </select>
+      <select id="dash-filter-mes" onchange="renderDashboard()" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text)">
+        <option value="">Todos los meses</option>
+        <option value="01">Enero</option><option value="02">Febrero</option>
+        <option value="03">Marzo</option><option value="04">Abril</option>
+        <option value="05">Mayo</option><option value="06">Junio</option>
+        <option value="07">Julio</option><option value="08">Agosto</option>
+        <option value="09">Septiembre</option><option value="10">Octubre</option>
+        <option value="11">Noviembre</option><option value="12">Diciembre</option>
+      </select>
+    </div>
+
     <div class="kpi-grid" id="kpi-grid"></div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
@@ -253,7 +270,12 @@ tbody tr:last-child td{border-bottom:none}
       </div>
     </div>
 
-    <div class="section-title">Casos por Mes y Área</div>
+    <!-- Filtro gráfico Mes-Área -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+      <div class="section-title" style="margin:0">Casos por Mes y Área</div>
+      <select id="dash-chart-anio" onchange="renderDashboard()" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text)">
+      </select>
+    </div>
     <div class="chart-card" style="margin-bottom:20px">
       <div style="height:260px"><canvas id="chart-mes-area"></canvas></div>
     </div>
@@ -1821,9 +1843,31 @@ let charts={};
 function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
 
 function renderDashboard(){
-  const data = loadData();
+  const allData = loadData();
   const esteAnio = new Date().getFullYear();
-  const mesPad = String(new Date().getMonth()+1).padStart(2,'0');
+
+  // ── Poblar selector de años con los años presentes en los datos ──
+  const aniosEnDatos = [...new Set(allData.map(r=>r.fechaReporte?.slice(0,4)).filter(Boolean))].sort().reverse();
+  const selAnioTop = document.getElementById('dash-filter-anio');
+  const selAnioChart = document.getElementById('dash-chart-anio');
+  if(selAnioTop && selAnioChart){
+    const anioValTop = selAnioTop.value;
+    const anioValChart = selAnioChart.value;
+    selAnioTop.innerHTML = '<option value="">Todos los años</option>' +
+      aniosEnDatos.map(a=>`<option value="${a}"${a==anioValTop?'selected':''}>${a}</option>`).join('');
+    selAnioChart.innerHTML = aniosEnDatos.map((a,i)=>`<option value="${a}"${a==anioValChart||(!anioValChart&&i===0)?'selected':''}>${a}</option>`).join('');
+    if(!anioValChart && aniosEnDatos.length) selAnioChart.value = aniosEnDatos[0];
+  }
+
+  // ── Filtros globales (KPIs, Áreas, Departamentos) ──
+  const fAnio = selAnioTop?.value || '';
+  const fMes  = document.getElementById('dash-filter-mes')?.value || '';
+  const data = allData.filter(r=>{
+    if(!r.fechaReporte) return !fAnio && !fMes;
+    if(fAnio && !r.fechaReporte.startsWith(fAnio)) return false;
+    if(fMes  && r.fechaReporte.slice(5,7)!==fMes) return false;
+    return true;
+  });
 
   // ── KPIs ──
   const total      = data.length;
@@ -1831,13 +1875,15 @@ function renderDashboard(){
   const progreso   = data.filter(r=>r.estado==='En Progreso').length;
   const resueltos  = data.filter(r=>r.estado==='Resuelto').length;
   const pendientes = abiertos + progreso;
-  const esteMes    = data.filter(r=>r.fechaReporte?.startsWith(`${esteAnio}-${mesPad}`)).length;
+  const periodoLabel = fMes && fAnio ? `${['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][+fMes]} ${fAnio}`
+    : fAnio ? fAnio : fMes ? ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][+fMes]
+    : 'histórico';
 
   document.getElementById('kpi-grid').innerHTML = `
-    <div class="kpi-card blue"><div class="kpi-label">Total registros</div><div class="kpi-value">${total}</div><div class="kpi-sub">histórico</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Total registros</div><div class="kpi-value">${total}</div><div class="kpi-sub">${periodoLabel}</div></div>
     <div class="kpi-card red"><div class="kpi-label">Pendientes</div><div class="kpi-value">${pendientes}</div><div class="kpi-sub">${abiertos} abiertos · ${progreso} en progreso</div></div>
     <div class="kpi-card green"><div class="kpi-label">Resueltos</div><div class="kpi-value">${resueltos}</div><div class="kpi-sub">${total?((resueltos/total)*100).toFixed(0):0}% del total</div></div>
-    <div class="kpi-card yellow"><div class="kpi-label">Este mes</div><div class="kpi-value">${esteMes}</div><div class="kpi-sub">nuevos registros</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Tasa resolución</div><div class="kpi-value">${total?((resueltos/total)*100).toFixed(0):0}%</div><div class="kpi-sub">${periodoLabel}</div></div>
   `;
 
   // ── Casos por Área ──
@@ -1900,15 +1946,16 @@ function renderDashboard(){
     </div>`;
   }).join('');
 
-  // ── Por Mes y Área (barras verticales, 12 meses del año actual) ──
+  // ── Por Mes y Área (barras verticales, 12 meses del año seleccionado) ──
   const MESES_LABEL=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const AREA_COLORS=['#1a3a5c','#00b4d8','#6366f1','#10b981','#f59e0b','#ef4444'];
+  const chartAnio = selAnioChart?.value || String(esteAnio);
   const mesAreaMap={};
   const areasSet=new Set();
-  data.forEach(r=>{
+  allData.forEach(r=>{
     if(!r.fechaReporte) return;
     const [y,m]=r.fechaReporte.split('-');
-    if(+y!==esteAnio) return;
+    if(y!==chartAnio) return;
     const area=r.area||'Sin área';
     areasSet.add(area);
     const mi=+m-1;
