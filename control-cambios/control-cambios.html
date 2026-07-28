@@ -18,18 +18,18 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 body{display:flex;flex-direction:column;overflow:hidden}
 
 /* ── Header ── */
-.header{background:var(--primary);color:#fff;padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.25);flex-shrink:0}
-.header-logo{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;letter-spacing:.5px}
+.header{background:var(--primary);color:#fff;padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.25);flex-shrink:0;gap:24px}
+.header-logo{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;letter-spacing:.5px;flex-shrink:0}
 .header-logo .accent{color:var(--accent)}
 .header-logo .sep{opacity:.4;margin:0 4px}
-.header-right{display:flex;align-items:center;gap:12px;font-size:12px;opacity:.85}
+.header-right{display:flex;align-items:center;gap:12px;font-size:12px;opacity:.85;flex-shrink:0}
 .badge-env{background:rgba(255,255,255,.15);padding:2px 9px;border-radius:20px;font-size:11px}
 
 /* ── Tabs ── */
-.tabs{background:#fff;border-bottom:2px solid var(--border);display:flex;gap:0;flex-shrink:0;padding:0 24px}
-.tab{padding:12px 20px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s}
-.tab:hover{color:var(--primary)}
-.tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.tabs{display:flex;gap:0;flex:1;align-self:stretch;overflow:hidden}
+.tab{padding:0 18px;font-size:13px;font-weight:600;color:rgba(255,255,255,.65);cursor:pointer;border-bottom:3px solid transparent;display:flex;align-items:center;transition:color .15s,border-color .15s;white-space:nowrap}
+.tab:hover{color:#fff}
+.tab.active{color:#fff;border-bottom-color:var(--accent)}
 
 /* ── Scroll content ── */
 .content{flex:1;overflow-y:auto;padding:20px 24px}
@@ -190,7 +190,7 @@ tbody tr:last-child td{border-bottom:none}
 
 /* ── Responsive ── */
 @media(max-width:600px){
-  .header{padding:0 14px}.content{padding:14px}.form-grid{grid-template-columns:1fr}
+  .header{padding:0 14px;height:auto;min-height:54px;flex-wrap:wrap}.tabs{flex-wrap:wrap}.tab{padding:10px 12px;font-size:12px}.content{padding:14px}.form-grid{grid-template-columns:1fr}
   .kpi-grid{grid-template-columns:repeat(2,1fr)}.table-search input{width:140px}
 }
 </style>
@@ -215,6 +215,13 @@ tbody tr:last-child td{border-bottom:none}
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
     Naturisa <span class="sep">|</span> <span class="accent">Control de Cambios</span>
   </div>
+  <nav class="tabs">
+    <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
+    <div class="tab" onclick="showTab('registro')">Nuevo Registro</div>
+    <div class="tab" onclick="showTab('historial')">Historial</div>
+    <div class="tab" id="tab-btn-usuarios" style="display:none" onclick="showTab('usuarios')">Usuarios</div>
+    <div class="tab" id="tab-btn-config" style="display:none" onclick="showTab('config')">Configuracion</div>
+  </nav>
   <div class="header-right">
     <span id="hdr-date"></span>
     <div class="user-chip" id="hdr-user" style="display:none">
@@ -224,15 +231,6 @@ tbody tr:last-child td{border-bottom:none}
     </div>
   </div>
 </header>
-
-<!-- Tabs -->
-<nav class="tabs">
-  <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
-  <div class="tab" onclick="showTab('registro')">Nuevo Registro</div>
-  <div class="tab" onclick="showTab('historial')">Historial</div>
-  <div class="tab" id="tab-btn-usuarios" style="display:none" onclick="showTab('usuarios')">Usuarios</div>
-  <div class="tab" id="tab-btn-config" style="display:none" onclick="showTab('config')">Configuracion</div>
-</nav>
 
 <!-- ═══════════════════ CONTENT ═══════════════════ -->
 <main class="content">
