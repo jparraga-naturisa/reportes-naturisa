@@ -1151,7 +1151,7 @@ function renderHistorial(){
                      || (r.modulo||'').toLowerCase().includes(q)
                      || (r.solicitante||'').toLowerCase().includes(q);
     return okF && okSuc && okArea && okMod && okQ;
-  }).reverse();
+  }).sort((a,b)=>new Date(b.fechaReporte)-new Date(a.fechaReporte));
 
   const tbody = document.getElementById('tbl-historial');
   if(!filtered.length){
