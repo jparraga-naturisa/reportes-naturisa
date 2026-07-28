@@ -1883,11 +1883,21 @@ function renderDashboard(){
     : fAnio ? fAnio : fMes ? ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][+fMes]
     : 'histórico';
 
+  // Días promedio de resolución global (todos los departamentos combinados)
+  const DEPTS_KPI = ['Key User','Auditoría','Desarrollo'];
+  const diasGlobal = data.flatMap(r=>
+    DEPTS_KPI.filter(d=>(r.deptDone||[]).includes(d) && r.deptDoneDates?.[d] && r.fechaReporte)
+      .map(d=>Math.round((new Date(r.deptDoneDates[d])-new Date(r.fechaReporte))/(1000*60*60*24)))
+  );
+  const promDiasGlobal = diasGlobal.length ? Math.round(diasGlobal.reduce((a,b)=>a+b,0)/diasGlobal.length) : null;
+  const diasKpiVal  = promDiasGlobal!==null ? promDiasGlobal : '–';
+  const diasKpiSub  = promDiasGlobal!==null ? 'días promedio de soporte' : 'sin datos de resolución';
+
   document.getElementById('kpi-grid').innerHTML = `
     <div class="kpi-card blue"><div class="kpi-label">Total registros</div><div class="kpi-value">${total}</div><div class="kpi-sub">${periodoLabel}</div></div>
     <div class="kpi-card red"><div class="kpi-label">Pendientes</div><div class="kpi-value">${pendientes}</div><div class="kpi-sub">${abiertos} abiertos · ${progreso} en progreso</div></div>
     <div class="kpi-card green"><div class="kpi-label">Resueltos</div><div class="kpi-value">${resueltos}</div><div class="kpi-sub">${total?((resueltos/total)*100).toFixed(0):0}% del total</div></div>
-    <div class="kpi-card yellow"><div class="kpi-label">Tasa resolución</div><div class="kpi-value">${total?((resueltos/total)*100).toFixed(0):0}%</div><div class="kpi-sub">${periodoLabel}</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Tiempo de soporte</div><div class="kpi-value">${diasKpiVal}${promDiasGlobal!==null?'<span style="font-size:18px;font-weight:500"> días</span>':''}</div><div class="kpi-sub">${diasKpiSub}</div></div>
   `;
 
   // ── Casos por Área ──
