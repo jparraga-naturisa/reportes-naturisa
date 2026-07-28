@@ -252,8 +252,8 @@ tbody tr:last-child td{border-bottom:none}
     </div>
 
     <div class="section-title">Casos por Mes y Área</div>
-    <div class="chart-card" style="margin-bottom:20px;overflow-x:auto">
-      <div id="dash-mes-area"></div>
+    <div class="chart-card" style="margin-bottom:20px">
+      <div style="height:260px"><canvas id="chart-mes-area"></canvas></div>
     </div>
 
   </div>
@@ -1898,51 +1898,40 @@ function renderDashboard(){
     </div>`;
   }).join('');
 
-  // ── Por Mes y Área ──
+  // ── Por Mes y Área (barras verticales, 12 meses del año actual) ──
   const MESES_LABEL=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const AREA_COLORS=['#1a3a5c','#00b4d8','#6366f1','#10b981','#f59e0b','#ef4444'];
   const mesAreaMap={};
   const areasSet=new Set();
   data.forEach(r=>{
     if(!r.fechaReporte) return;
     const [y,m]=r.fechaReporte.split('-');
-    const key=`${y}-${m}`;
+    if(+y!==esteAnio) return;
     const area=r.area||'Sin área';
     areasSet.add(area);
-    if(!mesAreaMap[key]) mesAreaMap[key]={};
-    mesAreaMap[key][area]=(mesAreaMap[key][area]||0)+1;
+    const mi=+m-1;
+    if(!mesAreaMap[mi]) mesAreaMap[mi]={};
+    mesAreaMap[mi][area]=(mesAreaMap[mi][area]||0)+1;
   });
-  const mesesKeys=Object.keys(mesAreaMap).sort();
   const areasAll=[...areasSet].sort();
-  const AREA_COLORS=['#1a3a5c','#00b4d8','#6366f1','#10b981','#f59e0b','#ef4444'];
-  if(mesesKeys.length){
-    const thMeses=mesesKeys.map(k=>{const[y,m]=k.split('-');return `<th style="text-align:center;min-width:64px">${MESES_LABEL[+m-1]}<br><span style="font-size:10px;font-weight:400;color:var(--muted)">${y}</span></th>`;}).join('');
-    const rows=areasAll.map((area,ai)=>{
-      const color=AREA_COLORS[ai%AREA_COLORS.length];
-      const celdas=mesesKeys.map(k=>{
-        const v=mesAreaMap[k][area]||0;
-        const max=Math.max(...areasAll.map(a=>mesAreaMap[k][a]||0),1);
-        const pct=Math.round((v/max)*100);
-        return `<td style="text-align:center;padding:6px 8px">
-          ${v?`<div style="font-weight:700;font-size:13px;color:${color}">${v}</div>
-          <div style="background:#e2e8f0;border-radius:3px;height:4px;margin-top:3px">
-            <div style="background:${color};border-radius:3px;height:4px;width:${pct}%"></div>
-          </div>`:`<span style="color:#cbd5e1;font-size:12px">–</span>`}
-        </td>`;
-      }).join('');
-      return `<tr><td style="font-weight:600;white-space:nowrap;padding:6px 12px 6px 0;color:${color}">${area}</td>${celdas}</tr>`;
-    }).join('');
-    document.getElementById('dash-mes-area').innerHTML=`
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead><tr style="border-bottom:2px solid var(--border)">
-            <th style="text-align:left;padding:6px 12px 6px 0;white-space:nowrap">Área</th>${thMeses}
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>`;
-  } else {
-    document.getElementById('dash-mes-area').innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">Sin registros</div>';
-  }
+  destroyChart('mes-area');
+  charts['mes-area']=new Chart(document.getElementById('chart-mes-area'),{
+    type:'bar',
+    data:{
+      labels:MESES_LABEL,
+      datasets:areasAll.map((area,ai)=>({
+        label:area,
+        data:Array.from({length:12},(_,i)=>(mesAreaMap[i]&&mesAreaMap[i][area])||0),
+        backgroundColor:AREA_COLORS[ai%AREA_COLORS.length],
+        borderRadius:4
+      }))
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}}},
+      scales:{x:{stacked:false},y:{beginAtZero:true,ticks:{stepSize:1}}}
+    }
+  });
 
 }
 
