@@ -859,10 +859,17 @@ async function loadConfig(){
   }
 }
 
-function saveConfig(){
-  return fetch(API+'/kv/'+CONFIG_KV_KEY,{
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(CONFIG)
-  }).catch(()=>{});
+async function saveConfig(){
+  try {
+    const r = await fetch(API+'/kv/'+CONFIG_KV_KEY,{
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(CONFIG)
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+  } catch(e){
+    toast('Error al guardar configuración: '+e.message,'err');
+    return false;
+  }
+  return true;
 }
 
 function updateModulos(){
@@ -1779,7 +1786,7 @@ function cfgRemoveMotivo(ai,mi){
   renderConfigTabModuleEditor();
 }
 
-function cfgSaveModule(){
+async function cfgSaveModule(){
   if(!_cfgModulo) return;
   const prioridad = document.getElementById('cfg-prioridad')?.value||'Media';
   _cfgEditAcciones = cfgReadCurrentAcciones();
@@ -1793,11 +1800,11 @@ function cfgSaveModule(){
   CONFIG.modConfig[_cfgModulo].acciones  = cleaned;
   if(!CONFIG.modConfig[_cfgModulo].descLabel) CONFIG.modConfig[_cfgModulo].descLabel = _cfgModulo;
   applyConfig();
-  saveConfig();
+  const ok = await saveConfig();
   _cfgEditAcciones = cleaned;
   renderConfigTab();
   renderConfigTabModuleEditor();
-  toast('Modulo "'+_cfgModulo+'" guardado','ok');
+  if(ok) toast('Modulo "'+_cfgModulo+'" guardado','ok');
 }
 
 // ══════════════════════════════════════════════════════
