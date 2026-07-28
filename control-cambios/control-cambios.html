@@ -1914,14 +1914,16 @@ function renderDashboard(){
   document.getElementById('dash-areas').innerHTML = Object.entries(byArea).map(([area,d])=>{
     const modsOrdenados = Object.entries(d.modulos).sort((a,b)=>b[1]-a[1]);
     const maxMod = modsOrdenados[0]?.[1] || 1;
-    const barras = modsOrdenados.map(([m,c])=>{
+    const MOD_COLORS=['#1a3a5c','#00b4d8','#6366f1','#10b981','#f59e0b','#ef4444','#ec4899','#8b5cf6'];
+    const barras = modsOrdenados.map(([m,c],mi)=>{
       const w = Math.round((c/maxMod)*100);
+      const col = MOD_COLORS[mi%MOD_COLORS.length];
       return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
         <span style="font-size:11px;color:var(--text);min-width:140px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${m}">${m}</span>
         <div style="flex:1;background:#e2e8f0;border-radius:4px;height:10px">
-          <div style="background:var(--primary);border-radius:4px;height:10px;width:${w}%;transition:width .4s"></div>
+          <div style="background:${col};border-radius:4px;height:10px;width:${w}%;transition:width .4s"></div>
         </div>
-        <span style="font-size:11px;font-weight:700;color:var(--primary);min-width:20px;text-align:right">${c}</span>
+        <span style="font-size:11px;font-weight:700;color:${col};min-width:20px;text-align:right">${c}</span>
       </div>`;
     }).join('');
     return `<div style="padding:12px 0;border-bottom:1px solid var(--border)">
