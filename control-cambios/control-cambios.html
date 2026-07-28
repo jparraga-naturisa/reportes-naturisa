@@ -806,18 +806,34 @@ function buildDefaultConfig(){
 }
 
 function applyConfig(){
+  // Paso 1: restaurar siempre los defaults hardcodeados (baseline garantizado)
   Object.keys(MODULOS_POR_AREA).forEach(k=>delete MODULOS_POR_AREA[k]);
   Object.keys(PRIORIDAD_POR_MODULO).forEach(k=>delete PRIORIDAD_POR_MODULO[k]);
   Object.keys(DESCRIPCIONES_POR_MODULO).forEach(k=>delete DESCRIPCIONES_POR_MODULO[k]);
   Object.keys(EXTRAS_POR_DESCRIPCION).forEach(k=>delete EXTRAS_POR_DESCRIPCION[k]);
+  Object.assign(MODULOS_POR_AREA,       JSON.parse(JSON.stringify(_CFG_DEFAULTS.modulos)));
+  Object.assign(PRIORIDAD_POR_MODULO,   JSON.parse(JSON.stringify(_CFG_DEFAULTS.prioridades)));
+  Object.assign(DESCRIPCIONES_POR_MODULO, JSON.parse(JSON.stringify(_CFG_DEFAULTS.descripciones)));
+  Object.assign(EXTRAS_POR_DESCRIPCION, JSON.parse(JSON.stringify(_CFG_DEFAULTS.extras)));
+  // Paso 2: agregar módulos no configurados con tableLayout vacío
   for(const [area, mods] of Object.entries(CONFIG.modulos||{})){
-    MODULOS_POR_AREA[area] = mods;
+    if(!MODULOS_POR_AREA[area]) MODULOS_POR_AREA[area] = [...mods];
+    for(const mod of mods){
+      if(!DESCRIPCIONES_POR_MODULO[mod]){
+        DESCRIPCIONES_POR_MODULO[mod] = [mod];
+        EXTRAS_POR_DESCRIPCION[mod]   = { tableLayout: true, acciones: [] };
+        if(!PRIORIDAD_POR_MODULO[mod]) PRIORIDAD_POR_MODULO[mod] = 'Media';
+      }
+    }
   }
+  // Paso 3: aplicar cambios del usuario encima
   for(const [mod, cfg] of Object.entries(CONFIG.modConfig||{})){
-    PRIORIDAD_POR_MODULO[mod] = cfg.prioridad || 'Media';
-    const dk = cfg.descLabel || mod;
-    DESCRIPCIONES_POR_MODULO[mod] = [dk];
-    EXTRAS_POR_DESCRIPCION[dk] = { tableLayout: true, acciones: cfg.acciones || [] };
+    if(cfg.acciones && cfg.acciones.length){
+      PRIORIDAD_POR_MODULO[mod] = cfg.prioridad || PRIORIDAD_POR_MODULO[mod] || 'Media';
+      const dk = cfg.descLabel || mod;
+      DESCRIPCIONES_POR_MODULO[mod]  = [dk];
+      EXTRAS_POR_DESCRIPCION[dk]     = { tableLayout: true, acciones: cfg.acciones };
+    }
   }
 }
 
@@ -829,8 +845,18 @@ async function loadConfig(){
       if(data && data.modulos && data.modConfig){ CONFIG = data; applyConfig(); return; }
     }
   } catch(e){}
+  // Sin config en KV: los objetos hardcodeados ya son correctos.
+  // Solo agregamos los módulos no configurados sin tocar los originales.
   CONFIG = buildDefaultConfig();
-  applyConfig();
+  for(const [area, mods] of Object.entries(CONFIG.modulos)){
+    for(const mod of mods){
+      if(!DESCRIPCIONES_POR_MODULO[mod]){
+        DESCRIPCIONES_POR_MODULO[mod] = [mod];
+        EXTRAS_POR_DESCRIPCION[mod]   = { tableLayout: true, acciones: [] };
+        if(!PRIORIDAD_POR_MODULO[mod]) PRIORIDAD_POR_MODULO[mod] = 'Media';
+      }
+    }
+  }
 }
 
 function saveConfig(){
