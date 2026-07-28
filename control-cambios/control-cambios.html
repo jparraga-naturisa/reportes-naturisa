@@ -1175,7 +1175,7 @@ function renderHistorial(){
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
           <button class="btn btn-secondary btn-sm" onclick="openDetail(${r.id})">Ver</button>
           ${r.estado!=='Resuelto'&&!(r.departamentos&&r.departamentos.length)?`<button class="btn btn-success btn-sm" onclick="quickResolve(${r.id})">Resolver</button>`:''}
-          ${r.estado==='Abierto'?`<button class="btn btn-danger btn-sm" onclick="deleteRecord(${r.id})">×</button>`:''}
+          <button class="btn btn-danger btn-sm" onclick="deleteRecord(${r.id})">×</button>
 
           ${r.departamentos&&r.departamentos.length? r.departamentos.map(d=>{
             const done=(r.deptDone||[]).includes(d);
