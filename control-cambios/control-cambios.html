@@ -599,7 +599,7 @@ function daysOpen(r){
   return daysBetween(r.fechaReporte, today());
 }
 function fmtDate(d){ if(!d) return '–'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
-const SUCURSALES={'A1':'Acualit 1','A2':'Acualit 2','AM':'Matriz AM','AP':'Acopio Pesjoya','BO':'Borbon','CR':'Cristal','GR':'Granjas','LA':'La Avanzada','MH':'Mahi','NA':'Naranjal','RN':'Rio Nilo','RO':'Roblemar','SC':'Solcamaron'};
+const SUCURSALES={'A1':'Acualit 1','A2':'Acualit 2','AM':'Matriz AM','AP':'Acopio Pesjoya','AR':'Acopio Río Nilo','BO':'Bonanza','BR':'Biorey','CA':'Camaron','CO':'Coaque','CR':'Camino Real','ES':'Esteromar','FI':'Fincacua','GO':'Golfomar','GR':'Granmar','IN':'Inducam','JO':'Josefina','KA':'Kamaclusa','LA':'Lanconor','LG':'Los Gelices','MA':'Maricultura','MG':'Margolfo','MH':'Marchena','NA':'Naturisa','NM':'Matriz NM','PE':'Pesjoya','RM':'Matriz RM','RN':'Rio Nilo','RO':'Roblemar','SC':'Solcamaron'};
 function fmtSuc(s){ return s ? (SUCURSALES[s]||s) : '–'; }
 function badgeEstado(e){
   const m={Abierto:'abierto','En Progreso':'progreso',Resuelto:'resuelto'};
