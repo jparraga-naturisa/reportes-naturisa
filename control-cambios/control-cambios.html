@@ -1928,12 +1928,20 @@ function renderDashboard(){
     'Auditoría':{bar:'#f59e0b'},
     'Desarrollo':{bar:'#10b981'}
   };
+  const totalRegistros = data.length;
   document.getElementById('dept-cards').innerHTML = DEPTS.map(dept=>{
     const asignados  = data.filter(r=>(r.departamentos||[]).includes(dept)).length;
     const completados= data.filter(r=>(r.deptDone||[]).includes(dept)).length;
     const pendDept   = asignados - completados;
-    const pct        = asignados ? Math.round((completados/asignados)*100) : 0;
+    // % del total de registros en que intervino el departamento
+    const pctTotal   = totalRegistros ? Math.round((asignados/totalRegistros)*100) : 0;
     const c = DEPT_COLORS[dept];
+    // Promedio de días de resolución (deptDoneDates - fechaReporte) para completados
+    const diasArr = data
+      .filter(r=>(r.deptDone||[]).includes(dept) && r.deptDoneDates?.[dept] && r.fechaReporte)
+      .map(r=>Math.round((new Date(r.deptDoneDates[dept])-new Date(r.fechaReporte))/(1000*60*60*24)));
+    const promDias = diasArr.length ? Math.round(diasArr.reduce((a,b)=>a+b,0)/diasArr.length) : null;
+    const diasLabel = promDias!==null ? `${promDias} día${promDias!==1?'s':''} prom.` : 'Sin datos';
     return `<div style="padding:12px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-weight:700;font-size:14px">${dept}</span>
@@ -1944,9 +1952,12 @@ function renderDashboard(){
         <span style="color:var(--warning)">○ ${pendDept} pendientes</span>
       </div>
       <div style="background:#e2e8f0;border-radius:4px;height:6px">
-        <div style="background:${c.bar};border-radius:4px;height:6px;width:${pct}%;transition:width .4s"></div>
+        <div style="background:${c.bar};border-radius:4px;height:6px;width:${pctTotal}%;transition:width .4s"></div>
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:4px;text-align:right">${pct}% completado</div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px">
+        <span>⏱ ${diasLabel}</span>
+        <span>${pctTotal}% del total de registros</span>
+      </div>
     </div>`;
   }).join('');
 
