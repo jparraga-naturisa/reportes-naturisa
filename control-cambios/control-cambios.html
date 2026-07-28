@@ -256,13 +256,6 @@ tbody tr:last-child td{border-bottom:none}
       <div id="dash-mes-area"></div>
     </div>
 
-    <div class="section-title">Pendientes más antiguos</div>
-    <div class="table-wrap">
-      <table><thead><tr>
-        <th>#</th><th>Fecha</th><th>Sucursal</th><th>Área</th><th>Módulo</th><th>Descripción</th><th>Prioridad</th><th>Estado</th><th>Días abierto</th>
-      </tr></thead>
-      <tbody id="tbl-pendientes"></tbody></table>
-    </div>
   </div>
 
   <!-- ── TAB: Nuevo Registro ── -->
@@ -1951,26 +1944,6 @@ function renderDashboard(){
     document.getElementById('dash-mes-area').innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">Sin registros</div>';
   }
 
-  // ── Pendientes más antiguos ──
-  const pendList = data.filter(r=>r.estado!=='Resuelto').sort((a,b)=>new Date(a.fechaReporte)-new Date(b.fechaReporte)).slice(0,8);
-  const maxD = pendList.reduce((m,r)=>Math.max(m,daysOpen(r)),1);
-  const tbP  = document.getElementById('tbl-pendientes');
-  if(!pendList.length){ tbP.innerHTML='<tr class="empty-row"><td colspan="9">Sin pendientes — todo resuelto</td></tr>'; return; }
-  tbP.innerHTML = pendList.map(r=>{
-    const d=daysOpen(r);
-    const color=d>7?'var(--danger)':d>3?'var(--warning)':'var(--success)';
-    return `<tr onclick="openDetail(${r.id})" style="cursor:pointer">
-      <td style="color:var(--muted);font-size:11px">#${r.id}</td>
-      <td style="white-space:nowrap">${fmtDate(r.fechaReporte)}</td>
-      <td style="font-weight:600">${fmtSuc(r.sucursal)}</td>
-      <td style="font-weight:600">${r.area||'–'}</td>
-      <td style="color:var(--muted)">${r.modulo||'–'}</td>
-      <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${descLabel(r)}</td>
-      <td>${badgePrio(r.prioridad)}</td>
-      <td>${badgeEstado(r.estado)}</td>
-      <td><div style="font-weight:700;color:${color}">${d}d</div></td>
-    </tr>`;
-  }).join('');
 }
 
 // ══════════════════════════════════════════════════════
