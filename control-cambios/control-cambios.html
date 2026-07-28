@@ -1851,10 +1851,16 @@ function renderDashboard(){
   const selAnioTop = document.getElementById('dash-filter-anio');
   const selAnioChart = document.getElementById('dash-chart-anio');
   if(selAnioTop && selAnioChart){
-    const anioValTop = selAnioTop.value;
+    const anioActual = String(esteAnio);
+    const mesActual  = String(new Date().getMonth()+1).padStart(2,'0');
+    const selMesTop  = document.getElementById('dash-filter-mes');
+    // En primera carga (sin valor previo) pre-seleccionar año y mes actual
+    const anioValTop   = selAnioTop.value   || anioActual;
+    const mesValTop    = selMesTop.value     || mesActual;
     const anioValChart = selAnioChart.value;
     selAnioTop.innerHTML = '<option value="">Todos los años</option>' +
       aniosEnDatos.map(a=>`<option value="${a}"${a==anioValTop?'selected':''}>${a}</option>`).join('');
+    selMesTop.value = mesValTop;
     selAnioChart.innerHTML = aniosEnDatos.map((a,i)=>`<option value="${a}"${a==anioValChart||(!anioValChart&&i===0)?'selected':''}>${a}</option>`).join('');
     if(!anioValChart && aniosEnDatos.length) selAnioChart.value = aniosEnDatos[0];
   }
