@@ -1,0 +1,9 @@
+name = "naturisa-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# KV namespace "naturisa-data" — reemplaza el id con el que aparece en el dashboard de Cloudflare
+# Workers & Pages → KV → naturisa-data → copiar el ID
+[[kv_namespaces]]
+binding = "CACHE"
+id      = "REEMPLAZAR_CON_ID_DE_naturisa-data"

@@ -710,13 +710,21 @@
 <script>
 Chart.register(ChartDataLabels);
 
-const API_FEEDING    = 'https://gateway.naturisa.com.ec/bff/mobile/feedcontrol/balanceado/api/report/feeding_general';
-const API_WAREHOUSES = 'https://gateway.naturisa.com.ec/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
-const API_POOL_PROD     = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/report_production/pool_production';
-const API_NURSERY_YIELD = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/report_harvest/NurseryYield';
-const API_POOLS         = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/pools';
-const API_CYCLES_NAV  = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/cycles_navigation';
-const API_WEIGHTS     = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/cycle_sampling_weights/cycle';
+// ── Proxy Cloudflare Worker (caché KV compartida) ─────────────────────────
+// Cuando el Worker esté desplegado, cambia WORKER_BASE a la URL del Worker.
+// Mientras tanto apunta al gateway directo.
+const WORKER_BASE = 'https://naturisa-proxy.parragajonathan965g.workers.dev';
+const GATEWAY     = 'https://gateway.naturisa.com.ec';
+// Cambiar a WORKER_BASE cuando el Worker esté activo:
+const _BASE = WORKER_BASE;
+
+const API_FEEDING    = `${_BASE}/bff/mobile/feedcontrol/balanceado/api/report/feeding_general`;
+const API_WAREHOUSES = `${GATEWAY}/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name`;
+const API_POOL_PROD     = `${GATEWAY}/bff/web/ap1/backoffice/api/report_production/pool_production`;
+const API_NURSERY_YIELD = `${GATEWAY}/bff/web/ap1/backoffice/api/report_harvest/NurseryYield`;
+const API_POOLS         = `${GATEWAY}/bff/web/ap1/backoffice/api/pools`;
+const API_CYCLES_NAV  = `${GATEWAY}/bff/web/ap1/backoffice/api/cycles_navigation`;
+const API_WEIGHTS     = `${GATEWAY}/bff/web/ap1/backoffice/api/cycle_sampling_weights/cycle`;
 
 // ── Caché local de datos históricos ──────────────────────────
 const _CACHE_PFX = 'nat_hcache_v1_';
