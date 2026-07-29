@@ -178,6 +178,7 @@
     <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Ingresar</button>
     <span id="login-status">⚠ Inicia sesión para cargar datos</span>
     <button class="btn btn-danger" id="btn-logout" onclick="doLogout()" style="display:none;margin-left:auto;">Cerrar sesión</button>
+    <button id="btn-clear-cache" onclick="clearFeedingCache()" style="display:none;padding:4px 10px;border:1px solid #d1d5db;border-radius:5px;background:white;cursor:pointer;font-size:11px;color:#64748b;margin-left:8px;" title="Limpiar datos en caché">🗑 Caché</button>
 </div>
 <!-- Token Fallback (visible solo si CORS bloquea el login) -->
 <div id="token-fallback" style="display:none;background:#fef9c3;border-bottom:1px solid #fde047;padding:7px 24px;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap;">
@@ -717,6 +718,33 @@ const API_POOLS         = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffic
 const API_CYCLES_NAV  = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/cycles_navigation';
 const API_WEIGHTS     = 'https://gateway.naturisa.com.ec/bff/web/ap1/backoffice/api/cycle_sampling_weights/cycle';
 
+// ── Caché local de datos históricos ──────────────────────────
+const _CACHE_PFX = 'nat_hcache_v1_';
+
+function _cacheKey(...parts) {
+    return _CACHE_PFX + parts.map(p => String(p).replace(/[^a-z0-9]/gi,'_')).join('__');
+}
+function _cacheGet(key) {
+    try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : null; } catch(e) { return null; }
+}
+function _cacheSet(key, data) {
+    try { localStorage.setItem(key, JSON.stringify(data)); } catch(e) {
+        // QuotaExceeded: eliminar entradas más antiguas y reintentar
+        _cacheEvict(); try { localStorage.setItem(key, JSON.stringify(data)); } catch(e2) {}
+    }
+}
+function _cacheEvict() {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(_CACHE_PFX));
+    keys.slice(0, Math.ceil(keys.length / 2)).forEach(k => localStorage.removeItem(k));
+}
+function clearFeedingCache() {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(_CACHE_PFX));
+    keys.forEach(k => localStorage.removeItem(k));
+    alert(`✅ Caché limpiada: ${keys.length} entradas eliminadas.`);
+}
+// Solo se cachea si el año es anterior al año actual (datos fijos)
+function _yearIsCacheable(y) { return parseInt(y) < new Date().getFullYear(); }
+
 const BUSINESS_TYPES = [
     'WallIncome','WallBalance','HopperBalance','Remaining',
     'Loaded','Consumption','HopperConsumption','VoleoConsumption','PlannedConsumption'
@@ -951,6 +979,7 @@ function applyLoginUI(on, nombre) {
     bar.classList.toggle('connected', on);
     btnIn.style.display   = on ? 'none' : 'inline-block';
     btnOut.style.display  = on ? 'inline-block' : 'none';
+    document.getElementById('btn-clear-cache').style.display = on ? 'inline-block' : 'none';
     inPass.style.display  = on ? 'none' : 'inline-block';
     inUser.style.display  = on ? 'none' : 'inline-block';
     label.style.display   = on ? 'none' : 'inline';
@@ -1971,18 +2000,34 @@ async function consultarPedidoScreen() {
     if (!subIds) return;
     const vo = _pedidoSUnit === 'kg' ? 'kg' : 'sacks';
 
-    _pedidoSParams   = { initDate:`${y}-01-01`, endDate:`${y}-12-31`, subIds };
-    _pedidoSRawData  = null;
+    _pedidoSParams  = { initDate:`${y}-01-01`, endDate:`${y}-12-31`, subIds };
+    _pedidoSRawData = null;
     _pedidoSVista   = 'producto';
     document.getElementById('btn-p-producto').style.background = '#3b82f6';
     document.getElementById('btn-p-producto').style.color      = 'white';
     document.getElementById('btn-p-piscina').style.background  = 'white';
     document.getElementById('btn-p-piscina').style.color       = '#64748b';
+    document.getElementById('p-area').innerHTML = '';
+    document.getElementById('p-nota').innerHTML = '';
+
+    // ── Caché: años anteriores son datos fijos ────────────────
+    const scope = document.getElementById('p-scope').value;
+    const ckPed = _yearIsCacheable(y)
+        ? _cacheKey('pedido', y, scope, [...subIds].sort().join(','))
+        : null;
+    if (ckPed) {
+        const cached = _cacheGet(ckPed);
+        if (cached) {
+            _pedidoSRawData   = cached;
+            _pedidoSDateField = ['initDate','startDate','period','date','periodStart','weekStart','monthStart']
+                .find(f => cached[0]?.[f]) || 'initDate';
+            document.getElementById('p-status').textContent = `⚡ Caché · ${y}`;
+            _pedidoSRepivotAndRender(vo);
+            return;
+        }
+    }
 
     document.getElementById('p-status').innerHTML = '<span class="spinner"></span> Cargando...';
-    document.getElementById('p-area').innerHTML   = '';
-    document.getElementById('p-nota').innerHTML   = '';
-
     try {
         const headers = { Authorization:`Bearer ${token}`, Accept:'application/json, text/plain, */*' };
         const qs = new URLSearchParams({ initDate:_pedidoSParams.initDate, endDate:_pedidoSParams.endDate,
@@ -2006,7 +2051,8 @@ async function consultarPedidoScreen() {
             return;
         }
 
-        _pedidoSRawData  = data;
+        if (ckPed && data.length) _cacheSet(ckPed, data);
+        _pedidoSRawData   = data;
         _pedidoSDateField = ['initDate','startDate','period','date','periodStart','weekStart','monthStart']
             .find(f => data[0][f]) || 'initDate';
 
@@ -2278,12 +2324,28 @@ async function loadTolvaData() {
         subIds = subsidiaries.map(s => String(s.id));
     }
 
-    document.getElementById('tolva-status').textContent = 'Cargando...';
     document.getElementById('tolva-table-area').innerHTML = '';
     document.getElementById('tolva-kpi-total').textContent = '...';
     document.getElementById('tolva-kpi-prods').textContent = '...';
     document.getElementById('tolva-kpi-avg').textContent   = '...';
 
+    // ── Caché: años anteriores son datos fijos ────────────────
+    const ckTolva = _yearIsCacheable(y)
+        ? _cacheKey('tolva', y, scope, [...subIds].sort().join(','))
+        : null;
+    if (ckTolva) {
+        const cached = _cacheGet(ckTolva);
+        if (cached) {
+            rawTolvaData = cached;
+            document.getElementById('tolva-status').textContent = `⚡ Caché · ${cached.length} reg.`;
+            _tolvaFetchParams = { initDate, endDate, vo, subIds };
+            _pedidoVista = 'producto';
+            renderTolvaReport(rawTolvaData, y, tolvaUnit);
+            return;
+        }
+    }
+
+    document.getElementById('tolva-status').textContent = 'Cargando...';
     try {
         const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json, text/plain, */*' };
         const qs = new URLSearchParams({ initDate, endDate, timeGranularity: 'month',
@@ -2300,6 +2362,7 @@ async function loadTolvaData() {
         }
         const json = await res.json();
         rawTolvaData = json.data || [];
+        if (ckTolva && rawTolvaData.length) _cacheSet(ckTolva, rawTolvaData);
         document.getElementById('tolva-status').textContent =
             rawTolvaData.length ? `${rawTolvaData.length} registros` : 'Sin datos';
         _tolvaFetchParams = { initDate, endDate, vo, subIds };
