@@ -17,19 +17,19 @@ function getCors(origin) {
   }
 }
 
-function corsResponse(body, status, request, extraHeaders) {
+function corsResponse(body, status, request, extra) {
   const cors = getCors(request.headers.get('Origin') || '')
-  const headers = { ...cors, 'Content-Type': 'application/json', ...(extraHeaders || {}) }
-  return new Response(body, { status, headers })
+  return new Response(body, { status, headers: { ...cors, 'Content-Type': 'application/json', ...(extra || {}) } })
 }
 
 // ── Caché de feeding por mes ───────────────────────────────────────────────
 
 const FEEDING_PATH = '/bff/mobile/feedcontrol/balanceado/api/report/feeding_general'
-const CACHE_TTL    = 60 * 60 * 24 * 365 // 1 año
+const CACHE_TTL    = 60 * 60 * 24 * 365
+const DATE_FIELDS  = ['initDate','startDate','period','date','periodStart','weekStart','monthStart']
 
 function pad(n) { return String(n).padStart(2, '0') }
-function lastDay(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate() } // m = 1-12
+function lastDay(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate() }
 
 function feedCacheKey(pathname, searchParams, iD, eD) {
   const sp = new URLSearchParams(searchParams)
@@ -41,11 +41,16 @@ function feedCacheKey(pathname, searchParams, iD, eD) {
 async function fetchFeedRows(request, pathname, searchParams, iD, eD) {
   const sp = new URLSearchParams(searchParams)
   sp.set('initDate', iD); sp.set('endDate', eD)
-  const target = GATEWAY + pathname + '?' + sp.toString()
-  const res = await fetch(target, { method: 'GET', headers: request.headers })
+  const res = await fetch(GATEWAY + pathname + '?' + sp, { method: 'GET', headers: request.headers })
   if (!res.ok) return { ok: false, rows: [], envelope: {} }
   const json = await res.json()
   return { ok: true, rows: json.data || [], envelope: json }
+}
+
+function rowMonth(row) {
+  const df = DATE_FIELDS.find(f => row[f])
+  const m  = df ? String(row[df]).match(/^(\d{4})-(\d{2})/) : null
+  return m ? { y: parseInt(m[1]), m: parseInt(m[2]) } : null
 }
 
 async function handleFeedingCached(request, url, env, ctx) {
@@ -56,47 +61,63 @@ async function handleFeedingCached(request, url, env, ctx) {
   const curYear  = now.getUTCFullYear()
   const curMonth = now.getUTCMonth() + 1
 
-  const [, , endYear, endMonth] = (endDate.match(/^(\d{4})-(\d{2})/) || []).map(Number)
-  const [, , startYear, startMonth] = (initDate.match(/^(\d{4})-(\d{2})/) || []).map(Number)
+  const endParts = endDate.match(/^(\d{4})-(\d{2})/)
+  const endYear  = endParts ? parseInt(endParts[1]) : curYear
+  const endMon   = endParts ? parseInt(endParts[2]) : curMonth
 
-  // Obtiene filas de un rango pasado: primero KV, luego API
-  async function getPast(iD, eD) {
-    const ck = feedCacheKey(url.pathname, url.searchParams, iD, eD)
-    const hit = await env.data.get(ck)
-    if (hit !== null) return { rows: JSON.parse(hit), cached: true }
-    const { ok, rows } = await fetchFeedRows(request, url.pathname, url.searchParams, iD, eD)
-    if (ok && rows.length) ctx.waitUntil(env.data.put(ck, JSON.stringify(rows), { expirationTtl: CACHE_TTL }))
-    return { rows, cached: false }
-  }
-
-  const fullyPast = endYear < curYear || (endYear === curYear && endMonth < curMonth)
-
-  let pastRows = [], curRows = [], envelope = {}, cached = false
-
-  if (fullyPast) {
-    const r = await getPast(initDate, endDate)
-    pastRows = r.rows; cached = r.cached
-    envelope = { data: pastRows }
-  } else {
-    // Meses pasados → KV; mes actual → siempre fresco
-    const hasPast = startYear < curYear || (startYear === curYear && startMonth < curMonth)
-    if (hasPast && curMonth > 1) {
-      const pastEnd = `${curYear}-${pad(curMonth - 1)}-${pad(lastDay(curYear, curMonth - 1))}`
-      const r = await getPast(initDate, pastEnd)
-      pastRows = r.rows; cached = r.cached
+  // Rango completamente en el pasado → caché total
+  if (endYear < curYear || (endYear === curYear && endMon < curMonth)) {
+    const ck     = feedCacheKey(url.pathname, url.searchParams, initDate, endDate)
+    const cached = await env.data.get(ck)
+    if (cached !== null) {
+      return corsResponse(JSON.stringify({ data: JSON.parse(cached) }), 200, request, { 'X-Cache': 'HIT' })
     }
-    const curStart = `${curYear}-${pad(curMonth)}-01`
-    const curEnd   = `${curYear}-${pad(curMonth)}-${pad(lastDay(curYear, curMonth))}`
-    const r = await fetchFeedRows(request, url.pathname, url.searchParams, curStart, curEnd)
-    curRows = r.rows; envelope = r.envelope || {}
+    const { ok, rows, envelope } = await fetchFeedRows(request, url.pathname, url.searchParams, initDate, endDate)
+    if (!ok) return null // fallback al proxy normal
+    if (rows.length) ctx.waitUntil(env.data.put(ck, JSON.stringify(rows), { expirationTtl: CACHE_TTL }))
+    return corsResponse(JSON.stringify({ ...envelope, data: rows }), 200, request, { 'X-Cache': 'MISS' })
   }
 
-  const allRows = [...pastRows, ...curRows]
-  const body = JSON.stringify({ ...envelope, data: allRows })
-  return corsResponse(body, 200, request, {
-    'X-Cache': cached ? 'HIT' : 'MISS',
-    'X-Cache-Rows': String(allRows.length),
-  })
+  // Rango incluye mes actual:
+  // - Meses pasados: buscar en KV primero
+  // - Si hay HIT: fetch solo mes actual (1 llamada pequeña)
+  // - Si hay MISS: fetch rango completo (1 llamada igual que antes) + guardar meses pasados en KV async
+
+  const pastEnd = curMonth > 1
+    ? `${curYear}-${pad(curMonth - 1)}-${pad(lastDay(curYear, curMonth - 1))}`
+    : null
+  const ckPast = pastEnd ? feedCacheKey(url.pathname, url.searchParams, initDate, pastEnd) : null
+
+  if (ckPast) {
+    const cached = await env.data.get(ckPast)
+    if (cached !== null) {
+      // HIT: solo fetch mes actual
+      const curStart = `${curYear}-${pad(curMonth)}-01`
+      const curEnd   = `${curYear}-${pad(curMonth)}-${pad(lastDay(curYear, curMonth))}`
+      const { rows: curRows, envelope } = await fetchFeedRows(request, url.pathname, url.searchParams, curStart, curEnd)
+      const allRows = [...JSON.parse(cached), ...curRows]
+      return corsResponse(JSON.stringify({ ...envelope, data: allRows }), 200, request,
+        { 'X-Cache': 'HIT', 'X-Cache-Rows': String(allRows.length) })
+    }
+  }
+
+  // MISS: fetch rango completo — misma cantidad de llamadas que antes
+  const { ok, rows: allRows, envelope } = await fetchFeedRows(request, url.pathname, url.searchParams, initDate, endDate)
+  if (!ok) return null
+
+  // Guardar meses pasados en KV de forma asíncrona (no bloquea la respuesta)
+  if (ckPast) {
+    const pastRows = allRows.filter(row => {
+      const d = rowMonth(row)
+      return d && (d.y < curYear || (d.y === curYear && d.m < curMonth))
+    })
+    if (pastRows.length) {
+      ctx.waitUntil(env.data.put(ckPast, JSON.stringify(pastRows), { expirationTtl: CACHE_TTL }))
+    }
+  }
+
+  return corsResponse(JSON.stringify({ ...envelope, data: allRows }), 200, request,
+    { 'X-Cache': 'MISS', 'X-Cache-Rows': String(allRows.length) })
 }
 
 // ── Handler principal ──────────────────────────────────────────────────────
@@ -110,10 +131,9 @@ export default {
       return new Response(null, { status: 204, headers: getCors(origin) })
     }
 
-    // /kv/ — rutas existentes sin cambios
     if (url.pathname.startsWith('/kv/')) {
       const key = url.pathname.replace('/kv/', '')
-      if (!['excel', 'ciclos', 'cambios', 'cambios-dev', 'cambios-config', 'cambios-config-dev'].includes(key)) {
+      if (!['excel','ciclos','cambios','cambios-dev','cambios-config','cambios-config-dev'].includes(key)) {
         return corsResponse('{"error":"key no permitida"}', 400, request)
       }
       if (request.method === 'GET') {
@@ -128,22 +148,20 @@ export default {
       return corsResponse('{"error":"method not allowed"}', 405, request)
     }
 
-    // Feeding con granularidad mensual → caché KV
-    if (
-      request.method === 'GET' &&
-      url.pathname === FEEDING_PATH &&
-      url.searchParams.get('timeGranularity') === 'month'
-    ) {
-      return handleFeedingCached(request, url, env, ctx)
+    // Feeding mensual con caché
+    if (request.method === 'GET' && url.pathname === FEEDING_PATH &&
+        url.searchParams.get('timeGranularity') === 'month') {
+      const cached = await handleFeedingCached(request, url, env, ctx)
+      if (cached) return cached
     }
 
-    // Proxy transparente para todo lo demás
+    // Proxy transparente
     const target = GATEWAY + url.pathname + url.search
     const cors   = getCors(origin)
     const res    = await fetch(target, {
       method:  request.method,
       headers: request.headers,
-      body:    ['GET', 'HEAD'].includes(request.method) ? undefined : request.body
+      body:    ['GET','HEAD'].includes(request.method) ? undefined : request.body
     })
     const out = new Response(res.body, res)
     Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v))
