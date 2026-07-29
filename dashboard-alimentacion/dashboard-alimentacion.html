@@ -744,6 +744,30 @@ function clearFeedingCache() {
 }
 // Solo se cachea si el año es anterior al año actual (datos fijos)
 function _yearIsCacheable(y) { return parseInt(y) < new Date().getFullYear(); }
+// Meses pasados (incluso dentro del año actual) son datos fijos
+function _monthIsCacheable(y, m) {
+    const now = new Date(); const cy = now.getFullYear(); const cm = now.getMonth() + 1;
+    return y < cy || (y === cy && m < cm);
+}
+// Devuelve fechas para partir el año actual en: meses pasados / mes actual
+function _curYearSplit() {
+    const now = new Date(); const y = now.getFullYear(); const m = now.getMonth() + 1;
+    const pad = n => String(n).padStart(2,'0');
+    const lastDayPrev = new Date(y, m - 1, 0).getDate();
+    const lastDayCur  = new Date(y, m, 0).getDate();
+    return {
+        pastStart: `${y}-01-01`,
+        pastEnd:   m > 1 ? `${y}-${pad(m-1)}-${pad(lastDayPrev)}` : null,
+        curStart:  `${y}-${pad(m)}-01`,
+        curEnd:    `${y}-${pad(m)}-${pad(lastDayCur)}`,
+    };
+}
+async function _apiFeedingRows(qs, headers) {
+    const res = await fetch(`${API_FEEDING}?${qs}`, { headers });
+    if (res.status === 401) { const e = new Error('401'); e.status = 401; throw e; }
+    const json = await res.json();
+    return json.data || [];
+}
 
 const BUSINESS_TYPES = [
     'WallIncome','WallBalance','HopperBalance','Remaining',
@@ -2010,55 +2034,60 @@ async function consultarPedidoScreen() {
     document.getElementById('p-area').innerHTML = '';
     document.getElementById('p-nota').innerHTML = '';
 
-    // ── Caché: años anteriores son datos fijos ────────────────
     const scope = document.getElementById('p-scope').value;
-    const ckPed = _yearIsCacheable(y)
-        ? _cacheKey('pedido', y, scope, [...subIds].sort().join(','))
-        : null;
-    if (ckPed) {
-        const cached = _cacheGet(ckPed);
-        if (cached) {
-            _pedidoSRawData   = cached;
-            _pedidoSDateField = ['initDate','startDate','period','date','periodStart','weekStart','monthStart']
-                .find(f => cached[0]?.[f]) || 'initDate';
-            document.getElementById('p-status').textContent = `⚡ Caché · ${y}`;
-            _pedidoSRepivotAndRender(vo);
-            return;
-        }
-    }
-
     document.getElementById('p-status').innerHTML = '<span class="spinner"></span> Cargando...';
-    try {
-        const headers = { Authorization:`Bearer ${token}`, Accept:'application/json, text/plain, */*' };
-        const qs = new URLSearchParams({ initDate:_pedidoSParams.initDate, endDate:_pedidoSParams.endDate,
+    const headers = { Authorization:`Bearer ${token}`, Accept:'application/json, text/plain, */*' };
+    const makePedQs = (iD, eD) => {
+        const qs = new URLSearchParams({ initDate:iD, endDate:eD,
             timeGranularity:'month', valueOptions:'kg', groupBy:'product', PageSize:5000 });
-        qs.append('businessTypes', 'HopperConsumption');
-        qs.append('businessTypes', 'VoleoConsumption');
+        qs.append('businessTypes','HopperConsumption');
+        qs.append('businessTypes','VoleoConsumption');
         subIds.forEach(id => qs.append('subsidiaryIds', id));
+        return qs;
+    };
+    const _dateField = d => ['initDate','startDate','period','date','periodStart','weekStart','monthStart']
+        .find(f => d[0]?.[f]) || 'initDate';
+    const ckBase = _cacheKey('pedido', y, scope, [...subIds].sort().join(','));
 
-        const res  = await fetch(`${API_FEEDING}?${qs}`, { headers });
-        if (res.status === 401) {
-            document.getElementById('p-status').textContent = 'Token inválido o expirado.';
-            applyLoginUI(false, '');
-            return;
+    try {
+        let data;
+        if (y < new Date().getFullYear()) {
+            // ── Año pasado: caché permanente ─────────────────────────
+            const cached = _cacheGet(ckBase);
+            if (cached) {
+                _pedidoSRawData = cached; _pedidoSDateField = _dateField(cached);
+                document.getElementById('p-status').textContent = `⚡ Caché · ${y}`;
+                _pedidoSRepivotAndRender(vo); return;
+            }
+            data = await _apiFeedingRows(makePedQs(`${y}-01-01`, `${y}-12-31`), headers);
+            if (data.length) _cacheSet(ckBase, data);
+        } else {
+            // ── Año actual: meses pasados cacheados + mes actual siempre fresco ──
+            const sp = _curYearSplit();
+            const ckPast = sp.pastEnd ? _cacheKey('pedido', y, scope, [...subIds].sort().join(','), 'past') : null;
+            let pastData = [];
+            if (ckPast) {
+                const cached = _cacheGet(ckPast);
+                if (cached) { pastData = cached; }
+                else {
+                    pastData = await _apiFeedingRows(makePedQs(sp.pastStart, sp.pastEnd), headers);
+                    if (pastData.length) _cacheSet(ckPast, pastData);
+                }
+            }
+            const curData = await _apiFeedingRows(makePedQs(sp.curStart, sp.curEnd), headers);
+            data = [...pastData, ...curData];
         }
-        const json = await res.json();
-        const data = json.data || [];
 
         if (!data.length) {
             document.getElementById('p-status').textContent = 'Sin datos para el período.';
             document.getElementById('p-area').innerHTML = '<p style="color:#94a3b8;padding:8px 0">Sin datos para el período y alcance seleccionados.</p>';
             return;
         }
-
-        if (ckPed && data.length) _cacheSet(ckPed, data);
-        _pedidoSRawData   = data;
-        _pedidoSDateField = ['initDate','startDate','period','date','periodStart','weekStart','monthStart']
-            .find(f => data[0][f]) || 'initDate';
-
+        _pedidoSRawData = data; _pedidoSDateField = _dateField(data);
         document.getElementById('p-status').textContent = `${y}`;
         _pedidoSRepivotAndRender(vo);
     } catch(e) {
+        if (e.status === 401) { document.getElementById('p-status').textContent = 'Token inválido o expirado.'; applyLoginUI(false,''); return; }
         console.error('[consultarPedidoScreen]', e);
         document.getElementById('p-status').textContent = 'Error al conectar con la API.';
     }
@@ -2329,46 +2358,55 @@ async function loadTolvaData() {
     document.getElementById('tolva-kpi-prods').textContent = '...';
     document.getElementById('tolva-kpi-avg').textContent   = '...';
 
-    // ── Caché: años anteriores son datos fijos ────────────────
-    const ckTolva = _yearIsCacheable(y)
-        ? _cacheKey('tolva', y, scope, [...subIds].sort().join(','))
-        : null;
-    if (ckTolva) {
-        const cached = _cacheGet(ckTolva);
-        if (cached) {
-            rawTolvaData = cached;
-            document.getElementById('tolva-status').textContent = `⚡ Caché · ${cached.length} reg.`;
-            _tolvaFetchParams = { initDate, endDate, vo, subIds };
-            _pedidoVista = 'producto';
-            renderTolvaReport(rawTolvaData, y, tolvaUnit);
-            return;
-        }
-    }
-
     document.getElementById('tolva-status').textContent = 'Cargando...';
-    try {
-        const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json, text/plain, */*' };
-        const qs = new URLSearchParams({ initDate, endDate, timeGranularity: 'month',
-            valueOptions: vo, groupBy: 'product', PageSize: 5000 });
-        qs.append('businessTypes', 'HopperConsumption');
+    const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json, text/plain, */*' };
+    const makeTolvaQs = (iD, eD) => {
+        const qs = new URLSearchParams({ initDate:iD, endDate:eD, timeGranularity:'month',
+            valueOptions:vo, groupBy:'product', PageSize:5000 });
+        qs.append('businessTypes','HopperConsumption');
         subIds.forEach(id => qs.append('subsidiaryIds', id));
+        return qs;
+    };
+    const ckBase = _cacheKey('tolva', y, scope, [...subIds].sort().join(','));
 
-        const res  = await fetch(`${API_FEEDING}?${qs}`, { headers });
-        if (res.status === 401) {
-            alert('Token inválido o expirado.');
-            applyLoginUI(false, '');
-            document.getElementById('tolva-status').textContent = 'Token expirado.';
-            return;
+    try {
+        if (y < new Date().getFullYear()) {
+            // ── Año pasado: caché permanente ─────────────────────────
+            const cached = _cacheGet(ckBase);
+            if (cached) {
+                rawTolvaData = cached;
+                document.getElementById('tolva-status').textContent = `⚡ Caché · ${cached.length} reg.`;
+                _tolvaFetchParams = { initDate, endDate, vo, subIds };
+                renderTolvaReport(rawTolvaData, y, tolvaUnit);
+                return;
+            }
+            rawTolvaData = await _apiFeedingRows(makeTolvaQs(initDate, endDate), headers);
+            if (rawTolvaData.length) _cacheSet(ckBase, rawTolvaData);
+        } else {
+            // ── Año actual: meses pasados cacheados + mes actual siempre fresco ──
+            const sp = _curYearSplit();
+            const ckPast = sp.pastEnd ? _cacheKey('tolva', y, scope, [...subIds].sort().join(','), 'past') : null;
+            let pastData = [];
+            if (ckPast) {
+                const cached = _cacheGet(ckPast);
+                if (cached) {
+                    pastData = cached;
+                } else {
+                    pastData = await _apiFeedingRows(makeTolvaQs(sp.pastStart, sp.pastEnd), headers);
+                    if (pastData.length) _cacheSet(ckPast, pastData);
+                }
+            }
+            const curData = await _apiFeedingRows(makeTolvaQs(sp.curStart, sp.curEnd), headers);
+            rawTolvaData = [...pastData, ...curData];
         }
-        const json = await res.json();
-        rawTolvaData = json.data || [];
-        if (ckTolva && rawTolvaData.length) _cacheSet(ckTolva, rawTolvaData);
+
         document.getElementById('tolva-status').textContent =
             rawTolvaData.length ? `${rawTolvaData.length} registros` : 'Sin datos';
         _tolvaFetchParams = { initDate, endDate, vo, subIds };
         _pedidoVista = 'producto';
         renderTolvaReport(rawTolvaData, y, tolvaUnit);
     } catch(e) {
+        if (e.status === 401) { alert('Token inválido o expirado.'); applyLoginUI(false, ''); }
         console.error('[loadTolvaData]', e);
         document.getElementById('tolva-status').textContent = 'Error al conectar con la API.';
     }
