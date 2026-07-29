@@ -46,6 +46,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .user-menu button { width: 100%; text-align: left; padding: 10px 14px; border: none; background: none; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--danger); }
 .user-menu button:hover { background: #fef2f2; }
 
+.ms-dropdown { position: relative; display: inline-block; }
+.ms-trigger { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 10px; background: white;
+    cursor: pointer; font-size: 12.5px; min-width: 130px; text-align: left; display: flex; justify-content: space-between;
+    align-items: center; gap: 6px; color: var(--text); }
+.ms-trigger:disabled { cursor: not-allowed; opacity: 0.55; }
+.ms-trigger:after { content: '▾'; opacity: 0.6; font-size: 10px; }
+.ms-panel { position: absolute; top: calc(100% + 4px); left: 0; background: white; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow-md); min-width: 190px; display: none; flex-direction: column;
+    z-index: 30; overflow: hidden; }
+.ms-panel.open { display: flex; }
+.ms-search { border: none; border-bottom: 1px solid var(--border); padding: 8px 10px; font-size: 12.5px; outline: none; }
+.ms-options { overflow-y: auto; max-height: 220px; }
+.ms-option { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12.5px; cursor: pointer; }
+.ms-option:hover { background: #f3f4f6; }
+.ms-option input { margin: 0; }
+
 .login-bar { background: #fffbeb; border-bottom: 1px solid #fde68a; padding: 8px 20px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; flex-wrap: wrap; }
 .login-bar.connected { background: #f0fdf4; border-color: #bbf7d0; }
 .login-bar input[type="text"], .login-bar input[type="password"] { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12.5px; width: 150px; }
@@ -128,6 +144,7 @@ table.cmp-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
         <button class="htab-btn active" id="tab-btn-ciclo" onclick="showTab('ciclo')">Por Ciclo</button>
         <button class="htab-btn" id="tab-btn-resumen" onclick="showTab('resumen')">Resumen vs Piscinas</button>
         <button class="htab-btn" id="tab-btn-concepto" onclick="showTab('concepto')">Por Concepto</button>
+        <button class="htab-btn" id="tab-btn-liq" onclick="showTab('liq')">Piscinas Liquidadas</button>
     </nav>
     <div class="header-user" id="header-user" onclick="toggleUserMenu(event)">
         <div class="user-avatar" id="user-avatar"></div>
@@ -272,6 +289,100 @@ table.cmp-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
     </div>
 </div>
 
+<div id="tab-liq" style="display:none">
+    <div class="filters">
+        <div class="fg">
+            <label>Sucursal</label>
+            <select id="liq-sucursal" onchange="onLiqSucursalChange()">
+                <option value="ALL">— Todas las sucursales —</option>
+            </select>
+        </div>
+        <div class="fg">
+            <label>Piscina <span id="liq-piscina-status" style="font-weight:400;text-transform:none;letter-spacing:0"></span></label>
+            <div class="ms-dropdown" id="liq-piscina-ms">
+                <button type="button" class="ms-trigger" onclick="msToggle('liq-piscina-ms', event)" disabled><span class="ms-trigger-label">Todas</span></button>
+                <div class="ms-panel">
+                    <input type="text" class="ms-search" placeholder="Buscar..." oninput="msFilterOptions('liq-piscina-ms', this.value)">
+                    <div class="ms-options"></div>
+                </div>
+            </div>
+        </div>
+        <div class="fg">
+            <label>Ciclo</label>
+            <div class="ms-dropdown" id="liq-ciclo-ms">
+                <button type="button" class="ms-trigger" onclick="msToggle('liq-ciclo-ms', event)" disabled><span class="ms-trigger-label">Todos</span></button>
+                <div class="ms-panel">
+                    <div class="ms-options"></div>
+                </div>
+            </div>
+        </div>
+        <div class="fg">
+            <label>Periodo</label>
+            <select id="liq-periodo" onchange="onLiqPeriodoChange()">
+                <option value="mes_actual">Mes actual</option>
+                <option value="mes_anterior">Mes anterior</option>
+                <option value="ultimos30">Últimos 30 días</option>
+                <option value="ultimos90" selected>Últimos 90 días</option>
+                <option value="este_anio">Este año</option>
+                <option value="ultimos400">Últimos 400 días</option>
+                <option value="personalizado">Personalizado</option>
+            </select>
+        </div>
+        <div class="fg" id="liq-fechas-custom" style="display:none">
+            <label>Desde – Hasta</label>
+            <div class="range-pair">
+                <input type="date" id="liq-desde">
+                <span class="sep">–</span>
+                <input type="date" id="liq-hasta">
+            </div>
+        </div>
+        <div class="fg">
+            <label>Fase</label>
+            <div class="chk-group">
+                <label><input type="checkbox" class="liq-fase" value="1"> 1</label>
+                <label><input type="checkbox" class="liq-fase" value="2"> 2</label>
+                <label><input type="checkbox" class="liq-fase" value="3"> 3</label>
+                <label><input type="checkbox" class="liq-fase" value="4"> 4</label>
+                <label><input type="checkbox" class="liq-fase" value="5"> 5</label>
+            </div>
+        </div>
+        <div class="fg">
+            <label>Peso, g (mín – máx)</label>
+            <div class="range-pair">
+                <input type="number" id="liq-peso-min" placeholder="0" style="width:60px">
+                <span class="sep">–</span>
+                <input type="number" id="liq-peso-max" placeholder="9999" style="width:60px">
+            </div>
+        </div>
+        <div class="fg">
+            <label>Peso de siembra, g (mín – máx)</label>
+            <div class="range-pair">
+                <input type="number" id="liq-siembra-min" placeholder="0" style="width:60px">
+                <span class="sep">–</span>
+                <input type="number" id="liq-siembra-max" placeholder="9999" style="width:60px">
+            </div>
+        </div>
+        <div class="fg">
+            <label>Días de producción (mín – máx)</label>
+            <div class="range-pair">
+                <input type="number" id="liq-dias-min" placeholder="0" style="width:60px">
+                <span class="sep">–</span>
+                <input type="number" id="liq-dias-max" placeholder="9999" style="width:60px">
+            </div>
+        </div>
+        <button class="btn-apply" id="btn-buscar-liq" onclick="buscarLiquidadas()">Buscar diferencias</button>
+    </div>
+
+    <div class="main" id="liq-content">
+        <div class="empty-state">
+            <div class="empty-icon">💧</div>
+            <div>Compara "Piscinas Liquidadas" contra "Detalle de Resultado" en todas las piscinas ya liquidadas
+            (farmStatus=LIQUIDADA) de la(s) sucursal(es) elegida(s), y muestra solo las que tienen alguna discrepancia.<br>
+            Nota: estos 2 módulos solo tienen datos de piscinas ya liquidadas - los ciclos activos o sin liquidar no aparecerán.</div>
+        </div>
+    </div>
+</div>
+
 <script>
 const _IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 const _PROXY    = _IS_LOCAL ? '' : 'https://naturisa-proxy.parragajonathan965.workers.dev';
@@ -312,6 +423,10 @@ function populateSucursales() {
     bcSel.innerHTML = SUBSIDIARIES
         .slice().sort((a,b) => a.name.localeCompare(b.name, 'es'))
         .map(s => `<option value="${s.code}">${s.name} (${s.code})</option>`).join('');
+    const liqSel = document.getElementById('liq-sucursal');
+    liqSel.innerHTML = '<option value="ALL">— Todas las sucursales —</option>' + SUBSIDIARIES
+        .slice().sort((a,b) => a.name.localeCompare(b.name, 'es'))
+        .map(s => `<option value="${s.code}">${s.name} (${s.code})</option>`).join('');
 }
 populateSucursales();
 
@@ -325,9 +440,11 @@ function showTab(name) {
     document.getElementById('tab-ciclo').style.display = name === 'ciclo' ? '' : 'none';
     document.getElementById('tab-resumen').style.display = name === 'resumen' ? '' : 'none';
     document.getElementById('tab-concepto').style.display = name === 'concepto' ? '' : 'none';
+    document.getElementById('tab-liq').style.display = name === 'liq' ? '' : 'none';
     document.getElementById('tab-btn-ciclo').classList.toggle('active', name === 'ciclo');
     document.getElementById('tab-btn-resumen').classList.toggle('active', name === 'resumen');
     document.getElementById('tab-btn-concepto').classList.toggle('active', name === 'concepto');
+    document.getElementById('tab-btn-liq').classList.toggle('active', name === 'liq');
 }
 
 // ── Autocompletado de piscina/ciclo ───────────────────────────
@@ -1509,14 +1626,20 @@ const CICLO_BULK_CONCEPTS = [
     { label: 'Peso Promedio General (g)', static: false, decimals: 2, g: {
         cd: null, pp: null, si: null, co: null, pr: null, ct: null, ch: o => o.actualAverageWeightGeneralGrams, dr: null } }, // viene de report_profitability/general (finca), no de detailed_result por piscina
 
-    { label: 'Sobrevivencia (%)', static: false, decimals: 1, g: {
+    // Detalle de Resultado (dr) trae 3 sobrevivencias distintas (Estimado/Cosecha/Planta) - antes
+    // se mezclaban todas en una sola fila. ct/cal.survival coincide con "Planta" (verificado con
+    // datos en vivo: ciclo ya cosechado, ct.survival=86.22=dr.survivalPlant, NO con
+    // dr.survivalHarvest=87.0), asi que va en Planta, no en Estimado.
+    { label: 'Sobrevivencia Estimada (%)', static: false, decimals: 1, g: {
         // sj: NO se muestra - el estimatedSurvival de cycle_sowing/juveniles es la sobrevivencia
         // del CICLO DE ORIGEN (de donde se transfirieron los juveniles), no del ciclo destino.
-        cd: o => o.estimatedSurvival, pp: o => o.estimatedSurvival, si: null, co: null, pr: o => o.finalSurvival, ct: o => o.survival, cal: o => o.survival, dr: o => o.survivalPlant, val: o => o.survival, pc: o => o.estimatedSurvival, sp: o => o.estimatedSurvival, ir: o => o.estimatedSurvival, sl: o => o.estimatedSurvival } },
+        cd: o => o.estimatedSurvival, pp: o => o.estimatedSurvival, dr: o => o.survivalEstimated, pc: o => o.estimatedSurvival, sp: o => o.estimatedSurvival, ir: o => o.estimatedSurvival, sl: o => o.estimatedSurvival } },
+    { label: 'Sobrevivencia Cosecha (%)', static: false, decimals: 1, g: {
+        pr: o => o.finalSurvival, dr: o => o.survivalHarvest } },
+    { label: 'Sobrevivencia Planta (%)', static: false, decimals: 1, g: {
+        ct: o => o.survival, cal: o => o.survival, val: o => o.survival, sp: o => o.finalSurvival, dr: o => o.survivalPlant } },
     { label: 'Alimento acumulado (kg)', static: false, decimals: 0, g: {
         cd: o => o.accumulatedFeedKilograms, pp: o => o.totalFeeding, si: null, co: null, pr: o => o.accumulatedFeed, ct: o => o.totalAccumulateFeed, cal: o => o.totalAccumulateFeed, dr: o => o.accumulatedFeed, pc: o => o.accumulatedFeedkilograms, sp: o => o.feedKilograms, ir: o => o.accumulatedFeedKilograms } },
-    { label: 'Alimento desde Larvas (kg)', static: false, decimals: 0, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: o => o.feedFromLarvae, cal: o => o.feedFromLarvae, dr: o => o.accumulatedFeedFromLarvae, pc: o => o.feedingFromLarvae, sp: o => o.feedFromLarvaePounds * 0.453592, ir: o => o.feedFromLarvaePounds * 0.453592 } },
     { label: 'FCA Bruto', static: false, decimals: 2, g: {
         cd: o => o.grossGrowthFactor, pp: o => o.grossGrowthFactor, si: null, co: null, pr: o => o.grossFCR, ct: o => o.fcaGross, cal: o => o.fcaGross, dr: o => o.grossFCRPlant, pc: o => o.grossGrowthFactor, sp: o => o.grossGrowthFactor, ir: o => o.grossGrowthFactor } },
     { label: 'FCA Real', static: false, decimals: 2, g: {
@@ -1968,6 +2091,290 @@ async function buscarPorConcepto() {
         if (!found) {
             emptyMsg.textContent = '✓ Ninguna diferencia encontrada para este concepto en las piscinas/ciclos escaneados.';
             emptyMsg.style.display = '';
+        }
+    } catch (e) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Error: ${e.message}</div></div>`;
+    } finally {
+        btn.disabled = false; btn.textContent = 'Buscar diferencias';
+    }
+}
+
+// ── Piscinas Liquidadas: compara "sp" (Piscinas Liquidadas) vs "dr" (Detalle de Resultado) ──
+// Ambos modulos SOLO tienen datos de piscinas ya liquidadas (farmStatus=LIQUIDADA) - a diferencia
+// de "Por Concepto" (un concepto, todas las piscinas), aqui es "un par de modulos fijo, todos los
+// conceptos", pudiendo abarcar todas las sucursales a la vez.
+function valuesDiffer(a, b) {
+    if (a === null || a === undefined || b === null || b === undefined) return false;
+    if (typeof a === 'number' && typeof b === 'number') {
+        const tol = Math.max(Math.abs(a), Math.abs(b)) * 0.01;
+        return Math.abs(a - b) > Math.max(tol, 0.05);
+    }
+    return String(a) !== String(b);
+}
+
+// Conceptos que representan un TOTAL absoluto (USD, libras, animales, kg) - tiene sentido sumarlos
+// entre piscinas de distinto tamaño. Tasas/promedios/porcentajes (/Ha, /m2, /Libra, (%), Peso, FCA,
+// Densidad, Margen, ROI, Rendimiento) NO se incluyen porque sumarlos entre piscinas no significa nada.
+const CONCEPTOS_SUMABLES = new Set([
+    'Biomasa Inicial (lb)', 'Libras Enviadas', 'Libras Netas', 'Animales Entero Planta',
+    'Alimento acumulado (kg)', 'Venta Total (USD)', 'Semilla - Total (USD)',
+    'Alimento (costo) - Total (USD)', 'Insumos - Total (USD)', 'Combustible - Total (USD)',
+    'Electricidad - Total (USD)', 'Mano de Obra - Total (USD)', 'Mantenimiento - Total (USD)',
+    'Indirectos (Otros) - Total (USD)', 'Costo + Gastos - Total (USD)',
+    'Utilidad Operativa = Utilidad Bruta (USD)', 'Flujo Neto = EBITDA (USD)',
+    'Utilidad Neta = EBIT (USD)', 'Gastos Administrativos - Total (USD)',
+    'Gastos Financieros - Total (USD)', 'Depreciación - Total (USD)', 'Costo Total (USD)', 'EBT (USD)',
+]);
+
+// ── Dropdown generico con checkboxes + buscador (reemplaza <select multiple>, feo con navegador). ──
+function msSelected(id) {
+    return Array.from(document.querySelectorAll(`#${id} .ms-option input:checked`)).map(el => el.value);
+}
+function msSetOptions(id, values, placeholder) {
+    const root = document.getElementById(id);
+    const trigger = root.querySelector('.ms-trigger');
+    const optionsBox = root.querySelector('.ms-options');
+    const search = root.querySelector('.ms-search');
+    if (search) search.value = '';
+    optionsBox.innerHTML = values.map(v => `<label class="ms-option"><input type="checkbox" value="${v}" onchange="msUpdateTrigger('${id}', '${placeholder}')"> ${v}</label>`).join('');
+    trigger.disabled = !values.length;
+    msUpdateTrigger(id, placeholder);
+}
+function msUpdateTrigger(id, placeholder) {
+    const sel = msSelected(id);
+    document.querySelector(`#${id} .ms-trigger-label`).textContent = sel.length ? `${sel.length} elegida${sel.length > 1 ? 's' : ''}` : placeholder;
+}
+function msToggle(id, e) {
+    e.stopPropagation();
+    const panel = document.querySelector(`#${id} .ms-panel`);
+    const wasOpen = panel.classList.contains('open');
+    document.querySelectorAll('.ms-panel.open').forEach(p => p.classList.remove('open'));
+    if (!wasOpen) panel.classList.add('open');
+}
+function msFilterOptions(id, query) {
+    const q = query.trim().toLowerCase();
+    document.querySelectorAll(`#${id} .ms-option`).forEach(label => {
+        label.style.display = label.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.ms-dropdown')) document.querySelectorAll('.ms-panel.open').forEach(p => p.classList.remove('open'));
+});
+
+// Filtro de Periodo (igual a como lo tiene AP1: Mes actual / Mes anterior / etc, con opcion
+// "Personalizado" para un rango de fechas explicito).
+function onLiqPeriodoChange() {
+    document.getElementById('liq-fechas-custom').style.display =
+        document.getElementById('liq-periodo').value === 'personalizado' ? '' : 'none';
+}
+
+function getLiqDateRange() {
+    const periodo = document.getElementById('liq-periodo').value;
+    const hoy = new Date();
+    let start, end = hoy;
+    if (periodo === 'mes_actual') {
+        start = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    } else if (periodo === 'mes_anterior') {
+        start = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+        end = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+    } else if (periodo === 'este_anio') {
+        start = new Date(hoy.getFullYear(), 0, 1);
+    } else if (periodo === 'ultimos30') {
+        start = new Date(hoy.getTime() - 30 * 86400000);
+    } else if (periodo === 'ultimos400') {
+        start = new Date(hoy.getTime() - 400 * 86400000);
+    } else if (periodo === 'personalizado') {
+        const d = document.getElementById('liq-desde').value, h = document.getElementById('liq-hasta').value;
+        return { startStr: d || isoDate(new Date(hoy.getTime() - 90 * 86400000)), endStr: h || isoDate(hoy) };
+    } else {
+        start = new Date(hoy.getTime() - 90 * 86400000); // ultimos90 (default)
+    }
+    return { startStr: isoDate(start), endStr: isoDate(end) };
+}
+
+// Al elegir una sucursal especifica, se carga el listado de piscinas/ciclos liquidados de ESA
+// sucursal (desde settledPools) para poblar los dropdowns de Piscina/Ciclo - igual que el
+// autocompletado de "Por Ciclo". Con "Todas las sucursales" no tiene sentido poblarlos (los
+// mismos numeros de piscina se repiten entre sucursales), asi que quedan deshabilitados.
+async function onLiqSucursalChange() {
+    const subCode = document.getElementById('liq-sucursal').value;
+    const statusEl = document.getElementById('liq-piscina-status');
+
+    if (subCode === 'ALL' || !getToken()) {
+        msSetOptions('liq-piscina-ms', [], 'Todas');
+        msSetOptions('liq-ciclo-ms', [], 'Todos');
+        statusEl.textContent = '';
+        return;
+    }
+    const sub = SUBSIDIARIES.find(s => s.code === subCode);
+    statusEl.textContent = 'Cargando...';
+    try {
+        const { startStr, endStr } = getLiqDateRange();
+        const spRowsAll = await apiGet('report_harvest/settledPools', [['subsidiaryIds', sub.id], ['startDate', startStr], ['endDate', endStr]]);
+        // Solo piscinas realmente COSECHADAS/liquidadas (plantStatus=LIQUIDADA) - las que quedan
+        // en PENDIENTE de costeo no tienen datos en Detalle Resultado, asi que no hay nada que comparar.
+        const spRows = (spRowsAll || []).filter(r => r.plantStatus === 'LIQUIDADA');
+
+        const byKey = {};
+        const allCycles = new Set();
+        (spRows || []).forEach(r => {
+            const pn = r.poolName, cn = r.cycleNumber;
+            if (pn === undefined || pn === null || cn === undefined || cn === null) return;
+            const key = normPool(pn);
+            if (!byKey[key]) byKey[key] = { display: canonicalPoolName(pn), cycles: new Set() };
+            byKey[key].cycles.add(Number(cn));
+            allCycles.add(Number(cn));
+        });
+        const poolNames = Object.keys(byKey).map(k => byKey[k].display).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+        msSetOptions('liq-piscina-ms', poolNames, 'Todas');
+        const cycleNums = Array.from(allCycles).sort((a, b) => b - a);
+        msSetOptions('liq-ciclo-ms', cycleNums, 'Todos');
+        statusEl.textContent = `(${poolNames.length})`;
+    } catch (e) {
+        statusEl.textContent = '';
+    }
+}
+
+async function buscarLiquidadas() {
+    if (!getToken()) { alert('Inicia sesión primero'); return; }
+    const subCode = document.getElementById('liq-sucursal').value;
+    const piscinasFiltro = msSelected('liq-piscina-ms');
+    const ciclosFiltro = msSelected('liq-ciclo-ms').map(Number);
+    const fasesFiltro = Array.from(document.querySelectorAll('.liq-fase:checked')).map(el => Number(el.value));
+    const pesoMin = parseFloat(document.getElementById('liq-peso-min').value); const pesoMinN = isNaN(pesoMin) ? -Infinity : pesoMin;
+    const pesoMax = parseFloat(document.getElementById('liq-peso-max').value); const pesoMaxN = isNaN(pesoMax) ? Infinity : pesoMax;
+    const siembraMin = parseFloat(document.getElementById('liq-siembra-min').value); const siembraMinN = isNaN(siembraMin) ? -Infinity : siembraMin;
+    const siembraMax = parseFloat(document.getElementById('liq-siembra-max').value); const siembraMaxN = isNaN(siembraMax) ? Infinity : siembraMax;
+    const diasMin = parseFloat(document.getElementById('liq-dias-min').value); const diasMinN = isNaN(diasMin) ? -Infinity : diasMin;
+    const diasMax = parseFloat(document.getElementById('liq-dias-max').value); const diasMaxN = isNaN(diasMax) ? Infinity : diasMax;
+    const subs = subCode === 'ALL' ? SUBSIDIARIES : SUBSIDIARIES.filter(s => s.code === subCode);
+    if (!subs.length) { alert('Elige una sucursal'); return; }
+
+    const container = document.getElementById('liq-content');
+    const btn = document.getElementById('btn-buscar-liq');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Escaneando...';
+
+    const { startStr, endStr } = getLiqDateRange();
+
+    // Conceptos de "Por Ciclo" que tienen fuente EN AMBOS modulos (sp Y dr) - si solo uno de los
+    // 2 lo tiene no hay nada que comparar (solo se veria un "-" del lado que falta, puro ruido).
+    const concepts = CICLO_BULK_CONCEPTS.filter(c => c.g.sp && c.g.dr);
+
+    try {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><div>Cargando piscinas liquidadas...</div></div>`;
+
+        // sp (settledPools) y el mapa poolName->poolId se piden UNA vez POR SUCURSAL, con
+        // concurrencia acotada (igual que Por Concepto) para no saturar el navegador cuando
+        // se eligen "Todas las sucursales".
+        const perSub = [];
+        await runPool(subs, 6, async (sub) => {
+            const [spRowsAll, poolsResp] = await Promise.all([
+                apiGet('report_harvest/settledPools', [['subsidiaryIds', sub.id], ['startDate', startStr], ['endDate', endStr]]).catch(() => []),
+                apiGet('pools', [['subsidiaryIds', sub.id], ['pageSize', 1000], ['status', 'ACTIVO'], ['status', 'MANTENIMIENTO'], ['status', 'INACTIVO']]).catch(() => ({ data: [] })),
+            ]);
+            const poolIdMap = {};
+            ((poolsResp && poolsResp.data) || []).forEach(p => { poolIdMap[normPool(p.name)] = p.idPool; });
+            // Solo piscinas realmente COSECHADAS (plantStatus=LIQUIDADA) - las PENDIENTES de
+            // costeo no tienen datos en Detalle Resultado, asi que no hay nada que comparar.
+            const spRows = (spRowsAll || []).filter(r => r.plantStatus === 'LIQUIDADA');
+            perSub.push({ sub, spRows, poolIdMap });
+        });
+
+        // Armar la lista de piscinas/ciclos liquidados a comparar, aplicando todos los filtros.
+        const pares = [];
+        perSub.forEach(({ sub, spRows, poolIdMap }) => {
+            spRows.forEach(row => {
+                if (piscinasFiltro.length && !piscinasFiltro.includes(canonicalPoolName(row.poolName))) return;
+                if (ciclosFiltro.length && !ciclosFiltro.includes(Number(row.cycleNumber))) return;
+                if (fasesFiltro.length && !fasesFiltro.includes(Number(row.stage))) return;
+                if (row.farmAverageWeightGrams != null && (row.farmAverageWeightGrams < pesoMinN || row.farmAverageWeightGrams > pesoMaxN)) return;
+                if (row.sowingWeight != null && (row.sowingWeight < siembraMinN || row.sowingWeight > siembraMaxN)) return;
+                if (row.daysProduction != null && (row.daysProduction < diasMinN || row.daysProduction > diasMaxN)) return;
+                pares.push({
+                    sub, poolName: canonicalPoolName(row.poolName), cycleNumber: row.cycleNumber,
+                    cycleId: row.cycleId, poolId: poolIdMap[normPool(row.poolName)], spRow: row,
+                });
+            });
+        });
+
+        if (!pares.length) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-icon">🤷</div><div>Sin piscinas liquidadas para ese filtro.</div></div>`;
+            return;
+        }
+
+        const total = pares.length;
+        container.innerHTML = `<div class="section-card"><div class="section-title"><span>Piscinas Liquidadas vs Detalle de Resultado</span>
+            <span class="section-hint progreso-liq">Escaneando 0/${total} piscinas liquidadas...</span></div>
+            <div style="overflow:auto;max-height:calc(100vh - 170px)"><table class="cmp-tbl"><thead style="position:sticky;top:0;z-index:2">
+            <tr><th>Sucursal</th><th>Piscina</th><th>Ciclo</th><th>Concepto</th><th>Piscinas Liquidadas</th><th>Detalle de Resultado</th></tr>
+            </thead><tbody id="liq-tbody"></tbody></table></div>
+            <div id="liq-empty" style="padding:24px;text-align:center;color:var(--muted);display:none"></div></div>`;
+        const tbody = document.getElementById('liq-tbody');
+        const hint = container.querySelector('.progreso-liq');
+        const emptyMsg = document.getElementById('liq-empty');
+        let done = 0, found = 0;
+
+        // Totales (suma sp vs suma dr) - solo tiene sentido cuando se escanean VARIAS piscinas
+        // a la vez (filtro de piscina vacio = "Todas"), para ver si el agregado tambien cuadra.
+        const totales = {};
+        CONCEPTOS_SUMABLES.forEach(label => { totales[label] = { sp: 0, dr: 0, spN: 0, drN: 0 }; });
+
+        await runPool(pares, 6, async ({ sub, poolName, cycleNumber, cycleId, poolId, spRow }) => {
+            const dr = (poolId && cycleId)
+                ? await apiGet('report_profitability/detailed_result', [['from', startStr], ['to', endStr], ['subsidiaryId', sub.id], ['poolId', poolId], ['cycleId', cycleId]]).catch(() => null)
+                : null;
+
+            const filas = [];
+            let anyDiff = false;
+            concepts.forEach(concept => {
+                const spCell = porSemanaCell(concept.g.sp, spRow, concept.decimals);
+                const drCell = porSemanaCell(concept.g.dr, dr, concept.decimals);
+                if (CONCEPTOS_SUMABLES.has(concept.label)) {
+                    const t = totales[concept.label];
+                    if (spCell.v !== null) { t.sp += spCell.v; t.spN++; }
+                    if (drCell.v !== null) { t.dr += drCell.v; t.drN++; }
+                }
+                if (spCell.s === null && drCell.s === null) return;
+                const diff = valuesDiffer(spCell.v, drCell.v);
+                if (diff) anyDiff = true;
+                filas.push({ concepto: concept.label, sp: spCell.s, dr: drCell.s, diff });
+            });
+
+            done++;
+            hint.textContent = `Escaneando ${done}/${total} piscinas liquidadas...`;
+            if (!anyDiff || !filas.length) return;
+            found++;
+            const html = filas.map((r, i) => `<tr class="${i === 0 ? 'grp-first' : ''}">`
+                + (i === 0 ? `<td>${sub.code}</td><td>${poolName}</td><td>${cycleNumber}</td>` : '<td></td><td></td><td></td>')
+                + `<td>${r.concepto}</td>`
+                + `<td class="${r.diff ? 'diff' : ''}">${r.sp === null ? '—' : r.sp}</td>`
+                + `<td class="${r.diff ? 'diff' : ''}">${r.dr === null ? '—' : r.dr}</td></tr>`).join('');
+            tbody.insertAdjacentHTML('beforeend', html);
+        });
+
+        hint.textContent = `${found} de ${total} piscinas liquidadas con alguna discrepancia`;
+        if (!found) {
+            emptyMsg.textContent = '✓ Ninguna diferencia encontrada entre Piscinas Liquidadas y Detalle de Resultado.';
+            emptyMsg.style.display = '';
+        }
+
+        if (total > 1) {
+            const filasTotales = Array.from(CONCEPTOS_SUMABLES).map(label => {
+                const t = totales[label];
+                if (!t.spN && !t.drN) return null;
+                const spVal = t.spN ? t.sp : null;
+                const drVal = t.drN ? t.dr : null;
+                return { label, sp: spVal, dr: drVal, diff: valuesDiffer(spVal, drVal) };
+            }).filter(Boolean);
+            if (filasTotales.length) {
+                const totalesHtml = `<div class="section-card"><div class="section-title"><span>Totales (suma de las ${total} piscinas escaneadas)</span></div>
+                    <table class="cmp-tbl"><thead><tr><th>Concepto</th><th>Piscinas Liquidadas</th><th>Detalle de Resultado</th></tr></thead><tbody>
+                    ${filasTotales.map(f => `<tr><td>${f.label}</td>`
+                        + `<td class="${f.diff ? 'diff' : ''}">${f.sp === null ? '—' : fmtField(f.sp, 0)}</td>`
+                        + `<td class="${f.diff ? 'diff' : ''}">${f.dr === null ? '—' : fmtField(f.dr, 0)}</td></tr>`).join('')}
+                    </tbody></table></div>`;
+                container.insertAdjacentHTML('afterbegin', totalesHtml);
+            }
         }
     } catch (e) {
         container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Error: ${e.message}</div></div>`;
