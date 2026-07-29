@@ -1,181 +1,152 @@
-/**
- * naturisa-proxy — Cloudflare Worker
- *
- * Proxy CORS hacia gateway.naturisa.com.ec con caché KV por mes.
- * - Meses pasados → KV (permanente, TTL 1 año)
- * - Mes actual    → siempre fresco desde la API
- *
- * Rutas cacheadas: cualquier endpoint de feeding con timeGranularity=month
- * Resto de rutas: proxy transparente sin caché
- */
+const GATEWAY = 'https://gateway.naturisa.com.ec'
 
-const GATEWAY = 'https://gateway.naturisa.com.ec';
-const CACHEABLE_PATHS = ['/bff/mobile/feedcontrol/balanceado/api/report/feeding_general'];
-const CACHE_TTL = 60 * 60 * 24 * 365; // 1 año en segundos
+const ALLOWED_ORIGINS = [
+  'https://jparraga-naturisa.github.io',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+]
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function corsHeaders(origin) {
-    return {
-        'Access-Control-Allow-Origin':  origin || '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
-        'Access-Control-Max-Age':       '86400',
-    };
+function getCors(origin) {
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Access-Control-Allow-Origin':  allowed,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, Accept',
+    'Access-Control-Max-Age':       '86400'
+  }
 }
 
-function jsonResponse(body, extra = {}, status = 200) {
-    return new Response(body, {
-        status,
-        headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders(),
-            ...extra,
-        },
-    });
+function corsResponse(body, status, request, extraHeaders) {
+  const cors = getCors(request.headers.get('Origin') || '')
+  const headers = { ...cors, 'Content-Type': 'application/json', ...(extraHeaders || {}) }
+  return new Response(body, { status, headers })
 }
 
-function pad(n) { return String(n).padStart(2, '0'); }
+// ── Caché de feeding por mes ───────────────────────────────────────────────
 
-function lastDayOfMonth(y, m) {
-    return new Date(Date.UTC(y, m, 0)).getUTCDate(); // m es 1-12
+const FEEDING_PATH = '/bff/mobile/feedcontrol/balanceado/api/report/feeding_general'
+const CACHE_TTL    = 60 * 60 * 24 * 365 // 1 año
+
+function pad(n) { return String(n).padStart(2, '0') }
+function lastDay(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate() } // m = 1-12
+
+function feedCacheKey(pathname, searchParams, iD, eD) {
+  const sp = new URLSearchParams(searchParams)
+  sp.delete('initDate'); sp.delete('endDate')
+  const sorted = [...sp.entries()].sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]))
+  return `feed:${pathname}:${new URLSearchParams(sorted)}:${iD}:${eD}`
 }
 
-// Clave KV estable: excluye initDate/endDate, ordena params
-function buildBaseKey(pathname, searchParams) {
-    const sp = new URLSearchParams(searchParams);
-    sp.delete('initDate');
-    sp.delete('endDate');
-    // Ordenar para que el orden de subsidiaryIds no importe
-    const sorted = [...sp.entries()].sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]));
-    return `feeding:${pathname}:${new URLSearchParams(sorted).toString()}`;
+async function fetchFeedRows(request, pathname, searchParams, iD, eD) {
+  const sp = new URLSearchParams(searchParams)
+  sp.set('initDate', iD); sp.set('endDate', eD)
+  const target = GATEWAY + pathname + '?' + sp.toString()
+  const res = await fetch(target, { method: 'GET', headers: request.headers })
+  if (!res.ok) return { ok: false, rows: [], envelope: {} }
+  const json = await res.json()
+  return { ok: true, rows: json.data || [], envelope: json }
 }
 
-// Proxy simple hacia el gateway conservando Authorization
-async function proxyRequest(originalRequest, targetUrl) {
-    const headers = new Headers();
-    const fwd = ['Authorization', 'Accept', 'Content-Type'];
-    fwd.forEach(h => { const v = originalRequest.headers.get(h); if (v) headers.set(h, v); });
-    headers.set('Origin',  'https://ap1.naturisa.com.ec');
-    headers.set('Referer', 'https://ap1.naturisa.com.ec/');
-    headers.set('User-Agent', 'Mozilla/5.0');
+async function handleFeedingCached(request, url, env, ctx) {
+  const initDate = url.searchParams.get('initDate') || ''
+  const endDate  = url.searchParams.get('endDate')  || ''
 
-    return fetch(targetUrl, {
-        method:  originalRequest.method,
-        headers,
-        body:    originalRequest.method !== 'GET' ? originalRequest.body : undefined,
-    });
-}
+  const now      = new Date()
+  const curYear  = now.getUTCFullYear()
+  const curMonth = now.getUTCMonth() + 1
 
-// Obtiene filas de la API para un rango de fechas y las devuelve como array
-async function fetchRows(request, baseUrl, iD, eD) {
-    const u = new URL(baseUrl);
-    u.searchParams.set('initDate', iD);
-    u.searchParams.set('endDate',  eD);
-    const resp = await proxyRequest(request, u.toString());
-    if (!resp.ok) return { ok: false, status: resp.status, rows: [] };
-    const json = await resp.json();
-    return { ok: true, rows: json.data || [], envelope: json };
+  const [, , endYear, endMonth] = (endDate.match(/^(\d{4})-(\d{2})/) || []).map(Number)
+  const [, , startYear, startMonth] = (initDate.match(/^(\d{4})-(\d{2})/) || []).map(Number)
+
+  // Obtiene filas de un rango pasado: primero KV, luego API
+  async function getPast(iD, eD) {
+    const ck = feedCacheKey(url.pathname, url.searchParams, iD, eD)
+    const hit = await env.data.get(ck)
+    if (hit !== null) return { rows: JSON.parse(hit), cached: true }
+    const { ok, rows } = await fetchFeedRows(request, url.pathname, url.searchParams, iD, eD)
+    if (ok && rows.length) ctx.waitUntil(env.data.put(ck, JSON.stringify(rows), { expirationTtl: CACHE_TTL }))
+    return { rows, cached: false }
+  }
+
+  const fullyPast = endYear < curYear || (endYear === curYear && endMonth < curMonth)
+
+  let pastRows = [], curRows = [], envelope = {}, cached = false
+
+  if (fullyPast) {
+    const r = await getPast(initDate, endDate)
+    pastRows = r.rows; cached = r.cached
+    envelope = { data: pastRows }
+  } else {
+    // Meses pasados → KV; mes actual → siempre fresco
+    const hasPast = startYear < curYear || (startYear === curYear && startMonth < curMonth)
+    if (hasPast && curMonth > 1) {
+      const pastEnd = `${curYear}-${pad(curMonth - 1)}-${pad(lastDay(curYear, curMonth - 1))}`
+      const r = await getPast(initDate, pastEnd)
+      pastRows = r.rows; cached = r.cached
+    }
+    const curStart = `${curYear}-${pad(curMonth)}-01`
+    const curEnd   = `${curYear}-${pad(curMonth)}-${pad(lastDay(curYear, curMonth))}`
+    const r = await fetchFeedRows(request, url.pathname, url.searchParams, curStart, curEnd)
+    curRows = r.rows; envelope = r.envelope || {}
+  }
+
+  const allRows = [...pastRows, ...curRows]
+  const body = JSON.stringify({ ...envelope, data: allRows })
+  return corsResponse(body, 200, request, {
+    'X-Cache': cached ? 'HIT' : 'MISS',
+    'X-Cache-Rows': String(allRows.length),
+  })
 }
 
 // ── Handler principal ──────────────────────────────────────────────────────
 
 export default {
-    async fetch(request, env, ctx) {
-        const origin = request.headers.get('Origin') || '*';
+  async fetch(request, env, ctx) {
+    const url    = new URL(request.url)
+    const origin = request.headers.get('Origin') || ''
 
-        // CORS preflight
-        if (request.method === 'OPTIONS') {
-            return new Response(null, { status: 204, headers: corsHeaders(origin) });
-        }
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: getCors(origin) })
+    }
 
-        const url = new URL(request.url);
+    // /kv/ — rutas existentes sin cambios
+    if (url.pathname.startsWith('/kv/')) {
+      const key = url.pathname.replace('/kv/', '')
+      if (!['excel', 'ciclos', 'cambios', 'cambios-dev', 'cambios-config', 'cambios-config-dev'].includes(key)) {
+        return corsResponse('{"error":"key no permitida"}', 400, request)
+      }
+      if (request.method === 'GET') {
+        const val = await env.data.get(key)
+        return corsResponse(val || '[]', 200, request)
+      }
+      if (request.method === 'POST') {
+        const body = await request.text()
+        await env.data.put(key, body)
+        return corsResponse('{"ok":true}', 200, request)
+      }
+      return corsResponse('{"error":"method not allowed"}', 405, request)
+    }
 
-        // ¿Es un endpoint de feeding con granularidad mensual?
-        const isFeedingMonthly =
-            CACHEABLE_PATHS.some(p => url.pathname === p) &&
-            url.searchParams.get('timeGranularity') === 'month';
+    // Feeding con granularidad mensual → caché KV
+    if (
+      request.method === 'GET' &&
+      url.pathname === FEEDING_PATH &&
+      url.searchParams.get('timeGranularity') === 'month'
+    ) {
+      return handleFeedingCached(request, url, env, ctx)
+    }
 
-        if (!isFeedingMonthly) {
-            // Proxy transparente sin caché
-            const target = GATEWAY + url.pathname + url.search;
-            const resp   = await proxyRequest(request, target);
-            const body   = await resp.text();
-            return new Response(body, {
-                status:  resp.status,
-                headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-            });
-        }
-
-        // ── Lógica de caché por mes ──────────────────────────────────────
-        const initDate = url.searchParams.get('initDate') || '';
-        const endDate  = url.searchParams.get('endDate')  || '';
-
-        const now      = new Date();
-        const curYear  = now.getUTCFullYear();
-        const curMonth = now.getUTCMonth() + 1; // 1-12
-
-        const [startYear, startMonth] = initDate.split('-').map(Number);
-        const [endYear,   endMonth]   = endDate.split('-').map(Number);
-
-        const baseKey  = buildBaseKey(url.pathname, url.searchParams);
-        const baseUrl  = GATEWAY + url.pathname + url.search; // incluye todos los params excepto fechas que se reemplazan
-
-        // Función auxiliar: consulta KV o API para un rango en el pasado
-        async function getPastRows(iD, eD) {
-            const ck = `${baseKey}:${iD}:${eD}`;
-            const cached = await env.CACHE.get(ck);
-            if (cached !== null) {
-                return { rows: JSON.parse(cached), hit: true };
-            }
-            const { ok, rows } = await fetchRows(request, baseUrl, iD, eD);
-            if (ok && rows.length) {
-                ctx.waitUntil(env.CACHE.put(ck, JSON.stringify(rows), { expirationTtl: CACHE_TTL }));
-            }
-            return { rows, hit: false };
-        }
-
-        // ¿Todo el rango es pasado (no incluye mes actual)?
-        const rangeIsFullyPast = endYear < curYear || (endYear === curYear && endMonth < curMonth);
-
-        let pastRows  = [];
-        let curRows   = [];
-        let envelope  = {};
-        let cacheHit  = false;
-
-        if (rangeIsFullyPast) {
-            // Todo cacheable
-            const result = await getPastRows(initDate, endDate);
-            pastRows = result.rows;
-            cacheHit = result.hit;
-            // Construir envelope mínimo si vino de KV
-            envelope = { data: pastRows };
-        } else {
-            // Rango incluye el mes actual — split: pasado + fresco
-
-            // Porción pasada (si el rango empieza antes del mes actual)
-            const hasPast = startYear < curYear || (startYear === curYear && startMonth < curMonth);
-            if (hasPast && curMonth > 1) {
-                const pastEnd = `${curYear}-${pad(curMonth - 1)}-${pad(lastDayOfMonth(curYear, curMonth - 1))}`;
-                const result  = await getPastRows(initDate, pastEnd);
-                pastRows = result.rows;
-                cacheHit = result.hit;
-            }
-
-            // Porción actual (siempre fresca)
-            const curStart = `${curYear}-${pad(curMonth)}-01`;
-            const curEnd   = `${curYear}-${pad(curMonth)}-${pad(lastDayOfMonth(curYear, curMonth))}`;
-            const result   = await fetchRows(request, baseUrl, curStart, curEnd);
-            curRows  = result.rows;
-            envelope = result.envelope || {};
-        }
-
-        const allRows = [...pastRows, ...curRows];
-        const response = JSON.stringify({ ...envelope, data: allRows });
-
-        return jsonResponse(response, {
-            'X-Cache':       cacheHit ? 'HIT' : 'MISS',
-            'X-Cache-Rows':  String(allRows.length),
-        });
-    },
-};
+    // Proxy transparente para todo lo demás
+    const target = GATEWAY + url.pathname + url.search
+    const cors   = getCors(origin)
+    const res    = await fetch(target, {
+      method:  request.method,
+      headers: request.headers,
+      body:    ['GET', 'HEAD'].includes(request.method) ? undefined : request.body
+    })
+    const out = new Response(res.body, res)
+    Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v))
+    return out
+  }
+}
