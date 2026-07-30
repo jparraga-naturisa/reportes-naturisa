@@ -119,6 +119,7 @@ table.cmp-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .cmp-tbl td.empty { color: #c7c7cc; }
 .cmp-tbl td.diff { color: var(--danger); font-weight: 700; background: #fef2f2; }
 .cmp-tbl tr.grp-first td { border-top: 2px solid var(--border); border-bottom: none; }
+.cmp-tbl td.grp-title, .cmp-tbl tr:hover td.grp-title { background: var(--primary); color: white; font-weight: 700; font-size: 12.5px; padding: 8px 10px; }
 .cmp-tbl tr.grp-last td { background: #fafafa; color: var(--muted); }
 .cmp-tbl tr.grp-last td.diff { color: var(--danger); font-weight: 700; background: #fef2f2; }
 .cmp-tbl tr.diff td { background: #fef2f2; }
@@ -371,14 +372,15 @@ table.cmp-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
             </div>
         </div>
         <button class="btn-apply" id="btn-buscar-liq" onclick="buscarLiquidadas()">Buscar diferencias</button>
+        <button class="btn-apply" id="btn-exportar-liq" onclick="exportarExcel('liq-content', 'piscinas_liquidadas')" style="background:#166534">Exportar a Excel</button>
     </div>
 
     <div class="main" id="liq-content">
         <div class="empty-state">
             <div class="empty-icon">💧</div>
-            <div>Compara "Piscinas Liquidadas" contra "Detalle de Resultado" en todas las piscinas ya liquidadas
+            <div>Compara "Piscinas Liquidadas", "Detalle de Resultado" e "Informe de Rentabilidad" en todas las piscinas ya liquidadas
             (farmStatus=LIQUIDADA) de la(s) sucursal(es) elegida(s), y muestra solo las que tienen alguna discrepancia.<br>
-            Nota: estos 2 módulos solo tienen datos de piscinas ya liquidadas - los ciclos activos o sin liquidar no aparecerán.</div>
+            Nota: estos 3 módulos solo tienen datos de piscinas ya liquidadas - los ciclos activos o sin liquidar no aparecerán.</div>
         </div>
     </div>
 </div>
@@ -1607,13 +1609,13 @@ const CICLO_BULK_CONCEPTS = [
         // ch: solo cosecha PARCIAL - la FINAL/PREFINAL es "Peso de Cosecha", no un parcial.
         cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWeightHarvest, ch: o => o.partialAverageFarmWeightGrams } },
     { label: 'Peso Parcial Planta (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.thinnedWeightPlant } },
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, sp: o => o.parcialWeightGrams, dr: o => o.thinnedWeightPlant, ir: o => o.averageThinnedWeightGrams } },
     { label: 'Peso Final Estimado (g)', static: false, decimals: 2, g: {
         cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightEstimated } },
     { label: 'Peso Final Real (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightHarvest } },
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, sp: o => o.farmAverageWeightGrams, dr: o => o.finalWeightHarvest, ir: o => o.averageFarmWeightGrams } },
     { label: 'Peso Final Planta (g)', static: false, decimals: 2, g: {
-        cd: null, pp: null, si: null, co: null, pr: null, ct: null, dr: o => o.finalWeightPlant } },
+        cd: null, pp: null, si: null, co: null, pr: null, ct: null, sp: o => o.averageWeightGeneralGrams, dr: o => o.finalWeightPlant, ir: o => o.averageWeightGeneralGrams } },
     { label: 'Peso Entero Planta (g)', static: false, decimals: 2, g: {
         // calculado: libras totales planta convertidas a gramos / animales totales planta
         cd: null, pp: null, si: null, co: null, pr: null, ct: null, ch: o => o.actualAverageWholeWeightGrams,
@@ -2099,18 +2101,10 @@ async function buscarPorConcepto() {
     }
 }
 
-// ── Piscinas Liquidadas: compara "sp" (Piscinas Liquidadas) vs "dr" (Detalle de Resultado) ──
-// Ambos modulos SOLO tienen datos de piscinas ya liquidadas (farmStatus=LIQUIDADA) - a diferencia
-// de "Por Concepto" (un concepto, todas las piscinas), aqui es "un par de modulos fijo, todos los
-// conceptos", pudiendo abarcar todas las sucursales a la vez.
-function valuesDiffer(a, b) {
-    if (a === null || a === undefined || b === null || b === undefined) return false;
-    if (typeof a === 'number' && typeof b === 'number') {
-        const tol = Math.max(Math.abs(a), Math.abs(b)) * 0.01;
-        return Math.abs(a - b) > Math.max(tol, 0.05);
-    }
-    return String(a) !== String(b);
-}
+// ── Piscinas Liquidadas: compara "sp" (Piscinas Liquidadas) vs "dr" (Detalle de Resultado) vs
+// "ir" (Informe de Rentabilidad). Los 3 modulos SOLO tienen datos de piscinas ya liquidadas
+// (farmStatus=LIQUIDADA) - a diferencia de "Por Concepto" (un concepto, todas las piscinas), aqui
+// es "un set de modulos fijo, todos los conceptos", pudiendo abarcar todas las sucursales a la vez.
 
 // Conceptos que representan un TOTAL absoluto (USD, libras, animales, kg) - tiene sentido sumarlos
 // entre piscinas de distinto tamaño. Tasas/promedios/porcentajes (/Ha, /m2, /Libra, (%), Peso, FCA,
@@ -2125,6 +2119,70 @@ const CONCEPTOS_SUMABLES = new Set([
     'Utilidad Neta = EBIT (USD)', 'Gastos Administrativos - Total (USD)',
     'Gastos Financieros - Total (USD)', 'Depreciación - Total (USD)', 'Costo Total (USD)', 'EBT (USD)',
 ]);
+
+// Conceptos que NO tiene sentido sumar (serian numeros absurdos entre piscinas de distinto
+// tamaño/ciclo), pero si tiene sentido ver su PROMEDIO simple entre las piscinas escaneadas -
+// pesos, sobrevivencia y FCA, para tener una referencia rapida sin abrir cada fila.
+const CONCEPTOS_PROMEDIABLES = new Set([
+    'Peso siembra (g)', 'Peso de Cosecha (g)',
+    'Peso Parcial Estimado (g)', 'Peso Parcial Real (g)', 'Peso Parcial Planta (g)',
+    'Peso Final Estimado (g)', 'Peso Final Real (g)', 'Peso Final Planta (g)',
+    'Sobrevivencia Estimada (%)', 'Sobrevivencia Cosecha (%)', 'Sobrevivencia Planta (%)',
+    'FCA Bruto', 'FCA Real', 'FCA Larvas',
+]);
+
+// Mapa label -> concepto completo, para poder acumular Totales/Promedios de conceptos que solo
+// existen en UN modulo (ej. Peso Parcial/Final solo estan en dr) aunque no pasen el filtro de
+// "al menos 2 modulos" que aplica a la tabla principal de diferencias.
+const CONCEPT_BY_LABEL = Object.fromEntries(CICLO_BULK_CONCEPTS.map(c => [c.label, c]));
+
+// Exporta a Excel (.xls, formato HTML-table que Excel abre nativamente respetando estilos)
+// todas las tablas .cmp-tbl VISIBLES dentro de un contenedor - respeta filas/columnas ocultas
+// por "Ocultar vacíos" (no las incluye), separa cada tabla con su titulo (de .section-title) si
+// hay varias (ej. Totales + Promedios + tabla principal), y pinta en rojo las celdas "diff"
+// igual que se ven en pantalla (un .csv plano no puede llevar color, por eso el formato .xls).
+function exportarExcel(containerId, nombreArchivo) {
+    const container = document.getElementById(containerId);
+    const tablas = Array.from(container.querySelectorAll('table.cmp-tbl'));
+    if (!tablas.length) { alert('No hay datos en pantalla para exportar - primero busca resultados.'); return; }
+
+    let html = '<html><head><meta charset="utf-8"></head><body>';
+    tablas.forEach(table => {
+        const card = table.closest('.section-card');
+        const titulo = card ? card.querySelector('.section-title span')?.textContent : '';
+        if (titulo) html += `<h3>${titulo}</h3>`;
+        html += '<table border="1" cellspacing="0">';
+        table.querySelectorAll('tr').forEach(tr => {
+            if (tr.offsetParent === null) return; // fila oculta (ej. "Ocultar vacíos")
+            const celdas = Array.from(tr.children).filter(td => td.style.display !== 'none');
+            if (!celdas.length) return;
+            html += '<tr>';
+            celdas.forEach(td => {
+                const tag = td.tagName.toLowerCase();
+                const texto = (td.textContent || '').trim();
+                const colspan = td.getAttribute('colspan');
+                const colspanAttr = colspan ? ` colspan="${colspan}"` : '';
+                const style = td.classList.contains('diff') ? ' style="color:#ef4444;font-weight:bold;background:#fef2f2"'
+                    : td.classList.contains('grp-title') ? ' style="background:#1a3a5c;color:#ffffff;font-weight:bold"' : '';
+                html += `<${tag}${colspanAttr}${style}>${texto}</${tag}>`;
+            });
+            html += '</tr>';
+        });
+        html += '</table><br>';
+    });
+    html += '</body></html>';
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fecha = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `${nombreArchivo}_${fecha}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
 
 // ── Dropdown generico con checkboxes + buscador (reemplaza <select multiple>, feo con navegador). ──
 function msSelected(id) {
@@ -2256,9 +2314,9 @@ async function buscarLiquidadas() {
 
     const { startStr, endStr } = getLiqDateRange();
 
-    // Conceptos de "Por Ciclo" que tienen fuente EN AMBOS modulos (sp Y dr) - si solo uno de los
-    // 2 lo tiene no hay nada que comparar (solo se veria un "-" del lado que falta, puro ruido).
-    const concepts = CICLO_BULK_CONCEPTS.filter(c => c.g.sp && c.g.dr);
+    // Conceptos que tienen fuente en al menos 2 de los 3 modulos comparados aqui (sp, dr, ir) -
+    // si solo UNO de los 3 lo tiene no hay nada que comparar (solo se veria un "-", puro ruido).
+    const concepts = CICLO_BULK_CONCEPTS.filter(c => [c.g.sp, c.g.dr, c.g.ir].filter(Boolean).length >= 2);
 
     try {
         container.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><div>Cargando piscinas liquidadas...</div></div>`;
@@ -2268,21 +2326,22 @@ async function buscarLiquidadas() {
         // se eligen "Todas las sucursales".
         const perSub = [];
         await runPool(subs, 6, async (sub) => {
-            const [spRowsAll, poolsResp] = await Promise.all([
+            const [spRowsAll, poolsResp, irRows] = await Promise.all([
                 apiGet('report_harvest/settledPools', [['subsidiaryIds', sub.id], ['startDate', startStr], ['endDate', endStr]]).catch(() => []),
                 apiGet('pools', [['subsidiaryIds', sub.id], ['pageSize', 1000], ['status', 'ACTIVO'], ['status', 'MANTENIMIENTO'], ['status', 'INACTIVO']]).catch(() => ({ data: [] })),
+                apiGet('report_profitability/general', [['from', startStr], ['to', endStr], ['PageSize', 1000], ['type', 'DETAILED']]).catch(() => []),
             ]);
             const poolIdMap = {};
             ((poolsResp && poolsResp.data) || []).forEach(p => { poolIdMap[normPool(p.name)] = p.idPool; });
             // Solo piscinas realmente COSECHADAS (plantStatus=LIQUIDADA) - las PENDIENTES de
             // costeo no tienen datos en Detalle Resultado, asi que no hay nada que comparar.
             const spRows = (spRowsAll || []).filter(r => r.plantStatus === 'LIQUIDADA');
-            perSub.push({ sub, spRows, poolIdMap });
+            perSub.push({ sub, spRows, poolIdMap, irRows: irRows || [] });
         });
 
         // Armar la lista de piscinas/ciclos liquidados a comparar, aplicando todos los filtros.
         const pares = [];
-        perSub.forEach(({ sub, spRows, poolIdMap }) => {
+        perSub.forEach(({ sub, spRows, poolIdMap, irRows }) => {
             spRows.forEach(row => {
                 if (piscinasFiltro.length && !piscinasFiltro.includes(canonicalPoolName(row.poolName))) return;
                 if (ciclosFiltro.length && !ciclosFiltro.includes(Number(row.cycleNumber))) return;
@@ -2290,9 +2349,10 @@ async function buscarLiquidadas() {
                 if (row.farmAverageWeightGrams != null && (row.farmAverageWeightGrams < pesoMinN || row.farmAverageWeightGrams > pesoMaxN)) return;
                 if (row.sowingWeight != null && (row.sowingWeight < siembraMinN || row.sowingWeight > siembraMaxN)) return;
                 if (row.daysProduction != null && (row.daysProduction < diasMinN || row.daysProduction > diasMaxN)) return;
+                const ir = findAll(irRows, 'subsidiaryCode', 'poolName', 'cycleNumber', sub.code, row.poolName, row.cycleNumber)[0] || null;
                 pares.push({
                     sub, poolName: canonicalPoolName(row.poolName), cycleNumber: row.cycleNumber,
-                    cycleId: row.cycleId, poolId: poolIdMap[normPool(row.poolName)], spRow: row,
+                    cycleId: row.cycleId, poolId: poolIdMap[normPool(row.poolName)], spRow: row, ir,
                 });
             });
         });
@@ -2303,10 +2363,10 @@ async function buscarLiquidadas() {
         }
 
         const total = pares.length;
-        container.innerHTML = `<div class="section-card"><div class="section-title"><span>Piscinas Liquidadas vs Detalle de Resultado</span>
+        container.innerHTML = `<div class="section-card"><div class="section-title"><span>Piscinas Liquidadas vs Detalle de Resultado vs Informe de Rentabilidad</span>
             <span class="section-hint progreso-liq">Escaneando 0/${total} piscinas liquidadas...</span></div>
             <div style="overflow:auto;max-height:calc(100vh - 170px)"><table class="cmp-tbl"><thead style="position:sticky;top:0;z-index:2">
-            <tr><th>Sucursal</th><th>Piscina</th><th>Ciclo</th><th>Concepto</th><th>Piscinas Liquidadas</th><th>Detalle de Resultado</th></tr>
+            <tr><th>Concepto</th><th>Piscinas Liquidadas</th><th>Detalle de Resultado</th><th>Informe de Rentabilidad</th></tr>
             </thead><tbody id="liq-tbody"></tbody></table></div>
             <div id="liq-empty" style="padding:24px;text-align:center;color:var(--muted);display:none"></div></div>`;
         const tbody = document.getElementById('liq-tbody');
@@ -2314,12 +2374,13 @@ async function buscarLiquidadas() {
         const emptyMsg = document.getElementById('liq-empty');
         let done = 0, found = 0;
 
-        // Totales (suma sp vs suma dr) - solo tiene sentido cuando se escanean VARIAS piscinas
-        // a la vez (filtro de piscina vacio = "Todas"), para ver si el agregado tambien cuadra.
+        // Totales (suma sp vs suma dr vs suma ir, o promedio simple para pesos/sobrevivencia/FCA) -
+        // solo tiene sentido cuando se escanean VARIAS piscinas a la vez, para ver si el agregado
+        // (o el promedio) tambien cuadra.
         const totales = {};
-        CONCEPTOS_SUMABLES.forEach(label => { totales[label] = { sp: 0, dr: 0, spN: 0, drN: 0 }; });
+        [...CONCEPTOS_SUMABLES, ...CONCEPTOS_PROMEDIABLES].forEach(label => { totales[label] = { sp: 0, dr: 0, ir: 0, spN: 0, drN: 0, irN: 0 }; });
 
-        await runPool(pares, 6, async ({ sub, poolName, cycleNumber, cycleId, poolId, spRow }) => {
+        await runPool(pares, 6, async ({ sub, poolName, cycleNumber, cycleId, poolId, spRow, ir }) => {
             const dr = (poolId && cycleId)
                 ? await apiGet('report_profitability/detailed_result', [['from', startStr], ['to', endStr], ['subsidiaryId', sub.id], ['poolId', poolId], ['cycleId', cycleId]]).catch(() => null)
                 : null;
@@ -2329,52 +2390,78 @@ async function buscarLiquidadas() {
             concepts.forEach(concept => {
                 const spCell = porSemanaCell(concept.g.sp, spRow, concept.decimals);
                 const drCell = porSemanaCell(concept.g.dr, dr, concept.decimals);
-                if (CONCEPTOS_SUMABLES.has(concept.label)) {
-                    const t = totales[concept.label];
-                    if (spCell.v !== null) { t.sp += spCell.v; t.spN++; }
-                    if (drCell.v !== null) { t.dr += drCell.v; t.drN++; }
-                }
-                if (spCell.s === null && drCell.s === null) return;
-                const diff = valuesDiffer(spCell.v, drCell.v);
-                if (diff) anyDiff = true;
-                filas.push({ concepto: concept.label, sp: spCell.s, dr: drCell.s, diff });
+                const irCell = porSemanaCell(concept.g.ir, ir, concept.decimals);
+                if (spCell.s === null && drCell.s === null && irCell.s === null) return;
+                const cellDiff = detectarDiferencias([spCell, drCell, irCell]);
+                if (cellDiff.some(Boolean)) anyDiff = true;
+                filas.push({
+                    concepto: concept.label, sp: spCell.s, dr: drCell.s, ir: irCell.s,
+                    spDiff: cellDiff[0], drDiff: cellDiff[1], irDiff: cellDiff[2],
+                });
+            });
+
+            // Totales/Promedios: recorre TODOS los labels sumables/promediables (no solo los de
+            // "concepts"), porque algunos (ej. Peso Parcial/Final) solo existen en dr y no pasan
+            // el filtro de "al menos 2 modulos" de la tabla principal - aca sirven como referencia.
+            Object.keys(totales).forEach(label => {
+                const concept = CONCEPT_BY_LABEL[label];
+                if (!concept) return;
+                const t = totales[label];
+                const spV = porSemanaCell(concept.g.sp, spRow, concept.decimals).v;
+                const drV = porSemanaCell(concept.g.dr, dr, concept.decimals).v;
+                const irV = porSemanaCell(concept.g.ir, ir, concept.decimals).v;
+                if (spV !== null) { t.sp += spV; t.spN++; }
+                if (drV !== null) { t.dr += drV; t.drN++; }
+                if (irV !== null) { t.ir += irV; t.irN++; }
             });
 
             done++;
-            hint.textContent = `Escaneando ${done}/${total} piscinas liquidadas...`;
+            hint.textContent = `Escaneando ${done}/${total} piscina/ciclo...`;
             if (!anyDiff || !filas.length) return;
             found++;
-            const html = filas.map((r, i) => `<tr class="${i === 0 ? 'grp-first' : ''}">`
-                + (i === 0 ? `<td>${sub.code}</td><td>${poolName}</td><td>${cycleNumber}</td>` : '<td></td><td></td><td></td>')
+            const tituloGrupo = `<tr><td colspan="4" class="grp-title">${sub.code} — Piscina ${poolName} / Ciclo ${cycleNumber}</td></tr>`;
+            const filasHtml = filas.map(r => `<tr>`
                 + `<td>${r.concepto}</td>`
-                + `<td class="${r.diff ? 'diff' : ''}">${r.sp === null ? '—' : r.sp}</td>`
-                + `<td class="${r.diff ? 'diff' : ''}">${r.dr === null ? '—' : r.dr}</td></tr>`).join('');
-            tbody.insertAdjacentHTML('beforeend', html);
+                + `<td class="${r.spDiff ? 'diff' : ''}">${r.sp === null ? '—' : r.sp}</td>`
+                + `<td class="${r.drDiff ? 'diff' : ''}">${r.dr === null ? '—' : r.dr}</td>`
+                + `<td class="${r.irDiff ? 'diff' : ''}">${r.ir === null ? '—' : r.ir}</td></tr>`).join('');
+            tbody.insertAdjacentHTML('beforeend', tituloGrupo + filasHtml);
         });
 
-        hint.textContent = `${found} de ${total} piscinas liquidadas con alguna discrepancia`;
+        const nPiscinas = new Set(pares.map(p => normPool(p.poolName))).size;
+        hint.textContent = `${found} de ${total} piscina/ciclo (${nPiscinas} piscinas distintas) con alguna discrepancia`;
         if (!found) {
-            emptyMsg.textContent = '✓ Ninguna diferencia encontrada entre Piscinas Liquidadas y Detalle de Resultado.';
+            emptyMsg.textContent = '✓ Ninguna diferencia encontrada entre Piscinas Liquidadas, Detalle de Resultado e Informe de Rentabilidad.';
             emptyMsg.style.display = '';
         }
 
         if (total > 1) {
-            const filasTotales = Array.from(CONCEPTOS_SUMABLES).map(label => {
+            const armarFilas = (labels, promedio) => labels.map(label => {
                 const t = totales[label];
-                if (!t.spN && !t.drN) return null;
-                const spVal = t.spN ? t.sp : null;
-                const drVal = t.drN ? t.dr : null;
-                return { label, sp: spVal, dr: drVal, diff: valuesDiffer(spVal, drVal) };
+                if (!t.spN && !t.drN && !t.irN) return null;
+                const val = (sum, n) => (n ? (promedio ? sum / n : sum) : null);
+                const decimals = promedio ? 2 : 0;
+                const cells = [
+                    { s: val(t.sp, t.spN), v: val(t.sp, t.spN) },
+                    { s: val(t.dr, t.drN), v: val(t.dr, t.drN) },
+                    { s: val(t.ir, t.irN), v: val(t.ir, t.irN) },
+                ];
+                const cellDiff = detectarDiferencias(cells);
+                return { label, decimals, sp: cells[0].v, dr: cells[1].v, ir: cells[2].v, spDiff: cellDiff[0], drDiff: cellDiff[1], irDiff: cellDiff[2] };
             }).filter(Boolean);
-            if (filasTotales.length) {
-                const totalesHtml = `<div class="section-card"><div class="section-title"><span>Totales (suma de las ${total} piscinas escaneadas)</span></div>
-                    <table class="cmp-tbl"><thead><tr><th>Concepto</th><th>Piscinas Liquidadas</th><th>Detalle de Resultado</th></tr></thead><tbody>
-                    ${filasTotales.map(f => `<tr><td>${f.label}</td>`
-                        + `<td class="${f.diff ? 'diff' : ''}">${f.sp === null ? '—' : fmtField(f.sp, 0)}</td>`
-                        + `<td class="${f.diff ? 'diff' : ''}">${f.dr === null ? '—' : fmtField(f.dr, 0)}</td></tr>`).join('')}
-                    </tbody></table></div>`;
-                container.insertAdjacentHTML('afterbegin', totalesHtml);
-            }
+
+            const renderTablaTotales = (titulo, filas) => filas.length ? `<div class="section-card"><div class="section-title"><span>${titulo}</span></div>
+                <table class="cmp-tbl"><thead><tr><th>Concepto</th><th>Piscinas Liquidadas</th><th>Detalle de Resultado</th><th>Informe de Rentabilidad</th></tr></thead><tbody>
+                ${filas.map(f => `<tr><td>${f.label}</td>`
+                    + `<td class="${f.spDiff ? 'diff' : ''}">${f.sp === null ? '—' : fmtField(f.sp, f.decimals)}</td>`
+                    + `<td class="${f.drDiff ? 'diff' : ''}">${f.dr === null ? '—' : fmtField(f.dr, f.decimals)}</td>`
+                    + `<td class="${f.irDiff ? 'diff' : ''}">${f.ir === null ? '—' : fmtField(f.ir, f.decimals)}</td></tr>`).join('')}
+                </tbody></table></div>` : '';
+
+            const filasPromedios = armarFilas(Array.from(CONCEPTOS_PROMEDIABLES), true);
+            const filasTotales = armarFilas(Array.from(CONCEPTOS_SUMABLES), false);
+            container.insertAdjacentHTML('afterbegin', renderTablaTotales(`Promedios (${total} piscinas escaneadas)`, filasPromedios));
+            container.insertAdjacentHTML('afterbegin', renderTablaTotales(`Totales (suma de las ${total} piscinas escaneadas)`, filasTotales));
         }
     } catch (e) {
         container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Error: ${e.message}</div></div>`;
