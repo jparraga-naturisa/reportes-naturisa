@@ -715,8 +715,8 @@ Chart.register(ChartDataLabels);
 // Mientras tanto apunta al gateway directo.
 const WORKER_BASE = 'https://naturisa-proxy.parragajonathan965.workers.dev';
 const GATEWAY     = 'https://gateway.naturisa.com.ec';
-// Cambiar a WORKER_BASE cuando el Worker esté activo:
-const _BASE = WORKER_BASE;
+// Worker con problemas de conexion - vuelve a apuntar directo al gateway hasta arreglarlo:
+const _BASE = GATEWAY;
 
 const API_FEEDING    = `${_BASE}/bff/mobile/feedcontrol/balanceado/api/report/feeding_general`;
 const API_WAREHOUSES = `${GATEWAY}/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name`;
