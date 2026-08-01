@@ -20,20 +20,24 @@
     position:fixed; inset:0;
   }
   *{box-sizing:border-box; font-family:"Century Gothic","CenturyGothic","Segoe UI",sans-serif; max-width:100%;}
-  .wrap{width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden;}
+  .wrap{width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden; position:relative;}
+
+  /* ── Esferas decorativas repartidas por toda la pantalla ────────────────── */
+  .bubble{
+    content:""; position:absolute; border-radius:50%;
+    background:rgba(255,255,255,.06); z-index:0; pointer-events:none;
+  }
+  .bubble.b1{ width:220px; height:220px; top:-90px; right:-60px; }
+  .bubble.b2{ width:140px; height:140px; top:120px; left:-50px; background:rgba(255,255,255,.05); }
+  .bubble.b3{ width:180px; height:180px; top:340px; right:-70px; background:rgba(255,255,255,.045); }
+  .bubble.b4{ width:120px; height:120px; top:520px; left:20px; background:rgba(255,255,255,.05); }
 
   /* ── Cabecera de marca sobre el fondo degradado ─────────────────────── */
   .brand{
     flex:0 0 auto; height:26vh; min-height:220px; max-height:280px;
-    padding:20px; text-align:center; position:relative;
-    overflow:hidden; display:flex; flex-direction:column; justify-content:center; align-items:center;
+    padding:20px; text-align:center; position:relative; z-index:1;
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
   }
-  .brand::before, .brand::after{
-    content:""; position:absolute; border-radius:50%;
-    background:rgba(255,255,255,.06);
-  }
-  .brand::before{ width:220px; height:220px; top:-90px; right:-60px; }
-  .brand::after{ width:140px; height:140px; bottom:-60px; left:-40px; background:rgba(255,255,255,.05); }
   .brand-logo{
     display:inline-flex; align-items:center; justify-content:center; gap:10px;
     background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25);
@@ -97,6 +101,10 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="bubble b1"></div>
+  <div class="bubble b2"></div>
+  <div class="bubble b3"></div>
+  <div class="bubble b4"></div>
   <div class="brand">
     <div class="brand-logo">
       <span class="ap1">AP1</span><span class="sim">SIMULADOR</span>
