@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Simulador AP1</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1F3864">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#EEF2F7; --card:#FFFFFF; --panel:#1F3864; --accent:#1F3864;
+    --blue:#2E75B6; --text:#1A2535; --sub:#5A7A9A; --border:#C8D8E8;
+    --input:#F5F9FD; --err:#C0392B; --resbg:#F0F6FC; --resacc:#2E75B6;
+  }
+  *{box-sizing:border-box; font-family:"Century Gothic","CenturyGothic","Segoe UI",sans-serif;}
+  body{margin:0; background:var(--bg); color:var(--text); padding:14px;}
+  .wrap{max-width:420px; margin:0 auto;}
+  .hdr{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .hdr .bar{width:4px; height:22px; background:var(--blue); border-radius:2px;}
+  .hdr h1{font-size:16px; margin:0; color:var(--accent); font-weight:700;}
+  .hdr h1 span{color:var(--blue);}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:6px; padding:14px;}
+  select#tabSel{
+    width:100%; padding:10px; font-weight:700; font-size:13px; color:var(--blue);
+    background:var(--resbg); border:1px solid var(--border); border-radius:5px;
+    margin-bottom:14px; appearance:none;
+  }
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .field-title{font-size:12px; font-weight:700; color:var(--blue); margin:10px 0 4px;}
+  label{display:block; font-size:11px; font-weight:700; margin-bottom:3px; color:var(--text);}
+  input[type=text]{
+    width:100%; padding:9px 8px; font-size:14px; border:1px solid var(--border);
+    border-radius:4px; background:var(--input); color:var(--text); margin-bottom:10px;
+  }
+  input[type=text]:focus{outline:none; border-color:var(--blue);}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;}
+  .btn-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:12px;}
+  .btn-esc{
+    padding:10px 4px; font-size:11px; font-weight:700; text-align:center;
+    border:none; border-radius:4px; cursor:pointer; background:var(--input); color:var(--sub);
+  }
+  .btn-esc.active{background:var(--blue); color:#fff;}
+  .res-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:12px;}
+  .res-box{background:var(--resbg); border-radius:5px; text-align:center; padding:10px 4px;}
+  .res-box .t{font-size:10px; font-weight:700; color:var(--sub);}
+  .res-box .v{font-size:16px; font-weight:700; color:var(--resacc); margin-top:2px;}
+  .res-single{background:var(--resbg); border-radius:5px; text-align:center; padding:14px; margin-top:12px;}
+  .res-single .t{font-size:11px; font-weight:700; color:var(--sub);}
+  .res-single .v{font-size:26px; font-weight:700; color:var(--resacc); margin-top:4px;}
+  .res-single .s{font-size:11px; color:var(--text); margin-top:2px;}
+  .msg{font-size:11px; color:var(--err); margin-top:8px; min-height:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <div class="bar"></div>
+    <h1>AP1 <span>SIMULADOR</span></h1>
+  </div>
+
+  <div class="card">
+    <select id="tabSel">
+      <option value="fca">FCA — Factor de Conversión Alimenticio</option>
+      <option value="alimento">ALIMENTO — Cálculo por Escenario</option>
+      <option value="sobrevivencia">SOBREVIVENCIA — % de Animales Vivos</option>
+    </select>
+
+    <!-- ══════════════ FCA ══════════════ -->
+    <div class="panel" id="panel-fca">
+      <div class="row2">
+        <div>
+          <div class="field-title">PRECRIADERO</div>
+          <label>Alim. total (kg)</label>
+          <input type="text" id="f_alim_precria" inputmode="decimal">
+          <label>Anim. piscina</label>
+          <input type="text" id="f_anim_precria_piscina" inputmode="decimal">
+          <label>Anim. totales</label>
+          <input type="text" id="f_anim_precria_total" inputmode="decimal">
+        </div>
+        <div>
+          <div class="field-title">PREENGORDE</div>
+          <label>Alim. total (kg)</label>
+          <input type="text" id="f_alim_preengorde" inputmode="decimal">
+          <label>Anim. piscina</label>
+          <input type="text" id="f_anim_preengorde_piscina" inputmode="decimal">
+          <label>Anim. totales</label>
+          <input type="text" id="f_anim_preengorde_total" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="row3">
+        <div>
+          <label>Alim. engorde (kg)</label>
+          <input type="text" id="f_alim_acumulado" inputmode="decimal">
+        </div>
+        <div>
+          <label>Biomasa ini. (lb)</label>
+          <input type="text" id="f_bio_inicial" inputmode="decimal">
+        </div>
+        <div>
+          <label>Biomasa act. (lb)</label>
+          <input type="text" id="f_bio_actual" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="res-row">
+        <div class="res-box"><div class="t">BRUTO</div><div class="v" id="r_bruto">—</div></div>
+        <div class="res-box"><div class="t">REAL</div><div class="v" id="r_real">—</div></div>
+        <div class="res-box"><div class="t">LARVA</div><div class="v" id="r_larva">—</div></div>
+      </div>
+      <div class="msg" id="msg_fca"></div>
+    </div>
+
+    <!-- ══════════════ ALIMENTO ══════════════ -->
+    <div class="panel" id="panel-alimento">
+      <div class="btn-row">
+        <button class="btn-esc" data-esc="conservador">CONSERVADOR</button>
+        <button class="btn-esc active" data-esc="normal">NORMAL</button>
+        <button class="btn-esc" data-esc="agresivo">AGRESIVO</button>
+      </div>
+
+      <div class="row3">
+        <div>
+          <label>Peso (g)</label>
+          <input type="text" id="a_peso" inputmode="decimal">
+        </div>
+        <div>
+          <label>Densidad (anim/m²)</label>
+          <input type="text" id="a_densidad" inputmode="decimal">
+        </div>
+        <div>
+          <label>Ha</label>
+          <input type="text" id="a_ha" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="res-single">
+        <div class="t">ALIMENTO / DÍA (kg)</div>
+        <div class="v" id="a_valor">—</div>
+        <div class="s" id="a_sub"></div>
+      </div>
+      <div class="msg" id="msg_alimento"></div>
+    </div>
+
+    <!-- ══════════════ SOBREVIVENCIA ══════════════ -->
+    <div class="panel" id="panel-sobrevivencia">
+      <label>Ha</label>
+      <input type="text" id="s_ha" inputmode="decimal">
+
+      <div class="row2">
+        <div>
+          <label>Animales sembrados</label>
+          <input type="text" id="s_sembrados" inputmode="decimal">
+        </div>
+        <div>
+          <label>Animales actuales</label>
+          <input type="text" id="s_actuales" inputmode="decimal">
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label>Animales sembra Ha</label>
+          <input type="text" id="s_sembrados_ha" inputmode="decimal">
+        </div>
+        <div>
+          <label>Animales actuales Ha</label>
+          <input type="text" id="s_actuales_ha" inputmode="decimal">
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label>Animales sembra m²</label>
+          <input type="text" id="s_sembrados_m2" inputmode="decimal">
+        </div>
+        <div>
+          <label>Animales actuales m²</label>
+          <input type="text" id="s_actuales_m2" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="res-single">
+        <div class="t">SOBREVIVENCIA (%)</div>
+        <div class="v" id="s_valor">—</div>
+      </div>
+      <div class="msg" id="msg_sob"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const KG_A_LB = 2.20462;
+const COEF_ALIMENTO = {
+  conservador: [0.857272, -0.512],
+  normal:      [0.805280, -0.5355],
+  agresivo:    [0.756540, -0.559],
+};
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+const tabSel = document.getElementById("tabSel");
+function switchTab(tab){
+  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+  document.getElementById("panel-" + tab).classList.add("active");
+}
+tabSel.addEventListener("change", () => switchTab(tabSel.value));
+switchTab("fca");
+
+// ── Utilidades numéricas ────────────────────────────────────────────────
+function leer(el){
+  const txt = (el.value || "").trim().replace(/,/g, "");
+  if(txt === "") return null;
+  const n = parseFloat(txt);
+  return isNaN(n) ? null : n;
+}
+function fmt(valor){
+  if(Number.isInteger(valor)) return valor.toLocaleString("en-US");
+  return valor.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+// Formato en vivo con separador de miles, preservando posición del cursor
+function vivo(el){
+  el.addEventListener("input", () => {
+    const txt = el.value;
+    const raw = txt.replace(/,/g, "");
+    if(raw === "" || raw === "-" || raw === "."){ return; }
+    const parts = raw.split(".");
+    if(parts.length > 2) return;
+    let entero = parts[0];
+    const neg = entero.startsWith("-");
+    let dig = entero.replace("-", "");
+    if(dig && !/^\d+$/.test(dig)) return;
+    let enteroFmt = dig === "" ? "0" : parseInt(dig, 10).toLocaleString("en-US");
+    if(dig === "") enteroFmt = "";
+    if(neg) enteroFmt = "-" + enteroFmt;
+    let nuevo = enteroFmt;
+    if(parts.length === 2) nuevo += "." + parts[1];
+    if(nuevo === txt) return;
+
+    const cursor = el.selectionStart;
+    const digitosAntes = (txt.slice(0, cursor).match(/\d/g) || []).length;
+
+    let pos = nuevo.length, contados = 0;
+    for(let i = 0; i < nuevo.length; i++){
+      if(contados >= digitosAntes){ pos = i; break; }
+      if(/\d/.test(nuevo[i])) contados++;
+    }
+    el.value = nuevo;
+    el.setSelectionRange(pos, pos);
+  });
+}
+document.querySelectorAll('input[type=text]').forEach(vivo);
+
+// ── FCA ──────────────────────────────────────────────────────────────────
+const fcaIds = ["f_alim_precria","f_anim_precria_piscina","f_anim_precria_total",
+  "f_alim_preengorde","f_anim_preengorde_piscina","f_anim_preengorde_total",
+  "f_alim_acumulado","f_bio_inicial","f_bio_actual"];
+const fca = {};
+fcaIds.forEach(id => { fca[id] = document.getElementById(id); fca[id].addEventListener("input", calcularFCA); });
+
+function prorratear(alimTotal, animPiscina, animTotal){
+  if(alimTotal === null) return null;
+  if(animPiscina === null || animTotal === null) return alimTotal;
+  if(animTotal <= 0) return null;
+  return alimTotal * (animPiscina / animTotal);
+}
+
+function calcularFCA(){
+  const alimPrecriaTotal = leer(fca.f_alim_precria);
+  const animPrecriaPiscina = leer(fca.f_anim_precria_piscina);
+  const animPrecriaTotal = leer(fca.f_anim_precria_total);
+
+  const alimPreengordeTotal = leer(fca.f_alim_preengorde);
+  const animPreengordePiscina = leer(fca.f_anim_preengorde_piscina);
+  const animPreengordeTotal = leer(fca.f_anim_preengorde_total);
+
+  const acumuladoKg = leer(fca.f_alim_acumulado);
+  const bioInicial = leer(fca.f_bio_inicial);
+  const bioActual = leer(fca.f_bio_actual);
+
+  const precriaKg = prorratear(alimPrecriaTotal, animPrecriaPiscina, animPrecriaTotal);
+  const preengordeKg = prorratear(alimPreengordeTotal, animPreengordePiscina, animPreengordeTotal);
+
+  const precriaLb = precriaKg !== null ? precriaKg * KG_A_LB : null;
+  const preengordeLb = preengordeKg !== null ? preengordeKg * KG_A_LB : null;
+  const acumuladoLb = acumuladoKg !== null ? acumuladoKg * KG_A_LB : null;
+
+  let hayError = false;
+  const rBruto = document.getElementById("r_bruto");
+  const rReal = document.getElementById("r_real");
+  const rLarva = document.getElementById("r_larva");
+
+  if(acumuladoLb !== null && bioActual !== null){
+    if(bioActual > 0){ rBruto.textContent = fmt(acumuladoLb / bioActual); rBruto.style.color = "var(--resacc)"; }
+    else { rBruto.textContent = "⚠"; rBruto.style.color = "var(--err)"; hayError = true; }
+  } else { rBruto.textContent = "—"; rBruto.style.color = "var(--sub)"; }
+
+  if(acumuladoLb !== null && bioActual !== null && bioInicial !== null){
+    const ganancia = bioActual - bioInicial;
+    if(ganancia > 0){ rReal.textContent = fmt(acumuladoLb / ganancia); rReal.style.color = "var(--resacc)"; }
+    else { rReal.textContent = "⚠"; rReal.style.color = "var(--err)"; hayError = true; }
+  } else { rReal.textContent = "—"; rReal.style.color = "var(--sub)"; }
+
+  if((precriaLb !== null || preengordeLb !== null) && acumuladoLb !== null && bioActual !== null){
+    if(bioActual > 0){
+      const total = (precriaLb || 0) + (preengordeLb || 0) + acumuladoLb;
+      rLarva.textContent = fmt(total / bioActual); rLarva.style.color = "var(--resacc)";
+    } else { rLarva.textContent = "⚠"; rLarva.style.color = "var(--err)"; hayError = true; }
+  } else { rLarva.textContent = "—"; rLarva.style.color = "var(--sub)"; }
+
+  document.getElementById("msg_fca").textContent = hayError ? "⚠  Revisa los valores ingresados" : "";
+}
+
+// ── ALIMENTO ────────────────────────────────────────────────────────────
+let escenario = "normal";
+document.querySelectorAll(".btn-esc").forEach(btn => {
+  btn.addEventListener("click", () => {
+    escenario = btn.dataset.esc;
+    document.querySelectorAll(".btn-esc").forEach(b => b.classList.toggle("active", b === btn));
+    calcularAlimento();
+  });
+});
+["a_peso","a_densidad","a_ha"].forEach(id => document.getElementById(id).addEventListener("input", calcularAlimento));
+
+function calcularAlimento(){
+  const peso = leer(document.getElementById("a_peso"));
+  const densidad = leer(document.getElementById("a_densidad"));
+  const ha = leer(document.getElementById("a_ha"));
+  const val = document.getElementById("a_valor");
+  const sub = document.getElementById("a_sub");
+  const msg = document.getElementById("msg_alimento");
+
+  if(peso === null || densidad === null || ha === null){
+    val.textContent = "—"; val.style.color = "var(--sub)"; sub.textContent = ""; msg.textContent = "";
+    return;
+  }
+  if(peso <= 0){
+    val.textContent = "⚠"; val.style.color = "var(--err)"; sub.textContent = "";
+    msg.textContent = "⚠  El peso debe ser mayor a 0";
+    return;
+  }
+  const [a, b] = COEF_ALIMENTO[escenario];
+  const fa = a * Math.pow(peso, b);
+  const alimHaDiaKg = densidad / fa;
+  const alimDiaKg = alimHaDiaKg * ha;
+
+  val.textContent = fmt(alimDiaKg); val.style.color = "var(--resacc)";
+  sub.textContent = fmt(alimHaDiaKg) + " kg/Ha/día";
+  msg.textContent = "";
+}
+
+// ── SOBREVIVENCIA ───────────────────────────────────────────────────────
+const sVars = {
+  sembrados: [document.getElementById("s_sembrados"), document.getElementById("s_sembrados_ha"), document.getElementById("s_sembrados_m2")],
+  actuales:  [document.getElementById("s_actuales"), document.getElementById("s_actuales_ha"), document.getElementById("s_actuales_m2")],
+};
+const sHa = document.getElementById("s_ha");
+const sFuente = { sembrados: null, actuales: null };
+let autoLlenando = false;
+
+function calcularSobrevivencia(){
+  const pares = [
+    [sVars.sembrados[0], sVars.actuales[0]],
+    [sVars.sembrados[1], sVars.actuales[1]],
+    [sVars.sembrados[2], sVars.actuales[2]],
+  ];
+  let sembrados = null, actuales = null;
+  for(const [vs, va] of pares){
+    const s = leer(vs), a = leer(va);
+    if(s !== null && a !== null){ sembrados = s; actuales = a; break; }
+  }
+  const val = document.getElementById("s_valor");
+  const msg = document.getElementById("msg_sob");
+  if(sembrados === null || actuales === null){
+    val.textContent = "—"; val.style.color = "var(--sub)"; msg.textContent = "";
+  } else if(sembrados <= 0){
+    val.textContent = "⚠"; val.style.color = "var(--err)";
+    msg.textContent = "⚠  Los animales sembrados deben ser mayor a 0";
+  } else {
+    val.textContent = Math.round((actuales / sembrados) * 100) + "%";
+    val.style.color = "var(--resacc)"; msg.textContent = "";
+  }
+}
+
+function propagarSob(columna){
+  const [varTotal, varHa, varM2] = sVars[columna];
+  const fuente = sFuente[columna];
+  const ha = leer(sHa);
+
+  if(ha === null || ha <= 0){
+    autoLlenando = true;
+    if(fuente !== "total") varTotal.value = "";
+    if(fuente !== "ha") varHa.value = "";
+    if(fuente !== "m2") varM2.value = "";
+    autoLlenando = false;
+    return;
+  }
+  if(fuente === null) return;
+
+  const varFuente = fuente === "total" ? varTotal : (fuente === "ha" ? varHa : varM2);
+  const valor = leer(varFuente);
+  if(valor === null) return;
+
+  let objetivo;
+  if(fuente === "total"){
+    objetivo = [[varHa, valor / ha], [varM2, valor / (ha * 10000)]];
+  } else if(fuente === "ha"){
+    objetivo = [[varTotal, valor * ha], [varM2, valor / 10000]];
+  } else {
+    objetivo = [[varTotal, valor * ha * 10000], [varHa, valor * 10000]];
+  }
+
+  autoLlenando = true;
+  objetivo.forEach(([v, val2]) => { v.value = fmt(val2); });
+  autoLlenando = false;
+}
+
+function campoSobCambiado(columna, campo){
+  if(autoLlenando){ calcularSobrevivencia(); return; }
+  sFuente[columna] = campo;
+  propagarSob(columna);
+  calcularSobrevivencia();
+}
+
+Object.entries(sVars).forEach(([columna, [vTotal, vHa, vM2]]) => {
+  vTotal.addEventListener("input", () => campoSobCambiado(columna, "total"));
+  vHa.addEventListener("input", () => campoSobCambiado(columna, "ha"));
+  vM2.addEventListener("input", () => campoSobCambiado(columna, "m2"));
+});
+sHa.addEventListener("input", () => {
+  if(autoLlenando) return;
+  propagarSob("sembrados");
+  propagarSob("actuales");
+  calcularSobrevivencia();
+});
+
+// ── Service worker (PWA) ──────────────────────────────────────────────────
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
+}
+</script>
+</body>
+</html>
