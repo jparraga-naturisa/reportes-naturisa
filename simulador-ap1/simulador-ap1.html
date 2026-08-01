@@ -56,6 +56,12 @@
   .res-single .v{font-size:38px; font-weight:700; color:var(--resacc); margin-top:6px;}
   .res-single .s{font-size:15px; color:var(--text); margin-top:4px;}
   .msg{font-size:15px; color:var(--err); margin-top:12px; min-height:18px;}
+  .footer{
+    margin-top:auto; padding-top:24px; padding-bottom:20px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    color:var(--border); font-size:12px; font-weight:700; letter-spacing:.03em;
+  }
+  .footer svg{opacity:.8;}
 </style>
 </head>
 <body>
@@ -190,6 +196,14 @@
         <div class="v" id="s_valor">—</div>
       </div>
       <div class="msg" id="msg_sob"></div>
+    </div>
+
+    <div class="footer">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M2 9c1.5 1.5 3 1.5 4.5 0s3-1.5 4.5 0 3 1.5 4.5 0 3-1.5 4.5 0"/>
+        <path d="M2 15c1.5 1.5 3 1.5 4.5 0s3-1.5 4.5 0 3 1.5 4.5 0 3-1.5 4.5 0"/>
+      </svg>
+      <span>NATURISA · AP1</span>
     </div>
   </div>
 </div>
