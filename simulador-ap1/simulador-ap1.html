@@ -78,12 +78,20 @@
   .home-text .h-title{font-size:14px; font-weight:700; color:var(--text); max-width:100%; line-height:1.2; word-break:break-word;}
   .home-text .h-sub{display:none;}
 
+  .screen-nav{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;}
   .back-btn{
     display:inline-flex; align-items:center; gap:10px; background:none; border:none;
-    color:var(--blue); font-weight:700; font-size:22px; padding:6px 0 22px; cursor:pointer;
+    color:var(--blue); font-weight:700; font-size:22px; padding:6px 0; cursor:pointer;
     font-family:inherit;
   }
   .back-btn svg{width:26px; height:26px; stroke:var(--blue); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
+  .clear-btn{
+    display:inline-flex; align-items:center; gap:8px; background:var(--resbg); border:none;
+    color:var(--err); font-weight:700; font-size:16px; padding:10px 18px; cursor:pointer;
+    border-radius:999px; font-family:inherit;
+  }
+  .clear-btn:active{background:var(--border);}
+  .clear-btn svg{width:18px; height:18px; stroke:var(--err); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
 
   .panel{display:none;}
   .panel.active{display:block;}
@@ -174,9 +182,14 @@
 
     <!-- ══════════════ FCA ══════════════ -->
     <div class="screen" id="screen-fca">
-    <button class="back-btn" data-back>
-      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Volver
-    </button>
+    <div class="screen-nav">
+      <button class="back-btn" data-back>
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Volver
+      </button>
+      <button class="clear-btn" data-clear="fca">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg> Limpiar
+      </button>
+    </div>
     <div class="panel active" id="panel-fca">
       <div class="row2">
         <div>
@@ -225,9 +238,14 @@
 
     <!-- ══════════════ ALIMENTO ══════════════ -->
     <div class="screen" id="screen-alimento">
-    <button class="back-btn" data-back>
-      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Volver
-    </button>
+    <div class="screen-nav">
+      <button class="back-btn" data-back>
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Volver
+      </button>
+      <button class="clear-btn" data-clear="alimento">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg> Limpiar
+      </button>
+    </div>
     <div class="panel active" id="panel-alimento">
       <div class="btn-row">
         <button class="btn-esc" data-esc="conservador">CONSERVADOR</button>
@@ -261,9 +279,14 @@
 
     <!-- ══════════════ SOBREVIVENCIA ══════════════ -->
     <div class="screen" id="screen-sobrevivencia">
-    <button class="back-btn" data-back>
-      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Volver
-    </button>
+    <div class="screen-nav">
+      <button class="back-btn" data-back>
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Volver
+      </button>
+      <button class="clear-btn" data-clear="sobrevivencia">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg> Limpiar
+      </button>
+    </div>
     <div class="panel active" id="panel-sobrevivencia">
       <label>Ha</label>
       <input type="text" id="s_ha" inputmode="decimal">
@@ -562,6 +585,30 @@ sHa.addEventListener("input", () => {
   propagarSob("sembrados");
   propagarSob("actuales");
   calcularSobrevivencia();
+});
+
+// ── Limpiar registros ─────────────────────────────────────────────────────
+document.querySelectorAll("[data-clear]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const cual = btn.dataset.clear;
+    const screen = document.getElementById("screen-" + cual);
+    screen.querySelectorAll("input[type=text]").forEach(inp => {
+      inp.value = "";
+      inp.dispatchEvent(new Event("input"));
+    });
+
+    if(cual === "alimento"){
+      escenario = "normal";
+      document.querySelectorAll(".btn-esc").forEach(b => b.classList.toggle("active", b.dataset.esc === "normal"));
+      calcularAlimento();
+    }
+
+    if(cual === "sobrevivencia"){
+      sFuente.sembrados = null;
+      sFuente.actuales = null;
+      calcularSobrevivencia();
+    }
+  });
 });
 
 // ── Service worker (PWA) ──────────────────────────────────────────────────
