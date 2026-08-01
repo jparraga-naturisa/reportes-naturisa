@@ -24,7 +24,7 @@
 
   /* ── Cabecera de marca sobre el fondo degradado ─────────────────────── */
   .brand{
-    flex:0 0 auto; padding:34px 20px 70px; text-align:center; position:relative;
+    flex:0 0 auto; padding:54px 20px 100px; text-align:center; position:relative;
     overflow:hidden;
   }
   .brand::before, .brand::after{
@@ -34,33 +34,33 @@
   .brand::before{ width:220px; height:220px; top:-90px; right:-60px; }
   .brand::after{ width:140px; height:140px; bottom:-60px; left:-40px; background:rgba(255,255,255,.05); }
   .brand-logo{
-    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    display:inline-flex; align-items:center; justify-content:center; gap:10px;
     background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25);
-    padding:10px 22px; border-radius:999px; position:relative; z-index:1;
+    padding:18px 34px; border-radius:999px; position:relative; z-index:1;
   }
-  .brand-logo span.ap1{color:#fff; font-weight:700; font-size:19px;}
-  .brand-logo span.sim{color:#BFD6EF; font-weight:700; font-size:19px;}
-  .brand-sub{position:relative; z-index:1; color:#BFD6EF; font-size:13px; margin-top:10px; letter-spacing:.04em;}
+  .brand-logo span.ap1{color:#fff; font-weight:700; font-size:30px;}
+  .brand-logo span.sim{color:#BFD6EF; font-weight:700; font-size:30px;}
+  .brand-sub{position:relative; z-index:1; color:#BFD6EF; font-size:14px; margin-top:14px; letter-spacing:.04em;}
 
   /* ── Tarjeta flotante ─────────────────────────────────────────────────── */
   .card{
-    background:var(--card); border-radius:28px 28px 0 0;
-    padding:26px 20px 20px; margin-top:-46px; position:relative; z-index:2;
+    background:var(--card); border-radius:28px;
+    padding:26px 20px 20px; margin:-66px 14px 20px; position:relative; z-index:2;
     flex:1 1 auto; display:flex; flex-direction:column;
-    box-shadow:0 -10px 30px rgba(19,37,73,.15);
+    box-shadow:0 10px 30px rgba(19,37,73,.25);
   }
   select#tabSel{
-    width:100%; padding:16px 20px; font-weight:700; font-size:16px; color:var(--blue);
+    width:100%; padding:18px 22px; font-weight:700; font-size:17px; color:var(--blue);
     background:var(--resbg); border:1px solid var(--border); border-radius:999px;
     margin-bottom:22px; appearance:none;
   }
   .panel{display:none;}
   .panel.active{display:block;}
-  .field-title{font-size:16px; font-weight:700; color:var(--blue); margin:16px 0 6px;}
-  label{display:block; font-size:15px; font-weight:700; margin-bottom:5px; color:var(--text);}
+  .field-title{font-size:17px; font-weight:700; color:var(--blue); margin:16px 0 6px;}
+  label{display:block; font-size:16px; font-weight:700; margin-bottom:6px; color:var(--text);}
   input[type=text]{
-    width:100%; padding:15px 20px; font-size:18px; border:2px solid var(--border);
-    border-radius:999px; background:var(--input); color:var(--text); margin-bottom:14px;
+    width:100%; padding:20px 22px; font-size:20px; border:2px solid var(--border);
+    border-radius:999px; background:var(--input); color:var(--text); margin-bottom:16px;
   }
   input[type=text]:focus{outline:none; border-color:var(--blue);}
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
