@@ -60,13 +60,33 @@
     box-shadow:0 10px 30px rgba(19,37,73,.25);
     overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0;
   }
-  select#tabSel{
-    width:100%; padding:20px 22px; font-weight:700; font-size:22px; color:var(--blue);
-    background:var(--resbg); border:1px solid var(--border); border-radius:999px;
-    margin-bottom:22px; appearance:none;
+  /* ── Pantalla principal (selector de calculadora) ──────────────────────── */
+  .home-grid{display:flex; flex-direction:column; gap:16px;}
+  .home-card{
+    display:flex; align-items:center; gap:16px; background:var(--resbg);
+    border:none; border-radius:22px; padding:20px; cursor:pointer; text-align:left;
+    width:100%; font-family:inherit;
   }
+  .home-card:active{background:var(--border);}
+  .home-icon{
+    flex:0 0 auto; width:56px; height:56px; border-radius:16px; background:var(--blue);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .home-icon svg{width:30px; height:30px; stroke:#fff; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+  .home-text .h-title{font-size:19px; font-weight:700; color:var(--text);}
+  .home-text .h-sub{font-size:14px; color:var(--sub); margin-top:2px;}
+
+  .back-btn{
+    display:inline-flex; align-items:center; gap:6px; background:none; border:none;
+    color:var(--blue); font-weight:700; font-size:16px; padding:0 0 16px; cursor:pointer;
+    font-family:inherit;
+  }
+  .back-btn svg{width:18px; height:18px; stroke:var(--blue); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
+
   .panel{display:none;}
   .panel.active{display:block;}
+  .screen{display:none;}
+  .screen.active{display:block;}
   .field-title{font-size:24px; font-weight:700; color:var(--blue); margin:16px 0 6px;}
   label{display:block; font-size:21px; font-weight:700; margin-bottom:6px; color:var(--text);}
   input[type=text]{
@@ -114,14 +134,48 @@
 
   <div class="card-wrap">
   <div class="card">
-    <select id="tabSel">
-      <option value="fca">FCA — Factor de Conversión Alimenticio</option>
-      <option value="alimento">ALIMENTO — Cálculo por Escenario</option>
-      <option value="sobrevivencia">SOBREVIVENCIA — % de Animales Vivos</option>
-    </select>
+
+    <!-- ══════════════ INICIO ══════════════ -->
+    <div class="screen active" id="screen-home">
+      <div class="home-grid">
+        <button class="home-card" data-goto="fca">
+          <div class="home-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 3v18M5 8l-3 6a3 3 0 006 0zM19 8l-3 6a3 3 0 006 0zM3 8h6M15 8h6M9 8l3-2 3 2"/></svg>
+          </div>
+          <div class="home-text">
+            <div class="h-title">FCA</div>
+            <div class="h-sub">Factor de Conversión Alimenticio</div>
+          </div>
+        </button>
+
+        <button class="home-card" data-goto="alimento">
+          <div class="home-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2c4 3 6 6 6 10a6 6 0 01-12 0c0-4 2-7 6-10z"/><path d="M12 13v7"/></svg>
+          </div>
+          <div class="home-text">
+            <div class="h-title">ALIMENTO</div>
+            <div class="h-sub">Cálculo por Escenario</div>
+          </div>
+        </button>
+
+        <button class="home-card" data-goto="sobrevivencia">
+          <div class="home-icon">
+            <svg viewBox="0 0 24 24"><path d="M20.8 8.6c0 4-4.4 7.4-8.8 10.8C7.6 16 3.2 12.6 3.2 8.6a4.6 4.6 0 018.8-1.9 4.6 4.6 0 018.8 1.9z"/></svg>
+          </div>
+          <div class="home-text">
+            <div class="h-title">SOBREVIVENCIA</div>
+            <div class="h-sub">% de Animales Vivos</div>
+          </div>
+        </button>
+      </div>
+    </div>
 
     <!-- ══════════════ FCA ══════════════ -->
-    <div class="panel" id="panel-fca">
+    <div class="screen" id="screen-fca">
+    <button class="back-btn" data-back>
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Volver
+    </button>
+    <div class="panel active" id="panel-fca">
       <div class="row2">
         <div>
           <div class="field-title">PRECRIADERO</div>
@@ -165,9 +219,14 @@
       </div>
       <div class="msg" id="msg_fca"></div>
     </div>
+    </div>
 
     <!-- ══════════════ ALIMENTO ══════════════ -->
-    <div class="panel" id="panel-alimento">
+    <div class="screen" id="screen-alimento">
+    <button class="back-btn" data-back>
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Volver
+    </button>
+    <div class="panel active" id="panel-alimento">
       <div class="btn-row">
         <button class="btn-esc" data-esc="conservador">CONSERVADOR</button>
         <button class="btn-esc active" data-esc="normal">NORMAL</button>
@@ -196,9 +255,14 @@
       </div>
       <div class="msg" id="msg_alimento"></div>
     </div>
+    </div>
 
     <!-- ══════════════ SOBREVIVENCIA ══════════════ -->
-    <div class="panel" id="panel-sobrevivencia">
+    <div class="screen" id="screen-sobrevivencia">
+    <button class="back-btn" data-back>
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Volver
+    </button>
+    <div class="panel active" id="panel-sobrevivencia">
       <label>Ha</label>
       <input type="text" id="s_ha" inputmode="decimal">
 
@@ -239,6 +303,7 @@
       </div>
       <div class="msg" id="msg_sob"></div>
     </div>
+    </div>
 
     <div class="footer">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
@@ -259,14 +324,19 @@ const COEF_ALIMENTO = {
   agresivo:    [0.756540, -0.559],
 };
 
-// ── Tabs ──────────────────────────────────────────────────────────────────
-const tabSel = document.getElementById("tabSel");
-function switchTab(tab){
-  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-  document.getElementById("panel-" + tab).classList.add("active");
+// ── Navegación entre pantallas ──────────────────────────────────────────
+function irA(pantalla){
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById("screen-" + pantalla).classList.add("active");
+  const card = document.querySelector(".card");
+  if(card) card.scrollTop = 0;
 }
-tabSel.addEventListener("change", () => switchTab(tabSel.value));
-switchTab("fca");
+document.querySelectorAll(".home-card").forEach(btn => {
+  btn.addEventListener("click", () => irA(btn.dataset.goto));
+});
+document.querySelectorAll("[data-back]").forEach(btn => {
+  btn.addEventListener("click", () => irA("home"));
+});
 
 // ── Utilidades numéricas ────────────────────────────────────────────────
 function leer(el){
