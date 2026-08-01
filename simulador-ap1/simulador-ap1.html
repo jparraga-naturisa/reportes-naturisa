@@ -13,10 +13,11 @@
     --blue:#2E75B6; --text:#1A2535; --sub:#5A7A9A; --border:#C8D8E8;
     --input:#F5F9FD; --err:#C0392B; --resbg:#F0F6FC; --resacc:#2E75B6;
   }
+  html{width:100%; overflow-x:hidden;}
   html, body{height:100%;}
-  *{box-sizing:border-box; font-family:"Century Gothic","CenturyGothic","Segoe UI",sans-serif;}
-  body{margin:0; background:var(--bg); color:var(--text); min-height:100vh; padding:0;}
-  .wrap{max-width:600px; margin:0 auto; padding:20px 16px 40px; min-height:100vh;}
+  *{box-sizing:border-box; font-family:"Century Gothic","CenturyGothic","Segoe UI",sans-serif; max-width:100%;}
+  body{margin:0; width:100%; overflow-x:hidden; background:var(--bg); color:var(--text); min-height:100vh; padding:0;}
+  .wrap{max-width:600px; width:100%; margin:0 auto; padding:20px 16px 40px; min-height:100vh;}
   .hdr{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
   .hdr .bar{width:5px; height:30px; background:var(--blue); border-radius:2px;}
   .hdr h1{font-size:24px; margin:0; color:var(--accent); font-weight:700;}
@@ -437,8 +438,15 @@ sHa.addEventListener("input", () => {
 });
 
 // ── Service worker (PWA) ──────────────────────────────────────────────────
+// Se registra siempre con ?v= (fecha de build) para forzar que el navegador
+// detecte un script distinto y actualice de inmediato, sin depender de que
+// el usuario limpie el caché manualmente.
 if("serviceWorker" in navigator){
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js?v=20260801c").then((reg) => {
+      reg.update();
+    });
+  });
 }
 </script>
 </body>

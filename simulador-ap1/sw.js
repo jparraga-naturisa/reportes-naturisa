@@ -1,4 +1,4 @@
-const CACHE_NAME = "ap1-simulador-v3";
+const CACHE_NAME = "ap1-simulador-v4";
 const ASSETS = [
   "./simulador-ap1.html",
   "./manifest.json",
