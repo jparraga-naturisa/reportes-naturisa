@@ -1,4 +1,4 @@
-const CACHE_NAME = "ap1-simulador-v2";
+const CACHE_NAME = "ap1-simulador-v3";
 const ASSETS = [
   "./simulador-ap1.html",
   "./manifest.json",
@@ -24,6 +24,12 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((resp) => {
+        const copia = resp.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copia));
+        return resp;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
