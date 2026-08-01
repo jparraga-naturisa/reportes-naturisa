@@ -16,13 +16,16 @@
   html{width:100%; overflow-x:hidden;}
   html, body{height:100%;}
   *{box-sizing:border-box; font-family:"Century Gothic","CenturyGothic","Segoe UI",sans-serif; max-width:100%;}
-  body{margin:0; width:100%; overflow-x:hidden; background:var(--bg); color:var(--text); min-height:100vh; padding:0;}
-  .wrap{max-width:600px; width:100%; margin:0 auto; padding:20px 16px 40px; min-height:100vh;}
-  .hdr{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+  body{margin:0; width:100%; overflow-x:hidden; background:var(--bg); color:var(--text); min-height:100vh; padding:0;
+       display:flex; justify-content:center;}
+  .wrap{max-width:600px; width:100%; min-height:100vh; padding:20px 16px 0;
+        display:flex; flex-direction:column;}
+  .hdr{display:flex; align-items:center; gap:10px; margin-bottom:16px; flex:0 0 auto;}
   .hdr .bar{width:5px; height:30px; background:var(--blue); border-radius:2px;}
   .hdr h1{font-size:24px; margin:0; color:var(--accent); font-weight:700;}
   .hdr h1 span{color:var(--blue);}
-  .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:20px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:10px 10px 0 0;
+        padding:20px; flex:1 1 auto; display:flex; flex-direction:column;}
   select#tabSel{
     width:100%; padding:16px; font-weight:700; font-size:17px; color:var(--blue);
     background:var(--resbg); border:1px solid var(--border); border-radius:8px;
@@ -443,7 +446,7 @@ sHa.addEventListener("input", () => {
 // el usuario limpie el caché manualmente.
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=20260801c").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=20260801d").then((reg) => {
       reg.update();
     });
   });
