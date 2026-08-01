@@ -79,7 +79,18 @@
   .home-text .h-title{font-size:14px; font-weight:700; color:var(--text); max-width:100%; line-height:1.2; word-break:break-word;}
   .home-text .h-sub{display:none;}
 
-  .screen-nav{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;}
+  .screen-nav{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+  .screen-title{
+    display:flex; align-items:center; gap:12px; background:var(--resbg);
+    border-radius:16px; padding:16px 18px; margin-bottom:18px;
+  }
+  .screen-title .s-icon{
+    flex:0 0 auto; width:38px; height:38px; border-radius:11px; background:var(--blue);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .screen-title .s-icon svg{width:20px; height:20px; stroke:#fff; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+  .screen-title .s-text .s-title{font-size:18px; font-weight:700; color:var(--blue);}
+  .screen-title .s-text .s-sub{font-size:13px; color:var(--sub); margin-top:1px;}
   .back-btn{
     display:inline-flex; align-items:center; gap:10px; background:none; border:none;
     color:var(--blue); font-weight:700; font-size:22px; padding:6px 0; cursor:pointer;
@@ -194,6 +205,10 @@
         <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg> Limpiar
       </button>
     </div>
+    <div class="screen-title">
+      <div class="s-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 8l-3 6a3 3 0 006 0zM19 8l-3 6a3 3 0 006 0zM3 8h6M15 8h6M9 8l3-2 3 2"/></svg></div>
+      <div class="s-text"><div class="s-title">FCA</div><div class="s-sub">Factor de Conversión Alimenticio</div></div>
+    </div>
     <div class="panel active" id="panel-fca">
       <div class="row2">
         <div>
@@ -250,6 +265,10 @@
         <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg> Limpiar
       </button>
     </div>
+    <div class="screen-title">
+      <div class="s-icon"><svg viewBox="0 0 24 24"><path d="M12 2c4 3 6 6 6 10a6 6 0 01-12 0c0-4 2-7 6-10z"/><path d="M12 13v7"/></svg></div>
+      <div class="s-text"><div class="s-title">ALIMENTO</div><div class="s-sub">Cálculo por Escenario</div></div>
+    </div>
     <div class="panel active" id="panel-alimento">
       <div class="btn-row">
         <button class="btn-esc" data-esc="conservador">CONSERVADOR</button>
@@ -290,6 +309,10 @@
       <button class="clear-btn" data-clear="sobrevivencia">
         <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg> Limpiar
       </button>
+    </div>
+    <div class="screen-title">
+      <div class="s-icon"><svg viewBox="0 0 24 24"><path d="M20.8 8.6c0 4-4.4 7.4-8.8 10.8C7.6 16 3.2 12.6 3.2 8.6a4.6 4.6 0 018.8-1.9 4.6 4.6 0 018.8 1.9z"/></svg></div>
+      <div class="s-text"><div class="s-title">SOBREVIVENCIA</div><div class="s-sub">% de Animales Vivos</div></div>
     </div>
     <div class="panel active" id="panel-sobrevivencia">
       <label>Ha</label>
