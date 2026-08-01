@@ -24,7 +24,7 @@
 
   /* ── Cabecera de marca sobre el fondo degradado ─────────────────────── */
   .brand{
-    flex:0 0 auto; padding:54px 20px 100px; text-align:center; position:relative;
+    flex:0 0 auto; padding:54px 20px 30px; text-align:center; position:relative;
     overflow:hidden;
   }
   .brand::before, .brand::after{
@@ -42,11 +42,15 @@
   .brand-logo span.sim{color:#BFD6EF; font-weight:700; font-size:40px;}
   .brand-sub{position:relative; z-index:1; color:#BFD6EF; font-size:18px; margin-top:14px; letter-spacing:.04em;}
 
-  /* ── Tarjeta flotante ─────────────────────────────────────────────────── */
+  /* ── Contenedor que centra la tarjeta en el espacio restante ───────────── */
+  .card-wrap{
+    flex:1 1 auto; display:flex; align-items:center; justify-content:center;
+    padding:0 26px 26px; overflow:hidden; min-height:0;
+  }
   .card{
-    background:var(--card); border-radius:28px;
-    padding:26px 20px 20px; margin:-66px 26px 26px; position:relative; z-index:2;
-    flex:1 1 auto; display:flex; flex-direction:column;
+    background:var(--card); border-radius:28px; width:100%; max-height:100%;
+    padding:26px 20px 20px; position:relative; z-index:2;
+    display:flex; flex-direction:column;
     box-shadow:0 10px 30px rgba(19,37,73,.25);
     overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0;
   }
@@ -98,6 +102,7 @@
     <div class="brand-sub">CALCULADORA DE PRODUCCIÓN · NATURISA</div>
   </div>
 
+  <div class="card-wrap">
   <div class="card">
     <select id="tabSel">
       <option value="fca">FCA — Factor de Conversión Alimenticio</option>
@@ -232,6 +237,7 @@
       </svg>
       <span>NATURISA · AP1</span>
     </div>
+  </div>
   </div>
 </div>
 
