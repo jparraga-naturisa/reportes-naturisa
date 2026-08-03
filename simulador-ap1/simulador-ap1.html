@@ -192,6 +192,15 @@
             <div class="h-sub">% de Animales Vivos</div>
           </div>
         </button>
+
+        <button class="home-card" data-goto="biomasa">
+          <div class="home-icon">
+            <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="12" r="3"/><path d="M8 12h8"/></svg>
+          </div>
+          <div class="home-text">
+            <div class="h-title">BIOMASA</div>
+          </div>
+        </button>
       </div>
     </div>
 
@@ -354,6 +363,40 @@
         <div class="v" id="s_valor">—</div>
       </div>
       <div class="msg" id="msg_sob"></div>
+    </div>
+    </div>
+
+    <!-- ══════════════ BIOMASA ══════════════ -->
+    <div class="screen" id="screen-biomasa">
+    <div class="screen-nav">
+      <button class="back-btn" data-back>
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Volver
+      </button>
+      <button class="clear-btn" data-clear="biomasa">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg> Limpiar
+      </button>
+    </div>
+    <div class="screen-title">
+      <div class="s-icon"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="12" r="3"/><path d="M8 12h8"/></svg></div>
+      <div class="s-text"><div class="s-title">BIOMASA</div><div class="s-sub">Biomasa en libras</div></div>
+    </div>
+    <div class="panel active" id="panel-biomasa">
+      <div class="row2">
+        <div>
+          <label>N° Animales</label>
+          <input type="text" id="bm_animales" inputmode="decimal">
+        </div>
+        <div>
+          <label>Peso (gr)</label>
+          <input type="text" id="bm_peso" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="res-single">
+        <div class="t">BIOMASA (lb)</div>
+        <div class="v" id="bm_valor">—</div>
+      </div>
+      <div class="msg" id="msg_biomasa"></div>
     </div>
     </div>
 
@@ -613,6 +656,25 @@ sHa.addEventListener("input", () => {
   propagarSob("actuales");
   calcularSobrevivencia();
 });
+
+// ── BIOMASA ───────────────────────────────────────────────────────────────
+["bm_animales","bm_peso"].forEach(id => document.getElementById(id).addEventListener("input", calcularBiomasa));
+
+function calcularBiomasa(){
+  const animales = leer(document.getElementById("bm_animales"));
+  const peso = leer(document.getElementById("bm_peso"));
+  const val = document.getElementById("bm_valor");
+  const msg = document.getElementById("msg_biomasa");
+
+  if(animales === null || peso === null){
+    val.textContent = "—"; val.style.color = "var(--sub)"; msg.textContent = "";
+    return;
+  }
+
+  const biomasaLb = (animales * peso / 1000) * KG_A_LB;
+  val.textContent = fmt(biomasaLb); val.style.color = "var(--resacc)";
+  msg.textContent = "";
+}
 
 // ── Limpiar registros ─────────────────────────────────────────────────────
 document.querySelectorAll("[data-clear]").forEach(btn => {
