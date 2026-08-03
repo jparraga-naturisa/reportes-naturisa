@@ -381,13 +381,18 @@
       <div class="s-text"><div class="s-title">BIOMASA</div><div class="s-sub">Biomasa en libras</div></div>
     </div>
     <div class="panel active" id="panel-biomasa">
+      <div class="btn-row" style="grid-template-columns:1fr 1fr;">
+        <button class="btn-esc active" data-bm-modo="peso">POR PESO (gr)</button>
+        <button class="btn-esc" data-bm-modo="plg">POR PL/g</button>
+      </div>
+
       <div class="row2">
         <div>
           <label>N° Animales</label>
           <input type="text" id="bm_animales" inputmode="decimal">
         </div>
         <div>
-          <label>Peso (gr)</label>
+          <label id="bm_peso_label">Peso (gr)</label>
           <input type="text" id="bm_peso" inputmode="decimal">
         </div>
       </div>
@@ -658,18 +663,37 @@ sHa.addEventListener("input", () => {
 });
 
 // ── BIOMASA ───────────────────────────────────────────────────────────────
+let bmModo = "peso";
+document.querySelectorAll("[data-bm-modo]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    bmModo = btn.dataset.bmModo;
+    document.querySelectorAll("[data-bm-modo]").forEach(b => b.classList.toggle("active", b === btn));
+    document.getElementById("bm_peso_label").textContent = bmModo === "peso" ? "Peso (gr)" : "PL/g";
+    calcularBiomasa();
+  });
+});
+
 ["bm_animales","bm_peso"].forEach(id => document.getElementById(id).addEventListener("input", calcularBiomasa));
 
 function calcularBiomasa(){
   const animales = leer(document.getElementById("bm_animales"));
-  const peso = leer(document.getElementById("bm_peso"));
+  const valorPeso = leer(document.getElementById("bm_peso"));
   const val = document.getElementById("bm_valor");
   const msg = document.getElementById("msg_biomasa");
 
-  if(animales === null || peso === null){
+  if(animales === null || valorPeso === null){
     val.textContent = "—"; val.style.color = "var(--sub)"; msg.textContent = "";
     return;
   }
+
+  if(bmModo === "plg" && valorPeso <= 0){
+    val.textContent = "⚠"; val.style.color = "var(--err)";
+    msg.textContent = "⚠  El PL/g debe ser mayor a 0";
+    return;
+  }
+
+  // Peso individual (gr): directo en modo "peso", o 1/(PL/g) en modo "plg"
+  const peso = bmModo === "plg" ? (1 / valorPeso) : valorPeso;
 
   const biomasaLb = (animales * peso / 1000) * KG_A_LB;
   val.textContent = fmt(biomasaLb); val.style.color = "var(--resacc)";
@@ -688,7 +712,7 @@ document.querySelectorAll("[data-clear]").forEach(btn => {
 
     if(cual === "alimento"){
       escenario = "normal";
-      document.querySelectorAll(".btn-esc").forEach(b => b.classList.toggle("active", b.dataset.esc === "normal"));
+      screen.querySelectorAll(".btn-esc").forEach(b => b.classList.toggle("active", b.dataset.esc === "normal"));
       calcularAlimento();
     }
 
@@ -696,6 +720,13 @@ document.querySelectorAll("[data-clear]").forEach(btn => {
       sFuente.sembrados = null;
       sFuente.actuales = null;
       calcularSobrevivencia();
+    }
+
+    if(cual === "biomasa"){
+      bmModo = "peso";
+      screen.querySelectorAll("[data-bm-modo]").forEach(b => b.classList.toggle("active", b.dataset.bmModo === "peso"));
+      document.getElementById("bm_peso_label").textContent = "Peso (gr)";
+      calcularBiomasa();
     }
   });
 });
