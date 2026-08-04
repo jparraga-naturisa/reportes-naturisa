@@ -136,8 +136,12 @@ export default {
       // "hc:<cycleId>" = cache compartido de un ciclo ya COSECHADO (historia-ciclo-masivo.html) -
       // una clave por ciclo, nunca un blob unico, para que dos usuarios guardando ciclos distintos
       // al mismo tiempo no se pisen entre si.
+      // "hc-index:<subCode>" = lista de piscinas/ciclos vistos alguna vez en esa sucursal (sin las
+      // filas semanales, solo poolName/cycleNumber/cycleId/estado) - permite llenar los filtros de
+      // Piscinas/Ciclos al instante sin esperar a "Generar reporte".
       const esCicloCosechado = /^hc:\d+$/.test(key)
-      if (!esCicloCosechado && !['excel','ciclos','cambios','cambios-dev','cambios-config','cambios-config-dev'].includes(key)) {
+      const esIndice = /^hc-index:[A-Z0-9]+$/.test(key)
+      if (!esCicloCosechado && !esIndice && !['excel','ciclos','cambios','cambios-dev','cambios-config','cambios-config-dev'].includes(key)) {
         return corsResponse('{"error":"key no permitida"}', 400, request)
       }
       if (request.method === 'GET') {

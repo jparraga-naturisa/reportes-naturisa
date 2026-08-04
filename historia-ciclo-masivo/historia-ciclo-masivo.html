@@ -604,8 +604,8 @@ document.addEventListener('click', (e) => {
     const optionsBox = root.querySelector('.ms-options');
     const selectAll = root.querySelector('.ms-select-all input');
     optionsBox.innerHTML = SUBSIDIARIES.slice().sort((a, b) => a.name.localeCompare(b.name, 'es'))
-        .map(s => `<label class="ms-option"><input type="checkbox" value="${s.code}" onchange="msUpdateTrigger('f-sucursal-ms', 'Todas'); togglePiscinaCicloVisibility();"> ${s.code} - ${s.name}</label>`).join('');
-    selectAll.onchange = () => { msToggleAll('f-sucursal-ms', selectAll.checked, 'Todas'); togglePiscinaCicloVisibility(); };
+        .map(s => `<label class="ms-option"><input type="checkbox" value="${s.code}" onchange="msUpdateTrigger('f-sucursal-ms', 'Todas'); cargarPiscinasCiclosDesdeIndice();"> ${s.code} - ${s.name}</label>`).join('');
+    selectAll.onchange = () => { msToggleAll('f-sucursal-ms', selectAll.checked, 'Todas'); cargarPiscinasCiclosDesdeIndice(); };
 })();
 
 // Cascada Sucursal -> Piscinas -> Ciclos (igual que consumos-insumos.html): el filtro de
@@ -676,6 +676,58 @@ async function fetchHistoriaCicloConCache(cycleId, estado) {
     if (estado === 'COSECHADO' && rows.length) kvGuardarCicloCosechado(cycleId, rows);
     return rows;
 }
+
+// ── Indice COMPARTIDO de piscinas/ciclos por sucursal (Cloudflare KV) ──────────
+// Guarda, por sucursal, la lista de {poolName, cycleNumber, cycleId, estado} vista alguna vez -
+// permite llenar los dropdowns de Piscinas/Ciclos apenas se elige la sucursal, SIN esperar a
+// "Generar reporte" ni volver a consultar cycle_sowing_report/pool_production. Se actualiza
+// (merge, no se pisa) cada vez que se genera un reporte con datos nuevos.
+async function kvGetIndice(subCode) {
+    try {
+        const res = await fetch(KV_BASE + 'hc-index:' + subCode);
+        return res.ok ? await res.json() : [];
+    } catch (e) { return []; }
+}
+
+function kvGuardarIndice(subCode, lista) {
+    fetch(KV_BASE + 'hc-index:' + subCode, { method: 'POST', body: JSON.stringify(lista) }).catch(() => {});
+}
+
+// Combina lo que ya habia en el indice con lo recien descubierto en esta corrida (por cycleId -
+// mismo ciclo siempre pisa su entrada anterior, para que el estado PRODUCCION -> COSECHADO se
+// actualice) y lo guarda de vuelta.
+function actualizarIndiceSucursal(subCode, indicePrevio, entradasNuevas) {
+    const porCycleId = {};
+    indicePrevio.forEach(e => { if (e.cycleId) porCycleId[e.cycleId] = e; });
+    entradasNuevas.forEach(e => { if (e.cycleId) porCycleId[e.cycleId] = e; });
+    const combinado = Object.values(porCycleId);
+    kvGuardarIndice(subCode, combinado);
+    return combinado;
+}
+
+// Llena los dropdowns de Piscinas/Ciclos leyendo el indice de Cloudflare de las sucursales
+// elegidas - no necesita haber generado el reporte todavia.
+async function cargarPiscinasCiclosDesdeIndice() {
+    const codesSel = msSelected('f-sucursal-ms');
+    if (!codesSel.length) { togglePiscinaCicloVisibility(); return; }
+    const listas = await Promise.all(codesSel.map(kvGetIndice));
+    _indiceActual = listas.flat();
+    const poolNames = Array.from(new Set(_indiceActual.map(e => e.poolName))).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+    msSetOptions('f-piscina-ms', poolNames, 'Todas', 'actualizarCiclosDesdeIndice(); togglePiscinaCicloVisibility();');
+    actualizarCiclosDesdeIndice();
+    togglePiscinaCicloVisibility();
+}
+
+// Igual que actualizarCiclosDisponibles pero usando _indiceActual (Cloudflare) en vez de
+// _ultimoDataset (que todavia puede no existir si no se genero el reporte).
+function actualizarCiclosDesdeIndice() {
+    const piscinasSel = msSelected('f-piscina-ms');
+    const piscinasFiltro = piscinasSel.length ? new Set(piscinasSel.map(normPool)) : null;
+    const subset = piscinasFiltro ? _indiceActual.filter(e => piscinasFiltro.has(normPool(e.poolName))) : _indiceActual;
+    const cycleNumbers = Array.from(new Set(subset.map(e => e.cycleNumber))).sort((a, b) => a - b);
+    msSetOptions('f-ciclo-ms', cycleNumbers.map(String), 'Todos', 'togglePiscinaCicloVisibility();');
+}
+let _indiceActual = [];
 
 // Columnas del tablero nativo "Historia del ciclo - Siembra". El nombre de campo real de la API
 // se resuelve con la primera alternativa disponible en la fila (algunos nombres no estan 100%
@@ -901,6 +953,7 @@ async function generarReporteMasivo() {
                 });
             if (!pares.length) continue;
 
+            const indiceNuevo = [];
             let done = 0;
             await runPool(pares, 6, async ({ poolName, cycleNumber }) => {
                 const siRows = (siembras || []).filter(r =>
@@ -909,6 +962,13 @@ async function generarReporteMasivo() {
                 const ppRows = (pp || []).filter(r =>
                     String(r.subsidiaryCode || '').toUpperCase() === sub.code.toUpperCase() &&
                     normPool(r.poolName) === normPool(poolName) && Number(r.cycleNumber) === cycleNumber);
+
+                // cycleId/estado se calculan ANTES de aplicar los filtros de Fecha/Uso para que el
+                // indice de Cloudflare (usado para llenar Piscinas/Ciclos al instante) refleje TODO
+                // lo que existe, no solo lo que coincide con los filtros elegidos en esta corrida.
+                const cycleIdTmp = g(ppRows[0], 'idCycle') || g(siRows[0], 'cycleId');
+                const estadoTmp = ppRows[0] ? 'PRODUCCION' : 'COSECHADO';
+                if (cycleIdTmp) indiceNuevo.push({ poolName, cycleNumber, cycleId: cycleIdTmp, estado: estadoTmp });
 
                 // Fecha de siembra = la mas antigua entre los lotes sembrados de ese ciclo (puede
                 // haber varios). Si el filtro de fecha esta activo y no hay dato de siembra (ciclo
@@ -936,14 +996,11 @@ async function generarReporteMasivo() {
                         ? Object.keys(USO_TO_CYCLE_USAGE_ID).find(k => normUso(k).startsWith(normUso(usoRawTxt)) || normUso(usoRawTxt).startsWith(normUso(k)))
                         : null);
                 if (usoCiclo && !usos.includes(usoCiclo)) { done++; hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`; return; }
-                const cycleId = g(ppRows[0], 'idCycle') || g(siRows[0], 'cycleId');
+                const cycleId = cycleIdTmp, estado = estadoTmp;
                 done++;
                 hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`;
                 if (!cycleId) return;
 
-                // Estado del ciclo: si aparece en pool_production (solo trae el ciclo ACTIVO de
-                // cada piscina, en la semana actual) esta en Produccion; si no, ya fue Cosechado.
-                const estado = ppRows[0] ? 'PRODUCCION' : 'COSECHADO';
                 const rows = await fetchHistoriaCicloConCache(cycleId, estado);
                 if (!rows.length) return;
                 rows.forEach(row => {
@@ -958,6 +1015,11 @@ async function generarReporteMasivo() {
                     tbody.insertAdjacentHTML('beforeend', html);
                 });
             });
+
+            // Actualiza (merge por cycleId, no pisa todo) el indice compartido de esta sucursal en
+            // Cloudflare con lo que se descubrio en esta corrida - asi la proxima vez (cualquier
+            // usuario) los dropdowns de Piscinas/Ciclos se llenan al instante sin esperar el reporte.
+            kvGetIndice(sub.code).then(previo => actualizarIndiceSucursal(sub.code, previo, indiceNuevo));
         }
 
         _ultimoDataset = dataset;
