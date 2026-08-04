@@ -608,8 +608,8 @@ document.addEventListener('click', (e) => {
     const optionsBox = root.querySelector('.ms-options');
     const selectAll = root.querySelector('.ms-select-all input');
     optionsBox.innerHTML = SUBSIDIARIES.slice().sort((a, b) => a.name.localeCompare(b.name, 'es'))
-        .map(s => `<label class="ms-option"><input type="checkbox" value="${s.code}" onchange="msUpdateTrigger('f-sucursal-ms', 'Todas'); cargarPiscinasCiclosDesdeIndice();"> ${s.code} - ${s.name}</label>`).join('');
-    selectAll.onchange = () => { msToggleAll('f-sucursal-ms', selectAll.checked, 'Todas'); cargarPiscinasCiclosDesdeIndice(); };
+        .map(s => `<label class="ms-option"><input type="checkbox" value="${s.code}" onchange="msUpdateTrigger('f-sucursal-ms', 'Todas'); cargarPiscinasCiclosDesdeIndice(); renderTablaFiltrada();"> ${s.code} - ${s.name}</label>`).join('');
+    selectAll.onchange = () => { msToggleAll('f-sucursal-ms', selectAll.checked, 'Todas'); cargarPiscinasCiclosDesdeIndice(); renderTablaFiltrada(); };
 })();
 
 // Cascada Sucursal -> Piscinas -> Ciclos (igual que consumos-insumos.html): el filtro de
@@ -1057,13 +1057,19 @@ function renderTablaFiltrada() {
     const hint = document.getElementById('progreso-masivo');
     if (!tbody) return;
 
+    const sucursalesSel = msSelected('f-sucursal-ms');
     const piscinasSel = msSelected('f-piscina-ms');
     const ciclosSel = msSelected('f-ciclo-ms');
+    const sucursalesFiltro = sucursalesSel.length ? new Set(sucursalesSel) : null;
     const piscinasFiltro = piscinasSel.length ? new Set(piscinasSel) : null;
     const ciclosFiltro = ciclosSel.length ? new Set(ciclosSel.map(Number)) : null;
     const estados = estadosSeleccionados();
 
+    // Si la sucursal recien elegida ya esta cargada en _ultimoDataset, esto filtra al instante
+    // sin pedir nada nuevo al servidor; si es una sucursal que todavia no se ha traido, no
+    // aparecera nada de ella hasta presionar "Generar reporte".
     const filtrado = _ultimoDataset.filter(e =>
+        (!sucursalesFiltro || sucursalesFiltro.has(e.subCode)) &&
         (!piscinasFiltro || piscinasFiltro.has(piscinaKey(e.subCode, e.poolName))) &&
         (!ciclosFiltro || ciclosFiltro.has(Number(e.cycleNumber))) &&
         estados.includes(e.estado) &&
