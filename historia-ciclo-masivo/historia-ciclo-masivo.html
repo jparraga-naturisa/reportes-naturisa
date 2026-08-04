@@ -1077,6 +1077,14 @@ function renderTablaFiltrada() {
         (!ocultarIncompletas || g(e.row, 'weekCompleted') !== false) &&
         cfPasaFiltros(e.row));
 
+    // Orden Sucursal -> Piscina -> Ciclo -> Semana, igual que los filtros (dataset.push no
+    // garantiza este orden porque el runPool que lo llena es concurrente).
+    filtrado.sort((a, b) =>
+        a.subCode.localeCompare(b.subCode) ||
+        a.poolName.localeCompare(b.poolName, 'es', { numeric: true }) ||
+        a.cycleNumber - b.cycleNumber ||
+        (Number(g(a.row, 'weekOfYear')) - Number(g(b.row, 'weekOfYear'))));
+
     tbody.innerHTML = filtrado.map(({ sub, poolName, cycleNumber, row }) => {
         const cells = HISTORIA_COLS.map(c => fmtCelda(c.get(row)));
         return `<tr>
