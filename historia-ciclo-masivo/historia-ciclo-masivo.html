@@ -435,10 +435,6 @@ function applyLoginUI(on, nombre) {
         const initials = nombre.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
         document.getElementById('user-avatar').textContent = initials;
         document.getElementById('user-name-label').textContent = nombre;
-        // setTimeout en 0: initLoginState() puede llamar esto de forma sincrona mientras el
-        // <script> aun se esta parseando - varias const (HISTORIA_COLS, etc.) todavia no existen
-        // en ese instante. Diferirlo a la macrotask queue asegura que el resto del script ya corrio.
-        setTimeout(() => cargarDesdeCacheCompartido(), 0);
     }
 }
 
@@ -907,54 +903,6 @@ function crearEsqueletoTabla() {
             <th class="grp-ident">Sucursal</th><th class="grp-ident">Piscina</th><th class="grp-ident">Ciclo</th>
             ${HISTORIA_COLS.map(c => `<th>${c.label}<button type="button" class="col-filter-btn" data-label="${c.label}" onclick="cfAbrir(event, '${c.label}')" title="Filtrar">▽</button></th>`).join('')}
         </tr></thead><tbody id="masivo-tbody"></tbody></table></div></div>`;
-}
-
-// Muestra por defecto, apenas se inicia sesion, lo que ya esta guardado en el cache/indice
-// compartido de Cloudflare de TODAS las sucursales, sin esperar a "Generar reporte". Los ciclos
-// COSECHADO salen del cache (rapido, sin llamar a AP1); los PRODUCCION se piden en vivo (siempre
-// frescos) porque nunca se cachean. Si el indice todavia esta vacio (recien se activo la
-// funcion, o nadie genero un reporte aun) no hay nada que mostrar todavia.
-async function cargarDesdeCacheCompartido() {
-    if (!getToken() || _generandoReporte) return;
-    _generandoReporte = true;
-    crearEsqueletoTabla();
-    const hint = document.getElementById('progreso-masivo');
-    hint.textContent = 'Cargando desde el cache compartido...';
-    try {
-        const listas = await Promise.all(SUBSIDIARIES.map(s =>
-            kvGetIndice(s.code).then(arr => arr.map(e => ({ ...e, subCode: e.subCode || s.code, subName: s.name })))));
-        const entradas = listas.flat();
-        if (!entradas.length) {
-            document.getElementById('main-content').innerHTML = `<div class="empty-state"><div class="empty-icon">☁️</div>
-                <div>Todavía no hay nada guardado en el cache compartido de Cloudflare.<br>Presiona "Generar reporte" para cargarlo por primera vez.</div></div>`;
-            return;
-        }
-
-        const dataset = [];
-        let done = 0;
-        await runPool(entradas, 8, async (e) => {
-            const rows = await fetchHistoriaCicloConCache(e.cycleId, e.estado);
-            done++;
-            hint.textContent = `Cargando desde el cache: ${done}/${entradas.length}...`;
-            rows.forEach(row => dataset.push({ sub: e.subName, subCode: e.subCode, poolName: e.poolName, cycleNumber: e.cycleNumber, estado: e.estado, row }));
-        });
-
-        _ultimoDataset = dataset;
-        if (!dataset.length) {
-            document.getElementById('main-content').innerHTML = `<div class="empty-state"><div class="empty-icon">☁️</div><div>El cache compartido no tiene historia semanal todavia.</div></div>`;
-            return;
-        }
-        const poolNames = Array.from(new Set(dataset.map(e => piscinaKey(e.subCode, e.poolName)))).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
-        msSetOptions('f-piscina-ms', poolNames, 'Todas', 'actualizarCiclosDisponibles(); renderTablaFiltrada(); togglePiscinaCicloVisibility();');
-        actualizarCiclosDisponibles();
-        renderTablaFiltrada();
-        togglePiscinaCicloVisibility();
-        document.getElementById('btn-exportar').disabled = false;
-    } catch (e) {
-        document.getElementById('main-content').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Error cargando desde el cache: ${e.message}</div></div>`;
-    } finally {
-        _generandoReporte = false;
-    }
 }
 
 async function generarReporteMasivo() {
