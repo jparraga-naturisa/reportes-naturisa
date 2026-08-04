@@ -257,6 +257,7 @@ table.masivo-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
     </div>
     <button class="btn-apply" id="btn-generar" onclick="generarReporteMasivo()" title="Generar reporte">🔍 Generar</button>
     <button class="btn-export" id="btn-ocultar-incompletas" onclick="toggleOcultarIncompletas()" title="Ocultar semanas incompletas">🕒 Incompletas</button>
+    <button class="btn-export" id="btn-ocultar-sem0" onclick="toggleOcultarSem0()" title="Ocultar semana 0 (dia de siembra)">0️⃣ Semana 0</button>
     <button class="btn-export" id="btn-exportar" onclick="exportarExcel()" disabled title="Exportar a Excel">📥 Excel</button>
     </div>
 </header>
@@ -849,6 +850,13 @@ function toggleOcultarIncompletas() {
     renderTablaFiltrada();
 }
 
+let ocultarSem0 = false;
+function toggleOcultarSem0() {
+    ocultarSem0 = !ocultarSem0;
+    document.getElementById('btn-ocultar-sem0').classList.toggle('active', ocultarSem0);
+    renderTablaFiltrada();
+}
+
 function fmtFechaCorta(isoDateStr) {
     if (!isoDateStr) return null;
     const s = String(isoDateStr).slice(0, 10);
@@ -1084,6 +1092,7 @@ function renderTablaFiltrada() {
         (!ciclosFiltro || ciclosFiltro.has(Number(e.cycleNumber))) &&
         estados.includes(e.estado) &&
         (!ocultarIncompletas || !esSemanaIncompleta(e.row)) &&
+        (!ocultarSem0 || Number(g(e.row, 'weekOfYear')) !== 0) &&
         cfPasaFiltros(e.row));
 
     // Orden Sucursal -> Piscina -> Ciclo -> Semana, igual que los filtros (dataset.push no
