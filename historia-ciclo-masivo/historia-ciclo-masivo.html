@@ -482,6 +482,10 @@ function canonicalPoolName(name) {
     return digits.padStart(targetDigits, '0') + suffix;
 }
 
+// "A1" + "454" -> "A1-0454" - identifica una piscina por sucursal+numero (dos sucursales
+// distintas pueden tener la misma numeracion de piscina).
+function piscinaKey(subCode, poolName) { return `${subCode}-${canonicalPoolName(poolName)}`; }
+
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 
 // "2026-08-03" -> "03/08/2026", para el label del selector de rango de fecha de siembra.
@@ -624,8 +628,8 @@ function togglePiscinaCicloVisibility() {
 // cada vez que cambia la seleccion de Piscinas.
 function actualizarCiclosDisponibles() {
     const piscinasSel = msSelected('f-piscina-ms');
-    const piscinasFiltro = piscinasSel.length ? new Set(piscinasSel.map(normPool)) : null;
-    const subset = piscinasFiltro ? _ultimoDataset.filter(e => piscinasFiltro.has(normPool(e.poolName))) : _ultimoDataset;
+    const piscinasFiltro = piscinasSel.length ? new Set(piscinasSel) : null;
+    const subset = piscinasFiltro ? _ultimoDataset.filter(e => piscinasFiltro.has(piscinaKey(e.subCode, e.poolName))) : _ultimoDataset;
     const cycleNumbers = Array.from(new Set(subset.map(e => e.cycleNumber))).sort((a, b) => a - b);
     msSetOptions('f-ciclo-ms', cycleNumbers.map(String), 'Todos', 'renderTablaFiltrada(); togglePiscinaCicloVisibility();');
 }
@@ -710,9 +714,10 @@ function actualizarIndiceSucursal(subCode, indicePrevio, entradasNuevas) {
 async function cargarPiscinasCiclosDesdeIndice() {
     const codesSel = msSelected('f-sucursal-ms');
     if (!codesSel.length) { togglePiscinaCicloVisibility(); return; }
-    const listas = await Promise.all(codesSel.map(kvGetIndice));
+    const listas = await Promise.all(codesSel.map(subCode =>
+        kvGetIndice(subCode).then(arr => arr.map(e => ({ ...e, subCode: e.subCode || subCode })))));
     _indiceActual = listas.flat();
-    const poolNames = Array.from(new Set(_indiceActual.map(e => e.poolName))).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+    const poolNames = Array.from(new Set(_indiceActual.map(e => piscinaKey(e.subCode, e.poolName)))).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
     msSetOptions('f-piscina-ms', poolNames, 'Todas', 'actualizarCiclosDesdeIndice(); togglePiscinaCicloVisibility();');
     actualizarCiclosDesdeIndice();
     togglePiscinaCicloVisibility();
@@ -722,8 +727,8 @@ async function cargarPiscinasCiclosDesdeIndice() {
 // _ultimoDataset (que todavia puede no existir si no se genero el reporte).
 function actualizarCiclosDesdeIndice() {
     const piscinasSel = msSelected('f-piscina-ms');
-    const piscinasFiltro = piscinasSel.length ? new Set(piscinasSel.map(normPool)) : null;
-    const subset = piscinasFiltro ? _indiceActual.filter(e => piscinasFiltro.has(normPool(e.poolName))) : _indiceActual;
+    const piscinasFiltro = piscinasSel.length ? new Set(piscinasSel) : null;
+    const subset = piscinasFiltro ? _indiceActual.filter(e => piscinasFiltro.has(piscinaKey(e.subCode, e.poolName))) : _indiceActual;
     const cycleNumbers = Array.from(new Set(subset.map(e => e.cycleNumber))).sort((a, b) => a - b);
     msSetOptions('f-ciclo-ms', cycleNumbers.map(String), 'Todos', 'togglePiscinaCicloVisibility();');
 }
@@ -968,7 +973,7 @@ async function generarReporteMasivo() {
                 // lo que existe, no solo lo que coincide con los filtros elegidos en esta corrida.
                 const cycleIdTmp = g(ppRows[0], 'idCycle') || g(siRows[0], 'cycleId');
                 const estadoTmp = ppRows[0] ? 'PRODUCCION' : 'COSECHADO';
-                if (cycleIdTmp) indiceNuevo.push({ poolName, cycleNumber, cycleId: cycleIdTmp, estado: estadoTmp });
+                if (cycleIdTmp) indiceNuevo.push({ subCode: sub.code, poolName, cycleNumber, cycleId: cycleIdTmp, estado: estadoTmp });
 
                 // Fecha de siembra = la mas antigua entre los lotes sembrados de ese ciclo (puede
                 // haber varios). Si el filtro de fecha esta activo y no hay dato de siembra (ciclo
@@ -1004,7 +1009,7 @@ async function generarReporteMasivo() {
                 const rows = await fetchHistoriaCicloConCache(cycleId, estado);
                 if (!rows.length) return;
                 rows.forEach(row => {
-                    dataset.push({ sub: sub.name, poolName, cycleNumber, estado, row });
+                    dataset.push({ sub: sub.name, subCode: sub.code, poolName, cycleNumber, estado, row });
                     const cells = HISTORIA_COLS.map(c => fmtCelda(c.get(row)));
                     const html = `<tr>
                         <td class="ident">${sub.name}</td>
@@ -1029,7 +1034,7 @@ async function generarReporteMasivo() {
             // Piscinas se pueblan con lo que realmente vino en esta carga (sin llamadas nuevas a
             // la API); Ciclos se recalcula aparte, acotado a las piscinas elegidas (ver
             // actualizarCiclosDisponibles) para no mezclar ciclos de otras piscinas.
-            const poolNames = Array.from(new Set(dataset.map(e => e.poolName))).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+            const poolNames = Array.from(new Set(dataset.map(e => piscinaKey(e.subCode, e.poolName)))).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
             msSetOptions('f-piscina-ms', poolNames, 'Todas', 'actualizarCiclosDisponibles(); renderTablaFiltrada(); togglePiscinaCicloVisibility();');
             actualizarCiclosDisponibles();
             renderTablaFiltrada();
@@ -1054,12 +1059,12 @@ function renderTablaFiltrada() {
 
     const piscinasSel = msSelected('f-piscina-ms');
     const ciclosSel = msSelected('f-ciclo-ms');
-    const piscinasFiltro = piscinasSel.length ? new Set(piscinasSel.map(normPool)) : null;
+    const piscinasFiltro = piscinasSel.length ? new Set(piscinasSel) : null;
     const ciclosFiltro = ciclosSel.length ? new Set(ciclosSel.map(Number)) : null;
     const estados = estadosSeleccionados();
 
     const filtrado = _ultimoDataset.filter(e =>
-        (!piscinasFiltro || piscinasFiltro.has(normPool(e.poolName))) &&
+        (!piscinasFiltro || piscinasFiltro.has(piscinaKey(e.subCode, e.poolName))) &&
         (!ciclosFiltro || ciclosFiltro.has(Number(e.cycleNumber))) &&
         estados.includes(e.estado) &&
         (!ocultarIncompletas || g(e.row, 'weekCompleted') !== false) &&
