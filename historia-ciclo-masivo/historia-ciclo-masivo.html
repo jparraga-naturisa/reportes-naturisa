@@ -831,8 +831,17 @@ function cfPasaFiltros(row) {
     });
 }
 
-// "weekCompleted" viene directo de cycle_histories/production - false en la semana en curso
-// (todavia no se cierra), true en semanas ya cerradas.
+// Una semana es incompleta si "weekCompleted" viene en false (semana en curso, ciclos en
+// PRODUCCION) O si el rango real IniSem/FinSem dura menos de una semana - la semana de la
+// cosecha en un ciclo ya COSECHADO siempre viene con weekCompleted=true aunque haya durado
+// solo 1-2 dias, asi que ese campo solo no alcanza para detectarla.
+function esSemanaIncompleta(row) {
+    if (g(row, 'weekCompleted') === false) return true;
+    const ini = g(row, 'startOfWeek'), fin = g(row, 'endOfWeek');
+    if (!ini || !fin) return false;
+    const dias = (new Date(fin) - new Date(ini)) / 86400000;
+    return dias > 0 && dias < 6;
+}
 let ocultarIncompletas = false;
 function toggleOcultarIncompletas() {
     ocultarIncompletas = !ocultarIncompletas;
@@ -1074,7 +1083,7 @@ function renderTablaFiltrada() {
         (!piscinasFiltro || piscinasFiltro.has(piscinaKey(e.subCode, e.poolName))) &&
         (!ciclosFiltro || ciclosFiltro.has(Number(e.cycleNumber))) &&
         estados.includes(e.estado) &&
-        (!ocultarIncompletas || g(e.row, 'weekCompleted') !== false) &&
+        (!ocultarIncompletas || !esSemanaIncompleta(e.row)) &&
         cfPasaFiltros(e.row));
 
     // Orden Sucursal -> Piscina -> Ciclo -> Semana, igual que los filtros (dataset.push no
