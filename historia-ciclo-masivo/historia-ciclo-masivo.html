@@ -890,8 +890,7 @@ function estadosSeleccionados() {
         .filter(el => el.checked).map(el => el.value);
 }
 
-// Arma el "cascaron" de la tabla (thead con las columnas + boton de filtros) - usado tanto por
-// generarReporteMasivo como por cargarDesdeCacheCompartido para no duplicar el HTML.
+// Arma el "cascaron" de la tabla (thead con las columnas + boton de filtros).
 function crearEsqueletoTabla() {
     document.getElementById('main-content').innerHTML = `
         <div class="section-card"><div class="section-title"><span>Historia del ciclo - Siembra (todas las piscinas/ciclos)</span>
@@ -913,6 +912,14 @@ async function generarReporteMasivo() {
     const soloActivo = document.getElementById('f-solo-activo').value === '1';
     const usos = usosSeleccionados();
     if (!usos.length) return;
+    const estados = estadosSeleccionados();
+    if (!estados.length) return;
+    // Si ya hay Piscinas/Ciclos elegidos en los filtros, se usan para acotar la busqueda misma
+    // (no solo la vista final) - pedir 1 piscina/ciclo especifico no debe traer las demas 163.
+    const piscinasSelGen = msSelected('f-piscina-ms');
+    const ciclosSelGen = msSelected('f-ciclo-ms');
+    const piscinasFiltroGen = piscinasSelGen.length ? new Set(piscinasSelGen) : null;
+    const ciclosFiltroGen = ciclosSelGen.length ? new Set(ciclosSelGen.map(Number)) : null;
     _generandoReporte = true;
     const siembraDesde = document.getElementById('f-siembra-desde').value || null;
     const siembraHasta = document.getElementById('f-siembra-hasta').value || null;
@@ -947,6 +954,8 @@ async function generarReporteMasivo() {
                 const pn = r.poolName, cn = r.cycleNumber;
                 if (pn === undefined || pn === null || cn === undefined || cn === null) return;
                 if (String(r.subsidiaryCode || '').toUpperCase() !== sub.code.toUpperCase()) return;
+                if (piscinasFiltroGen && !piscinasFiltroGen.has(piscinaKey(sub.code, pn))) return;
+                if (ciclosFiltroGen && !ciclosFiltroGen.has(Number(cn))) return;
                 const key = normPool(pn);
                 if (!byKey[key]) byKey[key] = { display: canonicalPoolName(pn), cycles: new Set() };
                 byKey[key].cycles.add(Number(cn));
@@ -979,6 +988,7 @@ async function generarReporteMasivo() {
                 const cycleIdTmp = g(ppRows[0], 'idCycle') || g(siRows[0], 'cycleId');
                 const estadoTmp = ppRows[0] ? 'PRODUCCION' : 'COSECHADO';
                 if (cycleIdTmp) indiceNuevo.push({ subCode: sub.code, poolName, cycleNumber, cycleId: cycleIdTmp, estado: estadoTmp });
+                if (!estados.includes(estadoTmp)) { done++; hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`; return; }
 
                 // Fecha de siembra = la mas antigua entre los lotes sembrados de ese ciclo (puede
                 // haber varios). Si el filtro de fecha esta activo y no hay dato de siembra (ciclo
