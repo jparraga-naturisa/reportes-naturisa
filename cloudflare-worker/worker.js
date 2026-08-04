@@ -133,16 +133,21 @@ export default {
 
     if (url.pathname.startsWith('/kv/')) {
       const key = url.pathname.replace('/kv/', '')
-      if (!['excel','ciclos','cambios','cambios-dev','cambios-config','cambios-config-dev'].includes(key)) {
+      // "hc:<cycleId>" = cache compartido de un ciclo ya COSECHADO (historia-ciclo-masivo.html) -
+      // una clave por ciclo, nunca un blob unico, para que dos usuarios guardando ciclos distintos
+      // al mismo tiempo no se pisen entre si.
+      const esCicloCosechado = /^hc:\d+$/.test(key)
+      if (!esCicloCosechado && !['excel','ciclos','cambios','cambios-dev','cambios-config','cambios-config-dev'].includes(key)) {
         return corsResponse('{"error":"key no permitida"}', 400, request)
       }
       if (request.method === 'GET') {
         const val = await env.data.get(key)
-        return corsResponse(val || '[]', 200, request)
+        return corsResponse(val || (esCicloCosechado ? 'null' : '[]'), 200, request)
       }
       if (request.method === 'POST') {
         const body = await request.text()
-        await env.data.put(key, body)
+        // Los ciclos cosechados no vencen (nunca cambian) - las demas keys mantienen su comportamiento sin TTL.
+        await env.data.put(key, body, esCicloCosechado ? { expirationTtl: 60 * 60 * 24 * 365 * 5 } : undefined)
         return corsResponse('{"ok":true}', 200, request)
       }
       return corsResponse('{"error":"method not allowed"}', 405, request)

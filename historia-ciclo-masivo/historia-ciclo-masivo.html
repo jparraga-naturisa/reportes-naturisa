@@ -641,6 +641,42 @@ async function fetchHistoriaCiclo(cycleId) {
     } catch (e) { return []; }
 }
 
+// ── Cache COMPARTIDO de ciclos COSECHADOS (Cloudflare KV, via naturisa-proxy) ──────
+// Un ciclo cosechado ya no cambia (nunca vuelve a sumar semanas nuevas) - su historia semanal
+// se guarda en el Worker (endpoint /kv/hc:<cycleId>, mismo Worker que ya usan otras pantallas
+// para "excel"/"ciclos"/"cambios") para que CUALQUIER usuario que lo pida despues lo reciba
+// sin volver a llamar al API de AP1. Los ciclos en PRODUCCION SI cambian semana a semana y
+// siempre se piden frescos, nunca se guardan aqui. Cache en memoria por sesion para no repetir
+// el mismo GET si el mismo ciclo aparece 2 veces en la misma corrida.
+const KV_BASE = _PROXY + '/kv/';
+const _cicloCacheMemoria = {};
+
+async function kvGetCicloCosechado(cycleId) {
+    if (cycleId in _cicloCacheMemoria) return _cicloCacheMemoria[cycleId];
+    try {
+        const res = await fetch(KV_BASE + 'hc:' + cycleId);
+        const val = res.ok ? await res.json() : null;
+        _cicloCacheMemoria[cycleId] = val;
+        return val;
+    } catch (e) { return null; }
+}
+
+function kvGuardarCicloCosechado(cycleId, rows) {
+    _cicloCacheMemoria[cycleId] = rows;
+    fetch(KV_BASE + 'hc:' + cycleId, { method: 'POST', body: JSON.stringify(rows) }).catch(() => {});
+}
+
+// Trae la historia semanal de un ciclo, usando el cache compartido si es COSECHADO.
+async function fetchHistoriaCicloConCache(cycleId, estado) {
+    if (estado === 'COSECHADO') {
+        const cacheado = await kvGetCicloCosechado(cycleId);
+        if (cacheado) return cacheado;
+    }
+    const rows = await fetchHistoriaCiclo(cycleId);
+    if (estado === 'COSECHADO' && rows.length) kvGuardarCicloCosechado(cycleId, rows);
+    return rows;
+}
+
 // Columnas del tablero nativo "Historia del ciclo - Siembra". El nombre de campo real de la API
 // se resuelve con la primera alternativa disponible en la fila (algunos nombres no estan 100%
 // confirmados para todas las variantes de ciclo, por eso cada columna intenta varios candidatos).
@@ -908,7 +944,7 @@ async function generarReporteMasivo() {
                 // Estado del ciclo: si aparece en pool_production (solo trae el ciclo ACTIVO de
                 // cada piscina, en la semana actual) esta en Produccion; si no, ya fue Cosechado.
                 const estado = ppRows[0] ? 'PRODUCCION' : 'COSECHADO';
-                const rows = await fetchHistoriaCiclo(cycleId);
+                const rows = await fetchHistoriaCicloConCache(cycleId, estado);
                 if (!rows.length) return;
                 rows.forEach(row => {
                     dataset.push({ sub: sub.name, poolName, cycleNumber, estado, row });
