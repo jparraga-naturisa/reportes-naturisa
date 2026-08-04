@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Naturisa - Historia del ciclo (Masivo)</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --primary: #1a3a5c;
+    --primary-dark: #122943;
+    --primary-light: #2d6a9f;
+    --accent: #00b4d8;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --bg: #eef2f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --border: #e5e5ea;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 12px;
+    --radius-sm: 8px;
+    /* Paleta de datos (dataviz skill) - series categoricas en orden fijo, hue secuencial = azul */
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --chart-fill-100: #cde2fb;
+    --ink-primary: #0b0b0b;
+    --ink-secondary: #52514e;
+    --ink-muted: #898781;
+    --gridline: #e1e0d9;
+}
+html { height: 100%; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100%; margin: 0; }
+
+.header { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; padding: 14px 24px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.18); position: sticky; top: 0; z-index: 100; }
+.header-top-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.header-logo { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.header-logo-mark { width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.header-titles { display: flex; flex-direction: column; line-height: 1.25; }
+.header-titles .title { font-size: 18px; font-weight: 700; letter-spacing: 0.2px; }
+.header-titles .subtitle { font-size: 12.5px; font-weight: 500; opacity: 0.7; letter-spacing: 0.3px; }
+.header-logo .accent { color: var(--accent); }
+.header-logo .sep { opacity: 0.4; margin: 0 4px; }
+.header-user { position: relative; display: none; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap; user-select: none; margin-left: auto; }
+.user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--primary); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.user-name-label { font-size: 13.5px; font-weight: 600; }
+.user-caret { font-size: 10px; opacity: 0.7; }
+.user-menu { position: absolute; top: calc(100% + 8px); right: 0; background: white; color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); min-width: 150px; display: none; overflow: hidden; z-index: 20; }
+.user-menu.open { display: block; }
+.user-menu button { width: 100%; text-align: left; padding: 10px 14px; border: none; background: none; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--danger); }
+.user-menu button:hover { background: #fef2f2; }
+
+
+.ms-dropdown { position: relative; display: inline-block; }
+.ms-trigger { border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 9px 14px; background: white;
+    cursor: pointer; font-size: 14.5px; min-width: 190px; text-align: left; display: flex; justify-content: space-between;
+    align-items: center; gap: 6px; color: var(--text); transition: border-color 0.12s; }
+.ms-trigger:disabled { cursor: not-allowed; opacity: 0.55; }
+.ms-trigger:after { content: '▾'; opacity: 0.55; font-size: 12px; transition: transform 0.12s; }
+.ms-dropdown.open .ms-trigger { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,180,216,0.15); }
+.ms-dropdown.open .ms-trigger:after { transform: rotate(180deg); }
+.ms-panel { position: absolute; top: calc(100% + 4px); left: 0; background: white; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow-md); min-width: 210px; display: none; flex-direction: column;
+    z-index: 30; overflow: hidden; color: var(--text); }
+.ms-panel.open { display: flex; }
+.ms-search-row { display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border); padding: 8px 10px; }
+.ms-search-row:focus-within { box-shadow: inset 0 0 0 1.5px var(--accent); border-radius: 4px; }
+.ms-search-icon { font-size: 13.5px; opacity: 0.45; flex-shrink: 0; }
+.fg .ms-search, .ms-panel .ms-search { border: none; padding: 7px 2px; font-size: 14px; outline: none; color: var(--text) !important; background: transparent !important; flex: 1; min-width: 0; }
+.ms-clear-btn { border: none; background: none; cursor: pointer; font-size: 15px; color: var(--muted); padding: 2px 4px; line-height: 1; flex-shrink: 0; }
+.ms-clear-btn:hover { color: var(--danger); }
+.fg .ms-select-all, .ms-panel .ms-select-all { display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-size: 13.5px !important; font-weight: 600 !important; color: var(--muted) !important; text-transform: none !important; letter-spacing: normal !important; cursor: pointer; border-bottom: 1px solid var(--border); background: #fafbfc; }
+.ms-select-all:hover { background: #f3f4f6; }
+.ms-select-all input { margin: 0; transform: scale(1.15); }
+.ms-options { overflow-y: auto; max-height: 300px; }
+.ms-option { display: flex; align-items: center; gap: 9px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+.fg .ms-option, .ms-panel .ms-option { color: var(--text) !important; text-transform: none; font-weight: 400; letter-spacing: normal; }
+.ms-option:hover { background: #f3f4f6; }
+.ms-option input { margin: 0; transform: scale(1.15); }
+
+.date-range-trigger:after { content: none; }
+.date-range-icon { opacity: 0.6; font-size: 14px; }
+.date-range-panel { flex-direction: row !important; gap: 12px; padding: 14px; min-width: 300px; }
+.date-range-panel .fg label { color: var(--ink-muted) !important; text-transform: uppercase; font-size: 10.5px; font-weight: 700; }
+.date-range-panel input[type="date"] { height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13.5px; background: white; color: var(--text); color-scheme: light; }
+
+.filters { background: transparent; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: flex-start; }
+.fg { display: flex; flex-direction: column; gap: 5px; }
+.fg label { font-size: 10.5px; font-weight: 700; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.6px; }
+.fg select, .fg input[type="text"], .fg input[type="number"] { height: 34px; padding: 0 11px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; font-size: 14px; background: rgba(255,255,255,0.1); color: white; min-width: 120px; }
+.fg select option { color: var(--text); }
+.chk-group { display: flex; gap: 12px; height: 34px; align-items: center; font-size: 13px; font-weight: 500; padding: 0 14px; border-radius: 999px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); color: white; }
+.chk-group label { display: flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer; }
+.range-pair { display: flex; align-items: center; gap: 6px; }
+.range-pair input[type="date"] { height: 34px; padding: 0 11px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; font-size: 14px; background: rgba(255,255,255,0.1); color: white; color-scheme: dark; }
+.range-pair .sep { color: rgba(255,255,255,0.5); font-size: 12.5px; }
+.ms-dropdown .ms-trigger { border-radius: 999px; }
+.filters .ms-trigger { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); color: white; }
+.filters .ms-trigger:after { color: white; }
+.btn-apply { height: 34px; padding: 0 22px; background: var(--accent); color: var(--primary-dark); border: none; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 700; }
+.btn-apply:hover { opacity: 0.88; }
+.btn-apply:disabled { opacity: 0.5; cursor: default; }
+.btn-export { height: 34px; padding: 0 22px; background: rgba(255,255,255,0.14); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.btn-export:hover { background: rgba(255,255,255,0.22); }
+.btn-export:disabled { opacity: 0.5; cursor: default; }
+.btn-export.active { background: var(--accent); color: var(--primary-dark); border-color: var(--accent); font-weight: 700; }
+
+.main { padding: 16px 20px; }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14.5px; }
+.empty-icon { font-size: 40px; margin-bottom: 10px; }
+
+.section-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid var(--border); margin-bottom: 16px; overflow: hidden; }
+.section-title { padding: 12px 18px; font-size: 15px; font-weight: 700; color: var(--primary); background: #f8fafc; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.section-hint { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+
+.tbl-wrap { overflow-x: auto; overflow-y: auto; max-height: 78vh; }
+
+table.masivo-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.masivo-tbl th { padding: 7px 9px; text-align: center; font-weight: 700; color: #334155; background: #f8fafc; border-bottom: 2px solid var(--border); white-space: nowrap; position: sticky; top: 0; z-index: 5; }
+.masivo-tbl th.grp-ident { background: #eef2f7; }
+.masivo-tbl td { padding: 6px 9px; border-bottom: 1px solid #f1f1f3; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.masivo-tbl td.ident { text-align: left; font-weight: 600; color: var(--text); background: #fbfbfc; }
+.masivo-tbl tr:hover td { background: #f8fafc; }
+.masivo-tbl tr.grp-first td { border-top: 2px solid var(--border); }
+.masivo-tbl td.empty { color: #c7c7cc; }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 6px; vertical-align: -2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Filtro por columna (operadores, igual al tablero nativo) ────────────── */
+.col-filter-btn { border: none; background: none; cursor: pointer; font-size: 12px; opacity: 1; padding: 2px 3px; margin-left: 3px; color: var(--primary-light); vertical-align: middle; }
+.col-filter-btn:hover { color: var(--primary); transform: scale(1.15); }
+.col-filter-btn.active { color: var(--danger); }
+.col-filter-popover { position: absolute; display: none; background: white; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md); padding: 10px; z-index: 60; gap: 8px; flex-direction: column; min-width: 190px; color: var(--text); }
+.col-filter-popover.open { display: flex; }
+.col-filter-popover select { height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; color: var(--text); background: white; }
+.cf-values { display: flex; align-items: center; gap: 6px; }
+.cf-values input[type="number"] { height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; color: var(--text); width: 100%; min-width: 0; }
+.cf-sep { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+.cf-actions { display: flex; gap: 8px; }
+.cf-btn { flex: 1; height: 30px; border: none; border-radius: 6px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.cf-btn-apply { background: var(--primary); color: white; }
+.cf-btn-apply:hover { background: var(--primary-light); }
+.cf-btn-reset { background: #f1f1f3; color: var(--text); }
+.cf-btn-reset:hover { background: #e5e5ea; }
+.cf-clear-all-btn { border: 1px solid var(--border); background: white; color: var(--muted); font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; cursor: pointer; }
+.cf-clear-all-btn:hover { background: #fef2f2; color: var(--danger); border-color: #fecaca; }
+</style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-top-row">
+        <div class="header-logo">
+            <div class="header-logo-mark">
+                <svg width="22" height="22" viewBox="0 0 26 26" fill="none">
+                    <circle cx="13" cy="13" r="12" stroke="#00b4d8" stroke-width="1.8"/>
+                    <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.85" transform="rotate(-20 13 13)"/>
+                    <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.5" transform="rotate(30 13 13)"/>
+                </svg>
+            </div>
+            <div class="header-titles">
+                <span class="title">Historia del Ciclo <span class="accent">Masivo</span></span>
+                <span class="subtitle">NATURISA · Reporte semanal por piscina/ciclo</span>
+            </div>
+        </div>
+
+        <div class="header-user" id="header-user" onclick="toggleUserMenu(event)">
+            <div class="user-avatar" id="user-avatar"></div>
+            <span class="user-name-label" id="user-name-label"></span>
+            <span class="user-caret">▾</span>
+            <div class="user-menu" id="user-menu">
+                <button onclick="doLogout()">Cerrar sesión</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="filters">
+    <div class="fg">
+        <label>Sucursales</label>
+        <div class="ms-dropdown" id="f-sucursal-ms">
+            <button type="button" class="ms-trigger" onclick="msToggle('f-sucursal-ms', event)"><span class="ms-trigger-label">Todas</span></button>
+            <div class="ms-panel">
+                <label class="ms-select-all"><input type="checkbox"> Seleccionar todas</label>
+                <div class="ms-search-row">
+                    <span class="ms-search-icon">🔍</span>
+                    <input type="text" class="ms-search" placeholder="Buscar..." oninput="msFilterOptions('f-sucursal-ms', this.value)">
+                    <button type="button" class="ms-clear-btn" onclick="msClearSearch('f-sucursal-ms')" title="Limpiar busqueda">✕</button>
+                </div>
+                <div class="ms-options"></div>
+            </div>
+        </div>
+    </div>
+    <div class="fg" id="f-piscina-fg" style="display:none">
+        <label>Piscinas</label>
+        <div class="ms-dropdown" id="f-piscina-ms">
+            <button type="button" class="ms-trigger" onclick="msToggle('f-piscina-ms', event)" disabled><span class="ms-trigger-label">Todas</span></button>
+            <div class="ms-panel">
+                <label class="ms-select-all"><input type="checkbox"> Seleccionar todas</label>
+                <div class="ms-search-row">
+                    <span class="ms-search-icon">🔍</span>
+                    <input type="text" class="ms-search" placeholder="Buscar..." oninput="msFilterOptions('f-piscina-ms', this.value)">
+                    <button type="button" class="ms-clear-btn" onclick="msClearSearch('f-piscina-ms')" title="Limpiar busqueda">✕</button>
+                </div>
+                <div class="ms-options"></div>
+            </div>
+        </div>
+    </div>
+    <div class="fg" id="f-ciclo-fg" style="display:none">
+        <label>Ciclos</label>
+        <div class="ms-dropdown" id="f-ciclo-ms">
+            <button type="button" class="ms-trigger" onclick="msToggle('f-ciclo-ms', event)" disabled><span class="ms-trigger-label">Todos</span></button>
+            <div class="ms-panel">
+                <label class="ms-select-all"><input type="checkbox"> Seleccionar todos</label>
+                <div class="ms-search-row">
+                    <span class="ms-search-icon">🔍</span>
+                    <input type="text" class="ms-search" placeholder="Buscar..." oninput="msFilterOptions('f-ciclo-ms', this.value)">
+                    <button type="button" class="ms-clear-btn" onclick="msClearSearch('f-ciclo-ms')" title="Limpiar busqueda">✕</button>
+                </div>
+                <div class="ms-options"></div>
+            </div>
+        </div>
+    </div>
+    <div class="fg" style="display:none">
+        <label>Solo ciclo activo por piscina</label>
+        <select id="f-solo-activo">
+            <option value="1">Sí (más reciente)</option>
+            <option value="0" selected>No — todos los ciclos encontrados</option>
+        </select>
+    </div>
+    <div class="fg">
+        <label>Uso de la piscina</label>
+        <div class="chk-group">
+            <label><input type="checkbox" id="f-uso-precr" value="PRECRIADERO" checked> Precriadero</label>
+            <label><input type="checkbox" id="f-uso-preeng" value="PREENGORDE" checked> Pre Engorde</label>
+            <label><input type="checkbox" id="f-uso-eng" value="ENGORDE" checked> Engorde</label>
+        </div>
+    </div>
+    <div class="fg">
+        <label>Estado</label>
+        <div class="chk-group">
+            <label><input type="checkbox" id="f-estado-prod" value="PRODUCCION" checked onchange="renderTablaFiltrada()"> Producción</label>
+            <label><input type="checkbox" id="f-estado-cos" value="COSECHADO" checked onchange="renderTablaFiltrada()"> Cosechado</label>
+        </div>
+    </div>
+    <div class="fg">
+        <label>Fecha de siembra</label>
+        <div class="ms-dropdown" id="f-fecha-ms">
+            <button type="button" class="ms-trigger date-range-trigger" onclick="msToggle('f-fecha-ms', event)">
+                <span class="ms-trigger-label" id="f-fecha-label">—</span>
+                <span class="date-range-icon">📅</span>
+            </button>
+            <div class="ms-panel date-range-panel">
+                <div class="fg">
+                    <label>Desde</label>
+                    <input type="date" id="f-siembra-desde" onchange="onFechaSiembraChange()">
+                </div>
+                <div class="fg">
+                    <label>Hasta</label>
+                    <input type="date" id="f-siembra-hasta" onchange="onFechaSiembraChange()">
+                </div>
+            </div>
+        </div>
+    </div>
+    <button class="btn-apply" id="btn-generar" onclick="generarReporteMasivo()" title="Generar reporte">🔍 Generar</button>
+    <button class="btn-export" id="btn-ocultar-incompletas" onclick="toggleOcultarIncompletas()" title="Ocultar semanas incompletas">🕒 Incompletas</button>
+    <button class="btn-export" id="btn-exportar" onclick="exportarExcel()" disabled title="Exportar a Excel">📥 Excel</button>
+    </div>
+</header>
+
+<div id="login-modal" style="position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:16px;padding:36px 32px;width:380px;max-width:92vw;box-shadow:0 16px 40px rgba(0,0,0,0.35);">
+        <div style="text-align:center;margin-bottom:26px;">
+            <svg width="52" height="52" viewBox="0 0 26 26" fill="none" style="display:block;margin:0 auto 12px;">
+                <circle cx="13" cy="13" r="12" stroke="#00b4d8" stroke-width="1.8"/>
+                <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.85" transform="rotate(-20 13 13)"/>
+                <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.5" transform="rotate(30 13 13)"/>
+            </svg>
+            <div style="font-size:21px;font-weight:800;color:#1a3a5c;letter-spacing:0.5px;">NATURISA</div>
+            <div style="font-size:12.5px;color:#6e6e73;margin-top:4px;">Historia del Ciclo — Masivo</div>
+        </div>
+        <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:#6e6e73;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Usuario</label>
+            <input type="text" id="modal-user" placeholder="Ingresa tu usuario" autocomplete="username"
+                style="width:100%;padding:10px 13px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color 0.15s;"
+                onfocus="this.style.borderColor='#2d6a9f'" onblur="this.style.borderColor='#e5e5ea'"
+                onkeydown="if(event.key==='Enter') document.getElementById('modal-pass').focus()">
+        </div>
+        <div style="margin-bottom:20px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:#6e6e73;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Contraseña</label>
+            <input type="password" id="modal-pass" placeholder="Ingresa tu contraseña" autocomplete="current-password"
+                style="width:100%;padding:10px 13px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color 0.15s;"
+                onfocus="this.style.borderColor='#2d6a9f'" onblur="this.style.borderColor='#e5e5ea'"
+                onkeydown="if(event.key==='Enter') doModalLogin()">
+        </div>
+        <button id="modal-btn-login" onclick="doModalLogin()"
+            style="width:100%;padding:12px;background:#1a3a5c;color:white;border:none;border-radius:8px;font-size:14.5px;font-weight:700;cursor:pointer;letter-spacing:0.2px;transition:background 0.15s;"
+            onmouseover="this.style.background='#2d6a9f'" onmouseout="this.style.background='#1a3a5c'">
+            Ingresar
+        </button>
+        <div id="modal-status" style="text-align:center;margin-top:12px;font-size:13px;color:#ef4444;min-height:18px;"></div>
+
+        <div style="margin-top:16px;border-top:1px solid #e5e5ea;padding-top:14px;">
+            <div style="font-size:11px;color:#94a3b8;text-align:center;margin-bottom:8px;cursor:pointer;" onclick="document.getElementById('modal-token-section').style.display=document.getElementById('modal-token-section').style.display==='none'?'block':'none'">
+                ¿Error de conexión? Usa token manual ▾
+            </div>
+            <div id="modal-token-section" style="display:none;">
+                <div style="font-size:11px;color:#6e6e73;margin-bottom:8px;line-height:1.5;">
+                    Abre DevTools (F12) en otra pestaña de Naturisa → Network → cualquier request → Headers → copia el valor de <strong>Authorization</strong> (sin "Bearer ").
+                </div>
+                <input type="password" id="modal-token-inp" placeholder="Pega el Bearer token aquí..."
+                    style="width:100%;padding:9px 12px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:12px;box-sizing:border-box;font-family:monospace;outline:none;"
+                    onfocus="this.style.borderColor='#2d6a9f'" onblur="this.style.borderColor='#e5e5ea'">
+                <button onclick="saveModalToken()"
+                    style="width:100%;margin-top:8px;padding:9px;background:#0f766e;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">
+                    Conectar con token
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="main" id="main-content">
+    <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <div>Elige sucursales (o deja "Todas") y presiona Generar reporte.<br>
+        Trae, para cada piscina/ciclo, la última semana registrada en "Historia del ciclo - Siembra" (tablero nativo) y la apila en una sola tabla.</div>
+    </div>
+</div>
+
+<div id="col-filter-popover" class="col-filter-popover">
+    <select id="cf-operator" onchange="cfToggleBetween()">
+        <option value="eq">= Igual a</option>
+        <option value="neq">≠ Distinto de</option>
+        <option value="lt">&lt; Menor que</option>
+        <option value="gt">&gt; Mayor que</option>
+        <option value="lte">≤ Menor o igual que</option>
+        <option value="gte">≥ Mayor o igual que</option>
+        <option value="between">↔ Entre</option>
+    </select>
+    <div class="cf-values">
+        <input type="number" id="cf-val1" placeholder="Valor">
+        <span class="cf-sep" id="cf-sep" style="display:none">y</span>
+        <input type="number" id="cf-val2" placeholder="Valor" style="display:none">
+    </div>
+    <div class="cf-actions">
+        <button type="button" class="cf-btn cf-btn-apply" onclick="cfAplicar()">Aplicar</button>
+        <button type="button" class="cf-btn cf-btn-reset" onclick="cfRestablecer()">Restablecer</button>
+    </div>
+</div>
+
+<script>
+const _IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const _PROXY    = _IS_LOCAL ? '' : 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const AUTH_URL  = _PROXY + '/bff/web/ap1/security/api/auth';
+const API_BASE  = _PROXY + '/bff/web/ap1/backoffice/api';
+const CODE_APP  = '55ab9cb4-c887-4f42-98ec-b90470be6613';
+
+const SUBSIDIARIES = [
+    {id:13,code:'A1',name:'Acualit 1'}, {id:28,code:'A2',name:'Acualit 2'},
+    {id:6,code:'BR',name:'Biorey'}, {id:19,code:'BO',name:'Bonanza'},
+    {id:8,code:'CA',name:'Camaron'}, {id:7,code:'CR',name:'Camino Real'},
+    {id:10034,code:'CO',name:'Coaque'}, {id:11,code:'ES',name:'Esteromar'},
+    {id:14,code:'FI',name:'Fincacua'}, {id:17,code:'GO',name:'Golfomar'},
+    {id:16,code:'GR',name:'Granmar'}, {id:15,code:'IN',name:'Inducam'},
+    {id:5,code:'JO',name:'Josefina'}, {id:4,code:'KA',name:'Kamaclusa'},
+    {id:18,code:'LA',name:'Lanconor'}, {id:21,code:'LG',name:'Los Gelices'},
+    {id:9,code:'MH',name:'Marchena'}, {id:10,code:'MG',name:'Margolfo'},
+    {id:3,code:'MA',name:'Maricultura'}, {id:1,code:'NA',name:'Naturisa'},
+    {id:2,code:'PE',name:'Pesjoya'}, {id:12,code:'RN',name:'Rio Nilo'},
+    {id:20,code:'RO',name:'Roblemar'},
+];
+
+function getToken() { return localStorage.getItem('nat_token') || ''; }
+
+async function doModalLogin() {
+    const user = document.getElementById('modal-user').value.trim();
+    const pass = document.getElementById('modal-pass').value.trim();
+    const status = document.getElementById('modal-status');
+    const btn = document.getElementById('modal-btn-login');
+    if (!user || !pass) { status.textContent = 'Ingresa usuario y contraseña'; return; }
+    btn.textContent = 'Ingresando...'; btn.disabled = true; status.textContent = '';
+    try {
+        const res = await fetch(AUTH_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/plain, */*' },
+            body: JSON.stringify({ userName: user, password: pass, codeApplication: CODE_APP, includeUserInfo: true })
+        });
+        const json = await res.json();
+        if (json.code === 200 && json.data?.token) {
+            localStorage.setItem('nat_token', json.data.token);
+            const u = json.data.usuario;
+            const fullName = u ? (u.firstNames + ' ' + u.lastNames).trim() : user;
+            localStorage.setItem('nat_name', fullName);
+            document.getElementById('modal-pass').value = '';
+            applyLoginUI(true, fullName);
+        } else {
+            status.textContent = '⚠ Usuario o contraseña incorrectos';
+        }
+    } catch(e) {
+        console.error('Login error:', e);
+        status.textContent = '⚠ Error de conexión: ' + e.message;
+        document.getElementById('modal-token-section').style.display = 'block';
+    } finally { btn.textContent = 'Ingresar'; btn.disabled = false; }
+}
+
+function saveModalToken() {
+    const t = document.getElementById('modal-token-inp').value.trim().replace(/^Bearer\s+/i, '');
+    if (!t) { alert('Pega el token primero'); return; }
+    localStorage.setItem('nat_token', t);
+    const user = document.getElementById('modal-user').value || 'Usuario';
+    localStorage.setItem('nat_name', user);
+    applyLoginUI(true, user);
+}
+
+function doLogout() {
+    localStorage.removeItem('nat_token');
+    localStorage.removeItem('nat_name');
+    applyLoginUI(false, '');
+}
+
+function applyLoginUI(on, nombre) {
+    document.getElementById('login-modal').style.display = on ? 'none' : 'flex';
+
+    const userBox = document.getElementById('header-user');
+    userBox.style.display = on ? 'flex' : 'none';
+    if (on) {
+        const initials = nombre.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+        document.getElementById('user-avatar').textContent = initials;
+        document.getElementById('user-name-label').textContent = nombre;
+    }
+}
+
+function toggleUserMenu(e) {
+    e.stopPropagation();
+    document.getElementById('user-menu').classList.toggle('open');
+}
+document.addEventListener('click', () => document.getElementById('user-menu').classList.remove('open'));
+
+(function initLoginState() {
+    const token = getToken();
+    const name = localStorage.getItem('nat_name') || '';
+    if (token) applyLoginUI(true, name);
+})();
+
+// ── API helpers ──────────────────────────────────────────────
+async function apiGet(path, params) {
+    let qs = '';
+    if (params) {
+        const usp = new URLSearchParams();
+        params.forEach(([k, v]) => usp.append(k, v));
+        qs = '?' + usp.toString();
+    }
+    const fullUrl = API_BASE + '/' + path + qs;
+    const res = await fetch(fullUrl, {
+        headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json, text/plain, */*' }
+    });
+    if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+    const json = await res.json();
+    return json.data;
+}
+
+function normPool(name) {
+    const s = String(name || '').trim().toUpperCase();
+    const stripped = s.replace(/^0+/, '');
+    return stripped || s;
+}
+
+function canonicalPoolName(name) {
+    const s = String(name || '').trim().toUpperCase();
+    const m = s.match(/^(\d+)([A-Z]*)$/);
+    if (!m) return s;
+    const [, digits, suffix] = m;
+    const targetDigits = Math.max(4 - suffix.length, digits.length);
+    return digits.padStart(targetDigits, '0') + suffix;
+}
+
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+
+// "2026-08-03" -> "03/08/2026", para el label del selector de rango de fecha de siembra.
+function fmtFechaDDMMAAAA(isoStr) {
+    if (!isoStr) return null;
+    const [y, m, d] = isoStr.split('-');
+    return `${d}/${m}/${y}`;
+}
+
+function onFechaSiembraChange() {
+    const desde = document.getElementById('f-siembra-desde').value;
+    const hasta = document.getElementById('f-siembra-hasta').value;
+    const label = document.getElementById('f-fecha-label');
+    if (!desde && !hasta) { label.textContent = 'Todas las fechas'; return; }
+    label.textContent = `${fmtFechaDDMMAAAA(desde) || '…'} - ${fmtFechaDDMMAAAA(hasta) || '…'}`;
+}
+
+// Por defecto: ultimos 3 meses hasta hoy (en vez de una fecha fija) - se calcula en cada carga
+// de pagina para que "hoy" siempre sea el dia real, no una fecha vieja quemada en el HTML.
+(function initRangoFechaSiembra() {
+    const hoy = new Date();
+    const hace3Meses = new Date(hoy.getFullYear(), hoy.getMonth() - 3, hoy.getDate());
+    document.getElementById('f-siembra-desde').value = isoDate(hace3Meses);
+    document.getElementById('f-siembra-hasta').value = isoDate(hoy);
+    onFechaSiembraChange();
+})();
+
+function isoWeek(d) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+    return { year: date.getUTCFullYear(), week };
+}
+
+function g(row, ...fields) {
+    if (!row) return null;
+    for (const f of fields) {
+        const v = row[f];
+        if (v !== null && v !== undefined) return v;
+    }
+    return null;
+}
+
+async function runPool(items, limit, worker) {
+    let next = 0;
+    const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+        while (next < items.length) {
+            const i = next++;
+            await worker(items[i], i);
+        }
+    });
+    await Promise.all(workers);
+}
+
+// ── Dropdown de sucursales (checkboxes) ───────────────────────
+function msSelected(id) {
+    return Array.from(document.querySelectorAll(`#${id} .ms-option input:checked`)).map(el => el.value);
+}
+function msToggle(id, e) {
+    e.stopPropagation();
+    const root = document.getElementById(id);
+    const panel = root.querySelector('.ms-panel');
+    const wasOpen = panel.classList.contains('open');
+    document.querySelectorAll('.ms-panel.open').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.ms-dropdown.open').forEach(d => d.classList.remove('open'));
+    if (!wasOpen) { panel.classList.add('open'); root.classList.add('open'); }
+}
+function msFilterOptions(id, query) {
+    const q = query.trim().toLowerCase();
+    document.querySelectorAll(`#${id} .ms-option`).forEach(label => {
+        label.style.display = label.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+function msClearSearch(id) {
+    const root = document.getElementById(id);
+    const search = root.querySelector('.ms-search');
+    search.value = '';
+    msFilterOptions(id, '');
+    search.focus();
+}
+function msUpdateTrigger(id, placeholder) {
+    const sel = msSelected(id);
+    document.querySelector(`#${id} .ms-trigger-label`).textContent = sel.length ? `${sel.length} elegida${sel.length > 1 ? 's' : ''}` : placeholder;
+    const all = document.getElementById(id).querySelector('.ms-select-all input');
+    if (all) {
+        const total = document.querySelectorAll(`#${id} .ms-option input`).length;
+        all.checked = total > 0 && sel.length === total;
+        all.indeterminate = sel.length > 0 && sel.length < total;
+    }
+}
+function msToggleAll(id, checked, placeholder, extraOnChangeJs) {
+    document.querySelectorAll(`#${id} .ms-option input`).forEach(el => { el.checked = checked; });
+    msUpdateTrigger(id, placeholder);
+    if (extraOnChangeJs) (new Function(extraOnChangeJs))();
+}
+function msSetOptions(id, values, placeholder, extraOnChangeJs) {
+    const root = document.getElementById(id);
+    const trigger = root.querySelector('.ms-trigger');
+    const optionsBox = root.querySelector('.ms-options');
+    const search = root.querySelector('.ms-search');
+    const selectAll = root.querySelector('.ms-select-all input');
+    if (search) search.value = '';
+    const onchange = `msUpdateTrigger('${id}', '${placeholder}')${extraOnChangeJs ? '; ' + extraOnChangeJs : ''}`;
+    optionsBox.innerHTML = values.map(v => `<label class="ms-option"><input type="checkbox" value="${v}" onchange="${onchange}"> ${v}</label>`).join('');
+    trigger.disabled = !values.length;
+    if (selectAll) selectAll.onchange = () => msToggleAll(id, selectAll.checked, placeholder, extraOnChangeJs || '');
+    msUpdateTrigger(id, placeholder);
+}
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.ms-dropdown')) {
+        document.querySelectorAll('.ms-panel.open').forEach(p => p.classList.remove('open'));
+        document.querySelectorAll('.ms-dropdown.open').forEach(d => d.classList.remove('open'));
+    }
+});
+
+(function initSucursalDropdown() {
+    const root = document.getElementById('f-sucursal-ms');
+    const optionsBox = root.querySelector('.ms-options');
+    const selectAll = root.querySelector('.ms-select-all input');
+    optionsBox.innerHTML = SUBSIDIARIES.slice().sort((a, b) => a.name.localeCompare(b.name, 'es'))
+        .map(s => `<label class="ms-option"><input type="checkbox" value="${s.code}" onchange="msUpdateTrigger('f-sucursal-ms', 'Todas'); togglePiscinaCicloVisibility();"> ${s.code} - ${s.name}</label>`).join('');
+    selectAll.onchange = () => { msToggleAll('f-sucursal-ms', selectAll.checked, 'Todas'); togglePiscinaCicloVisibility(); };
+})();
+
+// Cascada Sucursal -> Piscinas -> Ciclos (igual que consumos-insumos.html): el filtro de
+// Piscinas solo se ve si hay al menos una sucursal especifica elegida (no "Todas"), y el de
+// Ciclos solo si ademas hay al menos una piscina elegida (no "Todas las piscinas").
+function togglePiscinaCicloVisibility() {
+    const hasSub = msSelected('f-sucursal-ms').length > 0;
+    const hasPool = msSelected('f-piscina-ms').length > 0;
+    document.getElementById('f-piscina-fg').style.display = hasSub ? '' : 'none';
+    document.getElementById('f-ciclo-fg').style.display = (hasSub && hasPool) ? '' : 'none';
+}
+
+// Recalcula las opciones del dropdown "Ciclos" acotadas a las piscinas elegidas en ese momento
+// (si no hay ninguna piscina elegida, usa todo _ultimoDataset) - evita mezclar ciclos de otras
+// piscinas que no tienen nada que ver con la seleccionada. Se llama al generar el reporte y
+// cada vez que cambia la seleccion de Piscinas.
+function actualizarCiclosDisponibles() {
+    const piscinasSel = msSelected('f-piscina-ms');
+    const piscinasFiltro = piscinasSel.length ? new Set(piscinasSel.map(normPool)) : null;
+    const subset = piscinasFiltro ? _ultimoDataset.filter(e => piscinasFiltro.has(normPool(e.poolName))) : _ultimoDataset;
+    const cycleNumbers = Array.from(new Set(subset.map(e => e.cycleNumber))).sort((a, b) => a - b);
+    msSetOptions('f-ciclo-ms', cycleNumbers.map(String), 'Todos', 'renderTablaFiltrada(); togglePiscinaCicloVisibility();');
+}
+
+// "Historia del ciclo - Siembra" (cycle_histories/production/{cycleId}) - endpoint unico que trae,
+// por semana, todo lo que muestra esa pantalla nativa. Se traen TODAS las filas (no solo la ultima)
+// para poder mostrar el historial semanal completo de cada piscina/ciclo.
+async function fetchHistoriaCiclo(cycleId) {
+    if (!cycleId) return [];
+    try {
+        const rows = await apiGet(`cycle_histories/production/${cycleId}`, []);
+        return rows || [];
+    } catch (e) { return []; }
+}
+
+// Columnas del tablero nativo "Historia del ciclo - Siembra". El nombre de campo real de la API
+// se resuelve con la primera alternativa disponible en la fila (algunos nombres no estan 100%
+// confirmados para todas las variantes de ciclo, por eso cada columna intenta varios candidatos).
+// Nombres de campo confirmados el 2026-08-03 contra la respuesta real de
+// cycle_histories/production/{cycleId} (DevTools, ciclo 100 - piscina 5, 9 semanas completas).
+const HISTORIA_COLS = [
+    { label: 'Sem',            get: r => g(r, 'weekOfYear') },
+    { label: 'IniSem',         get: r => fmtFechaCorta(g(r, 'startOfWeek')) },
+    { label: 'FinSem',         get: r => fmtFechaCorta(g(r, 'endOfWeek')) },
+    { label: 'DiasProd',       get: r => g(r, 'productionDays') },
+    { label: 'PesoPromFinca',  get: r => g(r, 'weight') },
+    { label: 'PesoPromRegFinca', get: r => g(r, 'estimatedWeightByRegresion') },
+    { label: 'Cr1S',           get: r => g(r, 'growthlastWeeks') },
+    { label: 'Cr2S',           get: r => g(r, 'growth2Weeks') },
+    { label: 'Cr4S',           get: r => g(r, 'growth4Weeks') },
+    { label: 'CrIn',           get: r => g(r, 'growthFromTheBeginning') },
+    { label: 'Sobrv',          get: r => g(r, 'survival') },
+    { label: 'BiomAct',        get: r => g(r, 'biomassActual') },
+    { label: 'BiomSem',        get: r => g(r, 'biomassWeek') },
+    { label: 'AnimTotalM2',    get: r => g(r, 'totalActualAnimalsPerSquareMeter') },
+    { label: 'BiomCos',        get: r => g(r, 'biomassHarvested') },
+    { label: 'AlimUltSem',     get: r => g(r, 'totalFeedWeek') },
+    { label: 'AlimAcum',       get: r => g(r, 'totalAccumulateFeed') },
+    { label: 'AlimHaDía',      get: r => g(r, 'totalFeedWeekPerHectareDay') },
+    { label: 'FCA Real',       get: r => g(r, 'fca') },
+    { label: 'FCA Bruto',      get: r => g(r, 'fcaGross') },
+    { label: 'FCA Sem',        get: r => g(r, 'fcaWeek') },
+    { label: 'EstM2',          get: r => g(r, 'estM2') },
+    { label: 'AlimFactor',     get: r => g(r, 'feedFactor') },
+];
+
+// ── Filtro por columna (operadores tipo tablero nativo, en espanol) ─────────
+const colFilters = {}; // label -> {op, v1, v2}
+let _cfLabelActual = null;
+
+function cfAbrir(e, label) {
+    e.stopPropagation();
+    _cfLabelActual = label;
+    const pop = document.getElementById('col-filter-popover');
+    const existente = colFilters[label];
+    document.getElementById('cf-operator').value = existente ? existente.op : 'eq';
+    document.getElementById('cf-val1').value = existente ? existente.v1 : '';
+    document.getElementById('cf-val2').value = existente && existente.v2 != null ? existente.v2 : '';
+    cfToggleBetween();
+
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    pop.style.left = (rect.left + window.scrollX) + 'px';
+    pop.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    pop.classList.add('open');
+    document.getElementById('cf-val1').focus();
+}
+
+function cfToggleBetween() {
+    const esEntre = document.getElementById('cf-operator').value === 'between';
+    document.getElementById('cf-val2').style.display = esEntre ? '' : 'none';
+    document.getElementById('cf-sep').style.display = esEntre ? '' : 'none';
+}
+
+function cfAplicar() {
+    const op = document.getElementById('cf-operator').value;
+    const v1 = parseFloat(document.getElementById('cf-val1').value);
+    const v2 = parseFloat(document.getElementById('cf-val2').value);
+    if (Number.isNaN(v1)) { alert('Ingresa un valor'); return; }
+    if (op === 'between' && Number.isNaN(v2)) { alert('Ingresa el segundo valor'); return; }
+    colFilters[_cfLabelActual] = { op, v1, v2 };
+    document.getElementById('col-filter-popover').classList.remove('open');
+    document.querySelector(`.col-filter-btn[data-label="${CSS.escape(_cfLabelActual)}"]`)?.classList.add('active');
+    renderTablaFiltrada();
+}
+
+function cfRestablecer() {
+    delete colFilters[_cfLabelActual];
+    document.getElementById('col-filter-popover').classList.remove('open');
+    document.querySelector(`.col-filter-btn[data-label="${CSS.escape(_cfLabelActual)}"]`)?.classList.remove('active');
+    renderTablaFiltrada();
+}
+
+// Quita SOLO los filtros por columna (▽) de la tabla - no toca Sucursales/Piscinas/Ciclos/
+// Uso/Estado/Fecha de siembra ni "Ocultar semanas incompletas".
+function cfLimpiarTodo() {
+    Object.keys(colFilters).forEach(k => delete colFilters[k]);
+    document.querySelectorAll('.col-filter-btn.active').forEach(b => b.classList.remove('active'));
+    renderTablaFiltrada();
+}
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.col-filter-popover') && !e.target.closest('.col-filter-btn')) {
+        document.getElementById('col-filter-popover')?.classList.remove('open');
+    }
+});
+
+function cfPasaFiltros(row) {
+    return Object.entries(colFilters).every(([label, f]) => {
+        const col = HISTORIA_COLS.find(c => c.label === label);
+        if (!col) return true;
+        const num = Number(col.get(row));
+        if (!Number.isFinite(num)) return false;
+        switch (f.op) {
+            case 'eq': return num === f.v1;
+            case 'neq': return num !== f.v1;
+            case 'lt': return num < f.v1;
+            case 'gt': return num > f.v1;
+            case 'lte': return num <= f.v1;
+            case 'gte': return num >= f.v1;
+            case 'between': return num >= Math.min(f.v1, f.v2) && num <= Math.max(f.v1, f.v2);
+            default: return true;
+        }
+    });
+}
+
+// "weekCompleted" viene directo de cycle_histories/production - false en la semana en curso
+// (todavia no se cierra), true en semanas ya cerradas.
+let ocultarIncompletas = false;
+function toggleOcultarIncompletas() {
+    ocultarIncompletas = !ocultarIncompletas;
+    document.getElementById('btn-ocultar-incompletas').classList.toggle('active', ocultarIncompletas);
+    renderTablaFiltrada();
+}
+
+function fmtFechaCorta(isoDateStr) {
+    if (!isoDateStr) return null;
+    const s = String(isoDateStr).slice(0, 10);
+    const [y, m, d] = s.split('-');
+    if (!y || !m || !d) return null;
+    return `${d}/${m}/${y}`;
+}
+
+function fmtCelda(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') {
+        return Number.isInteger(v) ? v.toLocaleString('es-EC') : v.toLocaleString('es-EC', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+    }
+    return String(v);
+}
+
+let _ultimoDataset = [];
+let _generandoReporte = false;
+
+// Uso de la piscina (Precriadero/Pre Engorde/Engorde) - viene de pool_production.cycleUsageId
+// (solo existe para el ciclo ACTIVO de cada piscina; report_production/pool_production no lo trae
+// para ciclos previos, igual que en validador-datos.html).
+const USO_TO_CYCLE_USAGE_ID = { PRECRIADERO: '9', PREENGORDE: '8', ENGORDE: '7' };
+
+function usosSeleccionados() {
+    return ['f-uso-precr', 'f-uso-preeng', 'f-uso-eng']
+        .map(id => document.getElementById(id))
+        .filter(el => el.checked).map(el => el.value);
+}
+
+function estadosSeleccionados() {
+    return ['f-estado-prod', 'f-estado-cos']
+        .map(id => document.getElementById(id))
+        .filter(el => el.checked).map(el => el.value);
+}
+
+async function generarReporteMasivo() {
+    if (!getToken() || _generandoReporte) return;
+    Object.keys(colFilters).forEach(k => delete colFilters[k]);
+    const codesSel = msSelected('f-sucursal-ms');
+    const subs = (codesSel.length ? SUBSIDIARIES.filter(s => codesSel.includes(s.code)) : SUBSIDIARIES);
+    const soloActivo = document.getElementById('f-solo-activo').value === '1';
+    const usos = usosSeleccionados();
+    if (!usos.length) return;
+    _generandoReporte = true;
+    const siembraDesde = document.getElementById('f-siembra-desde').value || null;
+    const siembraHasta = document.getElementById('f-siembra-hasta').value || null;
+    // cycle_sowing_report exige un rango de fechas de siembra - se acota a 2025-2026 (ciclos
+    // recientes/vigentes) en vez de traer todo el historico, que incluye piscinas ya renombradas
+    // o dadas de baja hace anios.
+    const end = new Date();
+    const start = new Date('2025-01-01T00:00:00');
+    const startStr = isoDate(start), endStr = isoDate(end);
+    const { year: cutOffYear, week: cutOffWeek } = isoWeek(end);
+
+    const btn = document.getElementById('btn-generar');
+    const exportBtn = document.getElementById('btn-exportar');
+    btn.disabled = true; exportBtn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Generando...';
+
+    const container = document.getElementById('main-content');
+    container.innerHTML = `
+        <div class="section-card"><div class="section-title"><span>Historia del ciclo - Siembra (todas las piscinas/ciclos)</span>
+        <span style="display:flex;align-items:center;gap:10px">
+            <span class="section-hint" id="progreso-masivo">Preparando...</span>
+            <button type="button" class="cf-clear-all-btn" onclick="cfLimpiarTodo()" title="Quita solo los filtros por columna de la tabla (▽)">✕ Limpiar filtros de tabla</button>
+        </span></div>
+        <div class="tbl-wrap"><table class="masivo-tbl"><thead><tr>
+            <th class="grp-ident">Sucursal</th><th class="grp-ident">Piscina</th><th class="grp-ident">Ciclo</th>
+            ${HISTORIA_COLS.map(c => `<th>${c.label}<button type="button" class="col-filter-btn" data-label="${c.label}" onclick="cfAbrir(event, '${c.label}')" title="Filtrar">▽</button></th>`).join('')}
+        </tr></thead><tbody id="masivo-tbody"></tbody></table></div></div>`;
+    const tbody = document.getElementById('masivo-tbody');
+    const hint = document.getElementById('progreso-masivo');
+    const dataset = [];
+
+    try {
+        for (const sub of subs) {
+            hint.textContent = `Buscando piscinas/ciclos de ${sub.name}...`;
+            const [siembras, pp] = await Promise.all([
+                apiGet('cycle_sowing_report', [['subsidiaryIds', sub.id], ['startDate', startStr], ['endDate', endStr]]).catch(() => []),
+                apiGet('report_production/pool_production', [['subsidiaryIds', sub.id], ['cutOffYear', cutOffYear], ['cutOffWeek', cutOffWeek]]).catch(() => []),
+            ]);
+
+            const byKey = {};
+            [...(siembras || []), ...(pp || [])].forEach(r => {
+                const pn = r.poolName, cn = r.cycleNumber;
+                if (pn === undefined || pn === null || cn === undefined || cn === null) return;
+                if (String(r.subsidiaryCode || '').toUpperCase() !== sub.code.toUpperCase()) return;
+                const key = normPool(pn);
+                if (!byKey[key]) byKey[key] = { display: canonicalPoolName(pn), cycles: new Set() };
+                byKey[key].cycles.add(Number(cn));
+            });
+
+            const pares = [];
+            Object.values(byKey)
+                .sort((a, b) => a.display.localeCompare(b.display, 'es', { numeric: true }))
+                .forEach(({ display, cycles }) => {
+                    const ordenados = Array.from(cycles).sort((a, b) => a - b);
+                    (soloActivo ? ordenados.slice(-1) : ordenados).forEach(cycleNumber => {
+                        pares.push({ poolName: display, cycleNumber });
+                    });
+                });
+            if (!pares.length) continue;
+
+            let done = 0;
+            await runPool(pares, 6, async ({ poolName, cycleNumber }) => {
+                const siRows = (siembras || []).filter(r =>
+                    String(r.subsidiaryCode || '').toUpperCase() === sub.code.toUpperCase() &&
+                    normPool(r.poolName) === normPool(poolName) && Number(r.cycleNumber) === cycleNumber);
+                const ppRows = (pp || []).filter(r =>
+                    String(r.subsidiaryCode || '').toUpperCase() === sub.code.toUpperCase() &&
+                    normPool(r.poolName) === normPool(poolName) && Number(r.cycleNumber) === cycleNumber);
+
+                // Fecha de siembra = la mas antigua entre los lotes sembrados de ese ciclo (puede
+                // haber varios). Si el filtro de fecha esta activo y no hay dato de siembra (ciclo
+                // fuera del rango de dias-atras elegido) se descarta por no poder confirmar la fecha.
+                const fechaSiembra = siRows.length ? siRows.map(r => r.dateSowing).sort()[0].slice(0, 10) : null;
+                if (siembraDesde || siembraHasta) {
+                    if (!fechaSiembra) { done++; hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`; return; }
+                    if (siembraDesde && fechaSiembra < siembraDesde) { done++; hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`; return; }
+                    if (siembraHasta && fechaSiembra > siembraHasta) { done++; hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`; return; }
+                }
+
+                // Si el ciclo tiene dato de uso y no cae en ninguno de los usos elegidos, se descarta.
+                // pool_production trae cycleUsageId numerico (7/8/9), solo para el ciclo activo.
+                // cycle_sowing_report trae cycleUsage como texto libre ("Engorde", "Pre cría",
+                // "Precriadero") - SI existe para ciclos ya cosechados, a diferencia de pool_production -
+                // se normaliza (sin tildes/espacios) para compararlo contra los codigos de los checkboxes.
+                const normUso = s => Array.from(String(s || '').toUpperCase().normalize('NFD'))
+                    .filter(ch => ch.codePointAt(0) < 0x0300 || ch.codePointAt(0) > 0x036f)
+                    .join('').replace(/[^A-Z]/g, '');
+                const usoRawId = g(ppRows[0], 'cycleUsageId');
+                const usoRawTxt = g(siRows[0], 'cycleUsage');
+                const usoCiclo = usoRawId != null
+                    ? Object.keys(USO_TO_CYCLE_USAGE_ID).find(k => USO_TO_CYCLE_USAGE_ID[k] === String(usoRawId))
+                    : (usoRawTxt
+                        ? Object.keys(USO_TO_CYCLE_USAGE_ID).find(k => normUso(k).startsWith(normUso(usoRawTxt)) || normUso(usoRawTxt).startsWith(normUso(k)))
+                        : null);
+                if (usoCiclo && !usos.includes(usoCiclo)) { done++; hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`; return; }
+                const cycleId = g(ppRows[0], 'idCycle') || g(siRows[0], 'cycleId');
+                done++;
+                hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`;
+                if (!cycleId) return;
+
+                // Estado del ciclo: si aparece en pool_production (solo trae el ciclo ACTIVO de
+                // cada piscina, en la semana actual) esta en Produccion; si no, ya fue Cosechado.
+                const estado = ppRows[0] ? 'PRODUCCION' : 'COSECHADO';
+                const rows = await fetchHistoriaCiclo(cycleId);
+                if (!rows.length) return;
+                rows.forEach(row => {
+                    dataset.push({ sub: sub.name, poolName, cycleNumber, estado, row });
+                    const cells = HISTORIA_COLS.map(c => fmtCelda(c.get(row)));
+                    const html = `<tr>
+                        <td class="ident">${sub.name}</td>
+                        <td class="ident">${poolName}</td>
+                        <td class="ident">${cycleNumber}</td>
+                        ${cells.map(v => `<td class="${v === null ? 'empty' : ''}">${v === null ? '—' : v}</td>`).join('')}
+                    </tr>`;
+                    tbody.insertAdjacentHTML('beforeend', html);
+                });
+            });
+        }
+
+        _ultimoDataset = dataset;
+        if (!dataset.length) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-icon">🤷</div><div>No se encontraron datos de "Historia del ciclo" para los filtros elegidos.</div></div>`;
+        } else {
+            // Piscinas se pueblan con lo que realmente vino en esta carga (sin llamadas nuevas a
+            // la API); Ciclos se recalcula aparte, acotado a las piscinas elegidas (ver
+            // actualizarCiclosDisponibles) para no mezclar ciclos de otras piscinas.
+            const poolNames = Array.from(new Set(dataset.map(e => e.poolName))).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+            msSetOptions('f-piscina-ms', poolNames, 'Todas', 'actualizarCiclosDisponibles(); renderTablaFiltrada(); togglePiscinaCicloVisibility();');
+            actualizarCiclosDisponibles();
+            renderTablaFiltrada();
+            togglePiscinaCicloVisibility();
+            exportBtn.disabled = false;
+        }
+    } catch (e) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Error: ${e.message}</div></div>`;
+    } finally {
+        btn.disabled = false; btn.innerHTML = '🔍 Generar';
+        _generandoReporte = false;
+    }
+}
+
+// Filtra _ultimoDataset (ya cargado, sin llamadas nuevas a la API) por lo elegido en los
+// dropdowns de Piscinas/Ciclos y repinta el tbody. Se llama al generar el reporte y cada vez
+// que cambia alguno de esos dos dropdowns.
+function renderTablaFiltrada() {
+    const tbody = document.getElementById('masivo-tbody');
+    const hint = document.getElementById('progreso-masivo');
+    if (!tbody) return;
+
+    const piscinasSel = msSelected('f-piscina-ms');
+    const ciclosSel = msSelected('f-ciclo-ms');
+    const piscinasFiltro = piscinasSel.length ? new Set(piscinasSel.map(normPool)) : null;
+    const ciclosFiltro = ciclosSel.length ? new Set(ciclosSel.map(Number)) : null;
+    const estados = estadosSeleccionados();
+
+    const filtrado = _ultimoDataset.filter(e =>
+        (!piscinasFiltro || piscinasFiltro.has(normPool(e.poolName))) &&
+        (!ciclosFiltro || ciclosFiltro.has(Number(e.cycleNumber))) &&
+        estados.includes(e.estado) &&
+        (!ocultarIncompletas || g(e.row, 'weekCompleted') !== false) &&
+        cfPasaFiltros(e.row));
+
+    tbody.innerHTML = filtrado.map(({ sub, poolName, cycleNumber, row }) => {
+        const cells = HISTORIA_COLS.map(c => fmtCelda(c.get(row)));
+        return `<tr>
+            <td class="ident">${sub}</td>
+            <td class="ident">${poolName}</td>
+            <td class="ident">${cycleNumber}</td>
+            ${cells.map(v => `<td class="${v === null ? 'empty' : ''}">${v === null ? '—' : v}</td>`).join('')}
+        </tr>`;
+    }).join('');
+
+    if (hint) hint.textContent = `${filtrado.length} de ${_ultimoDataset.length} filas de historia semanal.`;
+}
+
+function exportarExcel() {
+    const table = document.querySelector('table.masivo-tbl');
+    if (!table) { alert('No hay datos en pantalla para exportar - primero genera el reporte.'); return; }
+
+    let html = '<html><head><meta charset="utf-8"></head><body><table border="1" cellspacing="0">';
+    table.querySelectorAll('tr').forEach(tr => {
+        html += '<tr>';
+        Array.from(tr.children).forEach(td => {
+            const tag = td.tagName.toLowerCase();
+            html += `<${tag}>${(td.textContent || '').trim()}</${tag}>`;
+        });
+        html += '</tr>';
+    });
+    html += '</table></body></html>';
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fecha = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `historia_ciclo_masivo_${fecha}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
