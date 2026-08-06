@@ -4377,10 +4377,6 @@ function _renderVoleoTable(y) {
     const fmt  = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : n.toFixed(0);
     const fmt2 = n => n.toLocaleString('es-EC', { maximumFractionDigits:1 });
 
-    document.getElementById('vo-kpi-kg').textContent    = fmt(totalKg);
-    document.getElementById('vo-kpi-sacos').textContent = fmt(totalSacos);
-    document.getElementById('vo-kpi-ha').textContent    = fmt2(totalHa);
-    document.getElementById('vo-kpi-kgha').textContent  = totalHa > 0 ? fmt2(totalKg / totalHa) : '—';
 
     // Tabla
     const hasMissingHa = _voleoRows.some(r => r.ha === 0);
