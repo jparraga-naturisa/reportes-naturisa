@@ -818,8 +818,7 @@ Chart.register(ChartDataLabels);
 // Mientras tanto apunta al gateway directo.
 const WORKER_BASE = 'https://naturisa-proxy.parragajonathan965.workers.dev';
 const GATEWAY     = 'https://gateway.naturisa.com.ec';
-// Worker con problemas de conexion - vuelve a apuntar directo al gateway hasta arreglarlo:
-const _BASE = GATEWAY;
+const _BASE = WORKER_BASE;
 
 const API_FEEDING       = `${_BASE}/bff/mobile/feedcontrol/balanceado/api/report/feeding_general`;
 const API_WAREHOUSES    = `${_BASE}/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name`;
@@ -4326,17 +4325,25 @@ async function consultarVoleo() {
                 const pRes = await fetch(`${API_POOLS}?${poolQs}`, { headers });
                 if (pRes.ok) {
                     const pj = await pRes.json();
+                    console.log('[voleo pools] respuesta raw:', JSON.stringify(pj).slice(0, 500));
                     const pools = Array.isArray(pj) ? pj
                         : Array.isArray(pj.data) ? pj.data
                         : Array.isArray(pj.data?.data) ? pj.data.data
                         : Array.isArray(pj.data?.content) ? pj.data.content
                         : Array.isArray(pj.content) ? pj.content
                         : Array.isArray(pj.data?.items) ? pj.data.items : [];
+                    console.log('[voleo pools] total piscinas:', pools.length, '| ejemplo:', JSON.stringify(pools[0]));
+                    // Indexar por codePool (ej: "NA-0002") que es lo que devuelve groupValue en feeding
                     _voleoPools = {};
                     pools.forEach(p => {
-                        const nm = (p.name || p.poolName || '').trim();
-                        if (nm) _voleoPools[nm] = parseFloat(p.size) || 0;
+                        const code = (p.codePool || '').trim();
+                        const name = (p.name || p.poolName || '').trim();
+                        const ha   = parseFloat(p.size) || 0;
+                        const subId = p.subsidiaryId;
+                        if (code) _voleoPools[code] = { ha, name, subId };
+                        if (name && !_voleoPools[name]) _voleoPools[name] = { ha, name, subId }; // fallback
                     });
+                    console.log('[voleo pools] mapa Ha:', Object.keys(_voleoPools).length, 'entradas');
                 }
             } catch(ep) {
                 console.warn('[consultarVoleo] No se pudo cargar Ha de piscinas:', ep);
@@ -4349,6 +4356,9 @@ async function consultarVoleo() {
             document.getElementById('vo-table-area').innerHTML = '<p style="color:#94a3b8;padding:8px 0">Sin datos.</p>';
             return;
         }
+        console.log('[voleo feeding] ejemplo fila:', JSON.stringify(_voleoRawData[0]));
+        console.log('[voleo feeding] groupValue ejemplos:', _voleoRawData.slice(0,5).map(r=>r.groupValue));
+        console.log('[voleo pools] nombres ejemplos:', Object.keys(_voleoPools).slice(0,10));
 
         document.getElementById('vo-status').textContent = `${y} · ${_voleoRawData.length} registros`;
         _renderVoleoTable(y);
@@ -4366,17 +4376,20 @@ function _renderVoleoTable(y) {
         .find(f => _voleoRawData[0]?.[f]) || 'initDate';
 
     _voleoRawData.forEach(r => {
-        const pool = (r.groupValue || r.poolName || '').trim();
-        const sub  = (r.subsidiaryName || r.subsidiary || '').trim();
-        if (!pool) return;
-        if (!byPool[pool]) byPool[pool] = { pool, sub, kg: 0, sacos: 0 };
-        byPool[pool].kg    += Number(r.kilograms || r.kg  || 0);
-        byPool[pool].sacos += Number(r.sacks     || r.sacks || 0);
+        const code = (r.groupValue || r.poolName || '').trim();
+        if (!code) return;
+        const info = _voleoPools?.[code] || {};
+        const sub  = (r.subsidiaryName || r.subsidiary ||
+                      subsidiaries.find(s => s.id == info.subId)?.name || '').trim();
+        if (!byPool[code]) byPool[code] = { pool: info.name || code, code, sub, kg: 0, sacos: 0 };
+        byPool[code].kg    += Number(r.kilograms || 0);
+        byPool[code].sacos += Number(r.sacks     || 0);
     });
 
     // Unir con Ha
     _voleoRows = Object.values(byPool).map(r => {
-        const ha = _voleoPools?.[r.pool] || 0;
+        const info = _voleoPools?.[r.code] || {};
+        const ha   = info.ha || 0;
         return { ...r, ha, kgHa: ha > 0 ? r.kg / ha : null };
     }).sort((a,b) => (a.sub+a.pool).localeCompare(b.sub+b.pool));
 
