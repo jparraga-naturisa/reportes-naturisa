@@ -23,7 +23,7 @@ NO_OPEN_FLAGS = ('--no-open', '-n', 'noopen')
 _args     = [a for a in sys.argv[1:] if a not in NO_OPEN_FLAGS]
 NO_OPEN   = len(_args) != len(sys.argv) - 1
 PORT      = int(_args[1]) if len(_args) > 1 else 3000
-HTML_FILE = _args[0] if len(_args) > 0 else 'dashboard-alimentacion.html'
+HTML_FILE = _args[0] if len(_args) > 0 else 'dashboard-alimentacion/dashboard-alimentacion.html'
 API_HOST  = 'https://gateway.naturisa.com.ec'
 
 
@@ -121,7 +121,7 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    os.chdir(Path(__file__).parent)
+    os.chdir(Path(__file__).parent.parent)  # raíz del proyecto
     server = http.server.HTTPServer(('localhost', PORT), NaturisaHandler)
 
     def open_browser():
