@@ -4335,12 +4335,13 @@ async function consultarVoleo() {
                     // Indexar por codePool (ej: "NA-0002") que es lo que devuelve groupValue en feeding
                     _voleoPools = {};
                     pools.forEach(p => {
-                        const code = (p.codePool || '').trim();
-                        const name = (p.name || p.poolName || '').trim();
-                        const ha   = parseFloat(p.size) || 0;
+                        const code  = (p.codePool || '').trim();
+                        const name  = (p.name || p.poolName || '').trim();
+                        const ha    = parseFloat(p.size) || 0;
                         const subId = p.subsidiaryId;
-                        if (code) _voleoPools[code] = { ha, name, subId };
-                        if (name && !_voleoPools[name]) _voleoPools[name] = { ha, name, subId }; // fallback
+                        const uso   = (p.type || '').trim();
+                        if (code) _voleoPools[code] = { ha, name, subId, uso };
+                        if (name && !_voleoPools[name]) _voleoPools[name] = { ha, name, subId, uso };
                     });
                     console.log('[voleo pools] mapa Ha:', Object.keys(_voleoPools).length, 'entradas');
                 }
@@ -4380,7 +4381,7 @@ function _renderVoleoTable(y) {
         const info = _voleoPools?.[code] || {};
         const sub  = (r.subsidiaryName || r.subsidiary ||
                       subsidiaries.find(s => s.id == info.subId)?.name || '').trim();
-        if (!byPool[code]) byPool[code] = { pool: info.name || code, code, sub, kg: 0, sacos: 0 };
+        if (!byPool[code]) byPool[code] = { pool: info.name || code, code, sub, uso: info.uso || '', kg: 0, sacos: 0 };
         byPool[code].kg    += Number(r.kilograms || 0);
         byPool[code].sacos += Number(r.sacks     || 0);
     });
@@ -4414,6 +4415,7 @@ function _renderVoleoTable(y) {
             <tr style="background:var(--bg);text-align:left">
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border)">Sucursal</th>
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border)">Piscina</th>
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border)">Uso</th>
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Ha</th>
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg Voleo</th>
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Sacos Voleo</th>
@@ -4425,6 +4427,7 @@ function _renderVoleoTable(y) {
             <tr style="background:${i%2===0?'white':'var(--bg)'}">
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border)">${r.sub || '—'}</td>
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border);font-weight:500">${r.pool}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border)">${r.uso || '—'}</td>
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.ha > 0 ? r.ha.toFixed(1) : '<span style="color:#94a3b8">—</span>'}</td>
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.kg.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.sacos > 0 ? r.sacos.toLocaleString('es-EC',{maximumFractionDigits:1}) : (r.kg/40).toFixed(1)}</td>
@@ -4433,7 +4436,7 @@ function _renderVoleoTable(y) {
         </tbody>
         <tfoot>
             <tr style="background:#f1f5f9;font-weight:700">
-                <td colspan="2" style="padding:8px 12px;border-top:2px solid var(--border)">TOTAL</td>
+                <td colspan="3" style="padding:8px 12px;border-top:2px solid var(--border)">TOTAL</td>
                 <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${totalHa.toFixed(1)}</td>
                 <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${totalKg.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
                 <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${(totalSacos||totalKg/40).toFixed(1)}</td>
@@ -4449,9 +4452,10 @@ function exportarVoleoCsv() {
     if (!_voleoRows.length) { alert('Primero consulta los datos.'); return; }
     const y = document.getElementById('vo-year').value;
     const bom = '﻿';
-    const head = 'Sucursal;Piscina;Ha;Kg Voleo;Sacos Voleo;Kg/Ha\n';
+    const head = 'Sucursal;Piscina;Uso;Ha;Kg Voleo;Sacos Voleo;Kg/Ha\n';
     const rows = _voleoRows.map(r =>
-        [r.sub, r.pool, r.ha>0?r.ha.toFixed(1):'',
+        [r.sub, r.pool, r.uso||'',
+         r.ha>0?r.ha.toFixed(1):'',
          r.kg.toFixed(0), (r.sacos||r.kg/40).toFixed(1),
          r.kgHa!==null?r.kgHa.toFixed(1):''].join(';')
     ).join('\n');
