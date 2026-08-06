@@ -821,13 +821,13 @@ const GATEWAY     = 'https://gateway.naturisa.com.ec';
 // Worker con problemas de conexion - vuelve a apuntar directo al gateway hasta arreglarlo:
 const _BASE = GATEWAY;
 
-const API_FEEDING    = `${_BASE}/bff/mobile/feedcontrol/balanceado/api/report/feeding_general`;
-const API_WAREHOUSES = `${GATEWAY}/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name`;
-const API_POOL_PROD     = `${GATEWAY}/bff/web/ap1/backoffice/api/report_production/pool_production`;
-const API_NURSERY_YIELD = `${GATEWAY}/bff/web/ap1/backoffice/api/report_harvest/NurseryYield`;
-const API_POOLS         = `${GATEWAY}/bff/web/ap1/backoffice/api/pools`;
-const API_CYCLES_NAV  = `${GATEWAY}/bff/web/ap1/backoffice/api/cycles_navigation`;
-const API_WEIGHTS     = `${GATEWAY}/bff/web/ap1/backoffice/api/cycle_sampling_weights/cycle`;
+const API_FEEDING       = `${_BASE}/bff/mobile/feedcontrol/balanceado/api/report/feeding_general`;
+const API_WAREHOUSES    = `${_BASE}/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name`;
+const API_POOL_PROD     = `${_BASE}/bff/web/ap1/backoffice/api/report_production/pool_production`;
+const API_NURSERY_YIELD = `${_BASE}/bff/web/ap1/backoffice/api/report_harvest/NurseryYield`;
+const API_POOLS         = `${_BASE}/bff/web/ap1/backoffice/api/pools`;
+const API_CYCLES_NAV    = `${_BASE}/bff/web/ap1/backoffice/api/cycles_navigation`;
+const API_WEIGHTS       = `${_BASE}/bff/web/ap1/backoffice/api/cycle_sampling_weights/cycle`;
 
 // ── Caché local de datos históricos ──────────────────────────
 const _CACHE_PFX = 'nat_hcache_v1_';
@@ -4326,8 +4326,14 @@ async function consultarVoleo() {
                 const pRes = await fetch(`${API_POOLS}?${poolQs}`, { headers });
                 if (pRes.ok) {
                     const pj = await pRes.json();
+                    const pools = Array.isArray(pj) ? pj
+                        : Array.isArray(pj.data) ? pj.data
+                        : Array.isArray(pj.data?.data) ? pj.data.data
+                        : Array.isArray(pj.data?.content) ? pj.data.content
+                        : Array.isArray(pj.content) ? pj.content
+                        : Array.isArray(pj.data?.items) ? pj.data.items : [];
                     _voleoPools = {};
-                    (pj.data || []).forEach(p => {
+                    pools.forEach(p => {
                         const nm = (p.name || p.poolName || '').trim();
                         if (nm) _voleoPools[nm] = parseFloat(p.size) || 0;
                     });
