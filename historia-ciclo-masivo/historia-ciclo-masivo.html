@@ -749,7 +749,8 @@ const HISTORIA_COLS = [
     { label: 'FCA Bruto',      get: r => g(r, 'fcaGross') },
     { label: 'FCA Sem',        get: r => g(r, 'fcaWeek') },
     { label: 'EstM2',          get: r => g(r, 'estM2') },
-    { label: 'AlimFactor',     get: r => g(r, 'feedFactor') },
+    // AlimFactor se muestra con 4 decimales en el tablero nativo, no 2 como el resto.
+    { label: 'AlimFactor',     get: r => g(r, 'feedFactor'), decimals: 4 },
 ];
 
 // ── Filtro por columna (operadores tipo tablero nativo, en espanol) ─────────
@@ -865,10 +866,12 @@ function fmtFechaCorta(isoDateStr) {
     return `${d}/${m}/${y}`;
 }
 
-function fmtCelda(v) {
+function fmtCelda(v, decimals) {
     if (v === null || v === undefined || v === '') return null;
     if (typeof v === 'number') {
-        return Number.isInteger(v) ? v.toLocaleString('es-EC') : v.toLocaleString('es-EC', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+        if (Number.isInteger(v) && !decimals) return v.toLocaleString('es-EC');
+        const d = decimals || 2;
+        return v.toLocaleString('es-EC', { maximumFractionDigits: d, minimumFractionDigits: d });
     }
     return String(v);
 }
@@ -1028,7 +1031,7 @@ async function generarReporteMasivo() {
                 if (!rows.length) return;
                 rows.forEach(row => {
                     dataset.push({ sub: sub.name, subCode: sub.code, poolName, cycleNumber, estado, row });
-                    const cells = HISTORIA_COLS.map(c => fmtCelda(c.get(row)));
+                    const cells = HISTORIA_COLS.map(c => fmtCelda(c.get(row), c.decimals));
                     const html = `<tr>
                         <td class="ident">${sub.name}</td>
                         <td class="ident">${poolName}</td>
@@ -1104,7 +1107,7 @@ function renderTablaFiltrada() {
         (Number(g(a.row, 'weekOfYear')) - Number(g(b.row, 'weekOfYear'))));
 
     tbody.innerHTML = filtrado.map(({ sub, poolName, cycleNumber, row }) => {
-        const cells = HISTORIA_COLS.map(c => fmtCelda(c.get(row)));
+        const cells = HISTORIA_COLS.map(c => fmtCelda(c.get(row), c.decimals));
         return `<tr>
             <td class="ident">${sub}</td>
             <td class="ident">${poolName}</td>
