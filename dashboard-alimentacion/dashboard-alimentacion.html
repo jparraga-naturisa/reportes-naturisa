@@ -818,15 +818,14 @@ Chart.register(ChartDataLabels);
 // Mientras tanto apunta al gateway directo.
 const WORKER_BASE = 'https://naturisa-proxy.parragajonathan965.workers.dev';
 const GATEWAY     = 'https://gateway.naturisa.com.ec';
-const _BASE = WORKER_BASE;
-
-const API_FEEDING       = `${_BASE}/bff/mobile/feedcontrol/balanceado/api/report/feeding_general`;
-const API_WAREHOUSES    = `${_BASE}/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name`;
-const API_POOL_PROD     = `${_BASE}/bff/web/ap1/backoffice/api/report_production/pool_production`;
-const API_NURSERY_YIELD = `${_BASE}/bff/web/ap1/backoffice/api/report_harvest/NurseryYield`;
-const API_POOLS         = `${_BASE}/bff/web/ap1/backoffice/api/pools`;
-const API_CYCLES_NAV    = `${_BASE}/bff/web/ap1/backoffice/api/cycles_navigation`;
-const API_WEIGHTS       = `${_BASE}/bff/web/ap1/backoffice/api/cycle_sampling_weights/cycle`;
+// Feeding va por el Worker (caché KV). El resto va directo al gateway.
+const API_FEEDING       = `${WORKER_BASE}/bff/mobile/feedcontrol/balanceado/api/report/feeding_general`;
+const API_WAREHOUSES    = `${GATEWAY}/bff/web/api1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name`;
+const API_POOL_PROD     = `${GATEWAY}/bff/web/ap1/backoffice/api/report_production/pool_production`;
+const API_NURSERY_YIELD = `${GATEWAY}/bff/web/ap1/backoffice/api/report_harvest/NurseryYield`;
+const API_POOLS         = `${GATEWAY}/bff/web/ap1/backoffice/api/pools`;
+const API_CYCLES_NAV    = `${GATEWAY}/bff/web/ap1/backoffice/api/cycles_navigation`;
+const API_WEIGHTS       = `${GATEWAY}/bff/web/ap1/backoffice/api/cycle_sampling_weights/cycle`;
 
 // ── Caché local de datos históricos ──────────────────────────
 const _CACHE_PFX = 'nat_hcache_v1_';
@@ -1244,7 +1243,7 @@ async function loadSubsidiaries() {
         const res = await fetch(API_WAREHOUSES, {
             headers: { Authorization: `Bearer ${token}`, Accept: 'application/json, text/plain, */*' }
         });
-        if (!res.ok) return;
+        if (!res.ok) { populateSubsidiaries(CAMPAMENTOS_DEFAULT); return; }
         const json = await res.json();
         const warehouses = (json.data?.data || json.data || []).filter(w => !w.name.startsWith('BA ') && !w.name.includes('Matriz'));
 
