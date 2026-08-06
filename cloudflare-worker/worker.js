@@ -157,23 +157,34 @@ export default {
       return corsResponse('{"error":"method not allowed"}', 405, request)
     }
 
-    // Feeding mensual con caché
+    // Feeding mensual con caché (si falla, cae al proxy normal)
     if (request.method === 'GET' && url.pathname === FEEDING_PATH &&
-        url.searchParams.get('timeGranularity') === 'month') {
-      const cached = await handleFeedingCached(request, url, env, ctx)
-      if (cached) return cached
+        url.searchParams.get('timeGranularity') === 'month' && env.data) {
+      try {
+        const cached = await handleFeedingCached(request, url, env, ctx)
+        if (cached) return cached
+      } catch(e) {
+        console.error('handleFeedingCached error:', e)
+      }
     }
 
     // Proxy transparente
     const target = GATEWAY + url.pathname + url.search
     const cors   = getCors(origin)
-    const res    = await fetch(target, {
-      method:  request.method,
-      headers: request.headers,
-      body:    ['GET','HEAD'].includes(request.method) ? undefined : request.body
-    })
-    const out = new Response(res.body, res)
-    Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v))
-    return out
+    try {
+      const res = await fetch(target, {
+        method:  request.method,
+        headers: request.headers,
+        body:    ['GET','HEAD'].includes(request.method) ? undefined : request.body
+      })
+      const out = new Response(res.body, res)
+      Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v))
+      return out
+    } catch(e) {
+      return new Response(JSON.stringify({ error: String(e) }), {
+        status: 502,
+        headers: { 'Content-Type': 'application/json', ...cors }
+      })
+    }
   }
 }
