@@ -4347,10 +4347,8 @@ async function consultarVoleo() {
 }
 
 function _renderVoleoTable(y) {
-    // Agregar por piscina: suma kg y sacos en el año
-    const byPool = {};
-    const dateField = ['initDate','startDate','period','periodStart','weekStart','monthStart']
-        .find(f => _voleoRawData[0]?.[f]) || 'initDate';
+    const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const byKey = {};
 
     _voleoRawData.forEach(r => {
         const code = (r.groupValue || r.poolName || '').trim();
@@ -4358,17 +4356,26 @@ function _renderVoleoTable(y) {
         const info = _voleoPools?.[code] || {};
         const sub  = (r.subsidiaryName || r.subsidiary ||
                       subsidiaries.find(s => s.id == info.subId)?.name || '').trim();
-        if (!byPool[code]) byPool[code] = { pool: info.name || code, code, sub, uso: info.uso || '', kg: 0, sacos: 0 };
-        byPool[code].kg    += Number(r.kilograms || 0);
-        byPool[code].sacos += Number(r.sacks     || 0);
+        // Extraer mes del campo de fecha
+        const df   = ['periodStart','initDate','startDate','period','periodStart','monthStart'].find(f => r[f]);
+        const mNum = df ? parseInt(String(r[df]).slice(5,7)) : (r.month || 0);
+        const key  = `${code}__${mNum}`;
+        if (!byKey[key]) byKey[key] = { pool: info.name || code, code, sub, uso: info.uso || '', mes: mNum, kg: 0, sacos: 0 };
+        byKey[key].kg    += Number(r.kilograms || 0);
+        byKey[key].sacos += Number(r.sacks     || 0);
     });
 
-    // Unir con Ha
-    _voleoRows = Object.values(byPool).map(r => {
-        const info = _voleoPools?.[r.code] || {};
-        const ha   = info.ha || 0;
+    // Unir con Ha y ordenar por Sucursal / Piscina / Mes
+    _voleoRows = Object.values(byKey).map(r => {
+        const ha = _voleoPools?.[r.code]?.ha || 0;
         return { ...r, ha, kgHa: ha > 0 ? r.kg / ha : null };
-    }).sort((a,b) => (a.sub+a.pool).localeCompare(b.sub+b.pool));
+    }).sort((a,b) => {
+        const sc = a.sub.localeCompare(b.sub,'es');
+        if (sc !== 0) return sc;
+        const pc = a.pool.localeCompare(b.pool,'es');
+        if (pc !== 0) return pc;
+        return a.mes - b.mes;
+    });
 
     // KPIs
     const totalKg    = _voleoRows.reduce((s,r) => s + r.kg, 0);
@@ -4389,6 +4396,7 @@ function _renderVoleoTable(y) {
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border)">Sucursal</th>
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border)">Piscina</th>
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border)">Uso</th>
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border)">Mes</th>
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Ha</th>
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg Voleo</th>
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Sacos Voleo</th>
@@ -4401,6 +4409,7 @@ function _renderVoleoTable(y) {
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border)">${r.sub || '—'}</td>
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border);font-weight:500">${r.pool}</td>
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border)">${r.uso || '—'}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border)">${r.mes ? MESES[r.mes-1] : '—'}</td>
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.ha > 0 ? r.ha.toFixed(1) : '<span style="color:#94a3b8">—</span>'}</td>
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.kg.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.sacos > 0 ? r.sacos.toLocaleString('es-EC',{maximumFractionDigits:1}) : (r.kg/40).toFixed(1)}</td>
@@ -4425,9 +4434,11 @@ function exportarVoleoCsv() {
     if (!_voleoRows.length) { alert('Primero consulta los datos.'); return; }
     const y = document.getElementById('vo-year').value;
     const bom = '﻿';
-    const head = 'Sucursal;Piscina;Uso;Ha;Kg Voleo;Sacos Voleo;Kg/Ha\n';
+    const MESES_CSV = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const head = 'Sucursal;Piscina;Uso;Mes;Ha;Kg Voleo;Sacos Voleo;Kg/Ha\n';
     const rows = _voleoRows.map(r =>
         [r.sub, r.pool, r.uso||'',
+         r.mes ? MESES_CSV[r.mes-1] : '',
          r.ha>0?r.ha.toFixed(1):'',
          r.kg.toFixed(0), (r.sacos||r.kg/40).toFixed(1),
          r.kgHa!==null?r.kgHa.toFixed(1):''].join(';')
