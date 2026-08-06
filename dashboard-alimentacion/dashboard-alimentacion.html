@@ -4312,22 +4312,30 @@ async function consultarVoleo() {
         qs.append('businessTypes', 'VoleoConsumption');
         subIds.forEach(id => qs.append('subsidiaryIds', id));
 
-        const [feedRes, poolsRes] = await Promise.all([
-            fetch(`${API_FEEDING}?${qs}`, { headers }),
-            _voleoPools ? Promise.resolve(null) : fetch(`${API_POOLS}?PageSize=2000`, { headers })
-        ]);
-
+        // Feeding (via Worker con caché)
+        const feedRes = await fetch(`${API_FEEDING}?${qs}`, { headers });
         if (feedRes.status === 401) { applyLoginUI(false,''); document.getElementById('vo-status').textContent='Token expirado.'; return; }
         const feedJson = await feedRes.json();
         _voleoRawData  = feedJson.data || [];
 
-        if (poolsRes) {
-            const pj = await poolsRes.json();
-            _voleoPools = {};
-            (pj.data || []).forEach(p => {
-                const nm = (p.name || p.poolName || '').trim();
-                if (nm) _voleoPools[nm] = parseFloat(p.size) || 0;
-            });
+        // Piscinas (para Ha) — no bloquea si falla
+        if (!_voleoPools) {
+            try {
+                const poolQs = new URLSearchParams({ pageSize: 2000 });
+                subIds.forEach(id => poolQs.append('subsidiaryIds', id));
+                const pRes = await fetch(`${API_POOLS}?${poolQs}`, { headers });
+                if (pRes.ok) {
+                    const pj = await pRes.json();
+                    _voleoPools = {};
+                    (pj.data || []).forEach(p => {
+                        const nm = (p.name || p.poolName || '').trim();
+                        if (nm) _voleoPools[nm] = parseFloat(p.size) || 0;
+                    });
+                }
+            } catch(ep) {
+                console.warn('[consultarVoleo] No se pudo cargar Ha de piscinas:', ep);
+                _voleoPools = {};
+            }
         }
 
         if (!_voleoRawData.length) {
