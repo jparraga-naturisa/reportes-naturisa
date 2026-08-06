@@ -223,6 +223,10 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
         Comparativo
     </button>
+    <button class="nav-tab" id="tab-voleo" onclick="showScreen('voleo')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
+        Consumo Voleo
+    </button>
 </div>
 
 <!-- ── PANTALLA: Alimentación ──────────────────────────────── -->
@@ -728,6 +732,83 @@
 </main>
 
 </div><!-- /screen-comparativo -->
+
+<!-- ── PANTALLA: Consumo Voleo ──────────────────────────────── -->
+<div class="screen" id="screen-voleo">
+
+<div class="filters">
+    <div class="fg">
+        <label>Año</label>
+        <select id="vo-year" style="min-width:90px"></select>
+    </div>
+    <div class="fg">
+        <label>Alcance</label>
+        <select id="vo-scope" style="min-width:160px" onchange="onVoleoScopeChange()">
+            <option value="all">Todas las sucursales</option>
+            <option value="subsidiary">Sucursal</option>
+            <option value="cluster">Cluster</option>
+        </select>
+    </div>
+    <div class="fg" id="fg-vo-sub" style="display:none">
+        <label>Sucursal</label>
+        <select id="vo-sub" style="min-width:180px"></select>
+    </div>
+    <div class="fg" id="fg-vo-cluster" style="display:none">
+        <label>Cluster</label>
+        <select id="vo-cluster" style="min-width:160px" onchange="onVoleoClusterChange()">
+            <option value="Josefina Norte">Josefina Norte</option>
+            <option value="Josefina Sur">Josefina Sur</option>
+            <option value="Río Nilo">Río Nilo</option>
+            <option value="Puna Sur">Puna Sur</option>
+            <option value="Aquanaturisa">Aquanaturisa</option>
+            <option value="Golfomar">Golfomar</option>
+            <option value="Lanconor">Lanconor</option>
+            <option value="Inducam">Inducam</option>
+            <option value="Granmar">Granmar</option>
+        </select>
+    </div>
+    <div class="fg" id="fg-vo-cluster-sub" style="display:none">
+        <label>Sucursal (opcional)</label>
+        <select id="vo-cluster-sub" style="min-width:180px"></select>
+    </div>
+    <button class="btn-apply" onclick="consultarVoleo()">↻ Consultar</button>
+    <button onclick="exportarVoleoCsv()" style="padding:7px 14px;background:#16a34a;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">⬇ Excel / CSV</button>
+    <span id="vo-status" style="font-size:12px;color:var(--muted);align-self:center;"></span>
+</div>
+
+<main class="main">
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));max-width:900px;margin-bottom:16px;">
+        <div class="kpi-card blue" style="border-left-color:#3B82F6">
+            <div class="kpi-label">Total Kg Voleo</div>
+            <div class="kpi-value" id="vo-kpi-kg">—</div>
+            <div class="kpi-sub">kg</div>
+        </div>
+        <div class="kpi-card blue" style="border-left-color:#14b8a6">
+            <div class="kpi-label">Total Sacos Voleo</div>
+            <div class="kpi-value" id="vo-kpi-sacos">—</div>
+            <div class="kpi-sub">sacos (40 kg)</div>
+        </div>
+        <div class="kpi-card" style="border-left-color:#8B5CF6">
+            <div class="kpi-label">Total Ha</div>
+            <div class="kpi-value" id="vo-kpi-ha" style="color:#8B5CF6">—</div>
+            <div class="kpi-sub">ha en producción</div>
+        </div>
+        <div class="kpi-card orange" style="border-left-color:#F59E0B">
+            <div class="kpi-label">Promedio Kg/Ha</div>
+            <div class="kpi-value" id="vo-kpi-kgha">—</div>
+            <div class="kpi-sub">kg por hectárea</div>
+        </div>
+    </div>
+
+    <div class="table-card">
+        <div class="chart-title" style="margin-bottom:12px;">
+            🌊 Consumo al Voleo — Sucursal · Piscina · Ha
+        </div>
+        <div id="vo-table-area"><p style="color:#94a3b8;padding:8px 0">Selecciona los filtros y presiona Consultar.</p></div>
+    </div>
+</main>
+
+</div><!-- /screen-voleo -->
 
 <script>
 Chart.register(ChartDataLabels);
@@ -1998,8 +2079,8 @@ function showEmpty(msg) {
 }
 
 function showScreen(name) {
-    if (!['alimentacion','pedido','transporte','comparativo'].includes(name)) name = 'alimentacion';
-    ['alimentacion','pedido','transporte','comparativo'].forEach(s => {
+    if (!['alimentacion','pedido','transporte','comparativo','voleo'].includes(name)) name = 'alimentacion';
+    ['alimentacion','pedido','transporte','comparativo','voleo'].forEach(s => {
         document.getElementById('screen-'+s).classList.toggle('active', s === name);
         document.getElementById('tab-'+s).classList.toggle('active', s === name);
     });
@@ -2007,6 +2088,7 @@ function showScreen(name) {
     if (name === 'pedido') initPedidoScreen();
     if (name === 'transporte') initTransporteScreen();
     if (name === 'comparativo') initComparativoScreen();
+    if (name === 'voleo') initVoleoScreen();
 }
 
 
@@ -4139,6 +4221,219 @@ async function loadCiclosConsumo() {
         console.error('[loadCiclosConsumo]', e);
         status.textContent = 'Error al cargar datos.';
     }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PANTALLA: Consumo Voleo
+// ══════════════════════════════════════════════════════════════
+
+let _voleoInited   = false;
+let _voleoRawData  = null; // filas de feeding (voleo)
+let _voleoPools    = null; // mapa poolName → ha
+let _voleoRows     = [];   // filas procesadas para la tabla
+
+function initVoleoScreen() {
+    if (_voleoInited) return;
+    _voleoInited = true;
+
+    // Año
+    const sel = document.getElementById('vo-year');
+    const curY = new Date().getFullYear();
+    for (let y = curY; y >= curY - 4; y--) {
+        const o = document.createElement('option');
+        o.value = y; o.textContent = y;
+        sel.appendChild(o);
+    }
+
+    // Sucursales
+    const sub = document.getElementById('vo-sub');
+    subsidiaries.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.id; o.textContent = s.name;
+        sub.appendChild(o);
+    });
+
+    // Cluster sub
+    const csub = document.getElementById('vo-cluster-sub');
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = ''; emptyOpt.textContent = 'Todas (cluster)';
+    csub.appendChild(emptyOpt);
+    subsidiaries.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.id; o.textContent = s.name;
+        csub.appendChild(o);
+    });
+
+    consultarVoleo();
+}
+
+function onVoleoScopeChange() {
+    const scope = document.getElementById('vo-scope').value;
+    document.getElementById('fg-vo-sub').style.display        = scope === 'subsidiary' ? '' : 'none';
+    document.getElementById('fg-vo-cluster').style.display    = scope === 'cluster'    ? '' : 'none';
+    document.getElementById('fg-vo-cluster-sub').style.display = scope === 'cluster'  ? '' : 'none';
+}
+
+function onVoleoClusterChange() { /* sin efecto adicional */ }
+
+function _voleoGetSubIds() {
+    const scope = document.getElementById('vo-scope').value;
+    if (scope === 'subsidiary') {
+        const sid = document.getElementById('vo-sub').value;
+        return sid ? [sid] : null;
+    }
+    if (scope === 'cluster') {
+        const csid = document.getElementById('vo-cluster-sub').value;
+        if (csid) return [csid];
+        const cl = document.getElementById('vo-cluster').value;
+        return (CLUSTERS[cl] || []).map(String);
+    }
+    return subsidiaries.map(s => String(s.id));
+}
+
+async function consultarVoleo() {
+    const token = getToken();
+    if (!token) { alert('Inicia sesión primero'); return; }
+
+    const y      = parseInt(document.getElementById('vo-year').value);
+    const subIds = _voleoGetSubIds();
+    if (!subIds || !subIds.length) { alert('Selecciona una sucursal o cluster'); return; }
+
+    document.getElementById('vo-status').innerHTML = '<span class="spinner"></span> Cargando...';
+    document.getElementById('vo-table-area').innerHTML = '';
+    _voleoRawData = null; _voleoRows = [];
+
+    const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json, text/plain, */*' };
+
+    try {
+        // ── Consumo voleo (via Worker con caché) ─────────────────
+        const qs = new URLSearchParams({ initDate:`${y}-01-01`, endDate:`${y}-12-31`,
+            timeGranularity:'month', valueOptions:'kg', groupBy:'pool', PageSize:5000 });
+        qs.append('businessTypes', 'VoleoConsumption');
+        subIds.forEach(id => qs.append('subsidiaryIds', id));
+
+        const [feedRes, poolsRes] = await Promise.all([
+            fetch(`${API_FEEDING}?${qs}`, { headers }),
+            _voleoPools ? Promise.resolve(null) : fetch(`${API_POOLS}?PageSize=2000`, { headers })
+        ]);
+
+        if (feedRes.status === 401) { applyLoginUI(false,''); document.getElementById('vo-status').textContent='Token expirado.'; return; }
+        const feedJson = await feedRes.json();
+        _voleoRawData  = feedJson.data || [];
+
+        if (poolsRes) {
+            const pj = await poolsRes.json();
+            _voleoPools = {};
+            (pj.data || []).forEach(p => {
+                const nm = (p.name || p.poolName || '').trim();
+                if (nm) _voleoPools[nm] = parseFloat(p.size) || 0;
+            });
+        }
+
+        if (!_voleoRawData.length) {
+            document.getElementById('vo-status').textContent = 'Sin datos para el período.';
+            document.getElementById('vo-table-area').innerHTML = '<p style="color:#94a3b8;padding:8px 0">Sin datos.</p>';
+            return;
+        }
+
+        document.getElementById('vo-status').textContent = `${y} · ${_voleoRawData.length} registros`;
+        _renderVoleoTable(y);
+
+    } catch(e) {
+        console.error('[consultarVoleo]', e);
+        document.getElementById('vo-status').textContent = 'Error al conectar con la API.';
+    }
+}
+
+function _renderVoleoTable(y) {
+    // Agregar por piscina: suma kg y sacos en el año
+    const byPool = {};
+    const dateField = ['initDate','startDate','period','periodStart','weekStart','monthStart']
+        .find(f => _voleoRawData[0]?.[f]) || 'initDate';
+
+    _voleoRawData.forEach(r => {
+        const pool = (r.groupValue || r.poolName || '').trim();
+        const sub  = (r.subsidiaryName || r.subsidiary || '').trim();
+        if (!pool) return;
+        if (!byPool[pool]) byPool[pool] = { pool, sub, kg: 0, sacos: 0 };
+        byPool[pool].kg    += Number(r.kilograms || r.kg  || 0);
+        byPool[pool].sacos += Number(r.sacks     || r.sacks || 0);
+    });
+
+    // Unir con Ha
+    _voleoRows = Object.values(byPool).map(r => {
+        const ha = _voleoPools?.[r.pool] || 0;
+        return { ...r, ha, kgHa: ha > 0 ? r.kg / ha : null };
+    }).sort((a,b) => (a.sub+a.pool).localeCompare(b.sub+b.pool));
+
+    // KPIs
+    const totalKg    = _voleoRows.reduce((s,r) => s + r.kg, 0);
+    const totalSacos = _voleoRows.reduce((s,r) => s + r.sacos, 0);
+    const totalHa    = _voleoRows.reduce((s,r) => s + r.ha, 0);
+    const fmt  = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : n.toFixed(0);
+    const fmt2 = n => n.toLocaleString('es-EC', { maximumFractionDigits:1 });
+
+    document.getElementById('vo-kpi-kg').textContent    = fmt(totalKg);
+    document.getElementById('vo-kpi-sacos').textContent = fmt(totalSacos);
+    document.getElementById('vo-kpi-ha').textContent    = fmt2(totalHa);
+    document.getElementById('vo-kpi-kgha').textContent  = totalHa > 0 ? fmt2(totalKg / totalHa) : '—';
+
+    // Tabla
+    const hasMissingHa = _voleoRows.some(r => r.ha === 0);
+    const area = document.getElementById('vo-table-area');
+    area.innerHTML = `
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+            <tr style="background:var(--bg);text-align:left">
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border)">Sucursal</th>
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border)">Piscina</th>
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Ha</th>
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg Voleo</th>
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Sacos Voleo</th>
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg/Ha</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${_voleoRows.map((r, i) => `
+            <tr style="background:${i%2===0?'white':'var(--bg)'}">
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border)">${r.sub || '—'}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);font-weight:500">${r.pool}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.ha > 0 ? r.ha.toFixed(1) : '<span style="color:#94a3b8">—</span>'}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.kg.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.sacos > 0 ? r.sacos.toLocaleString('es-EC',{maximumFractionDigits:1}) : (r.kg/40).toFixed(1)}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.kgHa !== null ? r.kgHa.toFixed(1) : '<span style="color:#94a3b8">—</span>'}</td>
+            </tr>`).join('')}
+        </tbody>
+        <tfoot>
+            <tr style="background:#f1f5f9;font-weight:700">
+                <td colspan="2" style="padding:8px 12px;border-top:2px solid var(--border)">TOTAL</td>
+                <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${totalHa.toFixed(1)}</td>
+                <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${totalKg.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
+                <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${(totalSacos||totalKg/40).toFixed(1)}</td>
+                <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${totalHa>0?(totalKg/totalHa).toFixed(1):'—'}</td>
+            </tr>
+        </tfoot>
+    </table>
+    </div>
+    ${hasMissingHa ? '<p style="margin-top:8px;font-size:11px;color:#f59e0b">⚠ Algunas piscinas no tienen Ha registradas en el API de piscinas.</p>' : ''}`;
+}
+
+function exportarVoleoCsv() {
+    if (!_voleoRows.length) { alert('Primero consulta los datos.'); return; }
+    const y = document.getElementById('vo-year').value;
+    const bom = '﻿';
+    const head = 'Sucursal;Piscina;Ha;Kg Voleo;Sacos Voleo;Kg/Ha\n';
+    const rows = _voleoRows.map(r =>
+        [r.sub, r.pool, r.ha>0?r.ha.toFixed(1):'',
+         r.kg.toFixed(0), (r.sacos||r.kg/40).toFixed(1),
+         r.kgHa!==null?r.kgHa.toFixed(1):''].join(';')
+    ).join('\n');
+    const blob = new Blob([bom + head + rows], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `consumo-voleo-${y}.csv`;
+    a.click();
 }
 
 </script>
