@@ -11,15 +11,16 @@
     --primary: #1a3a5c;
     --primary-dark: #122943;
     --primary-light: #2d6a9f;
-    --accent: #00b4d8;
+    --accent: #0d9488;
+    --accent-light: #ccfbf1;
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
-    --bg: #eef2f7;
+    --bg: #f7f8fa;
     --card: #ffffff;
     --text: #1d1d1f;
     --muted: #6e6e73;
-    --border: #e5e5ea;
+    --border: #e5e7eb;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
     --shadow-md: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
     --radius: 12px;
@@ -29,18 +30,18 @@
 html { height: 100%; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100%; margin: 0; }
 
-.header { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; padding: 14px 24px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.18); position: sticky; top: 0; z-index: 100; }
+.header { background: var(--card); color: var(--text); padding: 14px 24px; display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.03); position: sticky; top: 0; z-index: 100; }
 .header-top-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .header-logo { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-.header-logo-mark { width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.header-logo-mark { width: 36px; height: 36px; border-radius: 11px; background: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(13,148,136,0.35); }
 .header-titles { display: flex; flex-direction: column; line-height: 1.25; }
-.header-titles .title { font-size: 18px; font-weight: 700; letter-spacing: 0.2px; }
-.header-titles .subtitle { font-size: 12.5px; font-weight: 500; opacity: 0.7; letter-spacing: 0.3px; }
+.header-titles .title { font-size: 18px; font-weight: 700; letter-spacing: 0.2px; color: var(--text); }
+.header-titles .subtitle { font-size: 12.5px; font-weight: 500; color: var(--muted); letter-spacing: 0.3px; }
 .header-logo .accent { color: var(--accent); }
 .header-user { position: relative; display: none; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap; user-select: none; margin-left: auto; }
-.user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--primary); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.user-name-label { font-size: 13.5px; font-weight: 600; }
-.user-caret { font-size: 10px; opacity: 0.7; }
+.user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-light); color: var(--accent); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.user-name-label { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.user-caret { font-size: 10px; opacity: 0.5; }
 .user-menu { position: absolute; top: calc(100% + 8px); right: 0; background: white; color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); min-width: 150px; display: none; overflow: hidden; z-index: 20; }
 .user-menu.open { display: block; }
 .user-menu button { width: 100%; text-align: left; padding: 10px 14px; border: none; background: none; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--danger); }
@@ -80,30 +81,54 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .date-range-panel .fg label { color: var(--ink-muted) !important; text-transform: uppercase; font-size: 10.5px; font-weight: 700; }
 .date-range-panel input[type="date"] { height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13.5px; background: white; color: var(--text); color-scheme: light; }
 
-.filters { background: transparent; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: flex-start; }
+.filters { background: transparent; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.toolbar-sep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+.toggle-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-excel { margin-left: auto; }
+
+/* ── Panel de filtros (desplegable) ──────────────────────────────────────── */
+.filter-panel-wrap { position: relative; }
+.filter-trigger { position: relative; }
+.filter-badge { position: absolute; top: -5px; right: -5px; background: var(--accent); color: white; font-size: 10.5px; font-weight: 700; border-radius: 999px; min-width: 17px; height: 17px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+.filter-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 380px; max-height: 82vh; overflow-y: auto; background: white; border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-md); z-index: 60; padding: 18px; display: none; }
+.filter-panel.open { display: block; }
+.filter-panel-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+.filter-section { margin-bottom: 18px; }
+.filter-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.filter-section-head label { font-size: 13px; font-weight: 600; color: var(--text); text-transform: none; letter-spacing: normal; }
+.filter-reset-link { border: none; background: none; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--accent); padding: 0; }
+.filter-reset-link:hover { text-decoration: underline; }
+.filter-panel .fg select, .filter-panel .chk-group, .filter-panel .ms-trigger { width: 100%; }
+.filter-panel .ms-dropdown { display: block; }
+.filter-panel-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; padding-top: 16px; border-top: 1px solid var(--border); }
+.filter-panel-actions .btn-apply, .filter-panel-actions .btn-export { flex: 1; }
+.range-pair { display: flex; align-items: center; gap: 8px; }
+.range-pair input[type="number"] { flex: 1; height: 34px; padding: 0 11px; border: 1px solid var(--border); border-radius: 999px; font-size: 14px; background: var(--card); color: var(--text); min-width: 0; }
+.range-sep { color: var(--muted); font-size: 13px; flex-shrink: 0; }
 .fg { display: flex; flex-direction: column; gap: 5px; }
-.fg label { font-size: 10.5px; font-weight: 700; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.6px; }
-.fg select, .fg input[type="text"], .fg input[type="number"] { height: 34px; padding: 0 11px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; font-size: 14px; background: rgba(255,255,255,0.1); color: white; min-width: 120px; }
+.fg label { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+.fg select, .fg input[type="text"], .fg input[type="number"] { height: 34px; padding: 0 11px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 999px; font-size: 14px; background: var(--card); color: var(--text); min-width: 120px; }
 .fg select option { color: var(--text); }
-.chk-group { display: flex; gap: 12px; height: 34px; align-items: center; font-size: 13px; font-weight: 500; padding: 0 14px; border-radius: 999px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); color: white; }
+.chk-group { display: flex; gap: 12px; height: 34px; align-items: center; font-size: 13px; font-weight: 500; padding: 0 14px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); color: var(--text); }
 .chk-group label { display: flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer; }
 .ms-dropdown .ms-trigger { border-radius: 999px; }
-.filters .ms-trigger { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); color: white; }
-.filters .ms-trigger:after { color: white; }
-.btn-apply { height: 34px; padding: 0 22px; background: var(--accent); color: var(--primary-dark); border: none; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 700; }
-.btn-apply:hover { opacity: 0.88; }
+.filters .ms-trigger { background: var(--card); border-color: var(--border); color: var(--text); }
+.filters .ms-trigger:after { color: var(--muted); }
+.btn-apply { height: 34px; padding: 0 22px; background: var(--accent); color: white; border: none; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 700; box-shadow: 0 2px 6px rgba(13,148,136,0.3); }
+.btn-apply:hover { opacity: 0.9; }
 .btn-apply:disabled { opacity: 0.5; cursor: default; }
-.btn-export { height: 34px; padding: 0 22px; background: rgba(255,255,255,0.14); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 600; }
-.btn-export:hover { background: rgba(255,255,255,0.22); }
+.btn-export { height: 34px; padding: 0 22px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.btn-export:hover { background: #f3f4f6; }
 .btn-export:disabled { opacity: 0.5; cursor: default; }
-.btn-export.active { background: var(--accent); color: var(--primary-dark); border-color: var(--accent); font-weight: 700; }
+.btn-export.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); font-weight: 700; }
 
 .main { padding: 16px 20px; }
 .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14.5px; }
 .empty-icon { font-size: 40px; margin-bottom: 10px; }
 
 .section-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid var(--border); margin-bottom: 16px; overflow: hidden; }
-.section-title { padding: 12px 18px; font-size: 15px; font-weight: 700; color: var(--primary); background: #f8fafc; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.section-title { padding: 12px 18px; font-size: 15px; font-weight: 700; color: var(--text); background: #fafbfc; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .section-hint { font-size: 12.5px; font-weight: 500; color: var(--muted); }
 
 .tbl-wrap { overflow-x: auto; overflow-y: auto; max-height: 78vh; }
@@ -168,98 +193,138 @@ table.masivo-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
         </div>
     </div>
 
-    <div class="filters">
-    <div class="fg">
-        <label>Sucursales</label>
-        <div class="ms-dropdown" id="f-sucursal-ms">
-            <button type="button" class="ms-trigger" onclick="msToggle('f-sucursal-ms', event)"><span class="ms-trigger-label">Todas</span></button>
-            <div class="ms-panel">
-                <label class="ms-select-all"><input type="checkbox"> Seleccionar todas</label>
-                <div class="ms-search-row">
-                    <span class="ms-search-icon">🔍</span>
-                    <input type="text" class="ms-search" placeholder="Buscar..." oninput="msFilterOptions('f-sucursal-ms', this.value)">
-                    <button type="button" class="ms-clear-btn" onclick="msClearSearch('f-sucursal-ms')" title="Limpiar busqueda">✕</button>
+    <div class="toolbar">
+        <button class="btn-apply" id="btn-generar" onclick="generarReporteMasivo()" title="Ya se carga solo al cambiar un filtro - este boton solo fuerza un refresco manual">🔄 Actualizar</button>
+        <span class="toolbar-sep"></span>
+        <div class="toggle-group">
+            <button class="btn-export" id="btn-ocultar-incompletas" onclick="toggleOcultarIncompletas()" title="Ocultar semanas incompletas">🕒 Incompletas</button>
+            <button class="btn-export" id="btn-ocultar-sem0" onclick="toggleOcultarSem0()" title="Ocultar semana 0 (dia de siembra)">0️⃣ Semana 0</button>
+            <button class="btn-export" id="btn-ocultar-animm2-cero" onclick="toggleOcultarAnimM2Cero()" title="Ocultar semanas con AnimTotalM2 en 0">🚫 AnimM2=0</button>
+        </div>
+        <span class="toolbar-sep"></span>
+        <div class="filter-panel-wrap" id="filter-panel-wrap">
+            <button type="button" class="btn-export filter-trigger" onclick="toggleFilterPanel(event)">🎛️ Filtros<span class="filter-badge" id="filter-badge" style="display:none"></span></button>
+            <div class="filter-panel" id="filter-panel">
+                <div class="filter-panel-title">Filtros</div>
+                <div class="filters">
+                <div class="filter-section">
+                    <div class="filter-section-head"><label>Sucursales</label><button type="button" class="filter-reset-link" onclick="resetFiltroSucursales()">Restablecer</button></div>
+                    <div class="fg">
+                        <div class="ms-dropdown" id="f-sucursal-ms">
+                            <button type="button" class="ms-trigger" onclick="msToggle('f-sucursal-ms', event)"><span class="ms-trigger-label">Todas</span></button>
+                            <div class="ms-panel">
+                                <label class="ms-select-all"><input type="checkbox"> Seleccionar todas</label>
+                                <div class="ms-search-row">
+                                    <span class="ms-search-icon">🔍</span>
+                                    <input type="text" class="ms-search" placeholder="Buscar..." oninput="msFilterOptions('f-sucursal-ms', this.value)">
+                                    <button type="button" class="ms-clear-btn" onclick="msClearSearch('f-sucursal-ms')" title="Limpiar busqueda">✕</button>
+                                </div>
+                                <div class="ms-options"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="ms-options"></div>
+                <div class="filter-section" id="f-piscina-fg" style="display:none">
+                    <div class="filter-section-head"><label>Piscinas</label></div>
+                    <div class="fg">
+                        <div class="ms-dropdown" id="f-piscina-ms">
+                            <button type="button" class="ms-trigger" onclick="msToggle('f-piscina-ms', event)" disabled><span class="ms-trigger-label">Todas</span></button>
+                            <div class="ms-panel">
+                                <label class="ms-select-all"><input type="checkbox"> Seleccionar todas</label>
+                                <div class="ms-search-row">
+                                    <span class="ms-search-icon">🔍</span>
+                                    <input type="text" class="ms-search" placeholder="Buscar..." oninput="msFilterOptions('f-piscina-ms', this.value)">
+                                    <button type="button" class="ms-clear-btn" onclick="msClearSearch('f-piscina-ms')" title="Limpiar busqueda">✕</button>
+                                </div>
+                                <div class="ms-options"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-section" id="f-ciclo-fg" style="display:none">
+                    <div class="filter-section-head"><label>Ciclos</label></div>
+                    <div class="fg">
+                        <div class="ms-dropdown" id="f-ciclo-ms">
+                            <button type="button" class="ms-trigger" onclick="msToggle('f-ciclo-ms', event)" disabled><span class="ms-trigger-label">Todos</span></button>
+                            <div class="ms-panel">
+                                <label class="ms-select-all"><input type="checkbox"> Seleccionar todos</label>
+                                <div class="ms-search-row">
+                                    <span class="ms-search-icon">🔍</span>
+                                    <input type="text" class="ms-search" placeholder="Buscar..." oninput="msFilterOptions('f-ciclo-ms', this.value)">
+                                    <button type="button" class="ms-clear-btn" onclick="msClearSearch('f-ciclo-ms')" title="Limpiar busqueda">✕</button>
+                                </div>
+                                <div class="ms-options"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="fg" style="display:none">
+                    <label>Solo ciclo activo por piscina</label>
+                    <select id="f-solo-activo">
+                        <option value="1">Sí (más reciente)</option>
+                        <option value="0" selected>No — todos los ciclos encontrados</option>
+                    </select>
+                </div>
+                <div class="filter-section">
+                    <div class="filter-section-head"><label>Uso de la piscina</label><button type="button" class="filter-reset-link" onclick="resetFiltroUso()">Restablecer</button></div>
+                    <div class="chk-group">
+                        <label><input type="checkbox" id="f-uso-precr" value="PRECRIADERO" checked> Precriadero</label>
+                        <label><input type="checkbox" id="f-uso-preeng" value="PREENGORDE" checked> Pre Engorde</label>
+                        <label><input type="checkbox" id="f-uso-eng" value="ENGORDE" checked> Engorde</label>
+                    </div>
+                </div>
+                <div class="filter-section">
+                    <div class="filter-section-head"><label>Estado</label><button type="button" class="filter-reset-link" onclick="resetFiltroEstado()">Restablecer</button></div>
+                    <div class="chk-group">
+                        <label><input type="checkbox" id="f-estado-prod" value="PRODUCCION" checked onchange="renderTablaFiltrada()"> Producción</label>
+                        <label><input type="checkbox" id="f-estado-cos" value="COSECHADO" checked onchange="renderTablaFiltrada()"> Cosechado</label>
+                    </div>
+                </div>
+                <div class="filter-section">
+                    <div class="filter-section-head"><label>Fecha de siembra</label><button type="button" class="filter-reset-link" onclick="resetFiltroFecha()">Restablecer</button></div>
+                    <div class="fg">
+                        <div class="ms-dropdown" id="f-fecha-ms">
+                            <button type="button" class="ms-trigger date-range-trigger" onclick="msToggle('f-fecha-ms', event)">
+                                <span class="ms-trigger-label" id="f-fecha-label">—</span>
+                                <span class="date-range-icon">📅</span>
+                            </button>
+                            <div class="ms-panel date-range-panel">
+                                <div class="fg">
+                                    <label>Desde</label>
+                                    <input type="date" id="f-siembra-desde" onchange="onFechaSiembraChange()">
+                                </div>
+                                <div class="fg">
+                                    <label>Hasta</label>
+                                    <input type="date" id="f-siembra-hasta" onchange="onFechaSiembraChange()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-section">
+                    <div class="filter-section-head"><label>Peso promedio finca (g)</label><button type="button" class="filter-reset-link" onclick="resetFiltroPeso()">Restablecer</button></div>
+                    <div class="range-pair">
+                        <input type="number" id="f-peso-desde" placeholder="Desde" step="0.01" onchange="renderTablaFiltrada()">
+                        <span class="range-sep">–</span>
+                        <input type="number" id="f-peso-hasta" placeholder="Hasta" step="0.01" onchange="renderTablaFiltrada()">
+                    </div>
+                </div>
+                <div class="filter-section">
+                    <div class="filter-section-head"><label>Anim/m²</label><button type="button" class="filter-reset-link" onclick="resetFiltroAnimM2()">Restablecer</button></div>
+                    <div class="range-pair">
+                        <input type="number" id="f-animm2-desde" placeholder="Desde" step="0.01" onchange="renderTablaFiltrada()">
+                        <span class="range-sep">–</span>
+                        <input type="number" id="f-animm2-hasta" placeholder="Hasta" step="0.01" onchange="renderTablaFiltrada()">
+                    </div>
+                </div>
+                </div>
+                <div class="filter-panel-actions">
+                    <button type="button" class="btn-export" onclick="resetTodosFiltros()">Restablecer todo</button>
+                    <button type="button" class="btn-apply" onclick="aplicarFiltrosAhora()">Aplicar ahora</button>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="fg" id="f-piscina-fg" style="display:none">
-        <label>Piscinas</label>
-        <div class="ms-dropdown" id="f-piscina-ms">
-            <button type="button" class="ms-trigger" onclick="msToggle('f-piscina-ms', event)" disabled><span class="ms-trigger-label">Todas</span></button>
-            <div class="ms-panel">
-                <label class="ms-select-all"><input type="checkbox"> Seleccionar todas</label>
-                <div class="ms-search-row">
-                    <span class="ms-search-icon">🔍</span>
-                    <input type="text" class="ms-search" placeholder="Buscar..." oninput="msFilterOptions('f-piscina-ms', this.value)">
-                    <button type="button" class="ms-clear-btn" onclick="msClearSearch('f-piscina-ms')" title="Limpiar busqueda">✕</button>
-                </div>
-                <div class="ms-options"></div>
-            </div>
-        </div>
-    </div>
-    <div class="fg" id="f-ciclo-fg" style="display:none">
-        <label>Ciclos</label>
-        <div class="ms-dropdown" id="f-ciclo-ms">
-            <button type="button" class="ms-trigger" onclick="msToggle('f-ciclo-ms', event)" disabled><span class="ms-trigger-label">Todos</span></button>
-            <div class="ms-panel">
-                <label class="ms-select-all"><input type="checkbox"> Seleccionar todos</label>
-                <div class="ms-search-row">
-                    <span class="ms-search-icon">🔍</span>
-                    <input type="text" class="ms-search" placeholder="Buscar..." oninput="msFilterOptions('f-ciclo-ms', this.value)">
-                    <button type="button" class="ms-clear-btn" onclick="msClearSearch('f-ciclo-ms')" title="Limpiar busqueda">✕</button>
-                </div>
-                <div class="ms-options"></div>
-            </div>
-        </div>
-    </div>
-    <div class="fg" style="display:none">
-        <label>Solo ciclo activo por piscina</label>
-        <select id="f-solo-activo">
-            <option value="1">Sí (más reciente)</option>
-            <option value="0" selected>No — todos los ciclos encontrados</option>
-        </select>
-    </div>
-    <div class="fg">
-        <label>Uso de la piscina</label>
-        <div class="chk-group">
-            <label><input type="checkbox" id="f-uso-precr" value="PRECRIADERO" checked> Precriadero</label>
-            <label><input type="checkbox" id="f-uso-preeng" value="PREENGORDE" checked> Pre Engorde</label>
-            <label><input type="checkbox" id="f-uso-eng" value="ENGORDE" checked> Engorde</label>
-        </div>
-    </div>
-    <div class="fg">
-        <label>Estado</label>
-        <div class="chk-group">
-            <label><input type="checkbox" id="f-estado-prod" value="PRODUCCION" checked onchange="renderTablaFiltrada()"> Producción</label>
-            <label><input type="checkbox" id="f-estado-cos" value="COSECHADO" checked onchange="renderTablaFiltrada()"> Cosechado</label>
-        </div>
-    </div>
-    <div class="fg">
-        <label>Fecha de siembra</label>
-        <div class="ms-dropdown" id="f-fecha-ms">
-            <button type="button" class="ms-trigger date-range-trigger" onclick="msToggle('f-fecha-ms', event)">
-                <span class="ms-trigger-label" id="f-fecha-label">—</span>
-                <span class="date-range-icon">📅</span>
-            </button>
-            <div class="ms-panel date-range-panel">
-                <div class="fg">
-                    <label>Desde</label>
-                    <input type="date" id="f-siembra-desde" onchange="onFechaSiembraChange()">
-                </div>
-                <div class="fg">
-                    <label>Hasta</label>
-                    <input type="date" id="f-siembra-hasta" onchange="onFechaSiembraChange()">
-                </div>
-            </div>
-        </div>
-    </div>
-    <button class="btn-apply" id="btn-generar" onclick="generarReporteMasivo()" title="Ya se carga solo al cambiar un filtro - este boton solo fuerza un refresco manual">🔄 Actualizar</button>
-    <button class="btn-export" id="btn-ocultar-incompletas" onclick="toggleOcultarIncompletas()" title="Ocultar semanas incompletas">🕒 Incompletas</button>
-    <button class="btn-export" id="btn-ocultar-sem0" onclick="toggleOcultarSem0()" title="Ocultar semana 0 (dia de siembra)">0️⃣ Semana 0</button>
-    <button class="btn-export" id="btn-ocultar-animm2-cero" onclick="toggleOcultarAnimM2Cero()" title="Ocultar semanas con AnimTotalM2 en 0">🚫 AnimM2=0</button>
-    <button class="btn-export" id="btn-exportar" onclick="exportarExcel()" disabled title="Exportar a Excel">📥 Excel</button>
+        <button class="btn-export btn-excel" id="btn-exportar" onclick="exportarExcel()" disabled title="Exportar a Excel">📥 Excel</button>
     </div>
 </header>
 
@@ -354,20 +419,18 @@ const CODE_APP  = '55ab9cb4-c887-4f42-98ec-b90470be6613';
 // sea que la pagina corra en localhost o en GitHub Pages.
 const DB_BASE = _WORKER_URL + '/db/';
 
-const SUBSIDIARIES = [
-    {id:13,code:'A1',name:'Acualit 1'}, {id:28,code:'A2',name:'Acualit 2'},
-    {id:6,code:'BR',name:'Biorey'}, {id:19,code:'BO',name:'Bonanza'},
-    {id:8,code:'CA',name:'Camaron'}, {id:7,code:'CR',name:'Camino Real'},
-    {id:10034,code:'CO',name:'Coaque'}, {id:11,code:'ES',name:'Esteromar'},
-    {id:14,code:'FI',name:'Fincacua'}, {id:17,code:'GO',name:'Golfomar'},
-    {id:16,code:'GR',name:'Granmar'}, {id:15,code:'IN',name:'Inducam'},
-    {id:5,code:'JO',name:'Josefina'}, {id:4,code:'KA',name:'Kamaclusa'},
-    {id:18,code:'LA',name:'Lanconor'}, {id:21,code:'LG',name:'Los Gelices'},
-    {id:9,code:'MH',name:'Marchena'}, {id:10,code:'MG',name:'Margolfo'},
-    {id:3,code:'MA',name:'Maricultura'}, {id:1,code:'NA',name:'Naturisa'},
-    {id:2,code:'PE',name:'Pesjoya'}, {id:12,code:'RN',name:'Rio Nilo'},
-    {id:20,code:'RO',name:'Roblemar'},
-];
+// Ya no es una lista fija en el codigo - se lee de la tabla D1 "sucursales" (fetchSucursalesD1),
+// para que las sucursales nuevas (ej. "Coaque NC") aparezcan solas sin tener que tocar este
+// archivo cada vez que se crea una. Arranca vacio y se llena antes de que corra initSucursalDropdown.
+let SUBSIDIARIES = [];
+async function fetchSucursalesD1() {
+    try {
+        const res = await fetch(DB_BASE + 'sucursales');
+        if (!res.ok) throw new Error(`sucursales: HTTP ${res.status}`);
+        const { data } = await res.json();
+        SUBSIDIARIES = (data || []).map(s => ({ id: s.id, code: s.codigo, name: s.nombre }));
+    } catch (e) { console.error('No se pudo cargar sucursales desde D1:', e); }
+}
 
 function getToken() { return localStorage.getItem('nat_token') || ''; }
 
@@ -392,6 +455,7 @@ async function doModalLogin() {
             localStorage.setItem('nat_name', fullName);
             document.getElementById('modal-pass').value = '';
             applyLoginUI(true, fullName);
+            generarReporteMasivo();
         } else {
             status.textContent = '⚠ Usuario o contraseña incorrectos';
         }
@@ -409,6 +473,7 @@ function saveModalToken() {
     const user = document.getElementById('modal-user').value || 'Usuario';
     localStorage.setItem('nat_name', user);
     applyLoginUI(true, user);
+    generarReporteMasivo();
 }
 
 function doLogout() {
@@ -426,9 +491,6 @@ function applyLoginUI(on, nombre) {
         const initials = nombre.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
         document.getElementById('user-avatar').textContent = initials;
         document.getElementById('user-name-label').textContent = nombre;
-        // Carga automatica al entrar (sesion ya iniciada o recien iniciada) - con los filtros por
-        // defecto (Todas las sucursales, ultimos 3 meses de siembra), sin esperar un clic.
-        if (typeof generarReporteMasivo === 'function') generarReporteMasivo();
     }
 }
 
@@ -554,14 +616,14 @@ document.addEventListener('click', (e) => {
     }
 });
 
-(function initSucursalDropdown() {
+function initSucursalDropdown() {
     const root = document.getElementById('f-sucursal-ms');
     const optionsBox = root.querySelector('.ms-options');
     const selectAll = root.querySelector('.ms-select-all input');
     optionsBox.innerHTML = SUBSIDIARIES.slice().sort((a, b) => a.name.localeCompare(b.name, 'es'))
         .map(s => `<label class="ms-option"><input type="checkbox" value="${s.code}" onchange="msUpdateTrigger('f-sucursal-ms', 'Todas'); cargarPiscinasCiclosDesdeIndice(); renderTablaFiltrada();"> ${s.code} - ${s.name}</label>`).join('');
     selectAll.onchange = () => { msToggleAll('f-sucursal-ms', selectAll.checked, 'Todas'); cargarPiscinasCiclosDesdeIndice(); renderTablaFiltrada(); };
-})();
+}
 
 // Cascada Sucursal -> Piscinas -> Ciclos (igual que consumos-insumos.html): el filtro de
 // Piscinas solo se ve si hay al menos una sucursal especifica elegida (no "Todas"), y el de
@@ -591,31 +653,46 @@ function actualizarCiclosDisponibles() {
 let _ciclosD1Cache = null;
 async function fetchCiclosD1() {
     if (_ciclosD1Cache) return _ciclosD1Cache;
-    try {
-        const res = await fetch(DB_BASE + 'ciclos');
-        _ciclosD1Cache = res.ok ? ((await res.json()).data || []) : [];
-    } catch (e) { _ciclosD1Cache = []; }
+    // Solo se cachea si la respuesta fue exitosa - si falla (ej. la primera carga automatica al
+    // abrir la pagina, con el Worker todavia "despertando"), NO se guarda un resultado vacio, para
+    // que el siguiente intento (automatico o con "Actualizar") vuelva a pedirlo en vez de quedar
+    // pegado en vacio para siempre.
+    const res = await fetch(DB_BASE + 'ciclos');
+    if (!res.ok) throw new Error(`ciclos: HTTP ${res.status}`);
+    const { data } = await res.json();
+    _ciclosD1Cache = data || [];
     return _ciclosD1Cache;
 }
 
 // Historia semanal de varios ciclos a la vez, en lotes (el endpoint acepta ?idCiclo= repetido) para
 // no armar una URL con miles de parametros de una sola vez.
+// Devuelve { porCiclo, ciclosFallidos } - antes, si un lote fallaba (red/timeout), esos ciclos
+// quedaban sin historia SIN AVISAR (parecia que esa piscina simplemente "no existia" en el
+// reporte). Ahora cada lote reintenta hasta 2 veces, y si de verdad no se pudo, se cuenta para
+// avisarlo en el hint en vez de quedar en silencio.
 async function fetchHistoriaCiclosD1(cycleIds) {
     const porCiclo = {};
-    const CHUNK = 150;
+    const ciclosFallidos = [];
+    const CHUNK = 100;
+    const MAX_INTENTOS = 3;
     for (let i = 0; i < cycleIds.length; i += CHUNK) {
         const chunk = cycleIds.slice(i, i + CHUNK);
         const usp = new URLSearchParams();
         chunk.forEach(id => usp.append('idCiclo', id));
-        try {
-            const res = await fetch(DB_BASE + 'historia-ciclo?' + usp.toString());
-            if (res.ok) {
+        let ok = false;
+        for (let intento = 1; intento <= MAX_INTENTOS && !ok; intento++) {
+            try {
+                const res = await fetch(DB_BASE + 'historia-ciclo?' + usp.toString());
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const { data } = await res.json();
                 (data || []).forEach(r => (porCiclo[r.id_ciclo] = porCiclo[r.id_ciclo] || []).push(r));
+                ok = true;
+            } catch (e) {
+                if (intento === MAX_INTENTOS) ciclosFallidos.push(...chunk);
             }
-        } catch (e) { /* ese lote queda sin historia, el resto sigue */ }
+        }
     }
-    return porCiclo;
+    return { porCiclo, ciclosFallidos };
 }
 
 // Llena los dropdowns de Piscinas/Ciclos leyendo D1 (cacheado en memoria) de las sucursales
@@ -788,6 +865,59 @@ function toggleOcultarAnimM2Cero() {
     renderTablaFiltrada();
 }
 
+// ── Panel de filtros desplegable ────────────────────────────────────────
+function toggleFilterPanel(e) {
+    e.stopPropagation();
+    document.getElementById('filter-panel').classList.toggle('open');
+}
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#filter-panel-wrap')) document.getElementById('filter-panel')?.classList.remove('open');
+});
+
+function resetFiltroSucursales() {
+    const sel = document.getElementById('f-sucursal-ms').querySelector('.ms-select-all input');
+    msToggleAll('f-sucursal-ms', false, 'Todas');
+    if (sel) sel.checked = false;
+    cargarPiscinasCiclosDesdeIndice();
+    dispararRecargaDebounced();
+}
+function resetFiltroUso() {
+    ['f-uso-precr', 'f-uso-preeng', 'f-uso-eng'].forEach(id => { document.getElementById(id).checked = true; });
+    dispararRecargaDebounced();
+}
+function resetFiltroEstado() {
+    ['f-estado-prod', 'f-estado-cos'].forEach(id => { document.getElementById(id).checked = true; });
+    dispararRecargaDebounced();
+}
+function resetFiltroFecha() {
+    document.getElementById('f-siembra-desde').value = '';
+    document.getElementById('f-siembra-hasta').value = '';
+    onFechaSiembraChange();
+    dispararRecargaDebounced();
+}
+function resetFiltroPeso() {
+    document.getElementById('f-peso-desde').value = '';
+    document.getElementById('f-peso-hasta').value = '';
+    renderTablaFiltrada();
+}
+function resetFiltroAnimM2() {
+    document.getElementById('f-animm2-desde').value = '';
+    document.getElementById('f-animm2-hasta').value = '';
+    renderTablaFiltrada();
+}
+function resetTodosFiltros() {
+    resetFiltroUso();
+    resetFiltroEstado();
+    resetFiltroFecha();
+    resetFiltroPeso();
+    resetFiltroAnimM2();
+    resetFiltroSucursales();
+}
+function aplicarFiltrosAhora() {
+    document.getElementById('filter-panel').classList.remove('open');
+    generarReporteMasivo();
+}
+
 function fmtFechaCorta(isoDateStr) {
     if (!isoDateStr) return null;
     const s = String(isoDateStr).slice(0, 10);
@@ -849,7 +979,12 @@ function dispararRecargaDebounced() {
     if (_recargaTimer) clearTimeout(_recargaTimer);
     _recargaTimer = setTimeout(() => { generarReporteMasivo(); }, 450);
 }
-document.querySelector('.filters').addEventListener('change', () => dispararRecargaDebounced());
+document.querySelector('.filters').addEventListener('change', (e) => {
+    // Peso/Anim-m2 son filtros LOCALES sobre los datos ya cargados (como Estado) - no necesitan
+    // volver a pedir nada a D1, solo re-pintar la tabla (ya lo hace su propio onchange).
+    if (e.target.closest('.range-pair')) return;
+    dispararRecargaDebounced();
+});
 
 async function generarReporteMasivo() {
     if (_generandoReporte) return;
@@ -914,7 +1049,7 @@ async function generarReporteMasivo() {
         }
 
         hint.textContent = `Cargando historia semanal: 0/${candidatos.length} ciclos...`;
-        const historiaPorCiclo = await fetchHistoriaCiclosD1(candidatos.map(c => c.id_ciclo));
+        const { porCiclo: historiaPorCiclo, ciclosFallidos } = await fetchHistoriaCiclosD1(candidatos.map(c => c.id_ciclo));
 
         const nombrePorCodigo = Object.fromEntries(SUBSIDIARIES.map(s => [s.code, s.name]));
         candidatos.forEach(c => {
@@ -924,7 +1059,8 @@ async function generarReporteMasivo() {
                 dataset.push({ sub: nombrePorCodigo[c.codigo_sucursal] || c.codigo_sucursal, subCode: c.codigo_sucursal, poolName, cycleNumber: c.numero_ciclo, estado: c.estado, row });
             });
         });
-        hint.textContent = `${candidatos.length} piscinas/ciclos, ${dataset.length} filas de historia semanal.`;
+        hint.textContent = `${candidatos.length} piscinas/ciclos, ${dataset.length} filas de historia semanal.` +
+            (ciclosFallidos.length ? ` ⚠️ ${ciclosFallidos.length} ciclos no se pudieron cargar (falla de red) - presiona "Actualizar" para reintentar.` : '');
 
         _ultimoDataset = dataset;
         if (!dataset.length) {
@@ -943,7 +1079,7 @@ async function generarReporteMasivo() {
     } catch (e) {
         document.getElementById('main-content').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Error: ${e.message}</div></div>`;
     } finally {
-        btn.disabled = false; btn.innerHTML = '🔍 Generar';
+        btn.disabled = false; btn.innerHTML = '🔄 Actualizar';
         _generandoReporte = false;
     }
 }
@@ -963,6 +1099,10 @@ function renderTablaFiltrada() {
     const piscinasFiltro = piscinasSel.length ? new Set(piscinasSel) : null;
     const ciclosFiltro = ciclosSel.length ? new Set(ciclosSel.map(Number)) : null;
     const estados = estadosSeleccionados();
+    const pesoDesde = parseFloat(document.getElementById('f-peso-desde')?.value);
+    const pesoHasta = parseFloat(document.getElementById('f-peso-hasta')?.value);
+    const animM2Desde = parseFloat(document.getElementById('f-animm2-desde')?.value);
+    const animM2Hasta = parseFloat(document.getElementById('f-animm2-hasta')?.value);
 
     // Si la sucursal recien elegida ya esta cargada en _ultimoDataset, esto filtra al instante
     // sin pedir nada nuevo al servidor; si es una sucursal que todavia no se ha traido, no
@@ -975,6 +1115,10 @@ function renderTablaFiltrada() {
         (!ocultarIncompletas || !esSemanaIncompleta(e.row)) &&
         (!ocultarSem0 || Number(g(e.row, 'semana')) !== 0) &&
         (!ocultarAnimM2Cero || Number(g(e.row, 'animales_por_m2')) !== 0) &&
+        (Number.isNaN(pesoDesde) || Number(g(e.row, 'peso')) >= pesoDesde) &&
+        (Number.isNaN(pesoHasta) || Number(g(e.row, 'peso')) <= pesoHasta) &&
+        (Number.isNaN(animM2Desde) || Number(g(e.row, 'animales_por_m2')) >= animM2Desde) &&
+        (Number.isNaN(animM2Hasta) || Number(g(e.row, 'animales_por_m2')) <= animM2Hasta) &&
         cfPasaFiltros(e.row));
 
     // Orden Sucursal -> Piscina -> Ciclo -> Semana, igual que los filtros (dataset.push no
@@ -1024,6 +1168,19 @@ function exportarExcel() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
+
+// Carga automatica al abrir la pagina (si ya habia sesion) - se hace aqui, al final del script,
+// para que ya hayan corrido initRangoFechaSiembra (fechas por defecto) e initSucursalDropdown
+// (checkboxes de sucursales) antes del primer generarReporteMasivo(); si se dispara antes de eso
+// (ej. desde dentro de applyLoginUI, que se llama mas arriba en el script), esos filtros todavia
+// estarian vacios y la primera carga saldria sin datos hasta que el usuario la fuerce a mano.
+// Las sucursales YA NO son una lista fija - hay que esperar a que lleguen de D1 antes de armar el
+// dropdown, asi que todo el arranque queda encadenado dentro de este async.
+(async function bootstrap() {
+    await fetchSucursalesD1();
+    initSucursalDropdown();
+    if (getToken()) generarReporteMasivo();
+})();
 </script>
 </body>
 </html>
