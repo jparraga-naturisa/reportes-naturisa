@@ -5,6 +5,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
+  'http://localhost:3003',
+  'http://localhost:3004',
 ]
 
 function getCors(origin) {
@@ -120,15 +122,544 @@ async function handleFeedingCached(request, url, env, ctx) {
     { 'X-Cache': 'MISS', 'X-Cache-Rows': String(allRows.length) })
 }
 
+// ── Tablas propias en D1 (compartidas entre todos los dashboards) ─────────
+// Todas las columnas y claves JSON de estos endpoints estan en espanol.
+//
+// GET  /db/sucursales        -> lista todas las sucursales {id, codigo, nombre}
+// POST /db/sucursales        -> upsert de una sucursal, body {id, codigo, nombre}
+
+async function handleDbSucursales(request, env) {
+  if (request.method === 'GET') {
+    const { results } = await env.db.prepare('SELECT id, codigo, nombre, Cluster AS cluster FROM sucursales ORDER BY nombre').all()
+    return corsResponse(JSON.stringify({ data: results }), 200, request)
+  }
+  if (request.method === 'POST') {
+    const body = await request.json()
+    if (!body || !body.id || !body.codigo || !body.nombre) {
+      return corsResponse('{"error":"faltan campos: id, codigo, nombre"}', 400, request)
+    }
+    await env.db.prepare('INSERT OR REPLACE INTO sucursales (id, codigo, nombre) VALUES (?, ?, ?)')
+      .bind(body.id, body.codigo, body.nombre).run()
+    return corsResponse('{"ok":true}', 200, request)
+  }
+  return corsResponse('{"error":"method not allowed"}', 405, request)
+}
+
+// GET  /db/piscinas                 -> lista piscinas, opcional ?idSucursal=<id>
+// POST /db/piscinas/sync            -> upsert masivo, body {piscinas: [{idPiscina, nombre, codigoPiscina, tamano, idSucursal, tipo, estado}, ...]}
+
+async function handleDbPiscinas(request, url, env) {
+  if (request.method === 'GET') {
+    const idSucursal = url.searchParams.get('idSucursal')
+    const stmt = idSucursal
+      ? env.db.prepare('SELECT id_piscina, nombre, codigo_piscina, tamano, id_sucursal, tipo, estado, actualizado_en FROM piscinas WHERE id_sucursal = ? ORDER BY nombre').bind(idSucursal)
+      : env.db.prepare('SELECT id_piscina, nombre, codigo_piscina, tamano, id_sucursal, tipo, estado, actualizado_en FROM piscinas ORDER BY nombre')
+    const { results } = await stmt.all()
+    return corsResponse(JSON.stringify({ data: results }), 200, request)
+  }
+  return corsResponse('{"error":"method not allowed"}', 405, request)
+}
+
+// Ecuador no tiene horario de verano, siempre UTC-5
+function ecuadorNowISO() {
+  const d = new Date(Date.now() - 5 * 60 * 60 * 1000)
+  return d.toISOString().replace('Z', '-05:00')
+}
+
+async function handleDbPiscinasSync(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const body = await request.json()
+  const piscinas = Array.isArray(body?.piscinas) ? body.piscinas : []
+  if (!piscinas.length) return corsResponse('{"error":"body.piscinas vacio"}', 400, request)
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO piscinas (id_piscina, nombre, codigo_piscina, tamano, id_sucursal, tipo, estado, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_piscina) DO UPDATE SET
+       nombre = excluded.nombre, codigo_piscina = excluded.codigo_piscina, tamano = excluded.tamano,
+       id_sucursal = excluded.id_sucursal, tipo = excluded.tipo, estado = excluded.estado,
+       actualizado_en = excluded.actualizado_en`
+  )
+  const batch = piscinas
+    .filter(p => p && p.idPiscina)
+    .map(p => stmt.bind(p.idPiscina, p.nombre || '', p.codigoPiscina || null, p.tamano ?? null, p.idSucursal ?? null, p.tipo || null, p.estado || null, now))
+  await env.db.batch(batch)
+  return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
+}
+
+// GET  /db/ciclos                   -> lista ciclos, opcional ?idSucursal=<id>&estado=PRODUCCION|COSECHADO
+// POST /db/ciclos/sync              -> upsert masivo, body {ciclos: [{idCiclo, idSucursal, codigoSucursal, nombrePiscina, numeroCiclo, codigoCiclo, usoCiclo, fechaSiembra, tamanoPiscina, estado, diasCiclo, diasSecos, diasProduccion, fechaInicio, fechaCosecha}, ...]}
+
+async function handleDbCiclos(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const idSucursal = url.searchParams.get('idSucursal')
+  const estado = url.searchParams.get('estado')
+  const cols = 'id_ciclo, id_sucursal, codigo_sucursal, nombre_piscina, numero_ciclo, codigo_ciclo, uso_ciclo, fecha_siembra, tamano_piscina, estado, dias_ciclo, dias_secos, dias_produccion, fecha_inicio, fecha_cosecha, actualizado_en'
+  const conds = []
+  const binds = []
+  if (idSucursal) { conds.push('id_sucursal = ?'); binds.push(idSucursal) }
+  if (estado) { conds.push('estado = ?'); binds.push(estado) }
+  const where = conds.length ? ' WHERE ' + conds.join(' AND ') : ''
+  const stmt = env.db.prepare(`SELECT ${cols} FROM ciclos${where} ORDER BY fecha_siembra DESC`).bind(...binds)
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbCiclosSync(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const body = await request.json()
+  const ciclos = Array.isArray(body?.ciclos) ? body.ciclos : []
+  if (!ciclos.length) return corsResponse('{"error":"body.ciclos vacio"}', 400, request)
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO ciclos (id_ciclo, id_sucursal, codigo_sucursal, nombre_piscina, numero_ciclo, codigo_ciclo, uso_ciclo, fecha_siembra, tamano_piscina, estado, dias_ciclo, dias_secos, dias_produccion, fecha_inicio, fecha_cosecha, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_ciclo) DO UPDATE SET
+       id_sucursal = excluded.id_sucursal, codigo_sucursal = excluded.codigo_sucursal,
+       nombre_piscina = excluded.nombre_piscina, numero_ciclo = excluded.numero_ciclo, codigo_ciclo = excluded.codigo_ciclo,
+       uso_ciclo = excluded.uso_ciclo, fecha_siembra = excluded.fecha_siembra, tamano_piscina = excluded.tamano_piscina,
+       estado = excluded.estado, dias_ciclo = excluded.dias_ciclo, dias_secos = excluded.dias_secos,
+       dias_produccion = excluded.dias_produccion, fecha_inicio = excluded.fecha_inicio,
+       fecha_cosecha = excluded.fecha_cosecha, actualizado_en = excluded.actualizado_en`
+  )
+  const batch = ciclos
+    .filter(c => c && c.idCiclo)
+    .map(c => stmt.bind(c.idCiclo, c.idSucursal ?? null, c.codigoSucursal || null, c.nombrePiscina || null,
+      c.numeroCiclo ?? null, c.codigoCiclo || null, c.usoCiclo || null, c.fechaSiembra || null,
+      c.tamanoPiscina ?? null, c.estado || null, c.diasCiclo ?? null, c.diasSecos ?? null, c.diasProduccion ?? null,
+      c.fechaInicio || null, c.fechaCosecha || null, now))
+  await env.db.batch(batch)
+  return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
+}
+
+// GET  /db/historia-ciclo?idCiclo=<id>   -> historia semanal de un ciclo (o de varios si se repite el param)
+// POST /db/historia-ciclo/sync           -> upsert masivo, body {filas: [{idCiclo, semana, inicioSemana, finSemana, diasProduccion, peso, pesoEstimadoRegresion, crecimientoUltimaSemana, crecimiento2Semanas, crecimiento4Semanas, crecimientoDesdeInicio, supervivencia, biomasaActual, biomasaSemana, animalesPorM2, biomasaCosechada, alimentoSemana, alimentoAcumulado, alimentoHaDia, fca, fcaBruto, fcaSemana, estM2, factorAlimento}, ...]}
+
+async function handleDbHistoriaCiclo(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const idCiclos = url.searchParams.getAll('idCiclo')
+  if (!idCiclos.length) return corsResponse('{"error":"falta ?idCiclo="}', 400, request)
+  const placeholders = idCiclos.map(() => '?').join(',')
+  const stmt = env.db.prepare(
+    `SELECT * FROM historia_ciclo WHERE id_ciclo IN (${placeholders}) ORDER BY id_ciclo, semana`
+  ).bind(...idCiclos)
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbHistoriaCicloSync(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const body = await request.json()
+  const filas = Array.isArray(body?.filas) ? body.filas : []
+  if (!filas.length) return corsResponse('{"error":"body.filas vacio"}', 400, request)
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO historia_ciclo (id_ciclo, semana, inicio_semana, fin_semana, dias_produccion, peso,
+       peso_estimado_regresion, crecimiento_ultima_semana, crecimiento_2_semanas, crecimiento_4_semanas, crecimiento_desde_inicio,
+       supervivencia, biomasa_actual, biomasa_semana, animales_por_m2, biomasa_cosechada,
+       alimento_semana, alimento_acumulado, alimento_ha_dia, fca, fca_bruto, fca_semana,
+       est_m2, factor_alimento, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_ciclo, semana) DO UPDATE SET
+       inicio_semana = excluded.inicio_semana, fin_semana = excluded.fin_semana,
+       dias_produccion = excluded.dias_produccion, peso = excluded.peso,
+       peso_estimado_regresion = excluded.peso_estimado_regresion,
+       crecimiento_ultima_semana = excluded.crecimiento_ultima_semana, crecimiento_2_semanas = excluded.crecimiento_2_semanas,
+       crecimiento_4_semanas = excluded.crecimiento_4_semanas, crecimiento_desde_inicio = excluded.crecimiento_desde_inicio,
+       supervivencia = excluded.supervivencia, biomasa_actual = excluded.biomasa_actual, biomasa_semana = excluded.biomasa_semana,
+       animales_por_m2 = excluded.animales_por_m2,
+       biomasa_cosechada = excluded.biomasa_cosechada, alimento_semana = excluded.alimento_semana,
+       alimento_acumulado = excluded.alimento_acumulado,
+       alimento_ha_dia = excluded.alimento_ha_dia,
+       fca = excluded.fca, fca_bruto = excluded.fca_bruto, fca_semana = excluded.fca_semana,
+       est_m2 = excluded.est_m2, factor_alimento = excluded.factor_alimento, actualizado_en = excluded.actualizado_en`
+  )
+  const batch = filas
+    .filter(r => r && r.idCiclo && r.semana !== undefined && r.semana !== null)
+    .map(r => stmt.bind(r.idCiclo, r.semana, r.inicioSemana || null, r.finSemana || null,
+      r.diasProduccion ?? null, r.peso ?? null, r.pesoEstimadoRegresion ?? null,
+      r.crecimientoUltimaSemana ?? null, r.crecimiento2Semanas ?? null, r.crecimiento4Semanas ?? null, r.crecimientoDesdeInicio ?? null,
+      r.supervivencia ?? null, r.biomasaActual ?? null, r.biomasaSemana ?? null, r.animalesPorM2 ?? null,
+      r.biomasaCosechada ?? null, r.alimentoSemana ?? null, r.alimentoAcumulado ?? null,
+      r.alimentoHaDia ?? null, r.fca ?? null, r.fcaBruto ?? null, r.fcaSemana ?? null,
+      r.estM2 ?? null, r.factorAlimento ?? null, now))
+  await env.db.batch(batch)
+  return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
+}
+
+// ── Calibracion de alimento (a, b, R2) por piscina ─────────────────────────
+// Replica proyeccion-alimento.html: fa = a * peso^b, ajustado por regresion lineal
+// sobre ln(peso) vs ln(densidad/alimento_ha_dia), solo semanas completas (semana>0,
+// duracion de semana >= 6 dias o sin fechas) de ciclos COSECHADOS, min 15 puntos por piscina.
+//
+// GET  /db/calibracion-alimento             -> lista calibraciones por piscina
+// POST /db/calibracion-alimento/recalcular  -> recalcula todo desde ciclos + historia_ciclo (ya en D1)
+
+const CALIBRACION_MIN_PUNTOS = 15
+// Coeficiente estandar (escenario Normal) de simulador-ap1.html, usado cuando una
+// piscina no tiene suficiente historico propio para calcular su propia regresion.
+const COEF_ESTANDAR = { a: 0.805280, b: -0.5355 }
+const CALIBRACION_WHERE = `
+  c.estado = 'COSECHADO'
+  AND h.semana > 0
+  AND h.peso > 0 AND h.animales_por_m2 > 0 AND h.alimento_ha_dia > 0
+  AND (h.inicio_semana IS NULL OR h.fin_semana IS NULL
+       OR (julianday(h.fin_semana) - julianday(h.inicio_semana)) <= 0
+       OR (julianday(h.fin_semana) - julianday(h.inicio_semana)) >= 6)
+`
+
+function calcRegresion(row) {
+  const n = row.n
+  if (!n || n < CALIBRACION_MIN_PUNTOS) return null
+  const { sx, sy, sxy, sxx, syy } = row
+  const den = n * sxx - sx * sx
+  if (!den) return null
+  const b = (n * sxy - sx * sy) / den
+  const lnA = (sy - b * sx) / n
+  const denR2 = (n * sxx - sx * sx) * (n * syy - sy * sy)
+  const r2 = denR2 > 0 ? ((n * sxy - sx * sy) ** 2) / denR2 : null
+  return { a: Math.exp(lnA), b, r2 }
+}
+
+async function handleDbCalibracion(request, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const { results } = await env.db.prepare(
+    'SELECT codigo_sucursal, nombre_piscina, n_ciclos, n_semanas, coeficiente_a, coeficiente_b, r_cuadrado, tipo_calculo, actualizado_en FROM calibracion_alimento ORDER BY codigo_sucursal, nombre_piscina'
+  ).all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function recalcularCalibracion(env) {
+  const porPiscina = await env.db.prepare(`
+    SELECT c.codigo_sucursal AS codigoSucursal, c.nombre_piscina AS nombrePiscina,
+      COUNT(DISTINCT h.id_ciclo) AS nCiclos, COUNT(*) AS n,
+      SUM(LN(h.peso)) AS sx,
+      SUM(LN(h.animales_por_m2 / h.alimento_ha_dia)) AS sy,
+      SUM(LN(h.peso) * LN(h.animales_por_m2 / h.alimento_ha_dia)) AS sxy,
+      SUM(LN(h.peso) * LN(h.peso)) AS sxx,
+      SUM(LN(h.animales_por_m2 / h.alimento_ha_dia) * LN(h.animales_por_m2 / h.alimento_ha_dia)) AS syy
+    FROM historia_ciclo h JOIN ciclos c ON c.id_ciclo = h.id_ciclo
+    WHERE ${CALIBRACION_WHERE}
+    GROUP BY c.codigo_sucursal, c.nombre_piscina
+  `).all()
+
+  const now = ecuadorNowISO()
+  const filas = []
+
+  for (const row of porPiscina.results) {
+    const reg = calcRegresion(row)
+    const tipoCalculo = reg ? 'CALCULADO' : 'ESTANDAR'
+    const valores = reg || { a: COEF_ESTANDAR.a, b: COEF_ESTANDAR.b, r2: null }
+    filas.push({ codigoSucursal: row.codigoSucursal, nombrePiscina: row.nombrePiscina,
+      nCiclos: row.nCiclos, nSemanas: row.n, tipoCalculo, ...valores })
+  }
+
+  await env.db.prepare('DELETE FROM calibracion_alimento').run()
+  const stmt = env.db.prepare(
+    `INSERT INTO calibracion_alimento (codigo_sucursal, nombre_piscina, n_ciclos, n_semanas, coeficiente_a, coeficiente_b, r_cuadrado, tipo_calculo, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+  const batch = filas.map(f => stmt.bind(f.codigoSucursal, f.nombrePiscina, f.nCiclos, f.nSemanas, f.a, f.b, f.r2, f.tipoCalculo, now))
+  if (batch.length) await env.db.batch(batch)
+
+  return filas.length
+}
+
+async function handleDbCalibracionRecalcular(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const count = await recalcularCalibracion(env)
+  return corsResponse(JSON.stringify({ ok: true, count }), 200, request)
+}
+
+// ── Refresco automatico desde AP1 (cron) ───────────────────────────────────
+// Requiere los secrets AP1_USER y AP1_PASS (wrangler secret put AP1_USER / AP1_PASS).
+// Cron liviano (cada 6h, ~110 requests): sucursales + piscinas + ciclos.
+// Cron pesado (diario, ~1 request por ciclo activo o recien cosechado): historia_ciclo + calibracion.
+
+const AUTH_URL = GATEWAY + '/bff/web/ap1/security/api/auth'
+const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613'
+const API_BASE = GATEWAY + '/bff/web/ap1/backoffice/api'
+const CICLOS_DESDE = '2025-01-01'
+
+async function ap1Login(env) {
+  const res = await fetch(AUTH_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ userName: env.AP1_USER, password: env.AP1_PASS, codeApplication: CODE_APP, includeUserInfo: true })
+  })
+  const json = await res.json()
+  if (json.code !== 200 || !json.data?.token) throw new Error('Login AP1 fallo: ' + JSON.stringify(json).slice(0, 200))
+  return json.data.token
+}
+
+async function ap1Get(token, path, params) {
+  const url = new URL(API_BASE + '/' + path)
+  for (const [k, v] of (params || [])) url.searchParams.append(k, v)
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } })
+  if (!res.ok) return null
+  return res.json()
+}
+
+function isoWeek(d) {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+  const day = date.getUTCDay() || 7
+  date.setUTCDate(date.getUTCDate() + 4 - day)
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
+  const week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7)
+  return { year: date.getUTCFullYear(), week }
+}
+
+async function refrescarSucursales(token, env) {
+  const json = await ap1Get(token, 'subsidiaries', [['pageSize', '100']])
+  const rows = json?.data?.data || json?.data || []
+  const stmt = env.db.prepare(
+    `INSERT INTO sucursales (id, codigo, nombre) VALUES (?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET codigo = excluded.codigo, nombre = excluded.nombre`
+  )
+  const batch = rows.filter(r => r.idSubsidiary).map(r => stmt.bind(r.idSubsidiary, r.codeSubsidiary, r.name))
+  if (batch.length) await env.db.batch(batch)
+  return rows.map(r => ({ id: r.idSubsidiary, codigo: r.codeSubsidiary, nombre: r.name }))
+}
+
+async function refrescarPiscinas(token, env, subsidiarios) {
+  const params = subsidiarios.map(s => ['subsidiaryIds', s.id])
+  params.push(['pageSize', '5000'], ['status', 'ACTIVO'], ['status', 'INACTIVO'], ['status', 'MANTENIMIENTO'])
+  const json = await ap1Get(token, 'pools', params)
+  const rows = json?.data?.data || []
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO piscinas (id_piscina, nombre, codigo_piscina, tamano, id_sucursal, tipo, estado, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_piscina) DO UPDATE SET
+       nombre = excluded.nombre, codigo_piscina = excluded.codigo_piscina, tamano = excluded.tamano,
+       id_sucursal = excluded.id_sucursal, tipo = excluded.tipo, estado = excluded.estado, actualizado_en = excluded.actualizado_en`
+  )
+  const batch = rows.filter(p => p.idPool).map(p =>
+    stmt.bind(p.idPool, p.name || '', p.codePool || null, p.size ?? null, p.subsidiaryId ?? null, p.type || null, p.status || null, now))
+  if (batch.length) await env.db.batch(batch)
+  return rows.length
+}
+
+async function refrescarCiclos(token, env, subsidiarios) {
+  const hoy = ecuadorNowISO().slice(0, 10)
+  const { year: cutOffYear, week: cutOffWeek } = isoWeek(new Date())
+
+  const porCycleId = new Map()
+  const ppByCycleId = new Map()
+  const statusMap = new Map()
+
+  for (const sub of subsidiarios) {
+    const [siembra, pp, nav] = await Promise.all([
+      ap1Get(token, 'cycle_sowing_report', [['subsidiaryIds', sub.id], ['startDate', CICLOS_DESDE], ['endDate', hoy]]),
+      ap1Get(token, 'report_production/pool_production', [['subsidiaryIds', sub.id], ['cutOffYear', cutOffYear], ['cutOffWeek', cutOffWeek]]),
+      ap1Get(token, 'cycles/cycles_navigation', [['subsidiaryId', sub.id], ['includePools', 'true'], ['activeFilter', 'false']]),
+    ])
+
+    for (const r of (siembra?.data || [])) {
+      if (!r.cycleId) continue
+      const existing = porCycleId.get(r.cycleId)
+      if (!existing) {
+        porCycleId.set(r.cycleId, {
+          cycleId: r.cycleId, subsidiaryCode: (r.subsidiaryCode || '').toUpperCase(),
+          poolName: String(r.poolName || '').trim(), cycleNumber: r.cycleNumber,
+          cycleCode: r.cycleCode, cycleUsage: r.cycleUsage, dateSowing: r.dateSowing, poolSize: r.poolSize,
+        })
+      } else if (r.dateSowing && (!existing.dateSowing || r.dateSowing < existing.dateSowing)) {
+        existing.dateSowing = r.dateSowing
+      }
+    }
+    for (const r of (pp?.data || [])) { if (r.idCycle) ppByCycleId.set(r.idCycle, r) }
+    for (const poolRow of (nav?.data || [])) {
+      for (const det of (poolRow.detail || [])) {
+        if (det.idCycle && det.status) statusMap.set(det.idCycle, det.status)
+      }
+    }
+  }
+
+  const idSucursalByCode = new Map(subsidiarios.map(s => [s.codigo, s.id]))
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO ciclos (id_ciclo, id_sucursal, codigo_sucursal, nombre_piscina, numero_ciclo, codigo_ciclo, uso_ciclo, fecha_siembra, tamano_piscina, estado, dias_ciclo, dias_secos, dias_produccion, fecha_inicio, fecha_cosecha, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_ciclo) DO UPDATE SET
+       id_sucursal = excluded.id_sucursal, codigo_sucursal = excluded.codigo_sucursal,
+       nombre_piscina = excluded.nombre_piscina, numero_ciclo = excluded.numero_ciclo, codigo_ciclo = excluded.codigo_ciclo,
+       uso_ciclo = excluded.uso_ciclo, fecha_siembra = excluded.fecha_siembra, tamano_piscina = excluded.tamano_piscina,
+       estado = excluded.estado, dias_ciclo = excluded.dias_ciclo, dias_secos = excluded.dias_secos,
+       dias_produccion = excluded.dias_produccion, actualizado_en = excluded.actualizado_en`
+  )
+  const batch = []
+  for (const c of porCycleId.values()) {
+    const pp = ppByCycleId.get(c.cycleId)
+    const estado = statusMap.get(c.cycleId) || (pp ? 'PRODUCCION' : 'COSECHADO')
+    batch.push(stmt.bind(c.cycleId, idSucursalByCode.get(c.subsidiaryCode) ?? null, c.subsidiaryCode, c.poolName,
+      c.cycleNumber ?? null, c.cycleCode || null, c.cycleUsage || null, c.dateSowing || null, c.poolSize ?? null,
+      estado, pp?.daysCycle ?? null, pp?.daysDry ?? null, pp?.daysProduction ?? null,
+      pp?.sowingDate || c.dateSowing || null, null, now))
+  }
+  if (batch.length) await env.db.batch(batch)
+  return batch.length
+}
+
+async function refrescarHistoriaCiclo(env) {
+  const { results: idsActivosYNuevos } = await env.db.prepare(`
+    SELECT id_ciclo FROM ciclos WHERE estado = 'PRODUCCION'
+    UNION
+    SELECT c.id_ciclo FROM ciclos c
+    WHERE c.estado = 'COSECHADO'
+      AND NOT EXISTS (SELECT 1 FROM historia_ciclo h WHERE h.id_ciclo = c.id_ciclo)
+  `).all()
+
+  const token = await ap1Login({ AP1_USER: env.AP1_USER, AP1_PASS: env.AP1_PASS })
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO historia_ciclo (id_ciclo, semana, inicio_semana, fin_semana, dias_produccion, peso,
+       peso_estimado_regresion, crecimiento_ultima_semana, crecimiento_2_semanas, crecimiento_4_semanas, crecimiento_desde_inicio,
+       supervivencia, biomasa_actual, biomasa_semana, animales_por_m2, biomasa_cosechada,
+       alimento_semana, alimento_acumulado, alimento_ha_dia, fca, fca_bruto, fca_semana,
+       est_m2, factor_alimento, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_ciclo, semana) DO UPDATE SET
+       inicio_semana = excluded.inicio_semana, fin_semana = excluded.fin_semana,
+       dias_produccion = excluded.dias_produccion, peso = excluded.peso,
+       peso_estimado_regresion = excluded.peso_estimado_regresion,
+       crecimiento_ultima_semana = excluded.crecimiento_ultima_semana, crecimiento_2_semanas = excluded.crecimiento_2_semanas,
+       crecimiento_4_semanas = excluded.crecimiento_4_semanas, crecimiento_desde_inicio = excluded.crecimiento_desde_inicio,
+       supervivencia = excluded.supervivencia, biomasa_actual = excluded.biomasa_actual, biomasa_semana = excluded.biomasa_semana,
+       animales_por_m2 = excluded.animales_por_m2, biomasa_cosechada = excluded.biomasa_cosechada,
+       alimento_semana = excluded.alimento_semana, alimento_acumulado = excluded.alimento_acumulado,
+       alimento_ha_dia = excluded.alimento_ha_dia, fca = excluded.fca, fca_bruto = excluded.fca_bruto,
+       fca_semana = excluded.fca_semana, est_m2 = excluded.est_m2, factor_alimento = excluded.factor_alimento,
+       actualizado_en = excluded.actualizado_en`
+  )
+
+  let totalFilas = 0
+  const CONCURRENCIA = 12
+  const ids = idsActivosYNuevos.map(r => r.id_ciclo)
+  for (let i = 0; i < ids.length; i += CONCURRENCIA) {
+    const lote = ids.slice(i, i + CONCURRENCIA)
+    const resultados = await Promise.all(lote.map(id => ap1Get(token, `cycle_histories/production/${id}`).catch(() => null)))
+    const batch = []
+    resultados.forEach((json, idx) => {
+      const cycleId = lote[idx]
+      for (const r of (json?.data || [])) {
+        if (r.weekOfYear === undefined || r.weekOfYear === null) continue
+        batch.push(stmt.bind(cycleId, r.weekOfYear, r.startOfWeek || null, r.endOfWeek || null,
+          r.productionDays ?? null, r.weight ?? null, r.estimatedWeightByRegresion ?? null,
+          r.growthlastWeeks ?? null, r.growth2Weeks ?? null, r.growth4Weeks ?? null, r.growthFromTheBeginning ?? null,
+          r.survival ?? null, r.biomassActual ?? null, r.biomassWeek ?? null, r.totalActualAnimalsPerSquareMeter ?? null,
+          r.biomassHarvested ?? null, r.totalFeedWeek ?? null, r.totalAccumulateFeed ?? null,
+          r.totalFeedWeekPerHectareDay ?? null, r.fca ?? null, r.fcaGross ?? null, r.fcaWeek ?? null,
+          r.estM2 ?? null, r.feedFactor ?? null, now))
+      }
+    })
+    if (batch.length) { await env.db.batch(batch); totalFilas += batch.length }
+  }
+  return { ciclos: ids.length, filas: totalFilas }
+}
+
+async function refrescoLiviano(env) {
+  const token = await ap1Login(env)
+  const subsidiarios = await refrescarSucursales(token, env)
+  const nPiscinas = await refrescarPiscinas(token, env, subsidiarios)
+  const nCiclos = await refrescarCiclos(token, env, subsidiarios)
+  return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos }
+}
+
+async function refrescoPesado(env) {
+  const historia = await refrescarHistoriaCiclo(env)
+  const calibracion = await recalcularCalibracion(env)
+  return { ...historia, calibracion }
+}
+
 // ── Handler principal ──────────────────────────────────────────────────────
 
 export default {
+  async scheduled(event, env, ctx) {
+    // Cron liviano cada 6h: "0 */6 * * *". Cron pesado diario: "0 7 * * *" (2am Ecuador).
+    if (event.cron === '0 7 * * *') {
+      ctx.waitUntil(refrescoPesado(env).catch(e => console.error('refrescoPesado error:', e)))
+    } else {
+      ctx.waitUntil(refrescoLiviano(env).catch(e => console.error('refrescoLiviano error:', e)))
+    }
+  },
+
   async fetch(request, env, ctx) {
     const url    = new URL(request.url)
     const origin = request.headers.get('Origin') || ''
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: getCors(origin) })
+    }
+
+    // Las rutas /db/* que ESCRIBEN (sync, recalcular, refrescar-*) requieren la API key propia
+    // (header X-Api-Key) - corren desde scripts/servidores propios, nunca desde un navegador, asi
+    // que la key puede vivir ahi sin quedar expuesta. Las rutas de solo LECTURA (GET) se dejan
+    // abiertas a proposito: las consumen dashboards estaticos en el navegador (GitHub Pages) donde
+    // cualquier valor incrustado en el HTML/JS quedaria visible en DevTools de todos modos - meterle
+    // una key ahi no protege nada real, solo da una falsa sensacion de seguridad.
+    if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
+      const key = request.headers.get('X-Api-Key') || ''
+      if (!env.DB_API_KEY || key !== env.DB_API_KEY) {
+        return corsResponse('{"error":"no autorizado"}', 401, request)
+      }
+    }
+
+    if (url.pathname === '/db/refrescar-liviano' && env.db && request.method === 'POST') {
+      try {
+        const r = await refrescoLiviano(env)
+        return corsResponse(JSON.stringify({ ok: true, ...r }), 200, request)
+      } catch (e) {
+        return corsResponse(JSON.stringify({ error: String(e) }), 500, request)
+      }
+    }
+
+    if (url.pathname === '/db/refrescar-pesado' && env.db && request.method === 'POST') {
+      try {
+        const r = await refrescoPesado(env)
+        return corsResponse(JSON.stringify({ ok: true, ...r }), 200, request)
+      } catch (e) {
+        return corsResponse(JSON.stringify({ error: String(e) }), 500, request)
+      }
+    }
+
+    if (url.pathname === '/db/sucursales' && env.db) {
+      return handleDbSucursales(request, env)
+    }
+
+    if (url.pathname === '/db/piscinas' && env.db) {
+      return handleDbPiscinas(request, url, env)
+    }
+
+    if (url.pathname === '/db/piscinas/sync' && env.db) {
+      return handleDbPiscinasSync(request, env)
+    }
+
+    if (url.pathname === '/db/ciclos' && env.db) {
+      return handleDbCiclos(request, url, env)
+    }
+
+    if (url.pathname === '/db/ciclos/sync' && env.db) {
+      return handleDbCiclosSync(request, env)
+    }
+
+    if (url.pathname === '/db/historia-ciclo' && env.db) {
+      return handleDbHistoriaCiclo(request, url, env)
+    }
+
+    if (url.pathname === '/db/historia-ciclo/sync' && env.db) {
+      return handleDbHistoriaCicloSync(request, env)
+    }
+
+    if (url.pathname === '/db/calibracion-alimento' && env.db) {
+      return handleDbCalibracion(request, env)
+    }
+
+    if (url.pathname === '/db/calibracion-alimento/recalcular' && env.db) {
+      return handleDbCalibracionRecalcular(request, env)
     }
 
     if (url.pathname.startsWith('/kv/')) {

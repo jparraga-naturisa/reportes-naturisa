@@ -7,3 +7,18 @@ compatibility_date = "2024-01-01"
 [[kv_namespaces]]
 binding = "data"
 id      = "f653f9c2841c4c8fa4be539e14c077d8"
+
+# D1 database "naturisa-db" — tablas propias compartidas entre todos los dashboards
+# (sucursales, y las que se agreguen despues). Se crea con:
+#   wrangler d1 create naturisa-db
+# y el "database_id" que devuelva se pega abajo.
+[[d1_databases]]
+binding     = "db"
+database_name = "naturisa-db"
+database_id = "157a0e5f-880a-4a5d-afb5-cc40c4b4c95e"
+
+# Refresca tablas D1 automaticamente. Cron en UTC (Ecuador = UTC-5, sin horario de verano):
+# "0 */6 * * *"  = liviano cada 6h (sucursales + piscinas + ciclos)
+# "0 7 * * *"    = pesado 1x/dia a las 02:00 Ecuador (historia_ciclo + calibracion)
+[triggers]
+crons = ["0 */6 * * *", "0 7 * * *"]
