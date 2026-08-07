@@ -258,6 +258,7 @@ table.masivo-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
     <button class="btn-apply" id="btn-generar" onclick="generarReporteMasivo()" title="Generar reporte">🔍 Generar</button>
     <button class="btn-export" id="btn-ocultar-incompletas" onclick="toggleOcultarIncompletas()" title="Ocultar semanas incompletas">🕒 Incompletas</button>
     <button class="btn-export" id="btn-ocultar-sem0" onclick="toggleOcultarSem0()" title="Ocultar semana 0 (dia de siembra)">0️⃣ Semana 0</button>
+    <button class="btn-export" id="btn-ocultar-animm2-cero" onclick="toggleOcultarAnimM2Cero()" title="Ocultar semanas con AnimTotalM2 en 0">🚫 AnimM2=0</button>
     <button class="btn-export" id="btn-exportar" onclick="exportarExcel()" disabled title="Exportar a Excel">📥 Excel</button>
     </div>
 </header>
@@ -777,6 +778,13 @@ function toggleOcultarSem0() {
     renderTablaFiltrada();
 }
 
+let ocultarAnimM2Cero = false;
+function toggleOcultarAnimM2Cero() {
+    ocultarAnimM2Cero = !ocultarAnimM2Cero;
+    document.getElementById('btn-ocultar-animm2-cero').classList.toggle('active', ocultarAnimM2Cero);
+    renderTablaFiltrada();
+}
+
 function fmtFechaCorta(isoDateStr) {
     if (!isoDateStr) return null;
     const s = String(isoDateStr).slice(0, 10);
@@ -952,6 +960,7 @@ function renderTablaFiltrada() {
         estados.includes(e.estado) &&
         (!ocultarIncompletas || !esSemanaIncompleta(e.row)) &&
         (!ocultarSem0 || Number(g(e.row, 'semana')) !== 0) &&
+        (!ocultarAnimM2Cero || Number(g(e.row, 'animales_por_m2')) !== 0) &&
         cfPasaFiltros(e.row));
 
     // Orden Sucursal -> Piscina -> Ciclo -> Semana, igual que los filtros (dataset.push no
