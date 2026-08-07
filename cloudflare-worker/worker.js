@@ -332,6 +332,15 @@ async function handleDbCalibracion(request, env) {
   return corsResponse(JSON.stringify({ data: results }), 200, request)
 }
 
+// GET /db/plan-cosecha -> plan de cosechas/raleos por ciclo (sincronizado desde AP1 cada 6h)
+async function handleDbPlanCosecha(request, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const { results } = await env.db.prepare(
+    'SELECT id_ciclo, instructions, biomasa_actual_lb, current_week, one_week, two_week, three_week, four_week, five_week, six_week, actualizado_en FROM plan_cosecha'
+  ).all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
 async function recalcularCalibracion(env) {
   const porPiscina = await env.db.prepare(`
     SELECT c.codigo_sucursal AS codigoSucursal, c.nombre_piscina AS nombrePiscina,
@@ -561,12 +570,39 @@ async function refrescarHistoriaCiclo(env) {
   return { ciclos: ids.length, filas: totalFilas }
 }
 
+// harvest_programs/report: UNA sola llamada global (sin subsidiaryIds) que trae el plan de
+// cosechas/raleos de todos los ciclos que ya tienen uno armado - "instructions" (texto libre, ej.
+// "RALEAR 2S 40/50 4,0M2, COSECHAR 4S 30/40") y los buckets de biomasa (lb) por semana que el plan
+// ya calculo (currentWeek..sixWeek). Las piscinas sin plan armado todavia (ej. precrias) no
+// aparecen aqui - proyeccion-alimento.html las sigue proyectando, solo que sin acotar horizonte.
+async function refrescarPlanCosecha(token, env) {
+  const json = await ap1Get(token, 'harvest_programs/report', [['PageSize', '1000']])
+  const rows = json?.data?.report || []
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO plan_cosecha (id_ciclo, instructions, biomasa_actual_lb, current_week, one_week, two_week, three_week, four_week, five_week, six_week, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_ciclo) DO UPDATE SET
+       instructions = excluded.instructions, biomasa_actual_lb = excluded.biomasa_actual_lb,
+       current_week = excluded.current_week, one_week = excluded.one_week, two_week = excluded.two_week,
+       three_week = excluded.three_week, four_week = excluded.four_week, five_week = excluded.five_week,
+       six_week = excluded.six_week, actualizado_en = excluded.actualizado_en`
+  )
+  const batch = rows.filter(r => r.cycleId).map(r => stmt.bind(
+    r.cycleId, r.instructions || null, r.estimatedTotalBiomassPounds ?? null,
+    r.currentWeek ?? null, r.oneWeek ?? null, r.twoWeek ?? null, r.threeWeek ?? null,
+    r.fourWeek ?? null, r.fiveWeek ?? null, r.sixWeek ?? null, now))
+  if (batch.length) await env.db.batch(batch)
+  return batch.length
+}
+
 async function refrescoLiviano(env) {
   const token = await ap1Login(env)
   const subsidiarios = await refrescarSucursales(token, env)
   const nPiscinas = await refrescarPiscinas(token, env, subsidiarios)
   const nCiclos = await refrescarCiclos(token, env, subsidiarios)
-  return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos }
+  const nPlan = await refrescarPlanCosecha(token, env)
+  return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos, planCosecha: nPlan }
 }
 
 async function refrescoPesado(env) {
@@ -656,6 +692,10 @@ export default {
 
     if (url.pathname === '/db/calibracion-alimento' && env.db) {
       return handleDbCalibracion(request, env)
+    }
+
+    if (url.pathname === '/db/plan-cosecha' && env.db) {
+      return handleDbPlanCosecha(request, env)
     }
 
     if (url.pathname === '/db/calibracion-alimento/recalcular' && env.db) {

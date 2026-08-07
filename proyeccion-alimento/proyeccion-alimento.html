@@ -235,12 +235,10 @@ table.proy-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 const _IS_LOCAL   = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 const _WORKER_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev';
 // En local, comun/server.py hace de proxy solo para /bff/ (evita CORS contra el gateway de AP1) -
-// pero /kv/ y /db/ NO tienen esa ruta local, asi que esos dos SIEMPRE van directo al Worker de
-// Cloudflare, sea que la pagina corra en localhost o en GitHub Pages.
+// pero /db/ NO tiene esa ruta local, asi que siempre va directo al Worker de Cloudflare, sea que
+// la pagina corra en localhost o en GitHub Pages.
 const _PROXY   = _IS_LOCAL ? '' : _WORKER_URL;
-const AUTH_URL = _PROXY + '/bff/web/ap1/security/api/auth';
-const API_BASE = _PROXY + '/bff/web/ap1/backoffice/api';
-const KV_BASE  = _WORKER_URL + '/kv/';
+const AUTH_URL = _PROXY + '/bff/web/ap1/security/api/auth'; // login sigue en AP1 (control de acceso), sin usarse para traer datos
 const DB_BASE  = _WORKER_URL + '/db/';
 const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
 
@@ -336,22 +334,6 @@ document.addEventListener('click', () => document.getElementById('user-menu').cl
     if (token) applyLoginUI(true, name);
 })();
 
-// ── API helpers ──────────────────────────────────────────────
-async function apiGet(path, params) {
-    let qs = '';
-    if (params) {
-        const usp = new URLSearchParams();
-        params.forEach(([k, v]) => usp.append(k, v));
-        qs = '?' + usp.toString();
-    }
-    const res = await fetch(API_BASE + '/' + path + qs, {
-        headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json, text/plain, */*' }
-    });
-    if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
-    const json = await res.json();
-    return json.data;
-}
-
 const _NOMBRE_POR_CODIGO = Object.fromEntries(SUBSIDIARIES.map(s => [s.code, s.name]));
 function nombreSucursal(codigo) { return _NOMBRE_POR_CODIGO[codigo] || codigo; }
 
@@ -388,17 +370,6 @@ function esSemanaIncompleta(r) {
     if (!ini || !fin) return false;
     const dias = (new Date(fin) - new Date(ini)) / 86400000;
     return dias > 0 && dias < 6;
-}
-
-async function runPool(items, limit, worker) {
-    let next = 0;
-    const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
-        while (next < items.length) {
-            const i = next++;
-            await worker(items[i], i);
-        }
-    });
-    await Promise.all(workers);
 }
 
 // ── Dropdown generico (checkboxes + buscador) ─────────────────
@@ -448,12 +419,12 @@ document.addEventListener('click', (e) => {
 })();
 
 // ── Proyeccion de alimento ────────────────────────────────────────────────
-// Piscinas/ciclos en produccion, peso/crecimiento/densidad y FCA de referencia: todo sale de D1
-// (tablas ciclos + historia_ciclo del Worker naturisa-proxy). Lo UNICO que se sigue pidiendo en
-// vivo a AP1 es harvest_programs/report (una sola llamada global), porque D1 todavia no guarda el
-// plan de cosechas/raleos - el texto libre "instructions" (ej. "RALEAR 2S 40/50 4,0M2, COSECHAR 4S
-// 30/40") se cruza por cycleId contra los ciclos de D1 para acotar el horizonte y modelar raleos.
-// Las piscinas sin plan armado todavia (ej. precrias) igual se proyectan, sin acotar horizonte.
+// Ya no se llama a AP1 en absoluto para traer datos - todo sale de D1 (tablas ciclos, historia_ciclo
+// y plan_cosecha del Worker naturisa-proxy). plan_cosecha se sincroniza desde harvest_programs/report
+// via el cron liviano del Worker cada 6h; el texto libre "instructions" (ej. "RALEAR 2S 40/50 4,0M2,
+// COSECHAR 4S 30/40") se cruza por cycleId contra los ciclos de D1 para acotar el horizonte y modelar
+// raleos. Las piscinas sin plan armado todavia (ej. precrias) igual se proyectan, sin acotar horizonte.
+// El login sigue siendo contra AP1 (solo como control de acceso a la pantalla, no para traer datos).
 //
 // El coeficiente (a,b) de la formula de regresion SI viene de Cloudflare: se usa el propio de la
 // piscina calculado en la tabla D1 calibracion_alimento (recalculada cada 6h con su historico real)
@@ -612,13 +583,19 @@ async function generarProyeccion() {
             (data || []).forEach(r => (historiaPorCiclo[r.id_ciclo] = historiaPorCiclo[r.id_ciclo] || []).push(r));
         }
 
-        // Del plan de cosechas SOLO se necesita el texto "instructions" (horizonte + raleos) y los
-        // buckets de biomasa por semana - eso no esta en D1 todavia, asi que se pide en vivo a AP1
-        // (una sola llamada global) y se indexa por cycleId para cruzarlo con los ciclos de D1.
-        hint.textContent = 'Cargando plan de cosechas (AP1)...';
-        const programas = await apiGet('harvest_programs/report', [['PageSize', 1000]]).catch(() => null);
+        // Plan de cosechas/raleos - tabla D1 "plan_cosecha", sincronizada desde AP1 por el cron
+        // liviano del Worker cada 6h (ya no se llama a AP1 desde el navegador).
+        hint.textContent = 'Cargando plan de cosechas desde D1...';
+        const resPlan = await fetch(DB_BASE + 'plan-cosecha');
+        const { data: planRaw } = resPlan.ok ? await resPlan.json() : { data: [] };
         const planPorCycleId = {};
-        ((programas && programas.report) || []).forEach(r => { if (r.cycleId) planPorCycleId[r.cycleId] = r; });
+        (planRaw || []).forEach(r => {
+            planPorCycleId[r.id_ciclo] = {
+                instructions: r.instructions, estimatedTotalBiomassPounds: r.biomasa_actual_lb,
+                currentWeek: r.current_week, oneWeek: r.one_week, twoWeek: r.two_week,
+                threeWeek: r.three_week, fourWeek: r.four_week, fiveWeek: r.five_week, sixWeek: r.six_week,
+            };
+        });
 
         const filas = [];
         ciclos.forEach(c => {
@@ -749,26 +726,12 @@ function nivelConfianza(semanaIdx) {
 }
 
 // ── Rango de mortalidad por percentiles historicos ─────────────────────────
-// Usa el CACHE COMPARTIDO que ya llena historia-ciclo-masivo.html en Cloudflare KV
-// (hc-index:<sucursal> = que ciclos existen, hc:<cycleId> = su historia semanal cacheada porque
-// ya estan COSECHADOS) - no vuelve a pedir nada a AP1, solo lee lo que ya esta cacheado. Si ese
-// cache todavia esta vacio (nadie ha usado esa pantalla lo suficiente), no hay con que calcular
-// un rango y se avisa explicitamente, usando 0% como respaldo documentado.
+// Se calcula desde las tablas D1 (ciclos + historia_ciclo) - ya no depende del cache de Cloudflare
+// KV que llenaba historia-ciclo-masivo.html (esa pantalla ahora tambien lee de D1, asi que ese
+// cache dejo de actualizarse). La poblacion semanal no viene directa en historia_ciclo, se deriva
+// de animales_por_m2 * tamano_piscina (Ha) * 10000 (m2/Ha), igual que en el resto de esta pantalla.
 const MORTALIDAD_CATASTROFICA = 0.15; // caida semanal > 15% se trata como brote sanitario, no mortalidad "normal"
 let _rangoMortalidadCache = null;
-
-async function kvGetIndice(subCode) {
-    try {
-        const res = await fetch(KV_BASE + 'hc-index:' + subCode);
-        return res.ok ? await res.json() : [];
-    } catch (e) { return []; }
-}
-async function kvGetCicloCosechado(cycleId) {
-    try {
-        const res = await fetch(KV_BASE + 'hc:' + cycleId);
-        return res.ok ? await res.json() : null;
-    } catch (e) { return null; }
-}
 
 function percentil(valoresOrdenados, p) {
     if (!valoresOrdenados.length) return 0;
@@ -778,23 +741,39 @@ function percentil(valoresOrdenados, p) {
 
 async function calcularRangoMortalidad(hint) {
     if (_rangoMortalidadCache) return _rangoMortalidadCache;
-    hint.textContent = 'Calculando rango de mortalidad histórica (cache compartido)...';
-    const listas = await Promise.all(SUBSIDIARIES.map(s => kvGetIndice(s.code)));
-    const cosechados = listas.flat().filter(e => e.estado === 'COSECHADO' && e.cycleId);
-    // Tope de 400 ciclos para no disparar cientos de GET al Worker si el cache ya crecio mucho -
-    // es una muestra, no todo el historico, y se documenta cuantos se usaron realmente.
-    const muestra = cosechados.slice(0, 400);
+    hint.textContent = 'Calculando rango de mortalidad histórica desde D1...';
+    const resCiclos = await fetch(DB_BASE + 'ciclos?estado=COSECHADO');
+    const { data: ciclosRaw } = resCiclos.ok ? await resCiclos.json() : { data: [] };
+    // Tope de 400 ciclos para no disparar una consulta de historia semanal gigante - es una
+    // muestra, no todo el historico, y se documenta cuantos se usaron realmente.
+    const muestra = (ciclosRaw || []).slice(0, 400);
+    const haPorCiclo = {};
+    muestra.forEach(c => { haPorCiclo[c.id_ciclo] = Number(c.tamano_piscina) || 0; });
+
+    const historiaPorCiclo = {};
+    const CHUNK = 150;
+    for (let i = 0; i < muestra.length; i += CHUNK) {
+        const chunk = muestra.slice(i, i + CHUNK);
+        const usp = new URLSearchParams();
+        chunk.forEach(c => usp.append('idCiclo', c.id_ciclo));
+        const res = await fetch(DB_BASE + 'historia-ciclo?' + usp.toString());
+        if (!res.ok) continue;
+        const { data } = await res.json();
+        (data || []).forEach(r => (historiaPorCiclo[r.id_ciclo] = historiaPorCiclo[r.id_ciclo] || []).push(r));
+    }
 
     const tasasNormales = [];
-    let catastroficos = 0, sinCache = 0;
-    await runPool(muestra, 8, async (e) => {
-        const rows = await kvGetCicloCosechado(e.cycleId);
-        if (!rows || rows.length < 3) { sinCache++; return; }
-        const cerradas = rows.filter(r => r.weekCompleted !== false && Number(r.totalActualAnimals) > 0);
+    let catastroficos = 0, sinDatos = 0;
+    muestra.forEach(c => {
+        const haSize = haPorCiclo[c.id_ciclo];
+        const rows = (historiaPorCiclo[c.id_ciclo] || []).slice().sort((a, b) => a.semana - b.semana);
+        if (!haSize || rows.length < 3) { sinDatos++; return; }
+        const cerradas = rows
+            .filter(r => !esSemanaIncompleta(r) && Number(r.animales_por_m2) > 0)
+            .map(r => Number(r.animales_por_m2) * haSize * 10000);
         const tasasCiclo = [];
         for (let i = 1; i < cerradas.length; i++) {
-            const antes = Number(cerradas[i - 1].totalActualAnimals);
-            const ahora = Number(cerradas[i].totalActualAnimals);
+            const antes = cerradas[i - 1], ahora = cerradas[i];
             if (!(antes > 0) || ahora > antes) continue; // ahora>antes = ingreso de animales (transferencia), no mortalidad
             tasasCiclo.push((antes - ahora) / antes);
         }
@@ -804,7 +783,7 @@ async function calcularRangoMortalidad(hint) {
     });
 
     tasasNormales.sort((a, b) => a - b);
-    const nCiclosUsados = muestra.length - sinCache - catastroficos;
+    const nCiclosUsados = muestra.length - sinDatos - catastroficos;
     const resultado = tasasNormales.length >= 10
         ? {
               disponible: true,

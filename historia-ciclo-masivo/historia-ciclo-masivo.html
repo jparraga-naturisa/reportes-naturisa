@@ -344,11 +344,14 @@ table.masivo-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 </div>
 
 <script>
-const _IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const _PROXY    = _IS_LOCAL ? '' : 'https://naturisa-proxy.parragajonathan965.workers.dev';
-const AUTH_URL  = _PROXY + '/bff/web/ap1/security/api/auth';
-const API_BASE  = _PROXY + '/bff/web/ap1/backoffice/api';
+const _IS_LOCAL   = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const _WORKER_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const _PROXY    = _IS_LOCAL ? '' : _WORKER_URL;
+const AUTH_URL  = _PROXY + '/bff/web/ap1/security/api/auth'; // login sigue en AP1 (control de acceso), sin usarse para traer datos
 const CODE_APP  = '55ab9cb4-c887-4f42-98ec-b90470be6613';
+// /db/ SIEMPRE va directo al Worker de Cloudflare (no tiene ruta de proxy local en comun/server.py),
+// sea que la pagina corra en localhost o en GitHub Pages.
+const DB_BASE = _WORKER_URL + '/db/';
 
 const SUBSIDIARIES = [
     {id:13,code:'A1',name:'Acualit 1'}, {id:28,code:'A2',name:'Acualit 2'},
@@ -437,29 +440,6 @@ document.addEventListener('click', () => document.getElementById('user-menu').cl
     if (token) applyLoginUI(true, name);
 })();
 
-// ── API helpers ──────────────────────────────────────────────
-async function apiGet(path, params) {
-    let qs = '';
-    if (params) {
-        const usp = new URLSearchParams();
-        params.forEach(([k, v]) => usp.append(k, v));
-        qs = '?' + usp.toString();
-    }
-    const fullUrl = API_BASE + '/' + path + qs;
-    const res = await fetch(fullUrl, {
-        headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json, text/plain, */*' }
-    });
-    if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
-    const json = await res.json();
-    return json.data;
-}
-
-function normPool(name) {
-    const s = String(name || '').trim().toUpperCase();
-    const stripped = s.replace(/^0+/, '');
-    return stripped || s;
-}
-
 function canonicalPoolName(name) {
     const s = String(name || '').trim().toUpperCase();
     const m = s.match(/^(\d+)([A-Z]*)$/);
@@ -500,15 +480,6 @@ function onFechaSiembraChange() {
     onFechaSiembraChange();
 })();
 
-function isoWeek(d) {
-    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    const dayNum = date.getUTCDay() || 7;
-    date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-    const week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
-    return { year: date.getUTCFullYear(), week };
-}
-
 function g(row, ...fields) {
     if (!row) return null;
     for (const f of fields) {
@@ -516,17 +487,6 @@ function g(row, ...fields) {
         if (v !== null && v !== undefined) return v;
     }
     return null;
-}
-
-async function runPool(items, limit, worker) {
-    let next = 0;
-    const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
-        while (next < items.length) {
-            const i = next++;
-            await worker(items[i], i);
-        }
-    });
-    await Promise.all(workers);
 }
 
 // ── Dropdown de sucursales (checkboxes) ───────────────────────
@@ -621,89 +581,50 @@ function actualizarCiclosDisponibles() {
     msSetOptions('f-ciclo-ms', cycleNumbers.map(String), 'Todos', 'renderTablaFiltrada(); togglePiscinaCicloVisibility();');
 }
 
-// "Historia del ciclo - Siembra" (cycle_histories/production/{cycleId}) - endpoint unico que trae,
-// por semana, todo lo que muestra esa pantalla nativa. Se traen TODAS las filas (no solo la ultima)
-// para poder mostrar el historial semanal completo de cada piscina/ciclo.
-async function fetchHistoriaCiclo(cycleId) {
-    if (!cycleId) return [];
+// ── Piscinas/ciclos y su historia semanal, todo desde D1 (Worker naturisa-proxy) ──────────
+// Ya no se llama a AP1 desde esta pantalla: "ciclos" y "historia_ciclo" se sincronizan solas via
+// el cron del Worker (liviano cada 6h, pesado diario) - aqui solo se leen esas tablas.
+let _ciclosD1Cache = null;
+async function fetchCiclosD1() {
+    if (_ciclosD1Cache) return _ciclosD1Cache;
     try {
-        const rows = await apiGet(`cycle_histories/production/${cycleId}`, []);
-        return rows || [];
-    } catch (e) { return []; }
+        const res = await fetch(DB_BASE + 'ciclos');
+        _ciclosD1Cache = res.ok ? ((await res.json()).data || []) : [];
+    } catch (e) { _ciclosD1Cache = []; }
+    return _ciclosD1Cache;
 }
 
-// ── Cache COMPARTIDO de ciclos COSECHADOS (Cloudflare KV, via naturisa-proxy) ──────
-// Un ciclo cosechado ya no cambia (nunca vuelve a sumar semanas nuevas) - su historia semanal
-// se guarda en el Worker (endpoint /kv/hc:<cycleId>, mismo Worker que ya usan otras pantallas
-// para "excel"/"ciclos"/"cambios") para que CUALQUIER usuario que lo pida despues lo reciba
-// sin volver a llamar al API de AP1. Los ciclos en PRODUCCION SI cambian semana a semana y
-// siempre se piden frescos, nunca se guardan aqui. Cache en memoria por sesion para no repetir
-// el mismo GET si el mismo ciclo aparece 2 veces en la misma corrida.
-const KV_BASE = _PROXY + '/kv/';
-const _cicloCacheMemoria = {};
-
-async function kvGetCicloCosechado(cycleId) {
-    if (cycleId in _cicloCacheMemoria) return _cicloCacheMemoria[cycleId];
-    try {
-        const res = await fetch(KV_BASE + 'hc:' + cycleId);
-        const val = res.ok ? await res.json() : null;
-        _cicloCacheMemoria[cycleId] = val;
-        return val;
-    } catch (e) { return null; }
-}
-
-function kvGuardarCicloCosechado(cycleId, rows) {
-    _cicloCacheMemoria[cycleId] = rows;
-    fetch(KV_BASE + 'hc:' + cycleId, { method: 'POST', body: JSON.stringify(rows) }).catch(() => {});
-}
-
-// Trae la historia semanal de un ciclo, usando el cache compartido si es COSECHADO.
-async function fetchHistoriaCicloConCache(cycleId, estado) {
-    if (estado === 'COSECHADO') {
-        const cacheado = await kvGetCicloCosechado(cycleId);
-        if (cacheado) return cacheado;
+// Historia semanal de varios ciclos a la vez, en lotes (el endpoint acepta ?idCiclo= repetido) para
+// no armar una URL con miles de parametros de una sola vez.
+async function fetchHistoriaCiclosD1(cycleIds) {
+    const porCiclo = {};
+    const CHUNK = 150;
+    for (let i = 0; i < cycleIds.length; i += CHUNK) {
+        const chunk = cycleIds.slice(i, i + CHUNK);
+        const usp = new URLSearchParams();
+        chunk.forEach(id => usp.append('idCiclo', id));
+        try {
+            const res = await fetch(DB_BASE + 'historia-ciclo?' + usp.toString());
+            if (res.ok) {
+                const { data } = await res.json();
+                (data || []).forEach(r => (porCiclo[r.id_ciclo] = porCiclo[r.id_ciclo] || []).push(r));
+            }
+        } catch (e) { /* ese lote queda sin historia, el resto sigue */ }
     }
-    const rows = await fetchHistoriaCiclo(cycleId);
-    if (estado === 'COSECHADO' && rows.length) kvGuardarCicloCosechado(cycleId, rows);
-    return rows;
+    return porCiclo;
 }
 
-// ── Indice COMPARTIDO de piscinas/ciclos por sucursal (Cloudflare KV) ──────────
-// Guarda, por sucursal, la lista de {poolName, cycleNumber, cycleId, estado} vista alguna vez -
-// permite llenar los dropdowns de Piscinas/Ciclos apenas se elige la sucursal, SIN esperar a
-// "Generar reporte" ni volver a consultar cycle_sowing_report/pool_production. Se actualiza
-// (merge, no se pisa) cada vez que se genera un reporte con datos nuevos.
-async function kvGetIndice(subCode) {
-    try {
-        const res = await fetch(KV_BASE + 'hc-index:' + subCode);
-        return res.ok ? await res.json() : [];
-    } catch (e) { return []; }
-}
-
-function kvGuardarIndice(subCode, lista) {
-    fetch(KV_BASE + 'hc-index:' + subCode, { method: 'POST', body: JSON.stringify(lista) }).catch(() => {});
-}
-
-// Combina lo que ya habia en el indice con lo recien descubierto en esta corrida (por cycleId -
-// mismo ciclo siempre pisa su entrada anterior, para que el estado PRODUCCION -> COSECHADO se
-// actualice) y lo guarda de vuelta.
-function actualizarIndiceSucursal(subCode, indicePrevio, entradasNuevas) {
-    const porCycleId = {};
-    indicePrevio.forEach(e => { if (e.cycleId) porCycleId[e.cycleId] = e; });
-    entradasNuevas.forEach(e => { if (e.cycleId) porCycleId[e.cycleId] = e; });
-    const combinado = Object.values(porCycleId);
-    kvGuardarIndice(subCode, combinado);
-    return combinado;
-}
-
-// Llena los dropdowns de Piscinas/Ciclos leyendo el indice de Cloudflare de las sucursales
+// Llena los dropdowns de Piscinas/Ciclos leyendo D1 (cacheado en memoria) de las sucursales
 // elegidas - no necesita haber generado el reporte todavia.
 async function cargarPiscinasCiclosDesdeIndice() {
     const codesSel = msSelected('f-sucursal-ms');
     if (!codesSel.length) { togglePiscinaCicloVisibility(); return; }
-    const listas = await Promise.all(codesSel.map(subCode =>
-        kvGetIndice(subCode).then(arr => arr.map(e => ({ ...e, subCode: e.subCode || subCode })))));
-    _indiceActual = listas.flat();
+    const codesSet = new Set(codesSel);
+    const ciclos = await fetchCiclosD1();
+    _indiceActual = ciclos.filter(c => codesSet.has(c.codigo_sucursal)).map(c => ({
+        subCode: c.codigo_sucursal, poolName: c.nombre_piscina, cycleNumber: c.numero_ciclo,
+        cycleId: c.id_ciclo, estado: c.estado,
+    }));
     const poolNames = Array.from(new Set(_indiceActual.map(e => piscinaKey(e.subCode, e.poolName)))).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
     msSetOptions('f-piscina-ms', poolNames, 'Todas', 'actualizarCiclosDesdeIndice(); togglePiscinaCicloVisibility();');
     actualizarCiclosDesdeIndice();
@@ -727,30 +648,30 @@ let _indiceActual = [];
 // Nombres de campo confirmados el 2026-08-03 contra la respuesta real de
 // cycle_histories/production/{cycleId} (DevTools, ciclo 100 - piscina 5, 9 semanas completas).
 const HISTORIA_COLS = [
-    { label: 'Sem',            get: r => g(r, 'weekOfYear') },
-    { label: 'IniSem',         get: r => fmtFechaCorta(g(r, 'startOfWeek')) },
-    { label: 'FinSem',         get: r => fmtFechaCorta(g(r, 'endOfWeek')) },
-    { label: 'DiasProd',       get: r => g(r, 'productionDays') },
-    { label: 'PesoPromFinca',  get: r => g(r, 'weight') },
-    { label: 'PesoPromRegFinca', get: r => g(r, 'estimatedWeightByRegresion') },
-    { label: 'Cr1S',           get: r => g(r, 'growthlastWeeks') },
-    { label: 'Cr2S',           get: r => g(r, 'growth2Weeks') },
-    { label: 'Cr4S',           get: r => g(r, 'growth4Weeks') },
-    { label: 'CrIn',           get: r => g(r, 'growthFromTheBeginning') },
-    { label: 'Sobrv',          get: r => g(r, 'survival') },
-    { label: 'BiomAct',        get: r => g(r, 'biomassActual') },
-    { label: 'BiomSem',        get: r => g(r, 'biomassWeek') },
-    { label: 'AnimTotalM2',    get: r => g(r, 'totalActualAnimalsPerSquareMeter') },
-    { label: 'BiomCos',        get: r => g(r, 'biomassHarvested') },
-    { label: 'AlimUltSem',     get: r => g(r, 'totalFeedWeek') },
-    { label: 'AlimAcum',       get: r => g(r, 'totalAccumulateFeed') },
-    { label: 'AlimHaDía',      get: r => g(r, 'totalFeedWeekPerHectareDay') },
+    { label: 'Sem',            get: r => g(r, 'semana') },
+    { label: 'IniSem',         get: r => fmtFechaCorta(g(r, 'inicio_semana')) },
+    { label: 'FinSem',         get: r => fmtFechaCorta(g(r, 'fin_semana')) },
+    { label: 'DiasProd',       get: r => g(r, 'dias_produccion') },
+    { label: 'PesoPromFinca',  get: r => g(r, 'peso') },
+    { label: 'PesoPromRegFinca', get: r => g(r, 'peso_estimado_regresion') },
+    { label: 'Cr1S',           get: r => g(r, 'crecimiento_ultima_semana') },
+    { label: 'Cr2S',           get: r => g(r, 'crecimiento_2_semanas') },
+    { label: 'Cr4S',           get: r => g(r, 'crecimiento_4_semanas') },
+    { label: 'CrIn',           get: r => g(r, 'crecimiento_desde_inicio') },
+    { label: 'Sobrv',          get: r => g(r, 'supervivencia') },
+    { label: 'BiomAct',        get: r => g(r, 'biomasa_actual') },
+    { label: 'BiomSem',        get: r => g(r, 'biomasa_semana') },
+    { label: 'AnimTotalM2',    get: r => g(r, 'animales_por_m2') },
+    { label: 'BiomCos',        get: r => g(r, 'biomasa_cosechada') },
+    { label: 'AlimUltSem',     get: r => g(r, 'alimento_semana') },
+    { label: 'AlimAcum',       get: r => g(r, 'alimento_acumulado') },
+    { label: 'AlimHaDía',      get: r => g(r, 'alimento_ha_dia') },
     { label: 'FCA Real',       get: r => g(r, 'fca') },
-    { label: 'FCA Bruto',      get: r => g(r, 'fcaGross') },
-    { label: 'FCA Sem',        get: r => g(r, 'fcaWeek') },
-    { label: 'EstM2',          get: r => g(r, 'estM2') },
+    { label: 'FCA Bruto',      get: r => g(r, 'fca_bruto') },
+    { label: 'FCA Sem',        get: r => g(r, 'fca_semana') },
+    { label: 'EstM2',          get: r => g(r, 'est_m2') },
     // AlimFactor se muestra con 4 decimales en el tablero nativo, no 2 como el resto.
-    { label: 'AlimFactor',     get: r => g(r, 'feedFactor'), decimals: 4 },
+    { label: 'AlimFactor',     get: r => g(r, 'factor_alimento'), decimals: 4 },
 ];
 
 // ── Filtro por columna (operadores tipo tablero nativo, en espanol) ─────────
@@ -833,13 +754,11 @@ function cfPasaFiltros(row) {
     });
 }
 
-// Una semana es incompleta si "weekCompleted" viene en false (semana en curso, ciclos en
-// PRODUCCION) O si el rango real IniSem/FinSem dura menos de una semana - la semana de la
-// cosecha en un ciclo ya COSECHADO siempre viene con weekCompleted=true aunque haya durado
-// solo 1-2 dias, asi que ese campo solo no alcanza para detectarla.
+// Una semana es incompleta si el rango real inicio_semana/fin_semana dura menos de 6 dias (ej. la
+// semana de una cosecha parcial, o la semana en curso de un ciclo en PRODUCCION) - D1 no guarda el
+// campo "weekCompleted" de AP1, asi que la duracion real es el unico criterio disponible.
 function esSemanaIncompleta(row) {
-    if (g(row, 'weekCompleted') === false) return true;
-    const ini = g(row, 'startOfWeek'), fin = g(row, 'endOfWeek');
+    const ini = g(row, 'inicio_semana'), fin = g(row, 'fin_semana');
     if (!ini || !fin) return false;
     const dias = (new Date(fin) - new Date(ini)) / 86400000;
     return dias > 0 && dias < 6;
@@ -911,10 +830,10 @@ function crearEsqueletoTabla() {
 }
 
 async function generarReporteMasivo() {
-    if (!getToken() || _generandoReporte) return;
+    if (_generandoReporte) return;
     Object.keys(colFilters).forEach(k => delete colFilters[k]);
     const codesSel = msSelected('f-sucursal-ms');
-    const subs = (codesSel.length ? SUBSIDIARIES.filter(s => codesSel.includes(s.code)) : SUBSIDIARIES);
+    const subCodesSel = codesSel.length ? new Set(codesSel) : new Set(SUBSIDIARIES.map(s => s.code));
     const soloActivo = document.getElementById('f-solo-activo').value === '1';
     const usos = usosSeleccionados();
     if (!usos.length) return;
@@ -929,13 +848,6 @@ async function generarReporteMasivo() {
     _generandoReporte = true;
     const siembraDesde = document.getElementById('f-siembra-desde').value || null;
     const siembraHasta = document.getElementById('f-siembra-hasta').value || null;
-    // cycle_sowing_report exige un rango de fechas de siembra - se acota a 2025-2026 (ciclos
-    // recientes/vigentes) en vez de traer todo el historico, que incluye piscinas ya renombradas
-    // o dadas de baja hace anios.
-    const end = new Date();
-    const start = new Date('2025-01-01T00:00:00');
-    const startStr = isoDate(start), endStr = isoDate(end);
-    const { year: cutOffYear, week: cutOffWeek } = isoWeek(end);
 
     const btn = document.getElementById('btn-generar');
     const exportBtn = document.getElementById('btn-exportar');
@@ -943,110 +855,54 @@ async function generarReporteMasivo() {
     btn.innerHTML = '<span class="spinner"></span>Generando...';
 
     crearEsqueletoTabla();
-    const tbody = document.getElementById('masivo-tbody');
     const hint = document.getElementById('progreso-masivo');
     const dataset = [];
 
     try {
-        for (const sub of subs) {
-            hint.textContent = `Buscando piscinas/ciclos de ${sub.name}...`;
-            const [siembras, pp] = await Promise.all([
-                apiGet('cycle_sowing_report', [['subsidiaryIds', sub.id], ['startDate', startStr], ['endDate', endStr]]).catch(() => []),
-                apiGet('report_production/pool_production', [['subsidiaryIds', sub.id], ['cutOffYear', cutOffYear], ['cutOffWeek', cutOffWeek]]).catch(() => []),
-            ]);
+        hint.textContent = 'Cargando piscinas/ciclos desde Cloudflare D1...';
+        const todosCiclos = await fetchCiclosD1();
 
-            const byKey = {};
-            [...(siembras || []), ...(pp || [])].forEach(r => {
-                const pn = r.poolName, cn = r.cycleNumber;
-                if (pn === undefined || pn === null || cn === undefined || cn === null) return;
-                if (String(r.subsidiaryCode || '').toUpperCase() !== sub.code.toUpperCase()) return;
-                if (piscinasFiltroGen && !piscinasFiltroGen.has(piscinaKey(sub.code, pn))) return;
-                if (ciclosFiltroGen && !ciclosFiltroGen.has(Number(cn))) return;
-                const key = normPool(pn);
-                if (!byKey[key]) byKey[key] = { display: canonicalPoolName(pn), cycles: new Set() };
-                byKey[key].cycles.add(Number(cn));
+        let candidatos = todosCiclos.filter(c => subCodesSel.has(c.codigo_sucursal));
+        if (piscinasFiltroGen) candidatos = candidatos.filter(c => piscinasFiltroGen.has(piscinaKey(c.codigo_sucursal, c.nombre_piscina)));
+        if (ciclosFiltroGen) candidatos = candidatos.filter(c => ciclosFiltroGen.has(Number(c.numero_ciclo)));
+        if (siembraDesde) candidatos = candidatos.filter(c => c.fecha_siembra && c.fecha_siembra.slice(0, 10) >= siembraDesde);
+        if (siembraHasta) candidatos = candidatos.filter(c => c.fecha_siembra && c.fecha_siembra.slice(0, 10) <= siembraHasta);
+        candidatos = candidatos.filter(c => estados.includes(c.estado));
+
+        // uso_ciclo en D1 viene tal cual del texto libre de AP1 ("Engorde", "Pre cría",
+        // "Precriadero") - se normaliza (sin tildes/espacios) igual que antes para resolver a que
+        // codigo de checkbox corresponde. Si el ciclo no tiene uso registrado, no se descarta.
+        const normUso = s => Array.from(String(s || '').toUpperCase().normalize('NFD'))
+            .filter(ch => ch.codePointAt(0) < 0x0300 || ch.codePointAt(0) > 0x036f)
+            .join('').replace(/[^A-Z]/g, '');
+        candidatos = candidatos.filter(c => {
+            if (!c.uso_ciclo) return true;
+            const usoResuelto = Object.keys(USO_TO_CYCLE_USAGE_ID).find(k =>
+                normUso(k).startsWith(normUso(c.uso_ciclo)) || normUso(c.uso_ciclo).startsWith(normUso(k)));
+            return !usoResuelto || usos.includes(usoResuelto);
+        });
+
+        if (soloActivo) {
+            const porPiscina = {};
+            candidatos.forEach(c => {
+                const key = piscinaKey(c.codigo_sucursal, c.nombre_piscina);
+                if (!porPiscina[key] || Number(c.numero_ciclo) > Number(porPiscina[key].numero_ciclo)) porPiscina[key] = c;
             });
-
-            const pares = [];
-            Object.values(byKey)
-                .sort((a, b) => a.display.localeCompare(b.display, 'es', { numeric: true }))
-                .forEach(({ display, cycles }) => {
-                    const ordenados = Array.from(cycles).sort((a, b) => a - b);
-                    (soloActivo ? ordenados.slice(-1) : ordenados).forEach(cycleNumber => {
-                        pares.push({ poolName: display, cycleNumber });
-                    });
-                });
-            if (!pares.length) continue;
-
-            const indiceNuevo = [];
-            let done = 0;
-            await runPool(pares, 6, async ({ poolName, cycleNumber }) => {
-                const siRows = (siembras || []).filter(r =>
-                    String(r.subsidiaryCode || '').toUpperCase() === sub.code.toUpperCase() &&
-                    normPool(r.poolName) === normPool(poolName) && Number(r.cycleNumber) === cycleNumber);
-                const ppRows = (pp || []).filter(r =>
-                    String(r.subsidiaryCode || '').toUpperCase() === sub.code.toUpperCase() &&
-                    normPool(r.poolName) === normPool(poolName) && Number(r.cycleNumber) === cycleNumber);
-
-                // cycleId/estado se calculan ANTES de aplicar los filtros de Fecha/Uso para que el
-                // indice de Cloudflare (usado para llenar Piscinas/Ciclos al instante) refleje TODO
-                // lo que existe, no solo lo que coincide con los filtros elegidos en esta corrida.
-                const cycleIdTmp = g(ppRows[0], 'idCycle') || g(siRows[0], 'cycleId');
-                const estadoTmp = ppRows[0] ? 'PRODUCCION' : 'COSECHADO';
-                if (cycleIdTmp) indiceNuevo.push({ subCode: sub.code, poolName, cycleNumber, cycleId: cycleIdTmp, estado: estadoTmp });
-                if (!estados.includes(estadoTmp)) { done++; hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`; return; }
-
-                // Fecha de siembra = la mas antigua entre los lotes sembrados de ese ciclo (puede
-                // haber varios). Si el filtro de fecha esta activo y no hay dato de siembra (ciclo
-                // fuera del rango de dias-atras elegido) se descarta por no poder confirmar la fecha.
-                const fechaSiembra = siRows.length ? siRows.map(r => r.dateSowing).sort()[0].slice(0, 10) : null;
-                if (siembraDesde || siembraHasta) {
-                    if (!fechaSiembra) { done++; hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`; return; }
-                    if (siembraDesde && fechaSiembra < siembraDesde) { done++; hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`; return; }
-                    if (siembraHasta && fechaSiembra > siembraHasta) { done++; hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`; return; }
-                }
-
-                // Si el ciclo tiene dato de uso y no cae en ninguno de los usos elegidos, se descarta.
-                // pool_production trae cycleUsageId numerico (7/8/9), solo para el ciclo activo.
-                // cycle_sowing_report trae cycleUsage como texto libre ("Engorde", "Pre cría",
-                // "Precriadero") - SI existe para ciclos ya cosechados, a diferencia de pool_production -
-                // se normaliza (sin tildes/espacios) para compararlo contra los codigos de los checkboxes.
-                const normUso = s => Array.from(String(s || '').toUpperCase().normalize('NFD'))
-                    .filter(ch => ch.codePointAt(0) < 0x0300 || ch.codePointAt(0) > 0x036f)
-                    .join('').replace(/[^A-Z]/g, '');
-                const usoRawId = g(ppRows[0], 'cycleUsageId');
-                const usoRawTxt = g(siRows[0], 'cycleUsage');
-                const usoCiclo = usoRawId != null
-                    ? Object.keys(USO_TO_CYCLE_USAGE_ID).find(k => USO_TO_CYCLE_USAGE_ID[k] === String(usoRawId))
-                    : (usoRawTxt
-                        ? Object.keys(USO_TO_CYCLE_USAGE_ID).find(k => normUso(k).startsWith(normUso(usoRawTxt)) || normUso(usoRawTxt).startsWith(normUso(k)))
-                        : null);
-                if (usoCiclo && !usos.includes(usoCiclo)) { done++; hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`; return; }
-                const cycleId = cycleIdTmp, estado = estadoTmp;
-                done++;
-                hint.textContent = `${sub.name}: ${done}/${pares.length} piscinas/ciclos...`;
-                if (!cycleId) return;
-
-                const rows = await fetchHistoriaCicloConCache(cycleId, estado);
-                if (!rows.length) return;
-                rows.forEach(row => {
-                    dataset.push({ sub: sub.name, subCode: sub.code, poolName, cycleNumber, estado, row });
-                    const cells = HISTORIA_COLS.map(c => fmtCelda(c.get(row), c.decimals));
-                    const html = `<tr>
-                        <td class="ident">${sub.name}</td>
-                        <td class="ident">${poolName}</td>
-                        <td class="ident">${cycleNumber}</td>
-                        ${cells.map(v => `<td class="${v === null ? 'empty' : ''}">${v === null ? '—' : v}</td>`).join('')}
-                    </tr>`;
-                    tbody.insertAdjacentHTML('beforeend', html);
-                });
-            });
-
-            // Actualiza (merge por cycleId, no pisa todo) el indice compartido de esta sucursal en
-            // Cloudflare con lo que se descubrio en esta corrida - asi la proxima vez (cualquier
-            // usuario) los dropdowns de Piscinas/Ciclos se llenan al instante sin esperar el reporte.
-            kvGetIndice(sub.code).then(previo => actualizarIndiceSucursal(sub.code, previo, indiceNuevo));
+            candidatos = Object.values(porPiscina);
         }
+
+        hint.textContent = `Cargando historia semanal: 0/${candidatos.length} ciclos...`;
+        const historiaPorCiclo = await fetchHistoriaCiclosD1(candidatos.map(c => c.id_ciclo));
+
+        const nombrePorCodigo = Object.fromEntries(SUBSIDIARIES.map(s => [s.code, s.name]));
+        candidatos.forEach(c => {
+            const rows = (historiaPorCiclo[c.id_ciclo] || []).slice().sort((a, b) => a.semana - b.semana);
+            const poolName = canonicalPoolName(c.nombre_piscina);
+            rows.forEach(row => {
+                dataset.push({ sub: nombrePorCodigo[c.codigo_sucursal] || c.codigo_sucursal, subCode: c.codigo_sucursal, poolName, cycleNumber: c.numero_ciclo, estado: c.estado, row });
+            });
+        });
+        hint.textContent = `${candidatos.length} piscinas/ciclos, ${dataset.length} filas de historia semanal.`;
 
         _ultimoDataset = dataset;
         if (!dataset.length) {
@@ -1095,7 +951,7 @@ function renderTablaFiltrada() {
         (!ciclosFiltro || ciclosFiltro.has(Number(e.cycleNumber))) &&
         estados.includes(e.estado) &&
         (!ocultarIncompletas || !esSemanaIncompleta(e.row)) &&
-        (!ocultarSem0 || Number(g(e.row, 'weekOfYear')) !== 0) &&
+        (!ocultarSem0 || Number(g(e.row, 'semana')) !== 0) &&
         cfPasaFiltros(e.row));
 
     // Orden Sucursal -> Piscina -> Ciclo -> Semana, igual que los filtros (dataset.push no
@@ -1104,7 +960,7 @@ function renderTablaFiltrada() {
         a.subCode.localeCompare(b.subCode) ||
         a.poolName.localeCompare(b.poolName, 'es', { numeric: true }) ||
         a.cycleNumber - b.cycleNumber ||
-        (Number(g(a.row, 'weekOfYear')) - Number(g(b.row, 'weekOfYear'))));
+        (Number(g(a.row, 'semana')) - Number(g(b.row, 'semana'))));
 
     tbody.innerHTML = filtrado.map(({ sub, poolName, cycleNumber, row }) => {
         const cells = HISTORIA_COLS.map(c => fmtCelda(c.get(row), c.decimals));
