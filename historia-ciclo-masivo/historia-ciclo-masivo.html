@@ -255,7 +255,7 @@ table.masivo-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
             </div>
         </div>
     </div>
-    <button class="btn-apply" id="btn-generar" onclick="generarReporteMasivo()" title="Generar reporte">🔍 Generar</button>
+    <button class="btn-apply" id="btn-generar" onclick="generarReporteMasivo()" title="Ya se carga solo al cambiar un filtro - este boton solo fuerza un refresco manual">🔄 Actualizar</button>
     <button class="btn-export" id="btn-ocultar-incompletas" onclick="toggleOcultarIncompletas()" title="Ocultar semanas incompletas">🕒 Incompletas</button>
     <button class="btn-export" id="btn-ocultar-sem0" onclick="toggleOcultarSem0()" title="Ocultar semana 0 (dia de siembra)">0️⃣ Semana 0</button>
     <button class="btn-export" id="btn-ocultar-animm2-cero" onclick="toggleOcultarAnimM2Cero()" title="Ocultar semanas con AnimTotalM2 en 0">🚫 AnimM2=0</button>
@@ -426,6 +426,9 @@ function applyLoginUI(on, nombre) {
         const initials = nombre.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
         document.getElementById('user-avatar').textContent = initials;
         document.getElementById('user-name-label').textContent = nombre;
+        // Carga automatica al entrar (sesion ya iniciada o recien iniciada) - con los filtros por
+        // defecto (Todas las sucursales, ultimos 3 meses de siembra), sin esperar un clic.
+        if (typeof generarReporteMasivo === 'function') generarReporteMasivo();
     }
 }
 
@@ -836,6 +839,17 @@ function crearEsqueletoTabla() {
             ${HISTORIA_COLS.map(c => `<th>${c.label}<button type="button" class="col-filter-btn" data-label="${c.label}" onclick="cfAbrir(event, '${c.label}')" title="Filtrar">▽</button></th>`).join('')}
         </tr></thead><tbody id="masivo-tbody"></tbody></table></div></div>`;
 }
+
+// Ya no hace falta un clic manual para cargar: como todo sale de D1 (rapido, sin login ni AP1),
+// cualquier cambio de filtro (checkbox/select/fecha) dispara la carga solo, con un pequeño debounce
+// para no relanzarla varias veces si el usuario tilda/destilda varias casillas rapido seguido. El
+// boton "Actualizar" queda como refresco manual opcional, no como requisito.
+let _recargaTimer = null;
+function dispararRecargaDebounced() {
+    if (_recargaTimer) clearTimeout(_recargaTimer);
+    _recargaTimer = setTimeout(() => { generarReporteMasivo(); }, 450);
+}
+document.querySelector('.filters').addEventListener('change', () => dispararRecargaDebounced());
 
 async function generarReporteMasivo() {
     if (_generandoReporte) return;
