@@ -383,6 +383,112 @@ async function handleDbCalibracionRecalcular(request, env) {
   return corsResponse(JSON.stringify({ ok: true, count }), 200, request)
 }
 
+// ── Clima (coordenadas + pronostico) ───────────────────────────────────────
+// GET  /db/coordenadas               -> lista coordenadas por sucursal
+// GET  /db/clima                     -> pronostico, opcional ?idSucursal=<id>
+// POST /db/clima/refrescar           -> trae coordenadas de AP1 (si faltan) y pronostico de Open-Meteo
+
+async function handleDbCoordenadas(request, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const { results } = await env.db.prepare(
+    'SELECT id_sucursal, codigo_sucursal, latitud, longitud, actualizado_en FROM coordenadas_sucursal ORDER BY codigo_sucursal'
+  ).all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbClima(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const idSucursal = url.searchParams.get('idSucursal')
+  const stmt = idSucursal
+    ? env.db.prepare('SELECT * FROM clima_pronostico WHERE id_sucursal = ? ORDER BY fecha').bind(idSucursal)
+    : env.db.prepare('SELECT * FROM clima_pronostico ORDER BY id_sucursal, fecha')
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function refrescarCoordenadas(env) {
+  const token = await ap1Login(env)
+  const json = await ap1Get(token, 'subsidiaries', [['pageSize', '100']])
+  const rows = json?.data?.data || json?.data || []
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO coordenadas_sucursal (id_sucursal, codigo_sucursal, latitud, longitud, actualizado_en)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(id_sucursal) DO UPDATE SET
+       codigo_sucursal = excluded.codigo_sucursal, latitud = excluded.latitud, longitud = excluded.longitud,
+       actualizado_en = excluded.actualizado_en`
+  )
+  const batch = []
+  for (const r of rows) {
+    const coords = r.coordinates?.coordinates
+    if (!r.idSubsidiary || !Array.isArray(coords) || coords.length < 2) continue
+    // AP1 devuelve coordinates.coordinates = [lat, lon] (revisado contra respuesta real)
+    const [lat, lon] = coords
+    if (!lat || !lon) continue
+    batch.push(stmt.bind(r.idSubsidiary, r.codeSubsidiary || null, lat, lon, now))
+  }
+  if (batch.length) await env.db.batch(batch)
+  return batch.length
+}
+
+async function refrescarClima(env) {
+  const { results: coords } = await env.db.prepare(
+    'SELECT id_sucursal, latitud, longitud FROM coordenadas_sucursal'
+  ).all()
+  if (!coords.length) return 0
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO clima_pronostico (id_sucursal, fecha, temp_min_c, temp_max_c, precipitacion_mm, prob_lluvia_pct,
+       viento_max_kmh, uv_max, humedad_relativa_pct, presion_hpa, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_sucursal, fecha) DO UPDATE SET
+       temp_min_c = excluded.temp_min_c, temp_max_c = excluded.temp_max_c,
+       precipitacion_mm = excluded.precipitacion_mm, prob_lluvia_pct = excluded.prob_lluvia_pct,
+       viento_max_kmh = excluded.viento_max_kmh, uv_max = excluded.uv_max,
+       humedad_relativa_pct = excluded.humedad_relativa_pct, presion_hpa = excluded.presion_hpa,
+       actualizado_en = excluded.actualizado_en`
+  )
+
+  let totalFilas = 0
+  const CONCURRENCIA = 10
+  for (let i = 0; i < coords.length; i += CONCURRENCIA) {
+    const lote = coords.slice(i, i + CONCURRENCIA)
+    const resultados = await Promise.all(lote.map(c => {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.latitud}&longitude=${c.longitud}` +
+        `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,` +
+        `windspeed_10m_max,uv_index_max,relative_humidity_2m_max,surface_pressure_mean` +
+        `&timezone=America/Guayaquil&forecast_days=7`
+      return fetch(url).then(r => r.ok ? r.json() : null).catch(() => null)
+    }))
+    const batch = []
+    resultados.forEach((json, idx) => {
+      const idSucursal = lote[idx].id_sucursal
+      const d = json?.daily
+      if (!d?.time) return
+      d.time.forEach((fecha, i2) => {
+        batch.push(stmt.bind(idSucursal, fecha, d.temperature_2m_min?.[i2] ?? null, d.temperature_2m_max?.[i2] ?? null,
+          d.precipitation_sum?.[i2] ?? null, d.precipitation_probability_max?.[i2] ?? null,
+          d.windspeed_10m_max?.[i2] ?? null, d.uv_index_max?.[i2] ?? null,
+          d.relative_humidity_2m_max?.[i2] ?? null, d.surface_pressure_mean?.[i2] ?? null, now))
+      })
+    })
+    if (batch.length) { await env.db.batch(batch); totalFilas += batch.length }
+  }
+  return totalFilas
+}
+
+async function handleDbClimaRefrescar(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  try {
+    const nCoords = await refrescarCoordenadas(env)
+    const nClima = await refrescarClima(env)
+    return corsResponse(JSON.stringify({ ok: true, coordenadas: nCoords, filasClima: nClima }), 200, request)
+  } catch (e) {
+    return corsResponse(JSON.stringify({ error: String(e) }), 500, request)
+  }
+}
+
 // ── Refresco automatico desde AP1 (cron) ───────────────────────────────────
 // Requiere los secrets AP1_USER y AP1_PASS (wrangler secret put AP1_USER / AP1_PASS).
 // Cron liviano (cada 6h, ~110 requests): sucursales + piscinas + ciclos.
@@ -602,7 +708,10 @@ async function refrescoLiviano(env) {
   const nPiscinas = await refrescarPiscinas(token, env, subsidiarios)
   const nCiclos = await refrescarCiclos(token, env, subsidiarios)
   const nPlan = await refrescarPlanCosecha(token, env)
-  return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos, planCosecha: nPlan }
+  const nCoords = await refrescarCoordenadas(env)
+  const nClima = await refrescarClima(env)
+  return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos, planCosecha: nPlan,
+    coordenadas: nCoords, filasClima: nClima }
 }
 
 async function refrescoPesado(env) {
@@ -700,6 +809,18 @@ export default {
 
     if (url.pathname === '/db/calibracion-alimento/recalcular' && env.db) {
       return handleDbCalibracionRecalcular(request, env)
+    }
+
+    if (url.pathname === '/db/coordenadas' && env.db) {
+      return handleDbCoordenadas(request, env)
+    }
+
+    if (url.pathname === '/db/clima' && env.db) {
+      return handleDbClima(request, url, env)
+    }
+
+    if (url.pathname === '/db/clima/refrescar' && env.db) {
+      return handleDbClimaRefrescar(request, env)
     }
 
     if (url.pathname.startsWith('/kv/')) {
