@@ -396,6 +396,16 @@ async function handleDbCoordenadas(request, env) {
   return corsResponse(JSON.stringify({ data: results }), 200, request)
 }
 
+async function handleDbCoordenadasPiscina(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const idSucursal = url.searchParams.get('idSucursal')
+  const stmt = idSucursal
+    ? env.db.prepare('SELECT id_piscina, id_sucursal, codigo_sucursal, nombre_piscina, latitud, longitud, actualizado_en FROM coordenadas_piscina WHERE id_sucursal = ? ORDER BY nombre_piscina').bind(idSucursal)
+    : env.db.prepare('SELECT id_piscina, id_sucursal, codigo_sucursal, nombre_piscina, latitud, longitud, actualizado_en FROM coordenadas_piscina ORDER BY codigo_sucursal, nombre_piscina')
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
 async function handleDbClima(request, url, env) {
   if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
   const idSucursal = url.searchParams.get('idSucursal')
@@ -555,6 +565,27 @@ async function refrescarPiscinas(token, env, subsidiarios) {
   const batch = rows.filter(p => p.idPool).map(p =>
     stmt.bind(p.idPool, p.name || '', p.codePool || null, p.size ?? null, p.subsidiaryId ?? null, p.type || null, p.status || null, now))
   if (batch.length) await env.db.batch(batch)
+
+  // Coordenadas por piscina, vienen en la misma respuesta de /pools - sin llamada extra.
+  const codigoBySubId = new Map(subsidiarios.map(s => [s.id, s.codigo]))
+  const stmtCoord = env.db.prepare(
+    `INSERT INTO coordenadas_piscina (id_piscina, id_sucursal, codigo_sucursal, nombre_piscina, latitud, longitud, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_piscina) DO UPDATE SET
+       id_sucursal = excluded.id_sucursal, codigo_sucursal = excluded.codigo_sucursal,
+       nombre_piscina = excluded.nombre_piscina, latitud = excluded.latitud, longitud = excluded.longitud,
+       actualizado_en = excluded.actualizado_en`
+  )
+  const batchCoord = []
+  for (const p of rows) {
+    const coords = p.coordinates?.coordinates
+    if (!p.idPool || !Array.isArray(coords) || coords.length < 2) continue
+    const [lat, lon] = coords
+    if (!lat || !lon) continue
+    batchCoord.push(stmtCoord.bind(p.idPool, p.subsidiaryId ?? null, codigoBySubId.get(p.subsidiaryId) || null, p.name || '', lat, lon, now))
+  }
+  if (batchCoord.length) await env.db.batch(batchCoord)
+
   return rows.length
 }
 
@@ -813,6 +844,10 @@ export default {
 
     if (url.pathname === '/db/coordenadas' && env.db) {
       return handleDbCoordenadas(request, env)
+    }
+
+    if (url.pathname === '/db/coordenadas-piscina' && env.db) {
+      return handleDbCoordenadasPiscina(request, url, env)
     }
 
     if (url.pathname === '/db/clima' && env.db) {
