@@ -398,12 +398,20 @@ async function handleDbCoordenadasPiscina(request, url, env) {
   return corsResponse(JSON.stringify({ data: results }), 200, request)
 }
 
+// ?hora= vacio o ausente -> solo el resumen diario (hora=''). ?hora=todas -> diario + horario.
+// ?hora=06:00 (u otra) -> solo esa hora especifica.
 async function handleDbClima(request, url, env) {
   if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
   const idSucursal = url.searchParams.get('idSucursal')
-  const stmt = idSucursal
-    ? env.db.prepare('SELECT * FROM clima WHERE id_sucursal = ? ORDER BY fecha').bind(idSucursal)
-    : env.db.prepare('SELECT * FROM clima ORDER BY id_sucursal, fecha')
+  const hora = url.searchParams.get('hora')
+  const conds = []
+  const binds = []
+  if (idSucursal) { conds.push('id_sucursal = ?'); binds.push(idSucursal) }
+  if (hora === 'todas') { /* sin filtro de hora */ }
+  else if (hora) { conds.push('hora = ?'); binds.push(hora) }
+  else { conds.push("hora = ''") }
+  const where = conds.length ? ' WHERE ' + conds.join(' AND ') : ''
+  const stmt = env.db.prepare(`SELECT * FROM clima${where} ORDER BY id_sucursal, fecha, hora`).bind(...binds)
   const { results } = await stmt.all()
   return corsResponse(JSON.stringify({ data: results }), 200, request)
 }
@@ -424,10 +432,10 @@ async function refrescarClima(env) {
 
   const now = ecuadorNowISO()
   const stmt = env.db.prepare(
-    `INSERT INTO clima (id_sucursal, fecha, temp_min_pronosticado, temp_max_pronosticado, precipitacion_pronosticado,
+    `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_pronosticado, temp_max_pronosticado, precipitacion_pronosticado,
        prob_lluvia_pronosticado, viento_pronosticado, uv_pronosticado, humedad_pronosticado, presion_pronosticado, actualizado_en)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id_sucursal, fecha) DO UPDATE SET
+     VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
        temp_min_pronosticado = excluded.temp_min_pronosticado, temp_max_pronosticado = excluded.temp_max_pronosticado,
        precipitacion_pronosticado = excluded.precipitacion_pronosticado, prob_lluvia_pronosticado = excluded.prob_lluvia_pronosticado,
        viento_pronosticado = excluded.viento_pronosticado, uv_pronosticado = excluded.uv_pronosticado,
@@ -471,9 +479,9 @@ async function refrescarClimaReal(env, startDate, endDate) {
 
   const now = ecuadorNowISO()
   const stmt = env.db.prepare(
-    `INSERT INTO clima (id_sucursal, fecha, temp_min_real, temp_max_real, precipitacion_real, viento_real, humedad_real, presion_real, actualizado_en)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id_sucursal, fecha) DO UPDATE SET
+    `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_real, temp_max_real, precipitacion_real, viento_real, humedad_real, presion_real, actualizado_en)
+     VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
        temp_min_real = excluded.temp_min_real, temp_max_real = excluded.temp_max_real,
        precipitacion_real = excluded.precipitacion_real, viento_real = excluded.viento_real,
        humedad_real = excluded.humedad_real, presion_real = excluded.presion_real,
@@ -510,6 +518,109 @@ async function refrescarClimaReal(env, startDate, endDate) {
   return totalFilas
 }
 
+const HORAS_CLIMA = ['00:00', '06:00', '12:00', '18:00']
+
+// Pronostico horario (Open-Meteo forecast), solo en las 4 horas de HORAS_CLIMA.
+async function refrescarClimaHoraria(env) {
+  const coords = await coordenadasPorSucursal(env)
+  if (!coords.length) return 0
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO clima (id_sucursal, fecha, hora, temp_c_pronosticado, precipitacion_pronosticado,
+       viento_pronosticado, uv_pronosticado, humedad_pronosticado, presion_pronosticado, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
+       temp_c_pronosticado = excluded.temp_c_pronosticado, precipitacion_pronosticado = excluded.precipitacion_pronosticado,
+       viento_pronosticado = excluded.viento_pronosticado, uv_pronosticado = excluded.uv_pronosticado,
+       humedad_pronosticado = excluded.humedad_pronosticado, presion_pronosticado = excluded.presion_pronosticado,
+       actualizado_en = excluded.actualizado_en`
+  )
+
+  let totalFilas = 0
+  const CONCURRENCIA = 10
+  for (let i = 0; i < coords.length; i += CONCURRENCIA) {
+    const lote = coords.slice(i, i + CONCURRENCIA)
+    const resultados = await Promise.all(lote.map(c => {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.latitud}&longitude=${c.longitud}` +
+        `&hourly=temperature_2m,precipitation,windspeed_10m,uv_index,relativehumidity_2m,surface_pressure` +
+        `&timezone=America/Guayaquil&forecast_days=16`
+      return fetch(url).then(r => r.ok ? r.json() : null).catch(() => null)
+    }))
+    const batch = []
+    resultados.forEach((json, idx) => {
+      const idSucursal = lote[idx].id_sucursal
+      const h = json?.hourly
+      if (!h?.time) return
+      h.time.forEach((timestamp, i2) => {
+        const [fecha, hora] = timestamp.split('T')
+        if (!HORAS_CLIMA.includes(hora)) return
+        batch.push(stmt.bind(idSucursal, fecha, hora, h.temperature_2m?.[i2] ?? null, h.precipitation?.[i2] ?? null,
+          h.windspeed_10m?.[i2] ?? null, h.uv_index?.[i2] ?? null, h.relativehumidity_2m?.[i2] ?? null,
+          h.surface_pressure?.[i2] ?? null, now))
+      })
+    })
+    if (batch.length) { await env.db.batch(batch); totalFilas += batch.length }
+  }
+  return totalFilas
+}
+
+// Real/observado horario (Open-Meteo archive-api), solo en las 4 horas de HORAS_CLIMA.
+async function refrescarClimaHorariaReal(env, startDate, endDate) {
+  const coords = await coordenadasPorSucursal(env)
+  if (!coords.length) return 0
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO clima (id_sucursal, fecha, hora, temp_c_real, precipitacion_real, viento_real, humedad_real, presion_real, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
+       temp_c_real = excluded.temp_c_real, precipitacion_real = excluded.precipitacion_real,
+       viento_real = excluded.viento_real, humedad_real = excluded.humedad_real,
+       presion_real = excluded.presion_real, actualizado_en = excluded.actualizado_en`
+  )
+
+  let totalFilas = 0
+  const CONCURRENCIA = 6
+  for (let i = 0; i < coords.length; i += CONCURRENCIA) {
+    const lote = coords.slice(i, i + CONCURRENCIA)
+    const resultados = await Promise.all(lote.map(c => {
+      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${c.latitud}&longitude=${c.longitud}` +
+        `&start_date=${startDate}&end_date=${endDate}` +
+        `&hourly=temperature_2m,precipitation,windspeed_10m,relativehumidity_2m,surface_pressure` +
+        `&timezone=America/Guayaquil`
+      return fetch(url).then(r => r.ok ? r.json() : null).catch(() => null)
+    }))
+    const batch = []
+    resultados.forEach((json, idx) => {
+      const idSucursal = lote[idx].id_sucursal
+      const h = json?.hourly
+      if (!h?.time) return
+      h.time.forEach((timestamp, i2) => {
+        const [fecha, hora] = timestamp.split('T')
+        if (!HORAS_CLIMA.includes(hora)) return
+        if (h.temperature_2m?.[i2] == null) return
+        batch.push(stmt.bind(idSucursal, fecha, hora, h.temperature_2m?.[i2] ?? null, h.precipitation?.[i2] ?? null,
+          h.windspeed_10m?.[i2] ?? null, h.relativehumidity_2m?.[i2] ?? null, h.surface_pressure?.[i2] ?? null, now))
+      })
+    })
+    if (batch.length) { await env.db.batch(batch); totalFilas += batch.length }
+  }
+  return totalFilas
+}
+
+async function handleDbClimaHorariaReal(request, url, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const startDate = url.searchParams.get('desde') || '2025-01-01'
+  const endDate = url.searchParams.get('hasta') || ecuadorNowISO().slice(0, 10)
+  try {
+    const n = await refrescarClimaHorariaReal(env, startDate, endDate)
+    return corsResponse(JSON.stringify({ ok: true, desde: startDate, hasta: endDate, filas: n }), 200, request)
+  } catch (e) {
+    return corsResponse(JSON.stringify({ error: String(e) }), 500, request)
+  }
+}
+
 async function handleDbClimaReal(request, url, env) {
   if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
   const startDate = url.searchParams.get('desde') || '2025-01-01'
@@ -526,7 +637,8 @@ async function handleDbClimaRefrescar(request, env) {
   if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
   try {
     const nClima = await refrescarClima(env)
-    return corsResponse(JSON.stringify({ ok: true, filasClima: nClima }), 200, request)
+    const nHoraria = await refrescarClimaHoraria(env)
+    return corsResponse(JSON.stringify({ ok: true, filasClima: nClima, filasHoraria: nHoraria }), 200, request)
   } catch (e) {
     return corsResponse(JSON.stringify({ error: String(e) }), 500, request)
   }
@@ -773,13 +885,15 @@ async function refrescoLiviano(env) {
   const nCiclos = await refrescarCiclos(token, env, subsidiarios)
   const nPlan = await refrescarPlanCosecha(token, env)
   const nClima = await refrescarClima(env)
+  const nHoraria = await refrescarClimaHoraria(env)
   // Real/observado tiene unos dias de retraso en la fuente - se reintentan los ultimos
   // 10 dias en cada corrida para ir llenando lo que ya este disponible.
   const hace10dias = new Date(Date.now() - 10 * 86400000).toISOString().slice(0, 10)
   const hoy = ecuadorNowISO().slice(0, 10)
   const nClimaReal = await refrescarClimaReal(env, hace10dias, hoy).catch(() => 0)
+  const nHorariaReal = await refrescarClimaHorariaReal(env, hace10dias, hoy).catch(() => 0)
   return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos, planCosecha: nPlan,
-    filasClima: nClima, filasClimaReal: nClimaReal }
+    filasClima: nClima, filasHoraria: nHoraria, filasClimaReal: nClimaReal, filasHorariaReal: nHorariaReal }
 }
 
 async function refrescoPesado(env) {
@@ -889,6 +1003,10 @@ export default {
 
     if (url.pathname === '/db/clima/refrescar' && env.db) {
       return handleDbClimaRefrescar(request, env)
+    }
+
+    if (url.pathname === '/db/clima/horaria/real' && env.db) {
+      return handleDbClimaHorariaReal(request, url, env)
     }
 
     if (url.pathname === '/db/clima/real' && env.db) {
