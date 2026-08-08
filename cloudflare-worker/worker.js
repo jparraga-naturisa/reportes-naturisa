@@ -388,14 +388,6 @@ async function handleDbCalibracionRecalcular(request, env) {
 // GET  /db/clima                     -> pronostico, opcional ?idSucursal=<id>
 // POST /db/clima/refrescar           -> trae coordenadas de AP1 (si faltan) y pronostico de Open-Meteo
 
-async function handleDbCoordenadas(request, env) {
-  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
-  const { results } = await env.db.prepare(
-    'SELECT id_sucursal, codigo_sucursal, latitud, longitud, actualizado_en FROM coordenadas_sucursal ORDER BY codigo_sucursal'
-  ).all()
-  return corsResponse(JSON.stringify({ data: results }), 200, request)
-}
-
 async function handleDbCoordenadasPiscina(request, url, env) {
   if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
   const idSucursal = url.searchParams.get('idSucursal')
@@ -416,34 +408,11 @@ async function handleDbClima(request, url, env) {
   return corsResponse(JSON.stringify({ data: results }), 200, request)
 }
 
-async function refrescarCoordenadas(env) {
-  const token = await ap1Login(env)
-  const json = await ap1Get(token, 'subsidiaries', [['pageSize', '100']])
-  const rows = json?.data?.data || json?.data || []
-  const now = ecuadorNowISO()
-  const stmt = env.db.prepare(
-    `INSERT INTO coordenadas_sucursal (id_sucursal, codigo_sucursal, latitud, longitud, actualizado_en)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(id_sucursal) DO UPDATE SET
-       codigo_sucursal = excluded.codigo_sucursal, latitud = excluded.latitud, longitud = excluded.longitud,
-       actualizado_en = excluded.actualizado_en`
-  )
-  const batch = []
-  for (const r of rows) {
-    const coords = r.coordinates?.coordinates
-    if (!r.idSubsidiary || !Array.isArray(coords) || coords.length < 2) continue
-    // AP1 devuelve coordinates.coordinates = [lat, lon] (revisado contra respuesta real)
-    const [lat, lon] = coords
-    if (!lat || !lon) continue
-    batch.push(stmt.bind(r.idSubsidiary, r.codeSubsidiary || null, lat, lon, now))
-  }
-  if (batch.length) await env.db.batch(batch)
-  return batch.length
-}
-
 async function refrescarClima(env) {
+  // La coordenada de cada sucursal se calcula como el centro (promedio) de sus
+  // piscinas - ya no se guarda una coordenada de sucursal por separado.
   const { results: coords } = await env.db.prepare(
-    'SELECT id_sucursal, latitud, longitud FROM coordenadas_sucursal'
+    'SELECT id_sucursal, AVG(latitud) AS latitud, AVG(longitud) AS longitud FROM coordenadas_piscina WHERE id_sucursal IS NOT NULL GROUP BY id_sucursal'
   ).all()
   if (!coords.length) return 0
 
@@ -491,9 +460,8 @@ async function refrescarClima(env) {
 async function handleDbClimaRefrescar(request, env) {
   if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
   try {
-    const nCoords = await refrescarCoordenadas(env)
     const nClima = await refrescarClima(env)
-    return corsResponse(JSON.stringify({ ok: true, coordenadas: nCoords, filasClima: nClima }), 200, request)
+    return corsResponse(JSON.stringify({ ok: true, filasClima: nClima }), 200, request)
   } catch (e) {
     return corsResponse(JSON.stringify({ error: String(e) }), 500, request)
   }
@@ -739,10 +707,9 @@ async function refrescoLiviano(env) {
   const nPiscinas = await refrescarPiscinas(token, env, subsidiarios)
   const nCiclos = await refrescarCiclos(token, env, subsidiarios)
   const nPlan = await refrescarPlanCosecha(token, env)
-  const nCoords = await refrescarCoordenadas(env)
   const nClima = await refrescarClima(env)
   return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos, planCosecha: nPlan,
-    coordenadas: nCoords, filasClima: nClima }
+    filasClima: nClima }
 }
 
 async function refrescoPesado(env) {
@@ -840,10 +807,6 @@ export default {
 
     if (url.pathname === '/db/calibracion-alimento/recalcular' && env.db) {
       return handleDbCalibracionRecalcular(request, env)
-    }
-
-    if (url.pathname === '/db/coordenadas' && env.db) {
-      return handleDbCoordenadas(request, env)
     }
 
     if (url.pathname === '/db/coordenadas-piscina' && env.db) {

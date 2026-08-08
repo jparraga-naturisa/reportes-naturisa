@@ -1,14 +1,6 @@
--- Coordenadas de cada sucursal (lat/lon), tomadas de AP1 (subsidiaries.coordinates).
--- Se usan para pedir el pronostico del clima de cada finca a Open-Meteo.
-CREATE TABLE IF NOT EXISTS coordenadas_sucursal (
-  id_sucursal    INTEGER PRIMARY KEY,
-  codigo_sucursal TEXT,
-  latitud        REAL NOT NULL,
-  longitud       REAL NOT NULL,
-  actualizado_en TEXT
-);
-
 -- Pronostico diario del clima por sucursal, fuente: Open-Meteo (gratis, sin API key).
+-- La coordenada de cada sucursal se calcula como el promedio de sus piscinas
+-- (tabla coordenadas_piscina) - no se guarda una coordenada de sucursal aparte.
 -- Solo los datos relevantes para cultivo de camaron.
 CREATE TABLE IF NOT EXISTS clima_pronostico (
   id_sucursal          INTEGER NOT NULL,
