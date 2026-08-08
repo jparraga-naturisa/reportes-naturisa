@@ -443,7 +443,7 @@ async function refrescarClima(env) {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.latitud}&longitude=${c.longitud}` +
         `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,` +
         `windspeed_10m_max,uv_index_max,relative_humidity_2m_max,surface_pressure_mean` +
-        `&timezone=America/Guayaquil&forecast_days=7`
+        `&timezone=America/Guayaquil&forecast_days=16`
       return fetch(url).then(r => r.ok ? r.json() : null).catch(() => null)
     }))
     const batch = []
