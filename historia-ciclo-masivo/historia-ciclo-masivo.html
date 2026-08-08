@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Naturisa - Historia del ciclo (Masivo)</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -1146,27 +1147,10 @@ function exportarExcel() {
     const table = document.querySelector('table.masivo-tbl');
     if (!table) { alert('No hay datos en pantalla para exportar - primero genera el reporte.'); return; }
 
-    let html = '<html><head><meta charset="utf-8"></head><body><table border="1" cellspacing="0">';
-    table.querySelectorAll('tr').forEach(tr => {
-        html += '<tr>';
-        Array.from(tr.children).forEach(td => {
-            const tag = td.tagName.toLowerCase();
-            html += `<${tag}>${(td.textContent || '').trim()}</${tag}>`;
-        });
-        html += '</tr>';
-    });
-    html += '</table></body></html>';
-
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(table), 'Historia del ciclo');
     const fecha = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `historia_ciclo_masivo_${fecha}.xls`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    XLSX.writeFile(wb, `historia_ciclo_masivo_${fecha}.xlsx`);
 }
 
 // Carga automatica al abrir la pagina (si ya habia sesion) - se hace aqui, al final del script,
