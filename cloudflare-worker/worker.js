@@ -1033,9 +1033,14 @@ async function refrescarPlanCosecha(token, env) {
   return batch.length
 }
 
+// Sucursales que se excluyen del refresco automatico de piscinas/ciclos (ej. NC =
+// Coaque NC, migrada a CO - sus datos viejos se borraron a mano y no deben volver).
+const SUCURSALES_EXCLUIDAS = ['NC']
+
 async function refrescoLiviano(env) {
   const token = await ap1Login(env)
-  const subsidiarios = await refrescarSucursales(token, env)
+  const todasLasSubsidiarias = await refrescarSucursales(token, env)
+  const subsidiarios = todasLasSubsidiarias.filter(s => !SUCURSALES_EXCLUIDAS.includes(s.codigo))
   const nPiscinas = await refrescarPiscinas(token, env, subsidiarios)
   const nCiclos = await refrescarCiclos(token, env, subsidiarios)
   const nPlan = await refrescarPlanCosecha(token, env)
