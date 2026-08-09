@@ -2,13 +2,14 @@
 -- _meteo (Open-Meteo: forecast + archive/ERA5, ya combinados en un solo valor)
 -- _inamhi (INAMHI, fuente oficial de Ecuador, solo publica el pronostico del dia actual)
 -- La coordenada de cada sucursal se calcula como el promedio de sus piscinas
--- (tabla coordenadas_piscina). hora='' es el resumen diario (temp_min/max);
--- hora IN ('00:00','06:00','12:00','18:00') son lecturas puntuales (temp_c),
--- que tambien corresponden a las franjas Madrugada/Manana/Tarde/Noche de INAMHI.
+-- (tabla coordenadas_piscina). Siempre 4 filas por fecha (hora IN '00:00','06:00',
+-- '12:00','18:00' - Madrugada/Manana/Tarde/Noche de INAMHI). Los valores diarios
+-- (temp_min/max, uv, lluvia, etc.) se repiten en las 4 filas; temp_c_meteo y
+-- condicion_inamhi/icono_inamhi son propios de cada franja.
 CREATE TABLE IF NOT EXISTS clima (
   id_sucursal          INTEGER NOT NULL,
   fecha                TEXT NOT NULL,
-  hora                 TEXT NOT NULL DEFAULT '',
+  hora                 TEXT NOT NULL,
 
   temp_min_meteo       REAL,
   temp_min_inamhi      REAL,

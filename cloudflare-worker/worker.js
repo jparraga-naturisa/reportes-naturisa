@@ -398,8 +398,8 @@ async function handleDbCoordenadasPiscina(request, url, env) {
   return corsResponse(JSON.stringify({ data: results }), 200, request)
 }
 
-// ?hora= vacio o ausente -> solo el resumen diario (hora=''). ?hora=todas -> diario + horario.
-// ?hora=06:00 (u otra) -> solo esa hora especifica.
+// Siempre 4 filas por fecha (hora IN 00:00/06:00/12:00/18:00). Sin ?hora= trae las 4;
+// con ?hora=06:00 (u otra) filtra a esa franja especifica.
 async function handleDbClima(request, url, env) {
   if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
   const idSucursal = url.searchParams.get('idSucursal')
@@ -407,9 +407,7 @@ async function handleDbClima(request, url, env) {
   const conds = []
   const binds = []
   if (idSucursal) { conds.push('id_sucursal = ?'); binds.push(idSucursal) }
-  if (hora === 'todas') { /* sin filtro de hora */ }
-  else if (hora) { conds.push('hora = ?'); binds.push(hora) }
-  else { conds.push("hora = ''") }
+  if (hora) { conds.push('hora = ?'); binds.push(hora) }
   const where = conds.length ? ' WHERE ' + conds.join(' AND ') : ''
   const stmt = env.db.prepare(`SELECT * FROM clima${where} ORDER BY id_sucursal, fecha, hora`).bind(...binds)
   const { results } = await stmt.all()
@@ -451,17 +449,14 @@ async function refrescarClimaInamhi(env) {
   if (!Array.isArray(localidades) || !localidades.length) return 0
 
   const now = ecuadorNowISO()
-  const stmtDia = env.db.prepare(
-    `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_inamhi, temp_max_inamhi, uv_inamhi, lluvia_inamhi, actualizado_en)
-     VALUES (?, ?, '', ?, ?, ?, ?, ?)
+  // Los campos diarios de INAMHI (temp_min/max, uv, lluvia) se repiten en las
+  // 4 filas horarias de esa fecha, junto con la condicion propia de cada franja.
+  const stmtFranja = env.db.prepare(
+    `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_inamhi, temp_max_inamhi, uv_inamhi, lluvia_inamhi, condicion_inamhi, icono_inamhi, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
        temp_min_inamhi = excluded.temp_min_inamhi, temp_max_inamhi = excluded.temp_max_inamhi,
-       uv_inamhi = excluded.uv_inamhi, lluvia_inamhi = excluded.lluvia_inamhi, actualizado_en = excluded.actualizado_en`
-  )
-  const stmtFranja = env.db.prepare(
-    `INSERT INTO clima (id_sucursal, fecha, hora, condicion_inamhi, icono_inamhi, actualizado_en)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
+       uv_inamhi = excluded.uv_inamhi, lluvia_inamhi = excluded.lluvia_inamhi,
        condicion_inamhi = excluded.condicion_inamhi, icono_inamhi = excluded.icono_inamhi, actualizado_en = excluded.actualizado_en`
   )
 
@@ -469,12 +464,11 @@ async function refrescarClimaInamhi(env) {
   for (const c of coords) {
     const loc = localidadMasCercana(c.latitud, c.longitud, localidades)
     if (!loc) continue
-    batch.push(stmtDia.bind(c.id_sucursal, loc.date, loc.min_temperature ?? null, loc.max_temperature ?? null,
-      loc.uv_radiation ?? null, loc.rain ? 1 : 0, now))
     for (const f of (loc.forecast || [])) {
       const hora = INAMHI_HORA_POR_PERIODO[f.period_name]
       if (!hora) continue
-      batch.push(stmtFranja.bind(c.id_sucursal, loc.date, hora, f.condition_description || null, f.condition_icon_url || null, now))
+      batch.push(stmtFranja.bind(c.id_sucursal, loc.date, hora, loc.min_temperature ?? null, loc.max_temperature ?? null,
+        loc.uv_radiation ?? null, loc.rain ? 1 : 0, f.condition_description || null, f.condition_icon_url || null, now))
     }
   }
   if (batch.length) await env.db.batch(batch)
@@ -497,10 +491,12 @@ async function refrescarClima(env) {
   if (!coords.length) return 0
 
   const now = ecuadorNowISO()
+  // El dato diario (temp_min/max, etc.) se repite en las 4 filas horarias de esa
+  // fecha - no existe una fila de resumen diario aparte (hora='').
   const stmt = env.db.prepare(
     `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_meteo, temp_max_meteo, precipitacion_meteo,
        prob_lluvia_meteo, viento_meteo, uv_meteo, humedad_meteo, presion_meteo, actualizado_en)
-     VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
        temp_min_meteo = excluded.temp_min_meteo, temp_max_meteo = excluded.temp_max_meteo,
        precipitacion_meteo = excluded.precipitacion_meteo, prob_lluvia_meteo = excluded.prob_lluvia_meteo,
@@ -526,10 +522,12 @@ async function refrescarClima(env) {
       const d = json?.daily
       if (!d?.time) return
       d.time.forEach((fecha, i2) => {
-        batch.push(stmt.bind(idSucursal, fecha, d.temperature_2m_min?.[i2] ?? null, d.temperature_2m_max?.[i2] ?? null,
-          d.precipitation_sum?.[i2] ?? null, d.precipitation_probability_max?.[i2] ?? null,
-          d.windspeed_10m_max?.[i2] ?? null, d.uv_index_max?.[i2] ?? null,
-          d.relative_humidity_2m_max?.[i2] ?? null, d.surface_pressure_mean?.[i2] ?? null, now))
+        for (const hora of HORAS_CLIMA) {
+          batch.push(stmt.bind(idSucursal, fecha, hora, d.temperature_2m_min?.[i2] ?? null, d.temperature_2m_max?.[i2] ?? null,
+            d.precipitation_sum?.[i2] ?? null, d.precipitation_probability_max?.[i2] ?? null,
+            d.windspeed_10m_max?.[i2] ?? null, d.uv_index_max?.[i2] ?? null,
+            d.relative_humidity_2m_max?.[i2] ?? null, d.surface_pressure_mean?.[i2] ?? null, now))
+        }
       })
     })
     if (batch.length) { await env.db.batch(batch); totalFilas += batch.length }
@@ -547,7 +545,7 @@ async function refrescarClimaReal(env, startDate, endDate) {
   const now = ecuadorNowISO()
   const stmt = env.db.prepare(
     `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_meteo, temp_max_meteo, precipitacion_meteo, viento_meteo, humedad_meteo, presion_meteo, actualizado_en)
-     VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
        temp_min_meteo = excluded.temp_min_meteo, temp_max_meteo = excluded.temp_max_meteo,
        precipitacion_meteo = excluded.precipitacion_meteo, viento_meteo = excluded.viento_meteo,
@@ -575,9 +573,11 @@ async function refrescarClimaReal(env, startDate, endDate) {
         // Open-Meteo devuelve null en dias muy recientes que aun no tienen dato observado -
         // se omite la fila para no pisar el pronostico con un real vacio.
         if (d.temperature_2m_max?.[i2] == null && d.temperature_2m_min?.[i2] == null) return
-        batch.push(stmt.bind(idSucursal, fecha, d.temperature_2m_min?.[i2] ?? null, d.temperature_2m_max?.[i2] ?? null,
-          d.precipitation_sum?.[i2] ?? null, d.windspeed_10m_max?.[i2] ?? null,
-          d.relative_humidity_2m_max?.[i2] ?? null, d.surface_pressure_mean?.[i2] ?? null, now))
+        for (const hora of HORAS_CLIMA) {
+          batch.push(stmt.bind(idSucursal, fecha, hora, d.temperature_2m_min?.[i2] ?? null, d.temperature_2m_max?.[i2] ?? null,
+            d.precipitation_sum?.[i2] ?? null, d.windspeed_10m_max?.[i2] ?? null,
+            d.relative_humidity_2m_max?.[i2] ?? null, d.surface_pressure_mean?.[i2] ?? null, now))
+        }
       })
     })
     if (batch.length) { await env.db.batch(batch); totalFilas += batch.length }
