@@ -498,14 +498,14 @@ async function refrescarClima(env) {
 
   const now = ecuadorNowISO()
   const stmt = env.db.prepare(
-    `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_pronosticado, temp_max_pronosticado, precipitacion_pronosticado,
-       prob_lluvia_pronosticado, viento_pronosticado, uv_pronosticado, humedad_pronosticado, presion_pronosticado, actualizado_en)
+    `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_meteo, temp_max_meteo, precipitacion_meteo,
+       prob_lluvia_meteo, viento_meteo, uv_meteo, humedad_meteo, presion_meteo, actualizado_en)
      VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
-       temp_min_pronosticado = excluded.temp_min_pronosticado, temp_max_pronosticado = excluded.temp_max_pronosticado,
-       precipitacion_pronosticado = excluded.precipitacion_pronosticado, prob_lluvia_pronosticado = excluded.prob_lluvia_pronosticado,
-       viento_pronosticado = excluded.viento_pronosticado, uv_pronosticado = excluded.uv_pronosticado,
-       humedad_pronosticado = excluded.humedad_pronosticado, presion_pronosticado = excluded.presion_pronosticado,
+       temp_min_meteo = excluded.temp_min_meteo, temp_max_meteo = excluded.temp_max_meteo,
+       precipitacion_meteo = excluded.precipitacion_meteo, prob_lluvia_meteo = excluded.prob_lluvia_meteo,
+       viento_meteo = excluded.viento_meteo, uv_meteo = excluded.uv_meteo,
+       humedad_meteo = excluded.humedad_meteo, presion_meteo = excluded.presion_meteo,
        actualizado_en = excluded.actualizado_en`
   )
 
@@ -538,19 +538,20 @@ async function refrescarClima(env) {
 }
 
 // Real/observado (Open-Meteo archive-api, ERA5). startDate/endDate en formato YYYY-MM-DD.
-// Solo actualiza las columnas *_real, sin tocar el pronostico ya guardado para esas fechas.
+// Pisa el valor de pronostico ya guardado para esas fechas con el dato observado real
+// (mas confiable), en las mismas columnas *_meteo.
 async function refrescarClimaReal(env, startDate, endDate) {
   const coords = await coordenadasPorSucursal(env)
   if (!coords.length) return 0
 
   const now = ecuadorNowISO()
   const stmt = env.db.prepare(
-    `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_real, temp_max_real, precipitacion_real, viento_real, humedad_real, presion_real, actualizado_en)
+    `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_meteo, temp_max_meteo, precipitacion_meteo, viento_meteo, humedad_meteo, presion_meteo, actualizado_en)
      VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
-       temp_min_real = excluded.temp_min_real, temp_max_real = excluded.temp_max_real,
-       precipitacion_real = excluded.precipitacion_real, viento_real = excluded.viento_real,
-       humedad_real = excluded.humedad_real, presion_real = excluded.presion_real,
+       temp_min_meteo = excluded.temp_min_meteo, temp_max_meteo = excluded.temp_max_meteo,
+       precipitacion_meteo = excluded.precipitacion_meteo, viento_meteo = excluded.viento_meteo,
+       humedad_meteo = excluded.humedad_meteo, presion_meteo = excluded.presion_meteo,
        actualizado_en = excluded.actualizado_en`
   )
 
@@ -593,13 +594,13 @@ async function refrescarClimaHoraria(env) {
 
   const now = ecuadorNowISO()
   const stmt = env.db.prepare(
-    `INSERT INTO clima (id_sucursal, fecha, hora, temp_c_pronosticado, precipitacion_pronosticado,
-       viento_pronosticado, uv_pronosticado, humedad_pronosticado, presion_pronosticado, actualizado_en)
+    `INSERT INTO clima (id_sucursal, fecha, hora, temp_c_meteo, precipitacion_meteo,
+       viento_meteo, uv_meteo, humedad_meteo, presion_meteo, actualizado_en)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
-       temp_c_pronosticado = excluded.temp_c_pronosticado, precipitacion_pronosticado = excluded.precipitacion_pronosticado,
-       viento_pronosticado = excluded.viento_pronosticado, uv_pronosticado = excluded.uv_pronosticado,
-       humedad_pronosticado = excluded.humedad_pronosticado, presion_pronosticado = excluded.presion_pronosticado,
+       temp_c_meteo = excluded.temp_c_meteo, precipitacion_meteo = excluded.precipitacion_meteo,
+       viento_meteo = excluded.viento_meteo, uv_meteo = excluded.uv_meteo,
+       humedad_meteo = excluded.humedad_meteo, presion_meteo = excluded.presion_meteo,
        actualizado_en = excluded.actualizado_en`
   )
 
@@ -638,12 +639,12 @@ async function refrescarClimaHorariaReal(env, startDate, endDate) {
 
   const now = ecuadorNowISO()
   const stmt = env.db.prepare(
-    `INSERT INTO clima (id_sucursal, fecha, hora, temp_c_real, precipitacion_real, viento_real, humedad_real, presion_real, actualizado_en)
+    `INSERT INTO clima (id_sucursal, fecha, hora, temp_c_meteo, precipitacion_meteo, viento_meteo, humedad_meteo, presion_meteo, actualizado_en)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
-       temp_c_real = excluded.temp_c_real, precipitacion_real = excluded.precipitacion_real,
-       viento_real = excluded.viento_real, humedad_real = excluded.humedad_real,
-       presion_real = excluded.presion_real, actualizado_en = excluded.actualizado_en`
+       temp_c_meteo = excluded.temp_c_meteo, precipitacion_meteo = excluded.precipitacion_meteo,
+       viento_meteo = excluded.viento_meteo, humedad_meteo = excluded.humedad_meteo,
+       presion_meteo = excluded.presion_meteo, actualizado_en = excluded.actualizado_en`
   )
 
   let totalFilas = 0
