@@ -971,8 +971,15 @@ async function handleDbClimaHorariaReal(request, url, env) {
 // GET  /db/marea?idSucursal=&fecha=&hora=   -> lista marea
 // POST /db/marea/refrescar?desde=&hasta=    -> trae/actualiza marea para ese rango (default: 2025-01-01 a hoy+16d)
 
+// Solo sucursales costeras con acceso directo al estero/mar abierto - el resto son
+// fincas tierra adentro donde el modelo marino de Open-Meteo no tiene cobertura
+// (siempre devuelve NULL). Pesjoya(2), Rio Nilo(12), Inducam(15), Golfomar(17),
+// Bonanza(19), Roblemar(20).
+const SUCURSALES_MAREA = [2, 12, 15, 17, 19, 20]
+
 async function refrescarMarea(env, startDate, endDate) {
-  const coords = await coordenadasPorSucursal(env)
+  const todasLasCoords = await coordenadasPorSucursal(env)
+  const coords = todasLasCoords.filter(c => SUCURSALES_MAREA.includes(c.id_sucursal))
   if (!coords.length) return 0
 
   const now = ecuadorNowISO()
