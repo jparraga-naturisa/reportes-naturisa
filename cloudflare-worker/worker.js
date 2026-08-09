@@ -967,6 +967,77 @@ async function handleDbClimaHorariaReal(request, url, env) {
   }
 }
 
+// ── Marea (Open-Meteo Marine API, un solo endpoint sirve historico y pronostico) ──
+// GET  /db/marea?idSucursal=&fecha=&hora=   -> lista marea
+// POST /db/marea/refrescar?desde=&hasta=    -> trae/actualiza marea para ese rango (default: 2025-01-01 a hoy+16d)
+
+async function refrescarMarea(env, startDate, endDate) {
+  const coords = await coordenadasPorSucursal(env)
+  if (!coords.length) return 0
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO marea (id_sucursal, fecha, hora, altura_marea_m, altura_ola_m, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
+       altura_marea_m = excluded.altura_marea_m, altura_ola_m = excluded.altura_ola_m,
+       actualizado_en = excluded.actualizado_en`
+  )
+
+  let totalFilas = 0
+  const CONCURRENCIA = 8
+  for (let i = 0; i < coords.length; i += CONCURRENCIA) {
+    const lote = coords.slice(i, i + CONCURRENCIA)
+    const resultados = await Promise.all(lote.map(c => {
+      const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${c.latitud}&longitude=${c.longitud}` +
+        `&hourly=sea_level_height_msl,wave_height&start_date=${startDate}&end_date=${endDate}&timezone=America/Guayaquil`
+      return fetch(url).then(r => r.ok ? r.json() : null).catch(() => null)
+    }))
+    const batch = []
+    resultados.forEach((json, idx) => {
+      const idSucursal = lote[idx].id_sucursal
+      const h = json?.hourly
+      if (!h?.time) return
+      h.time.forEach((timestamp, i2) => {
+        const [fecha, hora] = timestamp.split('T')
+        batch.push(stmt.bind(idSucursal, fecha, hora, h.sea_level_height_msl?.[i2] ?? null, h.wave_height?.[i2] ?? null, now))
+      })
+    })
+    if (batch.length) { await env.db.batch(batch); totalFilas += batch.length }
+  }
+  return totalFilas
+}
+
+async function handleDbMarea(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const idSucursal = url.searchParams.get('idSucursal')
+  const fecha = url.searchParams.get('fecha')
+  const hora = url.searchParams.get('hora')
+  const conds = []
+  const binds = []
+  if (idSucursal) { conds.push('id_sucursal = ?'); binds.push(idSucursal) }
+  if (fecha) { conds.push('fecha = ?'); binds.push(fecha) }
+  if (hora) { conds.push('hora = ?'); binds.push(hora) }
+  const where = conds.length ? ' WHERE ' + conds.join(' AND ') : ''
+  const stmt = env.db.prepare(`SELECT * FROM marea${where} ORDER BY id_sucursal, fecha, hora`).bind(...binds)
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbMareaRefrescar(request, url, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const hoy = ecuadorNowISO().slice(0, 10)
+  const en15dias = new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10)
+  const startDate = url.searchParams.get('desde') || '2025-01-01'
+  const endDate = url.searchParams.get('hasta') || en15dias
+  try {
+    const n = await refrescarMarea(env, startDate, endDate)
+    return corsResponse(JSON.stringify({ ok: true, desde: startDate, hasta: endDate, filas: n }), 200, request)
+  } catch (e) {
+    return corsResponse(JSON.stringify({ error: String(e) }), 500, request)
+  }
+}
+
 async function handleDbClimaReal(request, url, env) {
   if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
   const startDate = url.searchParams.get('desde') || '2025-01-01'
@@ -1283,9 +1354,11 @@ async function refrescoLiviano(env) {
   const nHorariaReal = await refrescarClimaHorariaReal(env, hace10dias, hoy).catch(() => 0)
   const nInamhi = await refrescarClimaInamhi(env).catch(() => 0)
   const nBalanceado = await refrescarConsumoBalanceado(env).catch(() => 0)
+  const en15dias = new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10)
+  const nMarea = await refrescarMarea(env, hace10dias, en15dias).catch(() => 0)
   return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos, planCosecha: nPlan,
     filasClima: nClima, filasHoraria: nHoraria, filasClimaReal: nClimaReal, filasHorariaReal: nHorariaReal,
-    filasInamhi: nInamhi, filasBalanceado: nBalanceado }
+    filasInamhi: nInamhi, filasBalanceado: nBalanceado, filasMarea: nMarea }
 }
 
 async function refrescoPesado(env) {
@@ -1428,6 +1501,14 @@ export default {
 
     if (url.pathname === '/db/clima/inamhi' && env.db) {
       return handleDbClimaInamhi(request, env)
+    }
+
+    if (url.pathname === '/db/marea' && env.db) {
+      return handleDbMarea(request, url, env)
+    }
+
+    if (url.pathname === '/db/marea/refrescar' && env.db) {
+      return handleDbMareaRefrescar(request, url, env)
     }
 
     if (url.pathname === '/db/clima/horaria/real' && env.db) {
