@@ -1,7 +1,9 @@
 -- Relaciona la "orden de control" de SAP (controlOrderDocument en AP1) con la
 -- sucursal/piscina/ciclo correspondiente, para poder cruzar los consumos de
 -- insumos de SAP (que llegan con esa orden, no con id_ciclo) contra un ciclo real.
--- Solo cubre ciclos desde 2026-01-01 (fecha en que empezo a usarse la orden de control).
+-- Cubre ciclos desde 2025-01-01 (mismo rango que la tabla ciclos). No todos los
+-- ciclos tienen orden de control en AP1 - los que no la tienen simplemente no
+-- aparecen aqui (confirmado: reintentar no los completa, es un hueco real de AP1).
 CREATE TABLE IF NOT EXISTS orden_control (
   orden_control   TEXT NOT NULL PRIMARY KEY,
   id_ciclo        INTEGER NOT NULL,

@@ -277,13 +277,13 @@ async function handleDbOrdenControlSync(request, env) {
 
 // Trae la orden de control (controlOrderDocument) ciclo por ciclo via el endpoint
 // individual /cycles/{id} - mucho mas liviano (~4KB) que el bulk /cycles (168MB+ ignora
-// paginacion). Solo pide los ciclos desde 2026-01-01 que aun no tengan orden asignada.
+// paginacion). Solo pide los ciclos desde CICLOS_DESDE que aun no tengan orden asignada.
 async function refrescarOrdenControl(env) {
   const token = await ap1Login(env)
   const { results: faltantes } = await env.db.prepare(`
     SELECT id_ciclo, id_sucursal, codigo_sucursal, nombre_piscina, numero_ciclo
     FROM ciclos
-    WHERE fecha_siembra >= '2026-01-01'
+    WHERE fecha_siembra >= '${CICLOS_DESDE}'
       AND id_ciclo NOT IN (SELECT id_ciclo FROM orden_control)
   `).all()
   if (!faltantes.length) return 0
