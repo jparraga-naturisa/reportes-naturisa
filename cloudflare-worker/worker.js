@@ -428,6 +428,7 @@ async function coordenadasPorSucursal(env) {
 // (cabeceras provinciales). Cada sucursal se empareja con la localidad INAMHI
 // mas cercana (distancia euclidiana simple, suficiente a esta escala).
 const INAMHI_URL = 'https://inamhi.gob.ec/api_pronos/forecast/daily_forecast/list_by_date_now/'
+const INAMHI_URL_LOCALIDAD = 'https://inamhi.gob.ec/api_pronos/forecast/daily_forecast/list_by_locality_from_date/'
 const INAMHI_HORA_POR_PERIODO = { 'Madrugada': '00:00', 'Mañana': '06:00', 'Tarde': '12:00', 'Noche': '18:00' }
 
 function localidadMasCercana(lat, lon, localidades) {
@@ -439,6 +440,10 @@ function localidadMasCercana(lat, lon, localidades) {
   return mejor
 }
 
+// INAMHI solo da hoy + mañana (2 dias) por localidad, via list_by_locality_from_date.
+// Cada sucursal se empareja primero con su localidad INAMHI mas cercana (usando el
+// listado de list_by_date_now, que trae fk_locality_id + lat/lon de las 26 localidades),
+// y luego se pide el detalle de esa localidad puntual (que si trae 2 dias).
 async function refrescarClimaInamhi(env) {
   const coords = await coordenadasPorSucursal(env)
   if (!coords.length) return 0
@@ -449,8 +454,7 @@ async function refrescarClimaInamhi(env) {
   if (!Array.isArray(localidades) || !localidades.length) return 0
 
   const now = ecuadorNowISO()
-  // Los campos diarios de INAMHI (temp_min/max, uv, lluvia) se repiten en las
-  // 4 filas horarias de esa fecha, junto con la condicion propia de cada franja.
+  const hoy = ecuadorNowISO().slice(0, 10)
   const stmtFranja = env.db.prepare(
     `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_inamhi, temp_max_inamhi, uv_inamhi, lluvia_inamhi, condicion_inamhi, icono_inamhi, actualizado_en)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -460,15 +464,39 @@ async function refrescarClimaInamhi(env) {
        condicion_inamhi = excluded.condicion_inamhi, icono_inamhi = excluded.icono_inamhi, actualizado_en = excluded.actualizado_en`
   )
 
-  const batch = []
+  // Empareja cada sucursal con su localidad INAMHI mas cercana (sin duplicar llamadas
+  // si varias sucursales caen en la misma localidad).
+  const localidadPorSucursal = new Map()
   for (const c of coords) {
     const loc = localidadMasCercana(c.latitud, c.longitud, localidades)
-    if (!loc) continue
-    for (const f of (loc.forecast || [])) {
-      const hora = INAMHI_HORA_POR_PERIODO[f.period_name]
-      if (!hora) continue
-      batch.push(stmtFranja.bind(c.id_sucursal, loc.date, hora, loc.min_temperature ?? null, loc.max_temperature ?? null,
-        loc.uv_radiation ?? null, loc.rain ? 1 : 0, f.condition_description || null, f.condition_icon_url || null, now))
+    if (loc) localidadPorSucursal.set(c.id_sucursal, loc.fk_locality_id)
+  }
+  const localityIds = [...new Set(localidadPorSucursal.values())]
+
+  const detallePorLocalidad = new Map()
+  const CONCURRENCIA = 10
+  for (let i = 0; i < localityIds.length; i += CONCURRENCIA) {
+    const lote = localityIds.slice(i, i + CONCURRENCIA)
+    const resultados = await Promise.all(lote.map(id =>
+      fetch(`${INAMHI_URL_LOCALIDAD}?date=${hoy}&locality_id=${id}`, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+        .then(r => r.ok ? r.json() : null).catch(() => null)
+    ))
+    resultados.forEach((json, idx) => { if (Array.isArray(json)) detallePorLocalidad.set(lote[idx], json) })
+  }
+
+  const batch = []
+  for (const [idSucursal, localityId] of localidadPorSucursal) {
+    const dias = detallePorLocalidad.get(localityId)
+    if (!dias) continue
+    for (const dia of dias) {
+      const uv = typeof dia.uv_radiation === 'object' ? dia.uv_radiation?.uv_index : dia.uv_radiation
+      for (const p of (dia.period_weather_conditions || [])) {
+        const hora = INAMHI_HORA_POR_PERIODO[p.fk_period_id_display]
+        if (!hora) continue
+        const cond = p.fk_weather_id_display || {}
+        batch.push(stmtFranja.bind(idSucursal, dia.date, hora, dia.min_temperature ?? null, dia.max_temperature ?? null,
+          uv ?? null, dia.rain ? 1 : 0, cond.description || null, cond.icon_url || null, now))
+      }
     }
   }
   if (batch.length) await env.db.batch(batch)
