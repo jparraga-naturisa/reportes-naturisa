@@ -425,6 +425,72 @@ async function coordenadasPorSucursal(env) {
   return results
 }
 
+// ── INAMHI (fuente oficial de Ecuador) ─────────────────────────────────────
+// Solo publica el pronostico oficial del dia actual, por 26 localidades
+// (cabeceras provinciales). Cada sucursal se empareja con la localidad INAMHI
+// mas cercana (distancia euclidiana simple, suficiente a esta escala).
+const INAMHI_URL = 'https://inamhi.gob.ec/api_pronos/forecast/daily_forecast/list_by_date_now/'
+const INAMHI_HORA_POR_PERIODO = { 'Madrugada': '00:00', 'Mañana': '06:00', 'Tarde': '12:00', 'Noche': '18:00' }
+
+function localidadMasCercana(lat, lon, localidades) {
+  let mejor = null, mejorDist = Infinity
+  for (const loc of localidades) {
+    const d = (loc.latitude - lat) ** 2 + (loc.longitude - lon) ** 2
+    if (d < mejorDist) { mejorDist = d; mejor = loc }
+  }
+  return mejor
+}
+
+async function refrescarClimaInamhi(env) {
+  const coords = await coordenadasPorSucursal(env)
+  if (!coords.length) return 0
+
+  const res = await fetch(INAMHI_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+  if (!res.ok) return 0
+  const localidades = await res.json()
+  if (!Array.isArray(localidades) || !localidades.length) return 0
+
+  const now = ecuadorNowISO()
+  const stmtDia = env.db.prepare(
+    `INSERT INTO clima (id_sucursal, fecha, hora, temp_min_inamhi, temp_max_inamhi, uv_inamhi, lluvia_inamhi, actualizado_en)
+     VALUES (?, ?, '', ?, ?, ?, ?, ?)
+     ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
+       temp_min_inamhi = excluded.temp_min_inamhi, temp_max_inamhi = excluded.temp_max_inamhi,
+       uv_inamhi = excluded.uv_inamhi, lluvia_inamhi = excluded.lluvia_inamhi, actualizado_en = excluded.actualizado_en`
+  )
+  const stmtFranja = env.db.prepare(
+    `INSERT INTO clima (id_sucursal, fecha, hora, condicion_inamhi, icono_inamhi, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_sucursal, fecha, hora) DO UPDATE SET
+       condicion_inamhi = excluded.condicion_inamhi, icono_inamhi = excluded.icono_inamhi, actualizado_en = excluded.actualizado_en`
+  )
+
+  const batch = []
+  for (const c of coords) {
+    const loc = localidadMasCercana(c.latitud, c.longitud, localidades)
+    if (!loc) continue
+    batch.push(stmtDia.bind(c.id_sucursal, loc.date, loc.min_temperature ?? null, loc.max_temperature ?? null,
+      loc.uv_radiation ?? null, loc.rain ? 1 : 0, now))
+    for (const f of (loc.forecast || [])) {
+      const hora = INAMHI_HORA_POR_PERIODO[f.period_name]
+      if (!hora) continue
+      batch.push(stmtFranja.bind(c.id_sucursal, loc.date, hora, f.condition_description || null, f.condition_icon_url || null, now))
+    }
+  }
+  if (batch.length) await env.db.batch(batch)
+  return batch.length
+}
+
+async function handleDbClimaInamhi(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  try {
+    const n = await refrescarClimaInamhi(env)
+    return corsResponse(JSON.stringify({ ok: true, filas: n }), 200, request)
+  } catch (e) {
+    return corsResponse(JSON.stringify({ error: String(e) }), 500, request)
+  }
+}
+
 // Pronostico (Open-Meteo forecast): 7 dias hacia adelante, cambia hasta que llega la fecha.
 async function refrescarClima(env) {
   const coords = await coordenadasPorSucursal(env)
@@ -892,8 +958,10 @@ async function refrescoLiviano(env) {
   const hoy = ecuadorNowISO().slice(0, 10)
   const nClimaReal = await refrescarClimaReal(env, hace10dias, hoy).catch(() => 0)
   const nHorariaReal = await refrescarClimaHorariaReal(env, hace10dias, hoy).catch(() => 0)
+  const nInamhi = await refrescarClimaInamhi(env).catch(() => 0)
   return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos, planCosecha: nPlan,
-    filasClima: nClima, filasHoraria: nHoraria, filasClimaReal: nClimaReal, filasHorariaReal: nHorariaReal }
+    filasClima: nClima, filasHoraria: nHoraria, filasClimaReal: nClimaReal, filasHorariaReal: nHorariaReal,
+    filasInamhi: nInamhi }
 }
 
 async function refrescoPesado(env) {
@@ -1003,6 +1071,10 @@ export default {
 
     if (url.pathname === '/db/clima/refrescar' && env.db) {
       return handleDbClimaRefrescar(request, env)
+    }
+
+    if (url.pathname === '/db/clima/inamhi' && env.db) {
+      return handleDbClimaInamhi(request, env)
     }
 
     if (url.pathname === '/db/clima/horaria/real' && env.db) {
