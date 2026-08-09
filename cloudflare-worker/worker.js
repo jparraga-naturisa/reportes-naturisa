@@ -251,6 +251,9 @@ async function handleDbCiclosManual(request, env) {
   if (c.fechaCosecha !== undefined) { campos.push('fecha_cosecha = ?'); valores.push(c.fechaCosecha) }
   if (!campos.length) return corsResponse('{"error":"no se envio ningun campo para actualizar"}', 400, request)
 
+  // dias_manual=1 le dice al refresco automatico que NO pise estos campos con
+  // lo que traiga AP1 (que para este ciclo puntual viene vacio de todas formas).
+  campos.push('dias_manual = 1')
   campos.push('actualizado_en = ?')
   valores.push(ecuadorNowISO())
   valores.push(c.idCiclo)
@@ -925,9 +928,13 @@ async function refrescarCiclos(token, env, subsidiarios) {
        id_sucursal = excluded.id_sucursal, codigo_sucursal = excluded.codigo_sucursal,
        nombre_piscina = excluded.nombre_piscina, numero_ciclo = excluded.numero_ciclo, codigo_ciclo = excluded.codigo_ciclo,
        uso_ciclo = excluded.uso_ciclo, fecha_siembra = excluded.fecha_siembra, tamano_piscina = excluded.tamano_piscina,
-       estado = excluded.estado, dias_ciclo = excluded.dias_ciclo, dias_secos = excluded.dias_secos,
-       dias_produccion = excluded.dias_produccion, fecha_inicio = excluded.fecha_inicio,
-       fecha_cosecha = excluded.fecha_cosecha, actualizado_en = excluded.actualizado_en`
+       estado = excluded.estado,
+       dias_ciclo = CASE WHEN dias_manual = 1 THEN dias_ciclo ELSE excluded.dias_ciclo END,
+       dias_secos = CASE WHEN dias_manual = 1 THEN dias_secos ELSE excluded.dias_secos END,
+       dias_produccion = CASE WHEN dias_manual = 1 THEN dias_produccion ELSE excluded.dias_produccion END,
+       fecha_inicio = CASE WHEN dias_manual = 1 THEN fecha_inicio ELSE excluded.fecha_inicio END,
+       fecha_cosecha = CASE WHEN dias_manual = 1 THEN fecha_cosecha ELSE excluded.fecha_cosecha END,
+       actualizado_en = excluded.actualizado_en`
   )
   const batch = []
   for (const c of porCycleId.values()) {
