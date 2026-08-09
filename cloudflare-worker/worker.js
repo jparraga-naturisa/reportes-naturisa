@@ -835,13 +835,17 @@ async function refrescarCiclos(token, env, subsidiarios) {
 
   const porCycleId = new Map()
   const ppByCycleId = new Map()
+  const spByCycleId = new Map()
+  const nyByCycleId = new Map()
   const statusMap = new Map()
 
   for (const sub of subsidiarios) {
-    const [siembra, pp, nav] = await Promise.all([
+    const [siembra, pp, nav, sp, ny] = await Promise.all([
       ap1Get(token, 'cycle_sowing_report', [['subsidiaryIds', sub.id], ['startDate', CICLOS_DESDE], ['endDate', hoy]]),
       ap1Get(token, 'report_production/pool_production', [['subsidiaryIds', sub.id], ['cutOffYear', cutOffYear], ['cutOffWeek', cutOffWeek]]),
       ap1Get(token, 'cycles/cycles_navigation', [['subsidiaryId', sub.id], ['includePools', 'true'], ['activeFilter', 'false']]),
+      ap1Get(token, 'report_harvest/settledPools', [['subsidiaryIds', sub.id], ['startDate', CICLOS_DESDE], ['endDate', hoy]]),
+      ap1Get(token, 'report_harvest/NurseryYield', [['subsidiaryIds', sub.id], ['startDate', CICLOS_DESDE], ['endDate', hoy], ['PageSize', '1000']]),
     ])
 
     for (const r of (siembra?.data || [])) {
@@ -858,11 +862,32 @@ async function refrescarCiclos(token, env, subsidiarios) {
       }
     }
     for (const r of (pp?.data || [])) { if (r.idCycle) ppByCycleId.set(r.idCycle, r) }
+    for (const r of (sp?.data || [])) { if (r.cycleId) spByCycleId.set(r.cycleId, r) }
+    // NurseryYield a veces devuelve el array directo, a veces envuelto en {data: [...]}.
+    const nyRows = Array.isArray(ny) ? ny : (ny?.data || [])
+    for (const r of nyRows) { if (r.cycleId) nyByCycleId.set(r.cycleId, r) }
     for (const poolRow of (nav?.data || [])) {
       for (const det of (poolRow.detail || [])) {
         if (det.idCycle && det.status) statusMap.set(det.idCycle, det.status)
       }
     }
+  }
+
+  // cycle_sowing_report no siempre devuelve TODOS los ciclos historicos (parece tener
+  // ventana propia) - si un ciclo aparece en settledPools/NurseryYield/pool_production
+  // pero no en la siembra de esta corrida, se agrega igual para no perder sus dias.
+  for (const [cycleId, r] of [...spByCycleId, ...nyByCycleId, ...ppByCycleId]) {
+    if (porCycleId.has(cycleId)) continue
+    porCycleId.set(cycleId, {
+      cycleId,
+      subsidiaryCode: (r.subsidiaryCode || '').toUpperCase(),
+      poolName: String(r.poolName || '').trim(),
+      cycleNumber: r.cycleNumber ?? null,
+      cycleCode: r.cycleCode || null,
+      cycleUsage: r.cycleUsage || null,
+      dateSowing: null,
+      poolSize: r.poolSize ?? null,
+    })
   }
 
   const idSucursalByCode = new Map(subsidiarios.map(s => [s.codigo, s.id]))
@@ -875,16 +900,25 @@ async function refrescarCiclos(token, env, subsidiarios) {
        nombre_piscina = excluded.nombre_piscina, numero_ciclo = excluded.numero_ciclo, codigo_ciclo = excluded.codigo_ciclo,
        uso_ciclo = excluded.uso_ciclo, fecha_siembra = excluded.fecha_siembra, tamano_piscina = excluded.tamano_piscina,
        estado = excluded.estado, dias_ciclo = excluded.dias_ciclo, dias_secos = excluded.dias_secos,
-       dias_produccion = excluded.dias_produccion, actualizado_en = excluded.actualizado_en`
+       dias_produccion = excluded.dias_produccion, fecha_inicio = excluded.fecha_inicio,
+       fecha_cosecha = excluded.fecha_cosecha, actualizado_en = excluded.actualizado_en`
   )
   const batch = []
   for (const c of porCycleId.values()) {
     const pp = ppByCycleId.get(c.cycleId)
+    const sp = spByCycleId.get(c.cycleId)
+    const ny = nyByCycleId.get(c.cycleId)
     const estado = statusMap.get(c.cycleId) || (pp ? 'PRODUCCION' : 'COSECHADO')
+    // settledPools (cosechados) tiene prioridad, NurseryYield como respaldo, y
+    // pool_production para los activos - igual que en la carga manual original.
+    const diasCiclo = sp?.daysCycle ?? ny?.daysCycle ?? pp?.daysCycle ?? null
+    const diasSecos = sp?.daysDry ?? ny?.daysDry ?? pp?.daysDry ?? null
+    const diasProduccion = sp?.daysProduction ?? ny?.daysProduction ?? pp?.daysProduction ?? null
+    const fechaCosecha = sp?.endHarvest ?? ny?.endHarvestDate ?? null
+    const fechaInicio = pp?.sowingDate || c.dateSowing || null
     batch.push(stmt.bind(c.cycleId, idSucursalByCode.get(c.subsidiaryCode) ?? null, c.subsidiaryCode, c.poolName,
       c.cycleNumber ?? null, c.cycleCode || null, c.cycleUsage || null, c.dateSowing || null, c.poolSize ?? null,
-      estado, pp?.daysCycle ?? null, pp?.daysDry ?? null, pp?.daysProduction ?? null,
-      pp?.sowingDate || c.dateSowing || null, null, now))
+      estado, diasCiclo, diasSecos, diasProduccion, fechaInicio, fechaCosecha, now))
   }
   if (batch.length) await env.db.batch(batch)
   return batch.length
