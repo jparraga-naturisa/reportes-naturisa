@@ -9,9 +9,15 @@ CREATE TABLE IF NOT EXISTS marea (
   hora             TEXT NOT NULL,
   altura_marea_m   REAL,
   altura_ola_m     REAL,
+  tipo_pico        TEXT,
   actualizado_en   TEXT,
   PRIMARY KEY (id_sucursal, fecha, hora)
 );
+
+-- tipo_pico: 'ALTA'/'BAJA' cuando esa hora es un maximo/minimo local de
+-- altura_marea_m (equivalente a "1ra marea, 2da marea..."), NULL en las demas
+-- horas. Se recalcula con /db/marea-extremos/recalcular (mismo cron liviano).
+-- La hora del pico es la propia columna hora de esa fila.
 
 -- LIMITACION CONOCIDA (2026-08-09): el modelo marino de Open-Meteo no cubre
 -- fincas tierra adentro (esteros/rios). Sucursales con altura_marea_m siempre

@@ -1045,6 +1045,61 @@ async function handleDbMareaRefrescar(request, url, env) {
   }
 }
 
+// Detecta maximos/minimos locales en la serie horaria de altura_marea_m (via
+// LAG/LEAD de SQLite) y marca cada fila de marea con 'ALTA'/'BAJA' en tipo_pico
+// (NULL en las demas horas). La hora del pico es la propia columna hora de esa
+// fila - no hace falta una tabla ni columna aparte. Se recalcula completo cada vez.
+async function recalcularMareaExtremos(env) {
+  const { results } = await env.db.prepare(`
+    WITH serie AS (
+      SELECT id_sucursal, fecha, hora, altura_marea_m,
+        LAG(altura_marea_m) OVER (PARTITION BY id_sucursal ORDER BY fecha, hora) AS prev,
+        LEAD(altura_marea_m) OVER (PARTITION BY id_sucursal ORDER BY fecha, hora) AS next
+      FROM marea
+      WHERE altura_marea_m IS NOT NULL
+    )
+    SELECT id_sucursal, fecha, hora,
+      CASE WHEN altura_marea_m > prev AND altura_marea_m > next THEN 'ALTA'
+           WHEN altura_marea_m < prev AND altura_marea_m < next THEN 'BAJA' END AS tipo
+    FROM serie
+    WHERE prev IS NOT NULL AND next IS NOT NULL
+      AND ((altura_marea_m > prev AND altura_marea_m > next) OR (altura_marea_m < prev AND altura_marea_m < next))
+  `).all()
+
+  await env.db.prepare('UPDATE marea SET tipo_pico = NULL').run()
+  const stmt = env.db.prepare(
+    `UPDATE marea SET tipo_pico = ? WHERE id_sucursal = ? AND fecha = ? AND hora = ?`
+  )
+  const CHUNK = 500
+  let total = 0
+  for (let i = 0; i < results.length; i += CHUNK) {
+    const lote = results.slice(i, i + CHUNK)
+    await env.db.batch(lote.map(r => stmt.bind(r.tipo, r.id_sucursal, r.fecha, r.hora)))
+    total += lote.length
+  }
+  return total
+}
+
+async function handleDbMareaExtremos(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const idSucursal = url.searchParams.get('idSucursal')
+  const stmt = idSucursal
+    ? env.db.prepare('SELECT * FROM marea WHERE id_sucursal = ? AND tipo_pico IS NOT NULL ORDER BY fecha, hora').bind(idSucursal)
+    : env.db.prepare('SELECT * FROM marea WHERE tipo_pico IS NOT NULL ORDER BY id_sucursal, fecha, hora')
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbMareaExtremosRecalcular(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  try {
+    const n = await recalcularMareaExtremos(env)
+    return corsResponse(JSON.stringify({ ok: true, count: n }), 200, request)
+  } catch (e) {
+    return corsResponse(JSON.stringify({ error: String(e) }), 500, request)
+  }
+}
+
 async function handleDbClimaReal(request, url, env) {
   if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
   const startDate = url.searchParams.get('desde') || '2025-01-01'
@@ -1363,9 +1418,10 @@ async function refrescoLiviano(env) {
   const nBalanceado = await refrescarConsumoBalanceado(env).catch(() => 0)
   const en15dias = new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10)
   const nMarea = await refrescarMarea(env, hace10dias, en15dias).catch(() => 0)
+  const nMareaExtremos = await recalcularMareaExtremos(env).catch(() => 0)
   return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos, planCosecha: nPlan,
     filasClima: nClima, filasHoraria: nHoraria, filasClimaReal: nClimaReal, filasHorariaReal: nHorariaReal,
-    filasInamhi: nInamhi, filasBalanceado: nBalanceado, filasMarea: nMarea }
+    filasInamhi: nInamhi, filasBalanceado: nBalanceado, filasMarea: nMarea, filasMareaExtremos: nMareaExtremos }
 }
 
 async function refrescoPesado(env) {
@@ -1516,6 +1572,14 @@ export default {
 
     if (url.pathname === '/db/marea/refrescar' && env.db) {
       return handleDbMareaRefrescar(request, url, env)
+    }
+
+    if (url.pathname === '/db/marea-extremos' && env.db) {
+      return handleDbMareaExtremos(request, url, env)
+    }
+
+    if (url.pathname === '/db/marea-extremos/recalcular' && env.db) {
+      return handleDbMareaExtremosRecalcular(request, env)
     }
 
     if (url.pathname === '/db/clima/horaria/real' && env.db) {
