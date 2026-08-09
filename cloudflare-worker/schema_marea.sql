@@ -18,3 +18,10 @@ CREATE TABLE IF NOT EXISTS marea (
 -- NULL: Naturisa(1), Maricultura(3), Kamaclusa(4), Josefina(5), Acualit1(13),
 -- Fincacua(14), Acualit2(28). Se resolveria con INOCAR (dato por puerto/zona,
 -- no por coordenada exacta) cuando el sitio vuelva a responder (caia con 521).
+
+-- HUECOS CONOCIDOS EN LA FUENTE (Open-Meteo, no arreglable de nuestro lado):
+-- 1) 2025-01-28 a 2025-02-08: el modelo devuelve NULL para altura_marea_m en
+--    ese rango exacto (confirmado directo contra la API, no es un error nuestro).
+-- 2) Pronostico futuro: el horizonte real de sea_level_height_msl es mas corto
+--    (~8-9 dias) que el limite de 15 dias que acepta la API para otros
+--    parametros. Fechas mas alla de eso quedan en NULL hasta que se acerquen.
