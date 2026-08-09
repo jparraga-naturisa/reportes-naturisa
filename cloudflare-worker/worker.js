@@ -844,7 +844,7 @@ async function refrescarCiclos(token, env, subsidiarios) {
       ap1Get(token, 'cycle_sowing_report', [['subsidiaryIds', sub.id], ['startDate', CICLOS_DESDE], ['endDate', hoy]]),
       ap1Get(token, 'report_production/pool_production', [['subsidiaryIds', sub.id], ['cutOffYear', cutOffYear], ['cutOffWeek', cutOffWeek]]),
       ap1Get(token, 'cycles/cycles_navigation', [['subsidiaryId', sub.id], ['includePools', 'true'], ['activeFilter', 'false']]),
-      ap1Get(token, 'report_harvest/settledPools', [['subsidiaryIds', sub.id], ['startDate', CICLOS_DESDE], ['endDate', hoy]]),
+      ap1Get(token, 'report_harvest/settledPools', [['subsidiaryIds', sub.id], ['startDate', CICLOS_DESDE], ['endDate', hoy], ['PageSize', '5000']]),
       ap1Get(token, 'report_harvest/NurseryYield', [['subsidiaryIds', sub.id], ['startDate', CICLOS_DESDE], ['endDate', hoy], ['PageSize', '1000']]),
     ])
 
