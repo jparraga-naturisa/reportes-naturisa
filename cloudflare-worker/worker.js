@@ -234,6 +234,32 @@ async function handleDbCiclosSync(request, env) {
   return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
 }
 
+// POST /db/ciclos/manual  -> corrige a mano los dias de UN ciclo puntual que AP1 no expone en
+// sus reportes (settledPools/NurseryYield/pool_production). Solo actualiza los campos enviados,
+// sin tocar el resto de la fila. body: {idCiclo, diasSecos?, diasProduccion?, diasCiclo?, fechaInicio?, fechaCosecha?}
+async function handleDbCiclosManual(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const c = await request.json()
+  if (!c?.idCiclo) return corsResponse('{"error":"falta idCiclo"}', 400, request)
+
+  const campos = []
+  const valores = []
+  if (c.diasSecos !== undefined) { campos.push('dias_secos = ?'); valores.push(c.diasSecos) }
+  if (c.diasProduccion !== undefined) { campos.push('dias_produccion = ?'); valores.push(c.diasProduccion) }
+  if (c.diasCiclo !== undefined) { campos.push('dias_ciclo = ?'); valores.push(c.diasCiclo) }
+  if (c.fechaInicio !== undefined) { campos.push('fecha_inicio = ?'); valores.push(c.fechaInicio) }
+  if (c.fechaCosecha !== undefined) { campos.push('fecha_cosecha = ?'); valores.push(c.fechaCosecha) }
+  if (!campos.length) return corsResponse('{"error":"no se envio ningun campo para actualizar"}', 400, request)
+
+  campos.push('actualizado_en = ?')
+  valores.push(ecuadorNowISO())
+  valores.push(c.idCiclo)
+
+  const res = await env.db.prepare(`UPDATE ciclos SET ${campos.join(', ')} WHERE id_ciclo = ?`).bind(...valores).run()
+  if (!res.meta.changes) return corsResponse('{"error":"no existe ese id_ciclo"}', 404, request)
+  return corsResponse('{"ok":true}', 200, request)
+}
+
 // GET  /db/historia-ciclo?idCiclo=<id>   -> historia semanal de un ciclo (o de varios si se repite el param)
 // POST /db/historia-ciclo/sync           -> upsert masivo, body {filas: [{idCiclo, semana, inicioSemana, finSemana, diasProduccion, peso, pesoEstimadoRegresion, crecimientoUltimaSemana, crecimiento2Semanas, crecimiento4Semanas, crecimientoDesdeInicio, supervivencia, biomasaActual, biomasaSemana, animalesPorM2, biomasaCosechada, alimentoSemana, alimentoAcumulado, alimentoHaDia, fca, fcaBruto, fcaSemana, estM2, factorAlimento}, ...]}
 
@@ -1102,6 +1128,10 @@ export default {
 
     if (url.pathname === '/db/ciclos/sync' && env.db) {
       return handleDbCiclosSync(request, env)
+    }
+
+    if (url.pathname === '/db/ciclos/manual' && env.db) {
+      return handleDbCiclosManual(request, env)
     }
 
     if (url.pathname === '/db/historia-ciclo' && env.db) {
