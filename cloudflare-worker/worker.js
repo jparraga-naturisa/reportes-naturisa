@@ -237,6 +237,229 @@ async function handleDbCiclosSync(request, env) {
 // POST /db/ciclos/manual  -> corrige a mano los dias de UN ciclo puntual que AP1 no expone en
 // sus reportes (settledPools/NurseryYield/pool_production). Solo actualiza los campos enviados,
 // sin tocar el resto de la fila. body: {idCiclo, diasSecos?, diasProduccion?, diasCiclo?, fechaInicio?, fechaCosecha?}
+// GET  /db/orden-control?ordenControl=<orden>   -> busca a que ciclo pertenece una orden
+// GET  /db/orden-control?idCiclo=<id>           -> busca la orden de un ciclo
+// POST /db/orden-control/sync                   -> upsert masivo, body {filas: [{idCiclo, ordenControl, idSucursal, codigoSucursal, nombrePiscina, numeroCiclo}, ...]}
+
+async function handleDbOrdenControl(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const ordenControl = url.searchParams.get('ordenControl')
+  const idCiclo = url.searchParams.get('idCiclo')
+  const conds = []
+  const binds = []
+  if (ordenControl) { conds.push('orden_control = ?'); binds.push(ordenControl) }
+  if (idCiclo) { conds.push('id_ciclo = ?'); binds.push(idCiclo) }
+  const where = conds.length ? ' WHERE ' + conds.join(' AND ') : ''
+  const stmt = env.db.prepare(`SELECT * FROM orden_control${where} ORDER BY codigo_sucursal, nombre_piscina`).bind(...binds)
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbOrdenControlSync(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const body = await request.json()
+  const filas = Array.isArray(body?.filas) ? body.filas : []
+  if (!filas.length) return corsResponse('{"error":"body.filas vacio"}', 400, request)
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO orden_control (orden_control, id_ciclo, id_sucursal, codigo_sucursal, nombre_piscina, numero_ciclo, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(orden_control) DO UPDATE SET
+       id_ciclo = excluded.id_ciclo, id_sucursal = excluded.id_sucursal, codigo_sucursal = excluded.codigo_sucursal,
+       nombre_piscina = excluded.nombre_piscina, numero_ciclo = excluded.numero_ciclo, actualizado_en = excluded.actualizado_en`
+  )
+  const batch = filas.filter(f => f.ordenControl && f.idCiclo).map(f =>
+    stmt.bind(f.ordenControl, f.idCiclo, f.idSucursal ?? null, f.codigoSucursal || null, f.nombrePiscina || null, f.numeroCiclo ?? null, now))
+  if (batch.length) await env.db.batch(batch)
+  return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
+}
+
+// Trae la orden de control (controlOrderDocument) ciclo por ciclo via el endpoint
+// individual /cycles/{id} - mucho mas liviano (~4KB) que el bulk /cycles (168MB+ ignora
+// paginacion). Solo pide los ciclos desde 2026-01-01 que aun no tengan orden asignada.
+async function refrescarOrdenControl(env) {
+  const token = await ap1Login(env)
+  const { results: faltantes } = await env.db.prepare(`
+    SELECT id_ciclo, id_sucursal, codigo_sucursal, nombre_piscina, numero_ciclo
+    FROM ciclos
+    WHERE fecha_siembra >= '2026-01-01'
+      AND id_ciclo NOT IN (SELECT id_ciclo FROM orden_control)
+  `).all()
+  if (!faltantes.length) return 0
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO orden_control (orden_control, id_ciclo, id_sucursal, codigo_sucursal, nombre_piscina, numero_ciclo, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(orden_control) DO UPDATE SET
+       id_ciclo = excluded.id_ciclo, id_sucursal = excluded.id_sucursal, codigo_sucursal = excluded.codigo_sucursal,
+       nombre_piscina = excluded.nombre_piscina, numero_ciclo = excluded.numero_ciclo, actualizado_en = excluded.actualizado_en`
+  )
+
+  let totalFilas = 0
+  const CONCURRENCIA = 12
+  for (let i = 0; i < faltantes.length; i += CONCURRENCIA) {
+    const lote = faltantes.slice(i, i + CONCURRENCIA)
+    const resultados = await Promise.all(lote.map(c =>
+      fetch(`${API_BASE}/cycles/${c.id_ciclo}?IncludeEquipmentResumes=false&IncludeCycleUsage=false`,
+        { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } })
+        .then(r => r.ok ? r.json() : null).catch(() => null)
+    ))
+    const batch = []
+    resultados.forEach((json, idx) => {
+      const c = lote[idx]
+      const orden = String(json?.data?.controlOrderDocument || '').trim()
+      if (!orden) return
+      batch.push(stmt.bind(orden, c.id_ciclo, c.id_sucursal, c.codigo_sucursal, c.nombre_piscina, c.numero_ciclo, now))
+    })
+    if (batch.length) { await env.db.batch(batch); totalFilas += batch.length }
+  }
+  return totalFilas
+}
+
+// ── Consumo de balanceado (AP1 feeding_general por piscina/dia) ────────────
+// GET  /db/consumo-balanceado?idPiscina=<id>&idCiclo=<id>   -> lista consumo diario
+// POST /db/consumo-balanceado/sync                          -> upsert masivo
+
+async function handleDbConsumoBalanceado(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const idPiscina = url.searchParams.get('idPiscina')
+  const idCiclo = url.searchParams.get('idCiclo')
+  const conds = []
+  const binds = []
+  if (idPiscina) { conds.push('id_piscina = ?'); binds.push(idPiscina) }
+  if (idCiclo) { conds.push('id_ciclo = ?'); binds.push(idCiclo) }
+  const where = conds.length ? ' WHERE ' + conds.join(' AND ') : ''
+  const stmt = env.db.prepare(`SELECT * FROM consumo_balanceado${where} ORDER BY id_piscina, fecha`).bind(...binds)
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbConsumoBalanceadoSync(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const body = await request.json()
+  const filas = Array.isArray(body?.filas) ? body.filas : []
+  if (!filas.length) return corsResponse('{"error":"body.filas vacio"}', 400, request)
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO consumo_balanceado (id_piscina, fecha, id_producto, nombre_producto, id_ciclo, codigo_ciclo, codigo_sucursal, nombre_piscina, sacos, kilogramos, kg_ha_dia, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_piscina, fecha, id_producto) DO UPDATE SET
+       nombre_producto = excluded.nombre_producto, id_ciclo = excluded.id_ciclo, codigo_ciclo = excluded.codigo_ciclo,
+       codigo_sucursal = excluded.codigo_sucursal, nombre_piscina = excluded.nombre_piscina,
+       sacos = excluded.sacos, kilogramos = excluded.kilogramos, kg_ha_dia = excluded.kg_ha_dia,
+       actualizado_en = excluded.actualizado_en`
+  )
+  const batch = filas.filter(f => f.idPiscina && f.fecha && f.idProducto != null).map(f =>
+    stmt.bind(f.idPiscina, f.fecha, f.idProducto, f.nombreProducto || null, f.idCiclo ?? null, f.codigoCiclo || null,
+      f.codigoSucursal || null, f.nombrePiscina || null, f.sacos ?? null, f.kilogramos ?? null, f.kgHaDia ?? null, now))
+  if (batch.length) await env.db.batch(batch)
+  return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
+}
+
+// Refresca consumo_balanceado desde AP1 (endpoint consumptions, da cycleCode directo).
+// Solo trae una ventana reciente (por defecto ultimos 30 dias) para no repetir todo
+// el historico en cada corrida del cron.
+async function refrescarConsumoBalanceado(env, diasAtras = 30) {
+  const subsidiarios = await env.db.prepare('SELECT id, codigo FROM sucursales').all().then(r => r.results)
+  const { results: ciclos } = await env.db.prepare('SELECT id_ciclo, codigo_ciclo FROM ciclos WHERE codigo_ciclo IS NOT NULL').all()
+  const idCicloByCodigo = new Map(ciclos.map(c => [c.codigo_ciclo, c.id_ciclo]))
+
+  const { results: piscinas } = await env.db.prepare('SELECT id_piscina, codigo_piscina, nombre, id_sucursal FROM piscinas').all()
+  const piscinaByCodePool = new Map(piscinas.map(p => [p.codigo_piscina, p]))
+
+  const token = await ap1Login(env)
+  const hoy = ecuadorNowISO().slice(0, 10)
+  const desde = new Date(Date.now() - diasAtras * 86400000).toISOString().slice(0, 10)
+  const codigoBySucursalId = new Map(subsidiarios.map(s => [s.id, s.codigo]))
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO consumo_balanceado (id_piscina, fecha, id_producto, nombre_producto, id_ciclo, codigo_ciclo, codigo_sucursal, nombre_piscina, sacos, kilogramos, kg_ha_dia, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id_piscina, fecha, id_producto) DO UPDATE SET
+       nombre_producto = excluded.nombre_producto, id_ciclo = excluded.id_ciclo, codigo_ciclo = excluded.codigo_ciclo,
+       codigo_sucursal = excluded.codigo_sucursal, nombre_piscina = excluded.nombre_piscina,
+       sacos = excluded.sacos, kilogramos = excluded.kilogramos, kg_ha_dia = excluded.kg_ha_dia,
+       actualizado_en = excluded.actualizado_en`
+  )
+
+  let totalFilas = 0
+  const CONCURRENCIA = 10
+  for (let i = 0; i < subsidiarios.length; i += CONCURRENCIA) {
+    const lote = subsidiarios.slice(i, i + CONCURRENCIA)
+    const resultados = await Promise.all(lote.map(s => {
+      const url = new URL(GATEWAY + '/bff/mobile/feedcontrol/balanceado/api/report/consumptions')
+      url.searchParams.set('initDate', desde)
+      url.searchParams.set('endDate', hoy)
+      url.searchParams.set('PageSize', '50000')
+      url.searchParams.set('subsidiaryIds', s.id)
+      return fetch(url, { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } })
+        .then(r => r.ok ? r.json() : null).catch(() => null)
+    }))
+    const batch = []
+    resultados.forEach(json => {
+      for (const r of (json?.data || [])) {
+        if (!r.poolId || !r.assignedDate || r.productId == null) continue
+        const idCiclo = idCicloByCodigo.get(r.cycleCode) ?? null
+        const piscina = piscinaByCodePool.get(r.poolCode)
+        batch.push(stmt.bind(r.poolId, r.assignedDate.slice(0, 10), r.productId, r.productName || null,
+          idCiclo, r.cycleCode || null, codigoBySucursalId.get(r.subsidiaryId) || null,
+          piscina?.nombre || null, r.sacks ?? null, r.kilograms ?? null, r.kgHaDay ?? null, now))
+      }
+    })
+    if (batch.length) { await env.db.batch(batch); totalFilas += batch.length }
+  }
+  return totalFilas
+}
+
+// ── Consumo de insumos (Excel SAP subido en consumos-insumos.html) ─────────
+// GET  /db/consumo-insumos?idCiclo=<id>&ordenControl=<orden>  -> lista consumo
+// POST /db/consumo-insumos/sync                                -> upsert masivo
+
+async function handleDbConsumoInsumos(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const idCiclo = url.searchParams.get('idCiclo')
+  const ordenControl = url.searchParams.get('ordenControl')
+  const conds = []
+  const binds = []
+  if (idCiclo) { conds.push('id_ciclo = ?'); binds.push(idCiclo) }
+  if (ordenControl) { conds.push('orden_control = ?'); binds.push(ordenControl) }
+  const where = conds.length ? ' WHERE ' + conds.join(' AND ') : ''
+  const stmt = env.db.prepare(`SELECT * FROM consumo_insumos${where} ORDER BY fecha`).bind(...binds)
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbConsumoInsumosSync(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const body = await request.json()
+  const filas = Array.isArray(body?.filas) ? body.filas : []
+  if (!filas.length) return corsResponse('{"error":"body.filas vacio"}', 400, request)
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO consumo_insumos (clave, orden_control, id_ciclo, documento_material, posicion_doc, codigo_material,
+       descripcion, cantidad, importe, almacen, unidad, fecha, tipo_movimiento, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(clave) DO UPDATE SET
+       orden_control = excluded.orden_control, id_ciclo = excluded.id_ciclo,
+       documento_material = excluded.documento_material, posicion_doc = excluded.posicion_doc,
+       codigo_material = excluded.codigo_material, descripcion = excluded.descripcion,
+       cantidad = excluded.cantidad, importe = excluded.importe, almacen = excluded.almacen,
+       unidad = excluded.unidad, fecha = excluded.fecha, tipo_movimiento = excluded.tipo_movimiento,
+       actualizado_en = excluded.actualizado_en`
+  )
+  const batch = filas.filter(f => f.clave).map(f =>
+    stmt.bind(f.clave, f.ordenControl || null, f.idCiclo ?? null, f.documentoMaterial || null, f.posicionDoc || null,
+      f.codigoMaterial || null, f.descripcion || null, f.cantidad ?? null, f.importe ?? null, f.almacen || null,
+      f.unidad || null, f.fecha || null, f.tipoMovimiento || null, now))
+  if (batch.length) await env.db.batch(batch)
+  return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
+}
+
 async function handleDbCiclosManual(request, env) {
   if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
   const c = await request.json()
@@ -1060,15 +1283,17 @@ async function refrescoLiviano(env) {
   const nClimaReal = await refrescarClimaReal(env, hace10dias, hoy).catch(() => 0)
   const nHorariaReal = await refrescarClimaHorariaReal(env, hace10dias, hoy).catch(() => 0)
   const nInamhi = await refrescarClimaInamhi(env).catch(() => 0)
+  const nBalanceado = await refrescarConsumoBalanceado(env).catch(() => 0)
   return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos, planCosecha: nPlan,
     filasClima: nClima, filasHoraria: nHoraria, filasClimaReal: nClimaReal, filasHorariaReal: nHorariaReal,
-    filasInamhi: nInamhi }
+    filasInamhi: nInamhi, filasBalanceado: nBalanceado }
 }
 
 async function refrescoPesado(env) {
   const historia = await refrescarHistoriaCiclo(env)
   const calibracion = await recalcularCalibracion(env)
-  return { ...historia, calibracion }
+  const ordenControl = await refrescarOrdenControl(env).catch(() => 0)
+  return { ...historia, calibracion, ordenControl }
 }
 
 // ── Handler principal ──────────────────────────────────────────────────────
@@ -1144,6 +1369,30 @@ export default {
 
     if (url.pathname === '/db/ciclos/manual' && env.db) {
       return handleDbCiclosManual(request, env)
+    }
+
+    if (url.pathname === '/db/orden-control' && env.db) {
+      return handleDbOrdenControl(request, url, env)
+    }
+
+    if (url.pathname === '/db/orden-control/sync' && env.db) {
+      return handleDbOrdenControlSync(request, env)
+    }
+
+    if (url.pathname === '/db/consumo-balanceado' && env.db) {
+      return handleDbConsumoBalanceado(request, url, env)
+    }
+
+    if (url.pathname === '/db/consumo-balanceado/sync' && env.db) {
+      return handleDbConsumoBalanceadoSync(request, env)
+    }
+
+    if (url.pathname === '/db/consumo-insumos' && env.db) {
+      return handleDbConsumoInsumos(request, url, env)
+    }
+
+    if (url.pathname === '/db/consumo-insumos/sync' && env.db) {
+      return handleDbConsumoInsumosSync(request, env)
     }
 
     if (url.pathname === '/db/historia-ciclo' && env.db) {

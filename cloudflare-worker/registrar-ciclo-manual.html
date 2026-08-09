@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Registrar días manual - Ciclo</title>
+<style>
+  body { font-family: "Segoe UI", sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; color: #1A2535; }
+  h1 { font-size: 20px; color: #1F3864; }
+  label { display: block; margin-top: 14px; font-weight: 600; font-size: 14px; }
+  input { width: 100%; padding: 10px; font-size: 15px; border: 1px solid #C8D8E8; border-radius: 6px; margin-top: 4px; box-sizing: border-box; }
+  button { margin-top: 20px; width: 100%; padding: 12px; font-size: 16px; font-weight: 700; background: #2E75B6; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+  button:disabled { background: #aaa; }
+  #msg { margin-top: 14px; font-size: 14px; white-space: pre-wrap; }
+  .ok { color: #1a7a1a; }
+  .err { color: #c0392b; }
+  .hint { color: #5A7A9A; font-size: 12px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<h1>Registrar días manual de un ciclo</h1>
+<p class="hint">Usa esto solo para ciclos que AP1 no expone en sus reportes (settledPools/NurseryYield/pool_production) aunque sí muestre los días en su pantalla nativa.</p>
+
+<label>ID del ciclo (idCiclo)</label>
+<input id="idCiclo" type="number" placeholder="ej. 1023708">
+
+<label>Días secos</label>
+<input id="diasSecos" type="number">
+
+<label>Días producción</label>
+<input id="diasProduccion" type="number">
+
+<label>Días total del ciclo</label>
+<input id="diasCiclo" type="number">
+
+<label>Fecha inicio (AAAA-MM-DD)</label>
+<input id="fechaInicio" type="date">
+
+<label>Fecha cosecha (AAAA-MM-DD)</label>
+<input id="fechaCosecha" type="date">
+
+<label>API Key</label>
+<input id="apiKey" type="password" placeholder="pégala aquí">
+<div class="hint">Se guarda solo en este navegador (localStorage), no se envía a ningún lado más que al worker.</div>
+
+<button id="btnEnviar">Guardar</button>
+<div id="msg"></div>
+
+<script>
+const apiKeyInput = document.getElementById('apiKey');
+apiKeyInput.value = localStorage.getItem('naturisa_api_key') || '';
+
+document.getElementById('btnEnviar').addEventListener('click', async () => {
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('btnEnviar');
+  const idCiclo = document.getElementById('idCiclo').value.trim();
+  const apiKey = apiKeyInput.value.trim();
+
+  if (!idCiclo) { msg.textContent = 'Falta el idCiclo'; msg.className = 'err'; return; }
+  if (!apiKey) { msg.textContent = 'Falta la API Key'; msg.className = 'err'; return; }
+  localStorage.setItem('naturisa_api_key', apiKey);
+
+  const body = { idCiclo: Number(idCiclo) };
+  const diasSecos = document.getElementById('diasSecos').value;
+  const diasProduccion = document.getElementById('diasProduccion').value;
+  const diasCiclo = document.getElementById('diasCiclo').value;
+  const fechaInicio = document.getElementById('fechaInicio').value;
+  const fechaCosecha = document.getElementById('fechaCosecha').value;
+  if (diasSecos !== '') body.diasSecos = Number(diasSecos);
+  if (diasProduccion !== '') body.diasProduccion = Number(diasProduccion);
+  if (diasCiclo !== '') body.diasCiclo = Number(diasCiclo);
+  if (fechaInicio) body.fechaInicio = fechaInicio;
+  if (fechaCosecha) body.fechaCosecha = fechaCosecha;
+
+  btn.disabled = true; msg.textContent = 'Guardando...'; msg.className = '';
+  try {
+    const res = await fetch('https://naturisa-proxy.parragajonathan965.workers.dev/db/ciclos/manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+      body: JSON.stringify(body)
+    });
+    const json = await res.json();
+    if (res.ok && json.ok) {
+      msg.textContent = '✔ Guardado correctamente';
+      msg.className = 'ok';
+    } else {
+      msg.textContent = '✖ Error: ' + (json.error || res.status);
+      msg.className = 'err';
+    }
+  } catch (e) {
+    msg.textContent = '✖ Error de conexión: ' + e.message;
+    msg.className = 'err';
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
