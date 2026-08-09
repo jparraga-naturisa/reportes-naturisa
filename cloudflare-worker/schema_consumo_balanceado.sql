@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS consumo_balanceado (
   nombre_producto  TEXT,
   id_ciclo         INTEGER,
   codigo_ciclo     TEXT,
-  codigo_sucursal  TEXT,
   nombre_piscina   TEXT,
   sacos            REAL,
   kilogramos       REAL,

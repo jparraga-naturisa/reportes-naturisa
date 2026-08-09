@@ -344,17 +344,17 @@ async function handleDbConsumoBalanceadoSync(request, env) {
 
   const now = ecuadorNowISO()
   const stmt = env.db.prepare(
-    `INSERT INTO consumo_balanceado (id_piscina, fecha, id_producto, nombre_producto, id_ciclo, codigo_ciclo, codigo_sucursal, nombre_piscina, sacos, kilogramos, kg_ha_dia, actualizado_en)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO consumo_balanceado (id_piscina, fecha, id_producto, nombre_producto, id_ciclo, codigo_ciclo, nombre_piscina, sacos, kilogramos, kg_ha_dia, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id_piscina, fecha, id_producto) DO UPDATE SET
        nombre_producto = excluded.nombre_producto, id_ciclo = excluded.id_ciclo, codigo_ciclo = excluded.codigo_ciclo,
-       codigo_sucursal = excluded.codigo_sucursal, nombre_piscina = excluded.nombre_piscina,
+       nombre_piscina = excluded.nombre_piscina,
        sacos = excluded.sacos, kilogramos = excluded.kilogramos, kg_ha_dia = excluded.kg_ha_dia,
        actualizado_en = excluded.actualizado_en`
   )
   const batch = filas.filter(f => f.idPiscina && f.fecha && f.idProducto != null).map(f =>
     stmt.bind(f.idPiscina, f.fecha, f.idProducto, f.nombreProducto || null, f.idCiclo ?? null, f.codigoCiclo || null,
-      f.codigoSucursal || null, f.nombrePiscina || null, f.sacos ?? null, f.kilogramos ?? null, f.kgHaDia ?? null, now))
+      f.nombrePiscina || null, f.sacos ?? null, f.kilogramos ?? null, f.kgHaDia ?? null, now))
   if (batch.length) await env.db.batch(batch)
   return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
 }
@@ -373,15 +373,14 @@ async function refrescarConsumoBalanceado(env, diasAtras = 30) {
   const token = await ap1Login(env)
   const hoy = ecuadorNowISO().slice(0, 10)
   const desde = new Date(Date.now() - diasAtras * 86400000).toISOString().slice(0, 10)
-  const codigoBySucursalId = new Map(subsidiarios.map(s => [s.id, s.codigo]))
 
   const now = ecuadorNowISO()
   const stmt = env.db.prepare(
-    `INSERT INTO consumo_balanceado (id_piscina, fecha, id_producto, nombre_producto, id_ciclo, codigo_ciclo, codigo_sucursal, nombre_piscina, sacos, kilogramos, kg_ha_dia, actualizado_en)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO consumo_balanceado (id_piscina, fecha, id_producto, nombre_producto, id_ciclo, codigo_ciclo, nombre_piscina, sacos, kilogramos, kg_ha_dia, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id_piscina, fecha, id_producto) DO UPDATE SET
        nombre_producto = excluded.nombre_producto, id_ciclo = excluded.id_ciclo, codigo_ciclo = excluded.codigo_ciclo,
-       codigo_sucursal = excluded.codigo_sucursal, nombre_piscina = excluded.nombre_piscina,
+       nombre_piscina = excluded.nombre_piscina,
        sacos = excluded.sacos, kilogramos = excluded.kilogramos, kg_ha_dia = excluded.kg_ha_dia,
        actualizado_en = excluded.actualizado_en`
   )
@@ -406,7 +405,7 @@ async function refrescarConsumoBalanceado(env, diasAtras = 30) {
         const idCiclo = idCicloByCodigo.get(r.cycleCode) ?? null
         const piscina = piscinaByCodePool.get(r.poolCode)
         batch.push(stmt.bind(r.poolId, r.assignedDate.slice(0, 10), r.productId, r.productName || null,
-          idCiclo, r.cycleCode || null, codigoBySucursalId.get(r.subsidiaryId) || null,
+          idCiclo, r.cycleCode || null,
           piscina?.nombre || null, r.sacks ?? null, r.kilograms ?? null, r.kgHaDay ?? null, now))
       }
     })
