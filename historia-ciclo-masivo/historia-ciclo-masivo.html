@@ -927,6 +927,9 @@ function fmtFechaCorta(isoDateStr) {
     return `${d}/${m}/${y}`;
 }
 
+// 'es-EC': AP1 muestra los numeros con punto decimal (ej. "1,234.56"), igual que la convencion
+// real de Ecuador - se usa ese formato aqui para que el reporte se vea igual que el tablero
+// nativo "Historia del ciclo - Siembra".
 function fmtCelda(v, decimals) {
     if (v === null || v === undefined || v === '') return null;
     if (typeof v === 'number') {
@@ -1085,14 +1088,10 @@ async function generarReporteMasivo() {
     }
 }
 
-// Filtra _ultimoDataset (ya cargado, sin llamadas nuevas a la API) por lo elegido en los
-// dropdowns de Piscinas/Ciclos y repinta el tbody. Se llama al generar el reporte y cada vez
-// que cambia alguno de esos dos dropdowns.
-function renderTablaFiltrada() {
-    const tbody = document.getElementById('masivo-tbody');
-    const hint = document.getElementById('progreso-masivo');
-    if (!tbody) return;
-
+// Aplica los mismos filtros/orden que ve la tabla (Sucursal/Piscina/Ciclo/Estado/rangos/columna) -
+// usado tanto para pintar el tbody como para exportar a Excel, asi ambos siempre muestran
+// exactamente lo mismo.
+function obtenerFilasFiltradas() {
     const sucursalesSel = msSelected('f-sucursal-ms');
     const piscinasSel = msSelected('f-piscina-ms');
     const ciclosSel = msSelected('f-ciclo-ms');
@@ -1130,6 +1129,17 @@ function renderTablaFiltrada() {
         a.cycleNumber - b.cycleNumber ||
         (Number(g(a.row, 'semana')) - Number(g(b.row, 'semana'))));
 
+    return filtrado;
+}
+
+// Repinta el tbody con lo que ya esta cargado (sin llamadas nuevas a la API). Se llama al generar
+// el reporte y cada vez que cambia algun filtro/dropdown.
+function renderTablaFiltrada() {
+    const tbody = document.getElementById('masivo-tbody');
+    const hint = document.getElementById('progreso-masivo');
+    if (!tbody) return;
+
+    const filtrado = obtenerFilasFiltradas();
     tbody.innerHTML = filtrado.map(({ sub, poolName, cycleNumber, row }) => {
         const cells = HISTORIA_COLS.map(c => fmtCelda(c.get(row), c.decimals));
         return `<tr>
@@ -1143,12 +1153,40 @@ function renderTablaFiltrada() {
     if (hint) hint.textContent = `${filtrado.length} de ${_ultimoDataset.length} filas de historia semanal.`;
 }
 
+// Arma la hoja con los VALORES NUMERICOS reales (no el texto ya formateado con coma/punto de la
+// tabla en pantalla) - asi Excel los reconoce como numeros de verdad y los muestra con el
+// separador decimal que corresponda segun la configuracion regional de quien lo abra, sin
+// depender de si el texto tenia coma o punto.
 function exportarExcel() {
-    const table = document.querySelector('table.masivo-tbl');
-    if (!table) { alert('No hay datos en pantalla para exportar - primero genera el reporte.'); return; }
+    if (!_ultimoDataset.length) { alert('No hay datos en pantalla para exportar - primero genera el reporte.'); return; }
+
+    const filtrado = obtenerFilasFiltradas();
+    const encabezados = ['Sucursal', 'Piscina', 'Ciclo', ...HISTORIA_COLS.map(c => c.label)];
+    const filas = filtrado.map(({ sub, poolName, cycleNumber, row }) => [
+        sub, poolName, cycleNumber,
+        ...HISTORIA_COLS.map(c => {
+            const v = c.get(row);
+            return (v === null || v === undefined || v === '') ? null : v;
+        }),
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([encabezados, ...filas]);
+    // Formato numerico por celda (mismo criterio que fmtCelda en pantalla: entero sin decimales
+    // salvo que la columna pida una cantidad fija, ej. AlimFactor con 4) - asi el Excel se ve igual
+    // que la tabla, con separador de miles y coma decimal (segun la configuracion regional de Excel).
+    filas.forEach((filaVals, rIdx) => {
+        HISTORIA_COLS.forEach((c, cIdx) => {
+            const v = filaVals[3 + cIdx];
+            if (typeof v !== 'number') return;
+            const cellRef = XLSX.utils.encode_cell({ r: rIdx + 1, c: 3 + cIdx });
+            const esEntero = Number.isInteger(v) && !c.decimals;
+            const d = c.decimals || 2;
+            ws[cellRef].z = esEntero ? '#,##0' : `#,##0.${'0'.repeat(d)}`;
+        });
+    });
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(table), 'Historia del ciclo');
+    XLSX.utils.book_append_sheet(wb, ws, 'Historia del ciclo');
     const fecha = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `historia_ciclo_masivo_${fecha}.xlsx`);
 }
