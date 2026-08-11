@@ -125,7 +125,8 @@ async function handleFeedingCached(request, url, env, ctx) {
 // ── Reporte diario piscinas (app movil) ────────────────────────────────────
 // Replica reporte_diario.py: pivotea feeding_general por PSC/Metrica/Sacos y
 // marca alerta cuando Saldo Tolva > 0 pero no hubo Cargado ni Sobrante Tolva.
-// GET /db/reporte-diario?fecha=YYYY-MM-DD  (default: hoy en Ecuador)
+// GET /db/reporte-diario?fecha=YYYY-MM-DD&subsidiaryId=<id>  (fecha default: hoy en Ecuador;
+// subsidiaryId es repetible, si se omite trae todas las sucursales)
 
 const REPORTE_SUBSIDIARY_IDS = [13,28,29,30,19,6,8,7,11,14,17,16,15,5,4,18,21,3,10,9,1,33,2,12,20,10033]
 const REPORTE_BUSINESS_TYPES = ['WallIncome','WallBalance','HopperBalance','Remaining','Loaded','VoleoConsumption']
@@ -161,9 +162,11 @@ function reporteDetectarAlertas(filas) {
 async function handleDbReporteDiario(request, url) {
   if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
   const fecha = url.searchParams.get('fecha') || ecuadorNowISO().slice(0, 10)
+  const subsidiaryIds = url.searchParams.getAll('subsidiaryId')
+  const idsAUsar = subsidiaryIds.length ? subsidiaryIds : REPORTE_SUBSIDIARY_IDS
 
   const sp = new URLSearchParams()
-  for (const id of REPORTE_SUBSIDIARY_IDS) sp.append('subsidiaryIds', id)
+  for (const id of idsAUsar) sp.append('subsidiaryIds', id)
   for (const bt of REPORTE_BUSINESS_TYPES) sp.append('businessTypes', bt)
   sp.set('initDate', fecha); sp.set('endDate', fecha)
   sp.set('timeGranularity', 'day'); sp.set('valueOptions', 'kg'); sp.set('groupBy', 'pool'); sp.set('PageSize', '1000')
