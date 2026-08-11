@@ -122,6 +122,62 @@ async function handleFeedingCached(request, url, env, ctx) {
     { 'X-Cache': 'MISS', 'X-Cache-Rows': String(allRows.length) })
 }
 
+// ── Reporte diario piscinas (app movil) ────────────────────────────────────
+// Replica reporte_diario.py: pivotea feeding_general por PSC/Metrica/Sacos y
+// marca alerta cuando Saldo Tolva > 0 pero no hubo Cargado ni Sobrante Tolva.
+// GET /db/reporte-diario?fecha=YYYY-MM-DD  (default: hoy en Ecuador)
+
+const REPORTE_SUBSIDIARY_IDS = [13,28,29,30,19,6,8,7,11,14,17,16,15,5,4,18,21,3,10,9,1,33,2,12,20,10033]
+const REPORTE_BUSINESS_TYPES = ['WallIncome','WallBalance','HopperBalance','Remaining','Loaded','VoleoConsumption']
+const REPORTE_NOMBRES = {
+  Loaded: 'Cargado Tolva', VoleoConsumption: 'Consumo Voleo', WallIncome: 'Ingreso a Muro',
+  WallBalance: 'Saldo Muro', HopperBalance: 'Saldo Tolva', Remaining: 'Sobrante Tolva',
+}
+const REPORTE_COLUMNAS_ORDEN = ['Ingreso a Muro', 'Saldo Muro', 'Cargado Tolva', 'Sobrante Tolva', 'Saldo Tolva']
+
+function reporteConstruirTabla(registros) {
+  const porPsc = new Map()
+  for (const rec of registros) {
+    const psc = rec.groupValue || ''
+    const metrica = REPORTE_NOMBRES[rec.businessType] || rec.businessType || ''
+    const sacos = rec.sacks || 0
+    if (!porPsc.has(psc)) porPsc.set(psc, { PSC: psc })
+    const fila = porPsc.get(psc)
+    fila[metrica] = (fila[metrica] || 0) + sacos
+  }
+  const filas = [...porPsc.values()].sort((a, b) => a.PSC.localeCompare(b.PSC))
+  for (const fila of filas) {
+    for (const col of REPORTE_COLUMNAS_ORDEN) {
+      if (fila[col] === undefined) fila[col] = 0
+    }
+  }
+  return filas
+}
+
+function reporteDetectarAlertas(filas) {
+  return filas.filter(f => (f['Saldo Tolva'] || 0) > 0 && !f['Cargado Tolva'] && !f['Sobrante Tolva'])
+}
+
+async function handleDbReporteDiario(request, url) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const fecha = url.searchParams.get('fecha') || ecuadorNowISO().slice(0, 10)
+
+  const sp = new URLSearchParams()
+  for (const id of REPORTE_SUBSIDIARY_IDS) sp.append('subsidiaryIds', id)
+  for (const bt of REPORTE_BUSINESS_TYPES) sp.append('businessTypes', bt)
+  sp.set('initDate', fecha); sp.set('endDate', fecha)
+  sp.set('timeGranularity', 'day'); sp.set('valueOptions', 'kg'); sp.set('groupBy', 'pool'); sp.set('PageSize', '1000')
+
+  const res = await fetch(GATEWAY + FEEDING_PATH + '?' + sp, { method: 'GET', headers: request.headers })
+  if (!res.ok) return corsResponse(JSON.stringify({ error: 'gateway respondio ' + res.status }), res.status, request)
+  const json = await res.json()
+  const registros = json.data || []
+
+  const filas = reporteConstruirTabla(registros)
+  const alertas = reporteDetectarAlertas(filas)
+  return corsResponse(JSON.stringify({ fecha, filas, alertas, totalPiscinas: filas.length, totalAlertas: alertas.length }), 200, request)
+}
+
 // ── Tablas propias en D1 (compartidas entre todos los dashboards) ─────────
 // Todas las columnas y claves JSON de estos endpoints estan en espanol.
 //
@@ -151,9 +207,13 @@ async function handleDbSucursales(request, env) {
 async function handleDbPiscinas(request, url, env) {
   if (request.method === 'GET') {
     const idSucursal = url.searchParams.get('idSucursal')
+    const conPoligono = url.searchParams.get('poligono') === '1'
+    const cols = conPoligono
+      ? 'id_piscina, nombre, codigo_piscina, tamano, id_sucursal, tipo, estado, poligono, actualizado_en'
+      : 'id_piscina, nombre, codigo_piscina, tamano, id_sucursal, tipo, estado, actualizado_en'
     const stmt = idSucursal
-      ? env.db.prepare('SELECT id_piscina, nombre, codigo_piscina, tamano, id_sucursal, tipo, estado, actualizado_en FROM piscinas WHERE id_sucursal = ? ORDER BY nombre').bind(idSucursal)
-      : env.db.prepare('SELECT id_piscina, nombre, codigo_piscina, tamano, id_sucursal, tipo, estado, actualizado_en FROM piscinas ORDER BY nombre')
+      ? env.db.prepare(`SELECT ${cols} FROM piscinas WHERE id_sucursal = ? ORDER BY nombre`).bind(idSucursal)
+      : env.db.prepare(`SELECT ${cols} FROM piscinas ORDER BY nombre`)
     const { results } = await stmt.all()
     return corsResponse(JSON.stringify({ data: results }), 200, request)
   }
@@ -420,12 +480,14 @@ async function refrescarConsumoBalanceado(env, diasAtras = 30) {
 
 async function handleDbConsumoInsumos(request, url, env) {
   if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
-  const idCiclo = url.searchParams.get('idCiclo')
+  const idCiclo     = url.searchParams.get('idCiclo')
   const ordenControl = url.searchParams.get('ordenControl')
+  const anio        = url.searchParams.get('anio')
   const conds = []
   const binds = []
-  if (idCiclo) { conds.push('id_ciclo = ?'); binds.push(idCiclo) }
-  if (ordenControl) { conds.push('orden_control = ?'); binds.push(ordenControl) }
+  if (idCiclo)      { conds.push('id_ciclo = ?');          binds.push(idCiclo) }
+  if (ordenControl) { conds.push('orden_control = ?');      binds.push(ordenControl) }
+  if (anio)         { conds.push("strftime('%Y', fecha) = ?"); binds.push(String(anio)) }
   const where = conds.length ? ' WHERE ' + conds.join(' AND ') : ''
   const stmt = env.db.prepare(`SELECT * FROM consumo_insumos${where} ORDER BY fecha`).bind(...binds)
   const { results } = await stmt.all()
@@ -1395,6 +1457,137 @@ async function refrescarPlanCosecha(token, env) {
   return batch.length
 }
 
+// ── Polígonos del mapa (AP1 /maps/layers por sucursal) ────────────────────
+// Guarda las coordenadas del polígono de cada piscina en la columna `poligono`
+// de la tabla piscinas, como JSON [[lat,lng], ...].
+// Se refresca en el cron liviano cada 6h junto con piscinas/ciclos.
+
+// ── Historial de Ha por sucursal (ingreso manual desde consumos-combustible) ─
+// GET  /db/historial-ha?anio=2026              -> filas del año
+// POST /db/historial-ha/sync                   -> upsert masivo desde _manualHa
+
+async function handleDbHistorialHa(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const anio = url.searchParams.get('anio')
+  const where = anio ? 'WHERE anio = ?' : ''
+  const binds = anio ? [parseInt(anio)] : []
+  const { results } = await env.db.prepare(
+    `SELECT codigo_sucursal, id_sucursal, anio, mes, ha, actualizado_en FROM historial_ha ${where} ORDER BY anio, mes, codigo_sucursal`
+  ).bind(...binds).all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbHistorialHaSync(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const url = new URL(request.url)
+  const overwrite = url.searchParams.get('overwrite') === '1'
+  const body = await request.json()
+  const filas = Array.isArray(body?.filas) ? body.filas : []
+  if (!filas.length) return corsResponse('{"error":"body.filas vacio"}', 400, request)
+  const now = ecuadorNowISO()
+  const conflict = overwrite
+    ? `ON CONFLICT(codigo_sucursal, anio, mes) DO UPDATE SET id_sucursal = excluded.id_sucursal, ha = excluded.ha, actualizado_en = excluded.actualizado_en`
+    : `ON CONFLICT(codigo_sucursal, anio, mes) DO NOTHING`
+  const stmt = env.db.prepare(
+    `INSERT INTO historial_ha (codigo_sucursal, id_sucursal, anio, mes, ha, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?) ${conflict}`
+  )
+  const batch = filas.filter(f => f.codigoSucursal && f.anio && f.mes).map(f =>
+    stmt.bind(f.codigoSucursal, f.idSucursal ?? null, f.anio, f.mes, f.ha, now))
+  if (batch.length) await env.db.batch(batch)
+  return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
+}
+
+// Actualiza Ha del mes actual desde piscinas activas. Se llama en cada cron liviano (6h).
+// Meses pasados ya tienen su valor fijo (DO NOTHING los protege en el sync del frontend).
+// Al cambiar de mes, el nuevo mes empieza a escribirse y el anterior queda congelado.
+async function snapshotHaMensual(env) {
+  const nowD = new Date(Date.now() - 5 * 60 * 60 * 1000) // Ecuador UTC-5
+  const anio = nowD.getUTCFullYear()
+  const mes  = nowD.getUTCMonth() + 1
+  const { results } = await env.db.prepare(
+    `SELECT p.id_sucursal, s.codigo AS codigo_sucursal, SUM(p.tamano) AS ha
+     FROM piscinas p
+     JOIN sucursales s ON s.id = p.id_sucursal
+     WHERE p.tamano IS NOT NULL AND p.tamano > 0 AND p.id_sucursal IS NOT NULL
+       AND p.estado = 'ACTIVO'
+     GROUP BY p.id_sucursal, s.codigo`
+  ).all()
+  if (!results.length) return 0
+  const nowISO = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO historial_ha (codigo_sucursal, id_sucursal, anio, mes, ha, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(codigo_sucursal, anio, mes) DO UPDATE SET ha = excluded.ha, actualizado_en = excluded.actualizado_en`
+  )
+  const batch = results.filter(r => r.ha > 0).map(r =>
+    stmt.bind(r.codigo_sucursal, r.id_sucursal, anio, mes, r.ha, nowISO))
+  if (batch.length) await env.db.batch(batch)
+  return batch.length
+}
+
+async function refrescarPoligonos(token, env, subsidiarios) {
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `UPDATE piscinas SET poligono = ?, actualizado_en = ? WHERE codigo_piscina = ?`
+  )
+  // Una sola petición con todos los SubsidiaryIds (igual que el frontend)
+  const qs = subsidiarios.map(s => `SubsidiaryIds=${s.id}`).join('&')
+    + '&StageIds=1&StageIds=2&StageIds=3&StageIds=4&StageIds=5'
+    + '&UsageIds=9&UsageIds=8&UsageIds=7'
+    + '&MinProductionDays=0&MaxProductionDays=1000&MinWeightGrams=0&MaxWeightGrams=10000'
+  const json = await fetch(`${API_BASE}/maps/layers?${qs}`, {
+    headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' }
+  }).then(r => r.ok ? r.json() : null).catch(() => null)
+
+  const batch = []
+  for (const layer of (json?.data || [])) {
+    const coords = layer?.polygon?.coordinates
+    if (!layer.poolCode || !Array.isArray(coords) || coords.length < 3) continue
+    batch.push(stmt.bind(JSON.stringify(coords), now, layer.poolCode))
+  }
+  if (batch.length) await env.db.batch(batch)
+  return batch.length
+}
+
+// ── Endpoint GET /db/layers — devuelve piscinas con polígono + ciclo activo ─
+// Une piscinas (poligono) con el ciclo activo/más reciente de cada una.
+// ?idSucursal=<id>  filtra por sucursal
+async function handleDbLayers(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const idSucursal = url.searchParams.get('idSucursal')
+  const where = idSucursal ? 'WHERE p.id_sucursal = ?' : ''
+  const binds = idSucursal ? [idSucursal] : []
+  // Para cada piscina toma el ciclo más reciente (fecha_siembra DESC).
+  // Incluye piscinas sin ciclo (LEFT JOIN) con NULLs en los campos del ciclo.
+  const { results } = await env.db.prepare(`
+    SELECT
+      p.codigo_piscina  AS poolCode,
+      p.tamano          AS size,
+      p.poligono        AS poligono,
+      p.id_sucursal     AS idSucursal,
+      c.codigo_ciclo    AS cycleCode,
+      c.uso_ciclo       AS type,
+      c.estado          AS status,
+      c.dias_ciclo      AS diasCiclo,
+      c.dias_secos      AS diasSecos,
+      c.dias_produccion AS diasProduccion,
+      c.fecha_inicio    AS fechaInicio,
+      c.id_ciclo        AS idCiclo
+    FROM piscinas p
+    LEFT JOIN ciclos c ON c.nombre_piscina = p.nombre
+      AND c.id_sucursal = p.id_sucursal
+      AND c.id_ciclo = (
+        SELECT id_ciclo FROM ciclos c2
+        WHERE c2.nombre_piscina = p.nombre AND c2.id_sucursal = p.id_sucursal
+        ORDER BY fecha_siembra DESC LIMIT 1
+      )
+    ${where}
+    ORDER BY p.codigo_piscina
+  `).bind(...binds).all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
 // Sucursales que se excluyen del refresco automatico de piscinas/ciclos (ej. NC =
 // Coaque NC, migrada a CO - sus datos viejos se borraron a mano y no deben volver).
 const SUCURSALES_EXCLUIDAS = ['NC']
@@ -1404,6 +1597,8 @@ async function refrescoLiviano(env) {
   const todasLasSubsidiarias = await refrescarSucursales(token, env)
   const subsidiarios = todasLasSubsidiarias.filter(s => !SUCURSALES_EXCLUIDAS.includes(s.codigo))
   const nPiscinas = await refrescarPiscinas(token, env, subsidiarios)
+  const nPoligonos = await refrescarPoligonos(token, env, subsidiarios).catch(() => 0)
+  await snapshotHaMensual(env).catch(() => 0) // actualiza Ha activas del mes actual
   const nCiclos = await refrescarCiclos(token, env, subsidiarios)
   const nPlan = await refrescarPlanCosecha(token, env)
   const nClima = await refrescarClima(env)
@@ -1419,9 +1614,15 @@ async function refrescoLiviano(env) {
   const en15dias = new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10)
   const nMarea = await refrescarMarea(env, hace10dias, en15dias).catch(() => 0)
   const nMareaExtremos = await recalcularMareaExtremos(env).catch(() => 0)
-  return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, ciclos: nCiclos, planCosecha: nPlan,
+  return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, poligonos: nPoligonos, ciclos: nCiclos, planCosecha: nPlan,
     filasClima: nClima, filasHoraria: nHoraria, filasClimaReal: nClimaReal, filasHorariaReal: nHorariaReal,
     filasInamhi: nInamhi, filasBalanceado: nBalanceado, filasMarea: nMarea, filasMareaExtremos: nMareaExtremos }
+}
+
+function esUltimoDiaMes() {
+  const d = new Date(Date.now() - 5 * 60 * 60 * 1000) // Ecuador UTC-5
+  const manana = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1))
+  return manana.getUTCDate() === 1
 }
 
 async function refrescoPesado(env) {
@@ -1482,6 +1683,10 @@ export default {
       }
     }
 
+    if (url.pathname === '/db/reporte-diario') {
+      return handleDbReporteDiario(request, url)
+    }
+
     if (url.pathname === '/db/sucursales' && env.db) {
       return handleDbSucursales(request, env)
     }
@@ -1492,6 +1697,10 @@ export default {
 
     if (url.pathname === '/db/piscinas/sync' && env.db) {
       return handleDbPiscinasSync(request, env)
+    }
+
+    if (url.pathname === '/db/layers' && env.db) {
+      return handleDbLayers(request, url, env)
     }
 
     if (url.pathname === '/db/ciclos' && env.db) {
@@ -1528,6 +1737,14 @@ export default {
 
     if (url.pathname === '/db/consumo-insumos/sync' && env.db) {
       return handleDbConsumoInsumosSync(request, env)
+    }
+
+    if (url.pathname === '/db/historial-ha' && env.db) {
+      return handleDbHistorialHa(request, url, env)
+    }
+
+    if (url.pathname === '/db/historial-ha/sync' && env.db) {
+      return handleDbHistorialHaSync(request, env)
     }
 
     if (url.pathname === '/db/historia-ciclo' && env.db) {

@@ -25,9 +25,10 @@ NO_OPEN   = len(_args) != len(sys.argv) - 1
 PORT      = int(_args[1]) if len(_args) > 1 else 3000
 HTML_FILE = _args[0] if len(_args) > 0 else 'dashboard-alimentacion/dashboard-alimentacion.html'
 API_HOST  = 'https://gateway.naturisa.com.ec'
+WORKER_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev'
 
 
-def proxy_request(method, url, body=None, auth=None):
+def proxy_request(method, url, body=None, auth=None, extra_headers=None):
     headers = {
         'Accept':     'application/json, text/plain, */*',
         'Origin':     'https://ap1.naturisa.com.ec',
@@ -38,8 +39,10 @@ def proxy_request(method, url, body=None, auth=None):
         headers['Authorization'] = auth
     if body is not None:
         headers['Content-Type'] = 'application/json'
+    if extra_headers:
+        headers.update(extra_headers)
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
-    return urllib.request.urlopen(req, context=SSL_CTX, timeout=20)
+    return urllib.request.urlopen(req, context=SSL_CTX, timeout=60)
 
 
 class NaturisaHandler(http.server.BaseHTTPRequestHandler):
@@ -51,7 +54,7 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
     def send_cors(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Api-Key')
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -69,7 +72,7 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path in ('/', '/index.html'):
-            html_path = Path(__file__).parent / HTML_FILE
+            html_path = Path(HTML_FILE)
             if not html_path.exists():
                 self.send_error(404, f'No se encontró {HTML_FILE}')
                 return
@@ -80,6 +83,20 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
             self.send_cors()
             self.end_headers()
             self.wfile.write(content)
+        elif self.path.startswith('/db/') or self.path.startswith('/api/'):
+            # Proxy al Cloudflare Worker
+            url = WORKER_URL + self.path
+            auth = self.headers.get('Authorization')
+            try:
+                with proxy_request('GET', url, auth=auth) as resp:
+                    data = resp.read()
+                    self._send_json(resp.status, data)
+            except urllib.error.HTTPError as e:
+                self._send_json(e.code, e.read())
+            except Exception as e:
+                print(f'  ERROR proxy GET {self.path}: {e}')
+                self._send_json(500, {'error': str(e)})
+            return
         elif self.path.startswith('/bff/'):
             # Proxy transparente al gateway
             url = API_HOST + self.path
@@ -99,18 +116,25 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get('Content-Length', 0))
         body   = self.rfile.read(length) if length else None
+        auth   = self.headers.get('Authorization')
 
         if self.path in ('/auth', '/bff/web/ap1/security/api/auth'):
             url = f'{API_HOST}/bff/web/ap1/security/api/auth'
+            extra = None
         elif self.path.startswith('/bff/'):
             url = API_HOST + self.path
+            extra = None
+        elif self.path.startswith('/db/') or self.path.startswith('/kv/'):
+            # Proxy al Cloudflare Worker — pasar X-Api-Key si viene en el request
+            url = WORKER_URL + self.path
+            api_key = self.headers.get('X-Api-Key')
+            extra = {'X-Api-Key': api_key} if api_key else None
         else:
             self.send_error(404, 'Not found')
             return
 
-        auth = self.headers.get('Authorization')
         try:
-            with proxy_request('POST', url, body=body, auth=auth) as resp:
+            with proxy_request('POST', url, body=body, auth=auth, extra_headers=extra) as resp:
                 data = resp.read()
                 self._send_json(resp.status, data)
         except urllib.error.HTTPError as e:
@@ -121,7 +145,14 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    os.chdir(Path(__file__).parent.parent)  # raíz del proyecto
+    _root = Path(__file__).parent.parent   # raíz del proyecto
+    # Resolver HTML_FILE antes de cambiar de directorio
+    _html_resolved = (Path.cwd() / HTML_FILE).resolve()
+    if not _html_resolved.exists():
+        # Intentar relativo a la raíz del proyecto
+        _html_resolved = (_root / HTML_FILE).resolve()
+    HTML_FILE = str(_html_resolved)
+    os.chdir(_root)
     server = http.server.HTTPServer(('localhost', PORT), NaturisaHandler)
 
     def open_browser():

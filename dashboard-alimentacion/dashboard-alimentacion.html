@@ -227,6 +227,10 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
         Consumo Voleo
     </button>
+    <button class="nav-tab" id="tab-reco" onclick="showScreen('reco')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Recomendación
+    </button>
 </div>
 
 <!-- ── PANTALLA: Alimentación ──────────────────────────────── -->
@@ -786,6 +790,99 @@
 </main>
 
 </div><!-- /screen-voleo -->
+
+<!-- ── PANTALLA: Recomendación de Alimentación ─────────────────────────── -->
+<div class="screen" id="screen-reco">
+
+<div class="filters">
+    <div class="fg">
+        <label>Año inicio</label>
+        <select id="rc-year-from" style="min-width:90px"></select>
+    </div>
+    <div class="fg">
+        <label>Año fin</label>
+        <select id="rc-year-to" style="min-width:90px"></select>
+    </div>
+    <button class="btn-apply" onclick="recoCargar()">↻ Analizar historial</button>
+    <span id="rc-status" style="font-size:12px;color:var(--muted);align-self:center"></span>
+</div>
+
+<main class="main">
+
+<!-- Sección 1: Modelo de regresión -->
+<div class="table-card" style="margin-bottom:16px">
+    <div style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Modelo de Regresión — Alimento diario por Ha
+    </div>
+    <div id="rc-model-area"><p style="color:#94a3b8;font-size:13px">Carga el historial para calibrar el modelo.</p></div>
+</div>
+
+<!-- Sección 2: Recomendación por piscina -->
+<div class="table-card" style="margin-bottom:16px">
+    <div style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Recomendación de Hoy
+    </div>
+    <!-- Condiciones actuales -->
+    <div style="display:flex;flex-wrap:wrap;gap:18px;margin-bottom:16px;padding:14px;background:#f8fafc;border-radius:8px;border:1px solid var(--border)">
+        <div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Lluvia (mm)</div>
+            <input type="number" id="rc-rain" value="0" min="0" max="200" step="0.5"
+                style="width:90px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+        </div>
+        <div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Nubosidad (%)</div>
+            <input type="number" id="rc-cloud" value="50" min="0" max="100"
+                style="width:90px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+        </div>
+        <div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Temp. ambiente (°C)</div>
+            <input type="number" id="rc-temp" value="28" min="15" max="45" step="0.5"
+                style="width:90px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+        </div>
+        <div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">O₂ agua (mg/L)</div>
+            <input type="number" id="rc-o2" value="5" min="0" max="15" step="0.1"
+                style="width:90px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+        </div>
+        <div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Temp. agua (°C)</div>
+            <input type="number" id="rc-wtemp" value="28" min="15" max="40" step="0.5"
+                style="width:90px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+        </div>
+        <div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Consumo anterior (%)</div>
+            <input type="number" id="rc-prev" value="95" min="0" max="120"
+                style="width:90px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+                title="% del alimento entregado que fue consumido en la última medición">
+        </div>
+        <div style="align-self:flex-end">
+            <button onclick="recoCalcular()" style="padding:7px 18px;background:var(--primary);color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">
+                Calcular recomendación
+            </button>
+        </div>
+        <div style="align-self:flex-end">
+            <button onclick="recoClima()" style="padding:7px 14px;background:#0369a1;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer" title="Obtener condiciones de Open-Meteo para hoy">
+                🌦 Cargar clima
+            </button>
+        </div>
+    </div>
+    <!-- Tabla resultado -->
+    <div id="rc-result-area"><p style="color:#94a3b8;font-size:13px">Ingresa las condiciones y presiona Calcular.</p></div>
+</div>
+
+<!-- Sección 3: Dataset histórico -->
+<div class="table-card">
+    <div style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        Dataset Histórico
+    </div>
+    <div id="rc-dataset-area"><p style="color:#94a3b8;font-size:13px">Carga el historial para ver los datos usados en el modelo.</p></div>
+</div>
+
+</main>
+</div><!-- /screen-reco -->
 
 <script>
 Chart.register(ChartDataLabels);
@@ -4281,10 +4378,11 @@ async function consultarVoleo() {
     const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json, text/plain, */*' };
 
     try {
-        // ── Consumo voleo (via Worker con caché) ─────────────────
+        // ── Consumo voleo + tolva (via Worker con caché) ─────────
         const qs = new URLSearchParams({ initDate:`${y}-01-01`, endDate:`${y}-12-31`,
             timeGranularity:'month', valueOptions:'kg', groupBy:'pool', PageSize:5000 });
         qs.append('businessTypes', 'VoleoConsumption');
+        qs.append('businessTypes', 'HopperConsumption');
         subIds.forEach(id => qs.append('subsidiaryIds', id));
 
         // Feeding (via Worker con caché)
@@ -4353,42 +4451,128 @@ function _renderVoleoTable(y) {
     _voleoRawData.forEach(r => {
         const code = (r.groupValue || r.poolName || '').trim();
         if (!code) return;
-        const info = _voleoPools?.[code] || {};
-        const sub  = (r.subsidiaryName || r.subsidiary ||
-                      subsidiaries.find(s => s.id == info.subId)?.name || '').trim();
-        // Extraer mes del campo de fecha
-        const df   = ['periodStart','initDate','startDate','period','periodStart','monthStart'].find(f => r[f]);
-        const mNum = df ? parseInt(String(r[df]).slice(5,7)) : (r.month || 0);
-        const key  = `${code}__${mNum}`;
-        if (!byKey[key]) byKey[key] = { pool: info.name || code, code, sub, uso: info.uso || '', mes: mNum, kg: 0, sacos: 0 };
-        byKey[key].kg    += Number(r.kilograms || 0);
-        byKey[key].sacos += Number(r.sacks     || 0);
+        const info  = _voleoPools?.[code] || {};
+        const sub   = (r.subsidiaryName || r.subsidiary ||
+                       subsidiaries.find(s => s.id == info.subId)?.name || '').trim();
+        const df    = ['periodStart','initDate','startDate','period','monthStart'].find(f => r[f]);
+        const mNum  = df ? parseInt(String(r[df]).slice(5,7)) : (r.month || 0);
+        const key   = `${code}__${mNum}`;
+        const isVol = (r.businessType || '').toLowerCase().includes('voleo');
+        if (!byKey[key]) byKey[key] = { pool: info.name || code, code, sub, uso: info.uso || '', mes: mNum,
+            kgVol: 0, sacosVol: 0, kgTol: 0, sacosTol: 0 };
+        if (isVol) {
+            byKey[key].kgVol    += Number(r.kilograms || 0);
+            byKey[key].sacosVol += Number(r.sacks     || 0);
+        } else {
+            byKey[key].kgTol    += Number(r.kilograms || 0);
+            byKey[key].sacosTol += Number(r.sacks     || 0);
+        }
     });
 
-    // Unir con Ha y ordenar por Sucursal / Piscina / Mes
-    _voleoRows = Object.values(byKey).map(r => {
+    // Unir con Ha y ordenar por Sucursal / Piscina / Mes (excluir mes actual — incompleto)
+    const _curMes = new Date().getMonth() + 1;
+    _voleoRows = Object.values(byKey).filter(r => r.mes !== _curMes).map(r => {
         const ha = _voleoPools?.[r.code]?.ha || 0;
-        return { ...r, ha, kgHa: ha > 0 ? r.kg / ha : null };
+        return { ...r, ha,
+            kgHaVol: ha > 0 && r.kgVol > 0 ? r.kgVol / ha : null,
+            kgHaTol: ha > 0 && r.kgTol > 0 ? r.kgTol / ha : null };
     }).sort((a,b) => {
         const sc = a.sub.localeCompare(b.sub,'es');
         if (sc !== 0) return sc;
-        const pc = a.pool.localeCompare(b.pool,'es');
+        const pc = a.pool.localeCompare(b.pool,'es',{numeric:true,sensitivity:'base'});
         if (pc !== 0) return pc;
         return a.mes - b.mes;
     });
 
     // KPIs
-    const totalKg    = _voleoRows.reduce((s,r) => s + r.kg, 0);
-    const totalSacos = _voleoRows.reduce((s,r) => s + r.sacos, 0);
+    const totalKg    = _voleoRows.reduce((s,r) => s + r.kgVol, 0);
+    const totalSacos = _voleoRows.reduce((s,r) => s + r.sacosVol, 0);
     const totalHa    = _voleoRows.reduce((s,r) => s + r.ha, 0);
     const fmt  = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : n.toFixed(0);
     const fmt2 = n => n.toLocaleString('es-EC', { maximumFractionDigits:1 });
 
 
-    // Tabla
+    // ── Tabla resumen: Sucursal → Mes → Uso (Engorde / Precriadero) ───────────
+    const bySubMesUso = {};
+    _voleoRows.forEach(r => {
+        const uso  = /precria/i.test(r.uso) ? 'Precriadero' : /engorde/i.test(r.uso) ? 'Engorde' : (r.uso || 'Sin uso');
+        const key  = `${r.sub}__${r.mes}__${uso}`;
+        if (!bySubMesUso[key]) bySubMesUso[key] = { sub: r.sub, mes: r.mes, uso,
+            pools: new Set(), ha: 0, kgVol: 0, sacosVol: 0, kgTol: 0, sacosTol: 0 };
+        const s = bySubMesUso[key];
+        s.pools.add(r.code);
+        s.ha      += r.ha;
+        s.kgVol   += r.kgVol;
+        s.sacosVol+= r.sacosVol;
+        s.kgTol   += r.kgTol;
+        s.sacosTol+= r.sacosTol;
+    });
+    const USO_ORDER = { 'Engorde': 0, 'Precriadero': 1 };
+    const sumRows = Object.values(bySubMesUso).sort((a, b) => {
+        const sc = a.sub.localeCompare(b.sub, 'es'); if (sc) return sc;
+        if (a.mes !== b.mes) return a.mes - b.mes;
+        return (USO_ORDER[a.uso] ?? 9) - (USO_ORDER[b.uso] ?? 9);
+    });
+    const COL = 9; // columnas de datos (sin Uso)
+    const sumHtml = `
+    <div style="margin-bottom:18px;overflow-x:auto">
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Resumen por Sucursal · Mes</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+            <tr style="background:var(--bg);text-align:left">
+                <th style="padding:7px 10px;font-weight:600;border-bottom:2px solid var(--border)">Uso</th>
+                <th style="padding:7px 10px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Piscinas</th>
+                <th style="padding:7px 10px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Ha</th>
+                <th style="padding:7px 10px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg Voleo</th>
+                <th style="padding:7px 10px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Sacos Voleo</th>
+                <th style="padding:7px 10px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg/Ha Voleo</th>
+                <th style="padding:7px 10px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg Tolva</th>
+                <th style="padding:7px 10px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Sacos Tolva</th>
+                <th style="padding:7px 10px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg/Ha Tolva</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${(() => {
+                let lastSub = null; let lastMes = null; let idx = 0;
+                return sumRows.map(s => {
+                    const kgHaVol = s.ha > 0 && s.kgVol > 0 ? (s.kgVol / s.ha).toFixed(1) : '—';
+                    const kgHaTol = s.ha > 0 && s.kgTol > 0 ? (s.kgTol / s.ha).toFixed(1) : '—';
+                    const usoColor = s.uso === 'Engorde' ? '#166534' : s.uso === 'Precriadero' ? '#0369a1' : '#475569';
+                    const usosBg   = s.uso === 'Engorde' ? '#dcfce7' : s.uso === 'Precriadero' ? '#e0f2fe' : '#f1f5f9';
+                    let html = '';
+                    if (s.sub !== lastSub) {
+                        html += `<tr><td colspan="${COL}" style="padding:8px 12px;font-weight:700;font-size:13px;background:var(--primary);color:white;letter-spacing:0.3px">${s.sub || '—'}</td></tr>`;
+                        lastSub = s.sub; lastMes = null; idx = 0;
+                    }
+                    if (s.mes !== lastMes) {
+                        html += `<tr><td colspan="${COL}" style="padding:5px 14px;font-weight:600;font-size:11px;background:#e8eef5;color:var(--primary);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:0.4px">${MESES[s.mes-1]}</td></tr>`;
+                        lastMes = s.mes; idx = 0;
+                    }
+                    const bg = idx++ % 2 === 0 ? 'white' : '#fafbfc';
+                    html += `<tr style="background:${bg}">
+                        <td style="padding:6px 10px 6px 18px;border-bottom:1px solid var(--border)">
+                            <span style="display:inline-block;padding:2px 8px;border-radius:10px;background:${usosBg};color:${usoColor};font-size:11px;font-weight:600">${s.uso}</span>
+                        </td>
+                        <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${s.pools.size}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${s.ha > 0 ? s.ha.toFixed(1) : '—'}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${s.kgVol.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${(s.sacosVol||s.kgVol/40).toFixed(1)}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${kgHaVol}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${s.kgTol > 0 ? s.kgTol.toLocaleString('es-EC',{maximumFractionDigits:0}) : '—'}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${s.kgTol > 0 ? (s.sacosTol||s.kgTol/40).toFixed(1) : '—'}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${kgHaTol}</td>
+                    </tr>`;
+                    return html;
+                }).join('');
+            })()}
+        </tbody>
+    </table>
+    </div>`;
+
+    // Tabla detalle
     const hasMissingHa = _voleoRows.some(r => r.ha === 0);
     const area = document.getElementById('vo-table-area');
-    area.innerHTML = `
+    area.innerHTML = sumHtml + `
     <div style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
@@ -4400,7 +4584,10 @@ function _renderVoleoTable(y) {
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Ha</th>
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg Voleo</th>
                 <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Sacos Voleo</th>
-                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg/Ha</th>
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg/Ha Voleo</th>
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg Tolva</th>
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Sacos Tolva</th>
+                <th style="padding:8px 12px;font-weight:600;border-bottom:2px solid var(--border);text-align:right">Kg/Ha Tolva</th>
             </tr>
         </thead>
         <tbody>
@@ -4411,9 +4598,12 @@ function _renderVoleoTable(y) {
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border)">${r.uso || '—'}</td>
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border)">${r.mes ? MESES[r.mes-1] : '—'}</td>
                 <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.ha > 0 ? r.ha.toFixed(1) : '<span style="color:#94a3b8">—</span>'}</td>
-                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.kg.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
-                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.sacos > 0 ? r.sacos.toLocaleString('es-EC',{maximumFractionDigits:1}) : (r.kg/40).toFixed(1)}</td>
-                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.kgHa !== null ? r.kgHa.toFixed(1) : '<span style="color:#94a3b8">—</span>'}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.kgVol.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.sacosVol > 0 ? r.sacosVol.toLocaleString('es-EC',{maximumFractionDigits:1}) : (r.kgVol/40).toFixed(1)}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.kgHaVol !== null ? r.kgHaVol.toFixed(1) : '<span style="color:#94a3b8">—</span>'}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.kgTol > 0 ? r.kgTol.toLocaleString('es-EC',{maximumFractionDigits:0}) : '<span style="color:#94a3b8">—</span>'}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.sacosTol > 0 ? r.sacosTol.toLocaleString('es-EC',{maximumFractionDigits:1}) : r.kgTol > 0 ? (r.kgTol/40).toFixed(1) : '<span style="color:#94a3b8">—</span>'}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:right">${r.kgHaTol !== null ? r.kgHaTol.toFixed(1) : '<span style="color:#94a3b8">—</span>'}</td>
             </tr>`).join('')}
         </tbody>
         <tfoot>
@@ -4422,6 +4612,10 @@ function _renderVoleoTable(y) {
                 <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${totalHa.toFixed(1)}</td>
                 <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${totalKg.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
                 <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${(totalSacos||totalKg/40).toFixed(1)}</td>
+                <td style="padding:8px 12px;border-top:2px solid var(--border)"></td>
+                <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${_voleoRows.reduce((s,r)=>s+r.kgTol,0).toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
+                <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${(_voleoRows.reduce((s,r)=>s+r.sacosTol,0)||_voleoRows.reduce((s,r)=>s+r.kgTol,0)/40).toFixed(1)}</td>
+                <td style="padding:8px 12px;border-top:2px solid var(--border)"></td>
                 <td style="padding:8px 12px;border-top:2px solid var(--border);text-align:right">${totalHa>0?(totalKg/totalHa).toFixed(1):'—'}</td>
             </tr>
         </tfoot>
@@ -4432,23 +4626,532 @@ function _renderVoleoTable(y) {
 
 function exportarVoleoCsv() {
     if (!_voleoRows.length) { alert('Primero consulta los datos.'); return; }
-    const y = document.getElementById('vo-year').value;
-    const bom = '﻿';
-    const MESES_CSV = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-    const head = 'Sucursal;Piscina;Uso;Mes;Ha;Kg Voleo;Sacos Voleo;Kg/Ha\n';
-    const rows = _voleoRows.map(r =>
-        [r.sub, r.pool, r.uso||'',
-         r.mes ? MESES_CSV[r.mes-1] : '',
-         r.ha>0?r.ha.toFixed(1):'',
-         r.kg.toFixed(0), (r.sacos||r.kg/40).toFixed(1),
-         r.kgHa!==null?r.kgHa.toFixed(1):''].join(';')
-    ).join('\n');
-    const blob = new Blob([bom + head + rows], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `consumo-voleo-${y}.csv`;
-    a.click();
+    const y   = document.getElementById('vo-year').value;
+    const MES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+    // ── Hoja 1: Resumen ────────────────────────────────────────────────────────
+    const bySubMesUsoExp = {};
+    _voleoRows.forEach(r => {
+        const uso = /precria/i.test(r.uso) ? 'Precriadero' : /engorde/i.test(r.uso) ? 'Engorde' : (r.uso || 'Sin uso');
+        const key = `${r.sub}__${r.mes}__${uso}`;
+        if (!bySubMesUsoExp[key]) bySubMesUsoExp[key] = { sub: r.sub, mes: r.mes, uso,
+            pools: new Set(), ha: 0, kgVol: 0, sacosVol: 0, kgTol: 0, sacosTol: 0 };
+        const s = bySubMesUsoExp[key];
+        s.pools.add(r.code);
+        s.ha += r.ha; s.kgVol += r.kgVol; s.sacosVol += r.sacosVol;
+        s.kgTol += r.kgTol; s.sacosTol += r.sacosTol;
+    });
+    const USO_O = { Engorde: 0, Precriadero: 1 };
+    const sumExp = Object.values(bySubMesUsoExp).sort((a, b) => {
+        const sc = a.sub.localeCompare(b.sub, 'es'); if (sc) return sc;
+        if (a.mes !== b.mes) return a.mes - b.mes;
+        return (USO_O[a.uso] ?? 9) - (USO_O[b.uso] ?? 9);
+    });
+    const NCOLS = 9; // columnas de datos (sin título/subtítulo)
+    const hdr1  = ['Uso','Piscinas','Ha','Kg Voleo','Sacos Voleo','Kg/Ha Voleo','Kg Tolva','Sacos Tolva','Kg/Ha Tolva'];
+    const data1 = [hdr1];
+    let lastSubExp = null; let lastMesExp = null;
+    sumExp.forEach(s => {
+        const ha    = +s.ha.toFixed(1);
+        const kgVol = +s.kgVol.toFixed(0); const sacVol = +(s.sacosVol||s.kgVol/40).toFixed(1);
+        const kgTol = +s.kgTol.toFixed(0); const sacTol = +(s.sacosTol||s.kgTol/40).toFixed(1);
+        if (s.sub !== lastSubExp) {
+            // fila de título sucursal — celda A, resto vacías
+            data1.push([s.sub, ...Array(NCOLS - 1).fill('')]);
+            lastSubExp = s.sub; lastMesExp = null;
+        }
+        if (s.mes !== lastMesExp) {
+            // fila de subtítulo mes — celda A indentada
+            data1.push([`  ${MES[s.mes-1]}`, ...Array(NCOLS - 1).fill('')]);
+            lastMesExp = s.mes;
+        }
+        data1.push(['    ' + s.uso, s.pools.size, ha,
+            kgVol, sacVol, ha > 0 && kgVol > 0 ? +(kgVol/ha).toFixed(1) : '',
+            kgTol || '', kgTol ? sacTol : '', ha > 0 && kgTol > 0 ? +(kgTol/ha).toFixed(1) : '']);
+    });
+
+    // ── Hoja 2: Detalle ────────────────────────────────────────────────────────
+    const hdr2 = ['Sucursal','Piscina','Uso','Mes','Ha',
+                   'Kg Voleo','Sacos Voleo','Kg/Ha Voleo',
+                   'Kg Tolva','Sacos Tolva','Kg/Ha Tolva'];
+    const data2 = [hdr2, ..._voleoRows.map(r => [
+        r.sub, r.pool, r.uso||'', r.mes ? MES[r.mes-1] : '',
+        r.ha > 0 ? +r.ha.toFixed(1) : '',
+        +r.kgVol.toFixed(0), +(r.sacosVol||r.kgVol/40).toFixed(1),
+        r.kgHaVol !== null ? +r.kgHaVol.toFixed(1) : '',
+        r.kgTol > 0 ? +r.kgTol.toFixed(0) : '',
+        r.kgTol > 0 ? +(r.sacosTol||r.kgTol/40).toFixed(1) : '',
+        r.kgHaTol !== null ? +r.kgHaTol.toFixed(1) : ''
+    ])];
+
+    // Construir hoja Resumen con merges para filas de título/subtítulo
+    const ws1 = XLSX.utils.aoa_to_sheet(data1);
+    const merges = [];
+    data1.forEach((row, ri) => {
+        const val = String(row[0] || '');
+        // Sucursal: sin sangría → merge toda la fila
+        // Mes: sangría 2 espacios → merge toda la fila
+        if (ri > 0 && (!/^\s{4}/.test(val))) {
+            merges.push({ s: { r: ri, c: 0 }, e: { r: ri, c: NCOLS - 1 } });
+        }
+    });
+    ws1['!merges'] = merges;
+    // Anchos de columna
+    ws1['!cols'] = [{ wch: 20 }, { wch: 10 }, { wch: 10 },
+                    { wch: 14 }, { wch: 14 }, { wch: 13 },
+                    { wch: 14 }, { wch: 14 }, { wch: 13 }];
+
+    const wb  = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data2), 'Detalle');
+    XLSX.writeFile(wb, `consumo-voleo-${y}.xlsx`);
 }
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PANTALLA: Recomendación de Alimentación
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Estado
+let _recoDataset = [];   // [{pool, ha, uso, mes, anio, kgDia, kgHaDia}]
+let _recoModel   = null; // {coefs:[b0,b1,b2], r2, rmse, vars:['const','mes','ha']}
+
+// ── Inicialización de filtros de año ─────────────────────────────────────────
+function initRecoYears() {
+    const cur = new Date().getFullYear();
+    ['rc-year-from','rc-year-to'].forEach((id, i) => {
+        const sel = document.getElementById(id);
+        if (!sel || sel.options.length) return;
+        for (let y = cur; y >= cur - 5; y--) {
+            const opt = document.createElement('option');
+            opt.value = opt.textContent = y;
+            if (i === 0 && y === cur - 1) opt.selected = true;
+            if (i === 1 && y === cur)     opt.selected = true;
+            sel.appendChild(opt);
+        }
+    });
+}
+
+// ── Álgebra lineal mínima para OLS ───────────────────────────────────────────
+function matT(A) {
+    return A[0].map((_, c) => A.map(r => r[c]));
+}
+function matMul(A, B) {
+    return A.map(ra => B[0].map((_, c) => ra.reduce((s, v, k) => s + v * B[k][c], 0)));
+}
+function matInv2(M) {
+    // Gauss-Jordan para matrices hasta 6×6
+    const n = M.length;
+    const A = M.map(r => [...r]);
+    const I = M.map((_, i) => M.map((_, j) => i === j ? 1 : 0));
+    for (let col = 0; col < n; col++) {
+        let max = Math.abs(A[col][col]); let pi = col;
+        for (let r = col + 1; r < n; r++) if (Math.abs(A[r][col]) > max) { max = Math.abs(A[r][col]); pi = r; }
+        [A[col], A[pi]] = [A[pi], A[col]]; [I[col], I[pi]] = [I[pi], I[col]];
+        const d = A[col][col]; if (Math.abs(d) < 1e-12) return null;
+        for (let c = 0; c < n; c++) { A[col][c] /= d; I[col][c] /= d; }
+        for (let r = 0; r < n; r++) {
+            if (r === col) continue;
+            const f = A[r][col];
+            for (let c = 0; c < n; c++) { A[r][c] -= f * A[col][c]; I[r][c] -= f * I[col][c]; }
+        }
+    }
+    return I;
+}
+function ols(rows) {
+    // rows: [{x: [x1,x2,...], y}]
+    // retorna {coefs, r2, rmse, yhat}
+    const X = rows.map(r => [1, ...r.x]);
+    const y = rows.map(r => r.y);
+    const Xt = matT(X);
+    const XtX = matMul(Xt, X);
+    const XtXinv = matInv2(XtX);
+    if (!XtXinv) return null;
+    const Xty = Xt.map(row => row.reduce((s, v, i) => s + v * y[i], 0));
+    const coefs = XtXinv.map(row => row.reduce((s, v, i) => s + v * Xty[i], 0));
+    const yhat  = X.map(row => row.reduce((s, v, i) => s + v * coefs[i], 0));
+    const yMean = y.reduce((a, b) => a + b, 0) / y.length;
+    const ssTot = y.reduce((s, v) => s + (v - yMean) ** 2, 0);
+    const ssRes = y.reduce((s, v, i) => s + (v - yhat[i]) ** 2, 0);
+    const r2    = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+    const rmse  = Math.sqrt(ssRes / y.length);
+    return { coefs, r2, rmse, yhat };
+}
+
+// ── Carga de datos históricos ─────────────────────────────────────────────────
+async function recoCargar() {
+    const token = getToken();
+    if (!token) { alert('Inicia sesión primero.'); return; }
+    const yFrom = +document.getElementById('rc-year-from').value;
+    const yTo   = +document.getElementById('rc-year-to').value;
+    if (yFrom > yTo) { alert('Año inicio debe ser ≤ año fin.'); return; }
+    document.getElementById('rc-status').innerHTML = '<span class="spinner"></span> Cargando...';
+    document.getElementById('rc-model-area').innerHTML = '';
+    document.getElementById('rc-dataset-area').innerHTML = '';
+    _recoDataset = [];
+
+    const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+    // Obtener todas las sucursales
+    const subs = subsidiaries.length ? subsidiaries : CAMPAMENTOS_DEFAULT;
+    const subIds = subs.map(s => s.id);
+
+    try {
+        // Cargar pools (ha) si no están cargados
+        if (!_voleoPools) {
+            const qs = new URLSearchParams({ subsidiaryIds: subIds.join(','), PageSize: 5000 });
+            subIds.forEach(id => qs.append('subsidiaryIds', id));
+            const pr = await fetch(`${API_POOLS}?${qs}`, { headers });
+            if (pr.ok) {
+                const pj = await pr.json();
+                const pools = Array.isArray(pj) ? pj : Array.isArray(pj.data?.data) ? pj.data.data
+                    : Array.isArray(pj.data) ? pj.data : Array.isArray(pj.content) ? pj.content : [];
+                _voleoPools = {};
+                pools.forEach(p => {
+                    const code = (p.codePool || '').trim();
+                    const name = (p.name || '').trim();
+                    const ha   = parseFloat(p.size) || 0;
+                    const uso  = (p.type || '').trim();
+                    const sub  = p.subsidiaryId;
+                    if (code) _voleoPools[code] = { ha, name, subId: sub, uso };
+                    if (name && !_voleoPools[name]) _voleoPools[name] = { ha, name, subId: sub, uso };
+                });
+            }
+        }
+
+        // Cargar feeding mensual por año
+        const allRows = [];
+        for (let y = yFrom; y <= yTo; y++) {
+            const qs = new URLSearchParams({ initDate: `${y}-01-01`, endDate: `${y}-12-31`,
+                timeGranularity: 'month', valueOptions: 'kg', groupBy: 'pool', PageSize: 5000 });
+            subIds.forEach(id => qs.append('subsidiaryIds', id));
+            qs.append('businessTypes', 'VoleoConsumption');
+            qs.append('businessTypes', 'HopperConsumption');
+            const rows = await _apiFeedingRows(qs.toString(), headers);
+            rows.forEach(r => { r._year = y; allRows.push(r); });
+        }
+
+        const curMes = new Date().getMonth() + 1;
+        const curY   = new Date().getFullYear();
+
+        // Construir dataset
+        allRows.forEach(r => {
+            const code = (r.groupValue || r.poolName || '').trim();
+            if (!code) return;
+            const info = _voleoPools?.[code] || {};
+            const ha   = info.ha || 0;
+            if (ha <= 0) return;
+            const df   = ['periodStart','initDate','startDate','period','monthStart'].find(f => r[f]);
+            const mes  = df ? parseInt(String(r[df]).slice(5, 7)) : (r.month || 0);
+            const anio = r._year;
+            if (!mes) return;
+            if (anio === curY && mes >= curMes) return; // excluir mes actual incompleto
+            const kgTotal = Number(r.kilograms || 0);
+            const diasMes = new Date(anio, mes, 0).getDate();
+            const kgDia   = kgTotal / diasMes;
+            const kgHaDia = kgDia / ha;
+            if (kgHaDia <= 0) return;
+            const uso = /precria/i.test(info.uso) ? 0 : 1; // 0=precriadero, 1=engorde
+            _recoDataset.push({ pool: info.name || code, code, ha, uso,
+                mes, anio, kgTotal, kgDia: +kgDia.toFixed(3), kgHaDia: +kgHaDia.toFixed(4) });
+        });
+
+        document.getElementById('rc-status').textContent = `${_recoDataset.length} registros cargados (${yFrom}–${yTo})`;
+        _ajustarModelo();
+        _renderRecoDataset();
+    } catch(e) {
+        document.getElementById('rc-status').textContent = e.status === 401 ? 'Sesión expirada.' : 'Error al cargar datos.';
+        console.error('[reco]', e);
+    }
+}
+
+// ── Ajuste del modelo OLS ─────────────────────────────────────────────────────
+function _ajustarModelo() {
+    const area = document.getElementById('rc-model-area');
+    if (_recoDataset.length < 10) {
+        area.innerHTML = '<p style="color:#f59e0b;font-size:13px">⚠ Pocos datos para ajustar un modelo confiable (mínimo 10 registros).</p>';
+        return;
+    }
+    // Variables: y = kgHaDia | x1 = mes (1-12, captura estacionalidad), x2 = uso (0/1)
+    const rows = _recoDataset.map(d => ({ x: [d.mes, d.uso], y: d.kgHaDia }));
+    const res  = ols(rows);
+    if (!res) { area.innerHTML = '<p style="color:#ef4444">Error al ajustar el modelo (matriz singular).</p>'; return; }
+    _recoModel = { coefs: res.coefs, r2: res.r2, rmse: res.rmse,
+        vars: ['Constante', 'Mes', 'Uso (Engorde=1)'], yhat: res.yhat };
+
+    const [b0, b1, b2] = res.coefs;
+    const fmt4 = n => n.toFixed(4);
+    const pct  = (res.r2 * 100).toFixed(1);
+    const R2color = res.r2 >= 0.6 ? '#16a34a' : res.r2 >= 0.35 ? '#d97706' : '#dc2626';
+
+    area.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 18px;min-width:140px">
+            <div style="font-size:10px;font-weight:700;color:#16a34a;text-transform:uppercase;margin-bottom:4px">R²</div>
+            <div style="font-size:24px;font-weight:800;color:${R2color}">${pct}%</div>
+            <div style="font-size:11px;color:#64748b">Varianza explicada</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px 18px;min-width:140px">
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">RMSE</div>
+            <div style="font-size:24px;font-weight:800;color:var(--text)">${res.rmse.toFixed(3)}</div>
+            <div style="font-size:11px;color:#64748b">kg/Ha/día (error típico)</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px 18px;min-width:160px">
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Registros</div>
+            <div style="font-size:24px;font-weight:800;color:var(--text)">${_recoDataset.length}</div>
+            <div style="font-size:11px;color:#64748b">meses × piscinas</div>
+        </div>
+    </div>
+    <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-family:monospace;font-size:13px;margin-bottom:14px">
+        <span style="color:#0369a1;font-weight:700">kg/Ha/día</span> =
+        <span style="color:#7c3aed">${fmt4(b0)}</span>
+        ${b1 >= 0 ? '+' : '−'} <span style="color:#7c3aed">${fmt4(Math.abs(b1))}</span> × Mes
+        ${b2 >= 0 ? '+' : '−'} <span style="color:#7c3aed">${fmt4(Math.abs(b2))}</span> × Uso(Engorde)
+    </div>
+    <table style="border-collapse:collapse;font-size:12px;width:auto">
+        <thead><tr style="background:var(--bg)">
+            <th style="padding:6px 14px;border-bottom:2px solid var(--border);text-align:left">Variable</th>
+            <th style="padding:6px 14px;border-bottom:2px solid var(--border);text-align:right">Coeficiente</th>
+            <th style="padding:6px 14px;border-bottom:2px solid var(--border);text-align:left">Interpretación</th>
+        </tr></thead>
+        <tbody>
+            ${_recoModel.vars.map((v, i) => `<tr style="border-bottom:1px solid #f1f5f9">
+                <td style="padding:5px 14px;font-weight:600">${v}</td>
+                <td style="padding:5px 14px;text-align:right;font-family:monospace">${fmt4(res.coefs[i])}</td>
+                <td style="padding:5px 14px;color:var(--muted);font-size:11px">${
+                    i===0 ? 'Base de alimentación (kg/Ha/día)' :
+                    i===1 ? (res.coefs[i]>=0?'Aumenta':'Disminuye')+` ${Math.abs(res.coefs[i]).toFixed(4)} kg/Ha/día por mes` :
+                    (res.coefs[i]>=0?'Engorde consume':'Precriadero consume')+` ${Math.abs(res.coefs[i]).toFixed(4)} kg/Ha/día más`
+                }</td>
+            </tr>`).join('')}
+        </tbody>
+    </table>
+    <p style="margin-top:10px;font-size:11px;color:#94a3b8">
+        ⓘ Modelo de regresión lineal múltiple (OLS). A medida que se acumulen más datos (con O₂, temperatura agua, biomasa),
+        el modelo podrá refinarse con más variables predictoras.
+    </p>`;
+}
+
+// ── Sistema de puntuación de riesgo ──────────────────────────────────────────
+function _calcRiesgo(rain, cloud, temp, o2, wtemp, prevPct) {
+    let pts = 0; const factores = [];
+    // Lluvia
+    if (rain >= 30)      { pts += 2; factores.push({ label: 'Lluvia fuerte', pts: 2 }); }
+    else if (rain >= 10) { pts += 1; factores.push({ label: 'Lluvia moderada', pts: 1 }); }
+    // Nubosidad
+    if (cloud >= 75)     { pts += 1; factores.push({ label: 'Alta nubosidad', pts: 1 }); }
+    // Temperatura ambiente
+    if (temp >= 35)      { pts += 1; factores.push({ label: 'Temperatura ambiente alta', pts: 1 }); }
+    // O₂
+    if (o2 < 3)          { pts += 3; factores.push({ label: 'O₂ crítico (<3 mg/L)', pts: 3 }); }
+    else if (o2 < 4)     { pts += 2; factores.push({ label: 'O₂ bajo (<4 mg/L)', pts: 2 }); }
+    else if (o2 < 5)     { pts += 1; factores.push({ label: 'O₂ moderado (<5 mg/L)', pts: 1 }); }
+    // Temperatura agua
+    if (wtemp >= 32 || wtemp <= 22) { pts += 1; factores.push({ label: 'Temp. agua fuera de rango', pts: 1 }); }
+    // Consumo anterior
+    if (prevPct < 80)    { pts += 3; factores.push({ label: 'Consumo anterior muy bajo (<80%)', pts: 3 }); }
+    else if (prevPct < 90){ pts += 1; factores.push({ label: 'Consumo anterior bajo (<90%)', pts: 1 }); }
+
+    let nivel, ajuste, color, emoji;
+    if (pts >= 9)       { nivel = 'Crítico';  ajuste = 0.80; color = '#dc2626'; emoji = '🔴'; }
+    else if (pts >= 6)  { nivel = 'Alto';     ajuste = 0.85; color = '#ea580c'; emoji = '🟠'; }
+    else if (pts >= 3)  { nivel = 'Medio';    ajuste = 0.92; color = '#ca8a04'; emoji = '🟡'; }
+    else                { nivel = 'Bajo';     ajuste = 1.00; color = '#16a34a'; emoji = '🟢'; }
+
+    return { pts, nivel, ajuste, color, emoji, factores };
+}
+
+// ── Cargar clima desde Open-Meteo ─────────────────────────────────────────────
+async function recoClima() {
+    // Usar coordenadas de Naranjal (centro de operaciones) como referencia
+    const LAT = -2.67; const LON = -79.62;
+    try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
+            `&daily=precipitation_sum,cloud_cover_mean,temperature_2m_max&timezone=America/Guayaquil&forecast_days=1`;
+        const r = await fetch(url);
+        const j = await r.json();
+        const rain  = j.daily?.precipitation_sum?.[0] ?? 0;
+        const cloud = j.daily?.cloud_cover_mean?.[0] ?? 50;
+        const temp  = j.daily?.temperature_2m_max?.[0] ?? 28;
+        document.getElementById('rc-rain').value  = rain.toFixed(1);
+        document.getElementById('rc-cloud').value = Math.round(cloud);
+        document.getElementById('rc-temp').value  = temp.toFixed(1);
+    } catch(e) {
+        alert('No se pudo obtener el clima de Open-Meteo.');
+    }
+}
+
+// ── Calcular recomendación ────────────────────────────────────────────────────
+function recoCalcular() {
+    const area = document.getElementById('rc-result-area');
+    const rain    = parseFloat(document.getElementById('rc-rain').value)  || 0;
+    const cloud   = parseFloat(document.getElementById('rc-cloud').value) || 0;
+    const temp    = parseFloat(document.getElementById('rc-temp').value)  || 28;
+    const o2      = parseFloat(document.getElementById('rc-o2').value)    || 5;
+    const wtemp   = parseFloat(document.getElementById('rc-wtemp').value) || 28;
+    const prevPct = parseFloat(document.getElementById('rc-prev').value)  || 95;
+
+    const riesgo = _calcRiesgo(rain, cloud, temp, o2, wtemp, prevPct);
+    const curMes = new Date().getMonth() + 1;
+
+    // Obtener piscinas con datos (de _voleoPools o de _recoDataset)
+    let piscinas = [];
+    if (_recoDataset.length) {
+        // Agrupar las piscinas únicas del dataset con su último promedio
+        const byPool = {};
+        _recoDataset.forEach(d => {
+            if (!byPool[d.code]) byPool[d.code] = { ...d, count: 0, sumKgHaDia: 0 };
+            byPool[d.code].count++;
+            byPool[d.code].sumKgHaDia += d.kgHaDia;
+        });
+        piscinas = Object.values(byPool).map(p => ({
+            pool: p.pool, code: p.code, ha: p.ha, uso: p.uso,
+            kgHaDiaBase: p.sumKgHaDia / p.count
+        }));
+    } else if (_voleoPools) {
+        piscinas = Object.entries(_voleoPools)
+            .filter(([k, v]) => /^[A-Z]{2}-\d/.test(k) && v.ha > 0)
+            .map(([code, v]) => {
+                // Estimar base desde modelo si existe
+                const uso = /precria/i.test(v.uso) ? 0 : 1;
+                const kgHaDiaBase = _recoModel
+                    ? _recoModel.coefs[0] + _recoModel.coefs[1]*curMes + _recoModel.coefs[2]*uso
+                    : null;
+                return { pool: v.name || code, code, ha: v.ha, uso, kgHaDiaBase };
+            });
+    }
+
+    if (!piscinas.length) {
+        area.innerHTML = '<p style="color:#f59e0b;font-size:13px">⚠ Carga primero el historial o el catálogo de piscinas.</p>';
+        return;
+    }
+
+    // Predicción con modelo si existe, si no usar promedio histórico
+    const diasMes = new Date(new Date().getFullYear(), curMes, 0).getDate();
+    const rows = piscinas
+        .filter(p => p.ha > 0 && p.kgHaDiaBase !== null && p.kgHaDiaBase > 0)
+        .sort((a, b) => a.pool.localeCompare(b.pool, 'es', { numeric: true }))
+        .map(p => {
+            const kgHaDiaBase = _recoModel
+                ? Math.max(0, _recoModel.coefs[0] + _recoModel.coefs[1]*curMes + _recoModel.coefs[2]*p.uso)
+                : p.kgHaDiaBase;
+            const kgDiaBase  = kgHaDiaBase * p.ha;
+            const kgMesBase  = kgDiaBase * diasMes;
+            const kgMesReco  = kgMesBase * riesgo.ajuste;
+            const kgDiaReco  = kgMesReco / diasMes;
+            const diff       = kgMesReco - kgMesBase;
+            const usoLabel   = p.uso === 1 ? 'Engorde' : 'Precriadero';
+            return { ...p, kgHaDiaBase, kgDiaBase, kgMesBase, kgMesReco, kgDiaReco, diff, usoLabel };
+        });
+
+    // Panel de riesgo
+    const factoresHtml = riesgo.factores.length
+        ? riesgo.factores.map(f => `<li style="margin:2px 0">${f.emoji || '▸'} ${f.label} <span style="color:${riesgo.color};font-weight:700">+${f.pts}</span></li>`).join('')
+        : '<li style="color:#64748b">Sin factores de riesgo detectados</li>';
+
+    const totalBase = rows.reduce((s, r) => s + r.kgMesBase, 0);
+    const totalReco = rows.reduce((s, r) => s + r.kgMesReco, 0);
+    const ahorro    = totalBase - totalReco;
+
+    area.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px">
+        <div style="background:${riesgo.color}18;border:2px solid ${riesgo.color};border-radius:10px;padding:14px 20px;min-width:180px">
+            <div style="font-size:11px;font-weight:700;color:${riesgo.color};text-transform:uppercase;margin-bottom:4px">Nivel de Riesgo</div>
+            <div style="font-size:28px;font-weight:800;color:${riesgo.color}">${riesgo.emoji} ${riesgo.nivel}</div>
+            <div style="font-size:12px;color:#64748b;margin-top:4px">${riesgo.pts} puntos · Ajuste ${((1-riesgo.ajuste)*100).toFixed(0)}%</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px 20px">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Factores detectados</div>
+            <ul style="list-style:none;font-size:12px;margin:0;padding:0">${factoresHtml}</ul>
+        </div>
+        ${ahorro > 0 ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 20px">
+            <div style="font-size:11px;font-weight:700;color:#16a34a;text-transform:uppercase;margin-bottom:4px">Ahorro estimado (mes)</div>
+            <div style="font-size:24px;font-weight:800;color:#15803d">${ahorro.toLocaleString('es-EC',{maximumFractionDigits:0})} kg</div>
+            <div style="font-size:12px;color:#64748b;margin-top:4px">${(ahorro/40).toFixed(0)} sacos aprox.</div>
+        </div>` : ''}
+    </div>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--bg);text-align:left">
+            <th style="padding:7px 10px;border-bottom:2px solid var(--border)">Piscina</th>
+            <th style="padding:7px 10px;border-bottom:2px solid var(--border)">Uso</th>
+            <th style="padding:7px 10px;border-bottom:2px solid var(--border);text-align:right">Ha</th>
+            <th style="padding:7px 10px;border-bottom:2px solid var(--border);text-align:right">Kg/Ha/día base</th>
+            <th style="padding:7px 10px;border-bottom:2px solid var(--border);text-align:right">Kg/día base</th>
+            <th style="padding:7px 10px;border-bottom:2px solid var(--border);text-align:right">Kg mes base</th>
+            <th style="padding:7px 10px;border-bottom:2px solid var(--border);text-align:right">Ajuste</th>
+            <th style="padding:7px 10px;border-bottom:2px solid var(--border);text-align:right">Kg mes recomendado</th>
+            <th style="padding:7px 10px;border-bottom:2px solid var(--border);text-align:right">Diferencia</th>
+        </tr></thead>
+        <tbody>
+        ${rows.map((r, i) => `<tr style="background:${i%2===0?'white':'var(--bg)'}">
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:600">${r.pool}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border)">
+                <span style="padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;background:${r.uso?'#dcfce7':'#e0f2fe'};color:${r.uso?'#166534':'#0369a1'}">${r.usoLabel}</span>
+            </td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${r.ha.toFixed(1)}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${r.kgHaDiaBase.toFixed(3)}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${r.kgDiaBase.toFixed(1)}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${r.kgMesBase.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;color:${riesgo.color};font-weight:700">${riesgo.ajuste===1?'—':((riesgo.ajuste-1)*100).toFixed(0)+'%'}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:${riesgo.ajuste<1?'#0369a1':'var(--text)'}">
+                ${r.kgMesReco.toLocaleString('es-EC',{maximumFractionDigits:0})}
+            </td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;color:${r.diff<0?'#16a34a':'var(--muted)'}">
+                ${r.diff<0?r.diff.toLocaleString('es-EC',{maximumFractionDigits:0}):'—'}
+            </td>
+        </tr>`).join('')}
+        </tbody>
+        <tfoot><tr style="background:#f1f5f9;font-weight:700">
+            <td colspan="5" style="padding:7px 10px;border-top:2px solid var(--border)">TOTAL</td>
+            <td style="padding:7px 10px;border-top:2px solid var(--border);text-align:right">${totalBase.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
+            <td style="padding:7px 10px;border-top:2px solid var(--border)"></td>
+            <td style="padding:7px 10px;border-top:2px solid var(--border);text-align:right">${totalReco.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
+            <td style="padding:7px 10px;border-top:2px solid var(--border);text-align:right;color:#16a34a">${ahorro>0?'-'+ahorro.toLocaleString('es-EC',{maximumFractionDigits:0}):'—'}</td>
+        </tr></tfoot>
+    </table>
+    </div>`;
+}
+
+// ── Dataset preview ───────────────────────────────────────────────────────────
+function _renderRecoDataset() {
+    const area = document.getElementById('rc-dataset-area');
+    const MN   = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const show  = _recoDataset.slice(0, 100);
+    area.innerHTML = `
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Mostrando ${show.length} de ${_recoDataset.length} registros usados en el modelo.</p>
+    <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;width:100%">
+        <thead><tr style="background:var(--bg)">
+            <th style="padding:6px 10px;border-bottom:2px solid var(--border)">Piscina</th>
+            <th style="padding:6px 10px;border-bottom:2px solid var(--border)">Uso</th>
+            <th style="padding:6px 10px;border-bottom:2px solid var(--border);text-align:right">Ha</th>
+            <th style="padding:6px 10px;border-bottom:2px solid var(--border);text-align:right">Año</th>
+            <th style="padding:6px 10px;border-bottom:2px solid var(--border);text-align:right">Mes</th>
+            <th style="padding:6px 10px;border-bottom:2px solid var(--border);text-align:right">Kg total</th>
+            <th style="padding:6px 10px;border-bottom:2px solid var(--border);text-align:right">Kg/día</th>
+            <th style="padding:6px 10px;border-bottom:2px solid var(--border);text-align:right">Kg/Ha/día</th>
+        </tr></thead>
+        <tbody>${show.map((d, i) => `<tr style="background:${i%2===0?'white':'var(--bg)'}">
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border)">${d.pool}</td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border)">${d.uso?'Engorde':'Precriadero'}</td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border);text-align:right">${d.ha.toFixed(1)}</td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border);text-align:right">${d.anio}</td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border);text-align:right">${MN[d.mes-1]}</td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border);text-align:right">${d.kgTotal.toLocaleString('es-EC',{maximumFractionDigits:0})}</td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border);text-align:right">${d.kgDia.toFixed(1)}</td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border);text-align:right">${d.kgHaDia.toFixed(4)}</td>
+        </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+// Inicializar años al mostrar la pantalla
+document.addEventListener('DOMContentLoaded', () => {
+    const orig = window.showScreen;
+    window.showScreen = function(name) {
+        orig(name);
+        if (name === 'reco') initRecoYears();
+    };
+    initRecoYears();
+});
 
 </script>
 </body>
