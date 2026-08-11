@@ -2053,18 +2053,20 @@ async function sapCargarExcelDesdeD1() {
         const rows = json.data || [];
         // Mapear columnas D1 al formato compacto interno {o,m,d,q,i,a,f,u,dm,pd,mv}
         _sapExcelRows = rows.map(function(r) {
+            var mv   = String(r.tipo_movimiento || '').trim();
+            var sign = (mv === '262') ? -1 : 1;
             return {
                 o:  r.orden_control        || '',
                 m:  r.codigo_material      || '',
                 d:  r.descripcion          || '',
-                q:  parseFloat(r.cantidad) || 0,
-                i:  parseFloat(r.importe)  || 0,
+                q:  sign * Math.abs(parseFloat(r.cantidad) || 0),
+                i:  sign * Math.abs(parseFloat(r.importe)  || 0),
                 a:  r.almacen              || '',
                 f:  r.fecha                || '',
                 u:  r.unidad               || '',
                 dm: r.documento_material   || '',
                 pd: r.posicion_doc         || '',
-                mv: r.tipo_movimiento      || ''
+                mv: mv
             };
         });
         // Última fecha de los registros cargados → "Actualizado hasta"
