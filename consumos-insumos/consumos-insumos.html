@@ -2052,22 +2052,35 @@ async function sapCargarExcelDesdeD1() {
         const json = await res.json();
         const rows = json.data || [];
         // Mapear columnas D1 al formato compacto interno {o,m,d,q,i,a,f,u,dm,pd,mv}
-        _sapExcelRows = rows.map(function(r) {
-            var mv   = String(r.tipo_movimiento || '').trim();
-            var sign = (mv === '262') ? -1 : 1;
+        var allRows = rows.map(function(r) {
             return {
                 o:  r.orden_control        || '',
                 m:  r.codigo_material      || '',
                 d:  r.descripcion          || '',
-                q:  sign * Math.abs(parseFloat(r.cantidad) || 0),
-                i:  sign * Math.abs(parseFloat(r.importe)  || 0),
+                q:  parseFloat(r.cantidad) || 0,
+                i:  parseFloat(r.importe)  || 0,
                 a:  r.almacen              || '',
                 f:  r.fecha                || '',
                 u:  r.unidad               || '',
                 dm: r.documento_material   || '',
                 pd: r.posicion_doc         || '',
-                mv: mv
+                mv: String(r.tipo_movimiento || '').trim()
             };
+        });
+        // Excluir 261 que tienen su anulación 262 (misma orden + material + almacen + cantidad)
+        // Un 262 cancela exactamente un 261 con igual orden, material, almacen y cantidad absoluta
+        var canceladas = {};
+        allRows.forEach(function(r) {
+            if (r.mv === '262') {
+                var k = r.o + '||' + r.m + '||' + r.a + '||' + Math.abs(r.q).toFixed(4);
+                canceladas[k] = (canceladas[k] || 0) + 1;
+            }
+        });
+        _sapExcelRows = allRows.filter(function(r) {
+            if (r.mv !== '261') return false; // solo consumos
+            var k = r.o + '||' + r.m + '||' + r.a + '||' + Math.abs(r.q).toFixed(4);
+            if (canceladas[k] > 0) { canceladas[k]--; return false; } // anulado
+            return true;
         });
         // Última fecha de los registros cargados → "Actualizado hasta"
         var maxFecha = _sapExcelRows.reduce(function(mx, r) { return r.f > mx ? r.f : mx; }, '');
