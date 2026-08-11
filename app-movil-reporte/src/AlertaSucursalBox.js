@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Share, Platform } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MailComposer from 'expo-mail-composer';
 import { REPORTE_URL, COLUMNAS_ORDEN } from './config';
 import { obtenerCorreos } from './correosStorage';
@@ -38,17 +39,32 @@ export default function AlertaSucursalBox({ sucursal, token, onSesionExpirada, o
     return () => { activo = false; };
   }, [sucursal.id, token]);
 
+  function mensajeAlerta() {
+    const esPlural = alertas.length > 1;
+    const frase = esPlural
+      ? 'por favor revisar las siguientes piscinas en la app'
+      : 'por favor revisar la siguiente piscina en la app';
+    return `${sucursal.nombre}: ${frase}`;
+  }
+
   async function compartirPorWhatsApp() {
     if (!capturaRef.current) return;
     setCompartiendo(true);
     try {
       const uri = await captureRef(capturaRef, { format: 'png', quality: 1 });
-      const disponible = await Sharing.isAvailableAsync();
-      if (!disponible) {
-        setError('Compartir no está disponible en este dispositivo');
-        return;
+      const mensaje = mensajeAlerta();
+
+      if (Platform.OS === 'android') {
+        const contentUri = await FileSystem.getContentUriAsync(uri);
+        await Share.share({ message: mensaje, url: contentUri }, { dialogTitle: `Alertas ${sucursal.nombre}` });
+      } else {
+        const disponible = await Sharing.isAvailableAsync();
+        if (!disponible) {
+          setError('Compartir no está disponible en este dispositivo');
+          return;
+        }
+        await Share.share({ message: mensaje, url: uri });
       }
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: `Alertas ${sucursal.nombre}` });
     } catch (e) {
       setError('No se pudo generar la imagen para compartir');
     } finally {

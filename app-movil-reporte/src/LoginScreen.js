@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Image, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { LOGIN_URL, CODE_APPLICATION } from './config';
+import { LOGO_NATURISA_BASE64 } from './logoNaturisa';
 
 export default function LoginScreen({ onLogin }) {
   const [usuario, setUsuario] = useState('');
@@ -50,6 +51,11 @@ export default function LoginScreen({ onLogin }) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <Image
+        source={{ uri: `data:image/jpeg;base64,${LOGO_NATURISA_BASE64}` }}
+        style={styles.logo}
+        resizeMode="contain"
+      />
       <Text style={styles.titulo}>Reporte Diario Naturisa</Text>
 
       <TextInput
@@ -80,6 +86,7 @@ export default function LoginScreen({ onLogin }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#F4F6F8' },
+  logo: { width: 180, height: 100, alignSelf: 'center', marginBottom: 16 },
   titulo: { fontSize: 20, fontWeight: 'bold', color: '#4F6D8C', textAlign: 'center', marginBottom: 32 },
   input: {
     backgroundColor: '#fff', borderWidth: 1, borderColor: '#D0D8E4', borderRadius: 8,
