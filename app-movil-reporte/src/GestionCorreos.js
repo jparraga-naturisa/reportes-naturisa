@@ -1,20 +1,37 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { obtenerCorreos, guardarCorreos } from './correosStorage';
+import {
+  obtenerCorreosCosechaPara, guardarCorreosCosechaPara,
+  obtenerCorreosCosechaCc, guardarCorreosCosechaCc,
+} from './correosStorage';
+
+const GRUPOS = [
+  { clave: 'cosechaPara', titulo: 'Cosecha · Para', obtener: obtenerCorreosCosechaPara, guardar: guardarCorreosCosechaPara },
+  { clave: 'cosechaCc', titulo: 'Cosecha · CC', obtener: obtenerCorreosCosechaCc, guardar: guardarCorreosCosechaCc },
+];
 
 function esCorreoValido(texto) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(texto.trim());
 }
 
 export default function GestionCorreos({ onVolver }) {
-  const [correos, setCorreos] = useState([]);
+  const [grupoActivo, setGrupoActivo] = useState('cosechaPara');
+  const [listas, setListas] = useState({});
   const [nuevo, setNuevo] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    obtenerCorreos().then((lista) => { setCorreos(lista); setCargando(false); });
+    Promise.all(GRUPOS.map((g) => g.obtener())).then((resultados) => {
+      const mapa = {};
+      GRUPOS.forEach((g, i) => { mapa[g.clave] = resultados[i]; });
+      setListas(mapa);
+      setCargando(false);
+    });
   }, []);
+
+  const grupo = GRUPOS.find((g) => g.clave === grupoActivo);
+  const correos = listas[grupoActivo] || [];
 
   async function agregar() {
     const correo = nuevo.trim().toLowerCase();
@@ -27,16 +44,16 @@ export default function GestionCorreos({ onVolver }) {
       return;
     }
     const lista = [...correos, correo];
-    setCorreos(lista);
+    setListas((prev) => ({ ...prev, [grupoActivo]: lista }));
     setNuevo('');
     setError('');
-    await guardarCorreos(lista);
+    await grupo.guardar(lista);
   }
 
   async function quitar(correo) {
     const lista = correos.filter((c) => c !== correo);
-    setCorreos(lista);
-    await guardarCorreos(lista);
+    setListas((prev) => ({ ...prev, [grupoActivo]: lista }));
+    await grupo.guardar(lista);
   }
 
   if (cargando) {
@@ -50,6 +67,18 @@ export default function GestionCorreos({ onVolver }) {
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>Correos para alertas</Text>
+
+      <View style={styles.pestanas}>
+        {GRUPOS.map((g) => (
+          <TouchableOpacity
+            key={g.clave}
+            style={[styles.pestana, grupoActivo === g.clave && styles.pestanaActiva]}
+            onPress={() => { setGrupoActivo(g.clave); setError(''); }}
+          >
+            <Text style={[styles.pestanaTexto, grupoActivo === g.clave && styles.pestanaTextoActivo]}>{g.titulo}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <View style={styles.filaAgregar}>
         <TextInput
@@ -95,6 +124,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F6F8' },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6F8' },
   titulo: { fontSize: 15, fontWeight: 'bold', color: '#4F6D8C', textAlign: 'center', paddingVertical: 10, paddingHorizontal: 16 },
+  pestanas: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 10, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#D0D8E4' },
+  pestana: { flex: 1, paddingVertical: 8, alignItems: 'center', backgroundColor: '#fff' },
+  pestanaActiva: { backgroundColor: '#4F6D8C' },
+  pestanaTexto: { color: '#4F6D8C', fontWeight: '600', fontSize: 11 },
+  pestanaTextoActivo: { color: '#fff' },
   filaAgregar: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 6 },
   input: {
     flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#D0D8E4', borderRadius: 8,

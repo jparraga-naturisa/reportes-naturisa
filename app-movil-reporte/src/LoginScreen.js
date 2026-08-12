@@ -71,6 +71,8 @@ export default function LoginScreen({ onLogin }) {
         secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
+        importantForAutofill="no"
+        textContentType="oneTimeCode"
         value={password}
         onChangeText={setPassword}
       />

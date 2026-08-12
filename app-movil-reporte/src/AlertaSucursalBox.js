@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Share, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
-import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as MailComposer from 'expo-mail-composer';
+import { compartirWhatsapp } from './compartirWhatsapp';
 import { REPORTE_URL, COLUMNAS_ORDEN } from './config';
-import { obtenerCorreos } from './correosStorage';
 
 function hoyEcuador() {
   const d = new Date(Date.now() - 5 * 60 * 60 * 1000);
@@ -17,7 +14,6 @@ export default function AlertaSucursalBox({ sucursal, token, onSesionExpirada, o
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [compartiendo, setCompartiendo] = useState(false);
-  const [enviandoCorreo, setEnviandoCorreo] = useState(false);
   const capturaRef = useRef(null);
 
   useEffect(() => {
@@ -53,46 +49,11 @@ export default function AlertaSucursalBox({ sucursal, token, onSesionExpirada, o
     try {
       const uri = await captureRef(capturaRef, { format: 'png', quality: 1 });
       const mensaje = mensajeAlerta();
-
-      if (Platform.OS === 'android') {
-        const contentUri = await FileSystem.getContentUriAsync(uri);
-        await Share.share({ message: mensaje, url: contentUri }, { dialogTitle: `Alertas ${sucursal.nombre}` });
-      } else {
-        const disponible = await Sharing.isAvailableAsync();
-        if (!disponible) {
-          setError('Compartir no está disponible en este dispositivo');
-          return;
-        }
-        await Share.share({ message: mensaje, url: uri });
-      }
+      await compartirWhatsapp(uri, mensaje, `Alertas ${sucursal.nombre}`);
     } catch (e) {
       setError('No se pudo generar la imagen para compartir');
     } finally {
       setCompartiendo(false);
-    }
-  }
-
-  async function compartirPorCorreo() {
-    if (!capturaRef.current) return;
-    setEnviandoCorreo(true);
-    try {
-      const disponible = await MailComposer.isAvailableAsync();
-      if (!disponible) {
-        setError('No hay una app de correo configurada en este dispositivo');
-        return;
-      }
-      const uri = await captureRef(capturaRef, { format: 'png', quality: 1 });
-      const correos = await obtenerCorreos();
-      await MailComposer.composeAsync({
-        recipients: correos,
-        subject: `Alertas ${sucursal.nombre} - ${datos?.fecha || ''}`,
-        body: `Reporte de alertas de ${sucursal.nombre} generado desde la app Naturisa.`,
-        attachments: [uri],
-      });
-    } catch (e) {
-      setError('No se pudo enviar el correo');
-    } finally {
-      setEnviandoCorreo(false);
     }
   }
 
@@ -150,26 +111,15 @@ export default function AlertaSucursalBox({ sucursal, token, onSesionExpirada, o
         )}
       </View>
 
-      <View style={styles.filaBotones}>
-        <TouchableOpacity
-          style={[styles.botonWhatsapp, compartiendo && styles.botonDeshabilitado]}
-          onPress={compartirPorWhatsApp}
-          disabled={compartiendo}
-        >
-          {compartiendo
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.botonWhatsappTexto}>WhatsApp</Text>}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.botonCorreo, enviandoCorreo && styles.botonDeshabilitado]}
-          onPress={compartirPorCorreo}
-          disabled={enviandoCorreo}
-        >
-          {enviandoCorreo
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.botonCorreoTexto}>Correo</Text>}
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        style={[styles.botonWhatsapp, compartiendo && styles.botonDeshabilitado]}
+        onPress={compartirPorWhatsApp}
+        disabled={compartiendo}
+      >
+        {compartiendo
+          ? <ActivityIndicator color="#fff" />
+          : <Text style={styles.botonWhatsappTexto}>Compartir por WhatsApp</Text>}
+      </TouchableOpacity>
     </View>
   );
 }
@@ -193,14 +143,9 @@ const styles = StyleSheet.create({
   colPsc: { flex: 1.3, textAlign: 'left' },
   celdaPsc: { fontWeight: '600' },
   celdaDestacada: { fontWeight: 'bold', color: '#3D5A75' },
-  filaBotones: { flexDirection: 'row' },
   botonWhatsapp: {
-    flex: 1, backgroundColor: '#4E9B6F', paddingVertical: 12, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#4E9B6F', paddingVertical: 12, justifyContent: 'center', alignItems: 'center',
   },
   botonWhatsappTexto: { color: '#fff', fontWeight: 'bold' },
-  botonCorreo: {
-    flex: 1, backgroundColor: '#4F6D8C', paddingVertical: 12, justifyContent: 'center', alignItems: 'center',
-  },
-  botonCorreoTexto: { color: '#fff', fontWeight: 'bold' },
   botonDeshabilitado: { opacity: 0.6 },
 });

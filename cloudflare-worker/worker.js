@@ -181,6 +181,66 @@ async function handleDbReporteDiario(request, url) {
   return corsResponse(JSON.stringify({ fecha, filas, alertas, totalPiscinas: filas.length, totalAlertas: alertas.length }), 200, request)
 }
 
+// ── Alerta de cosecha Pre-Final sin Final (app movil) ──────────────────────
+// Entre la cosecha Pre-Final y la Final no puede pasar mas de 7 dias. Este
+// endpoint busca ciclos con una cosecha tipo PRE-FINAL registrada que aun no
+// tengan una cosecha FINAL, y devuelve cuantos dias pasaron desde el Pre-Final.
+// GET /db/alertas-cosecha?subsidiaryId=<id>&dias=<ventana>  (dias default: 45)
+
+const HARVESTS_PATH = '/bff/web/ap1/backoffice/api/report_harvest/HarvestsByDate'
+
+async function handleDbAlertasCosecha(request, url) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const subsidiaryIds = url.searchParams.getAll('subsidiaryId')
+  const idsAUsar = subsidiaryIds.length ? subsidiaryIds : REPORTE_SUBSIDIARY_IDS
+  const diasVentana = parseInt(url.searchParams.get('dias') || '45', 10)
+
+  const hoy = ecuadorNowISO().slice(0, 10)
+  const desde = new Date(Date.now() - diasVentana * 86400000).toISOString().slice(0, 10)
+
+  const sp = new URLSearchParams()
+  for (const id of idsAUsar) sp.append('subsidiaryIds', id)
+  sp.set('startDate', desde); sp.set('endDate', hoy)
+
+  const res = await fetch(GATEWAY + HARVESTS_PATH + '?' + sp, { method: 'GET', headers: request.headers })
+  if (!res.ok) return corsResponse(JSON.stringify({ error: 'gateway respondio ' + res.status }), res.status, request)
+  const json = await res.json()
+  const registros = json.data || []
+
+  const porCiclo = new Map()
+  for (const r of registros) {
+    if (!r.cycleId) continue
+    let info = porCiclo.get(r.cycleId)
+    if (!info) {
+      info = { cycleId: r.cycleId, cycleCode: r.cycleCode, subsidiary: r.subsidiary, subsidiaryCode: r.subsidiaryCode,
+        poolName: r.poolName, customerName: r.customerName, tieneFinal: false, fechaPreFinal: null }
+      porCiclo.set(r.cycleId, info)
+    }
+    if (r.harvestType === 'FINAL') info.tieneFinal = true
+    if (r.harvestType === 'PRE-FINAL') {
+      if (!info.fechaPreFinal || r.endHarvest > info.fechaPreFinal) info.fechaPreFinal = r.endHarvest
+    }
+  }
+
+  // Diferencia en dias calendario (Ecuador), no en horas/milisegundos, para evitar
+  // que el desfase de zona horaria del campo endHarvest (sin offset explicito) sume
+  // un dia de mas o de menos segun la hora en que corra este endpoint.
+  const hoyMsUTC = Date.parse(hoy + 'T00:00:00Z')
+  const alertas = [...porCiclo.values()]
+    .filter(c => c.fechaPreFinal && !c.tieneFinal)
+    .map(c => {
+      const fechaPreFinal = c.fechaPreFinal.slice(0, 10)
+      return {
+        cycleCode: c.cycleCode, subsidiary: c.subsidiary, subsidiaryCode: c.subsidiaryCode,
+        poolName: c.poolName, customerName: c.customerName, fechaPreFinal,
+        diasTranscurridos: Math.round((hoyMsUTC - Date.parse(fechaPreFinal + 'T00:00:00Z')) / 86400000),
+      }
+    })
+    .sort((a, b) => b.diasTranscurridos - a.diasTranscurridos)
+
+  return corsResponse(JSON.stringify({ alertas, total: alertas.length }), 200, request)
+}
+
 // ── Tablas propias en D1 (compartidas entre todos los dashboards) ─────────
 // Todas las columnas y claves JSON de estos endpoints estan en espanol.
 //
@@ -1688,6 +1748,10 @@ export default {
 
     if (url.pathname === '/db/reporte-diario') {
       return handleDbReporteDiario(request, url)
+    }
+
+    if (url.pathname === '/db/alertas-cosecha') {
+      return handleDbAlertasCosecha(request, url)
     }
 
     if (url.pathname === '/db/sucursales' && env.db) {
