@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Naturisa - Mareas Gabarras</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --primary: #1a3a5c;
+    --primary-dark: #122943;
+    --primary-light: #2d6a9f;
+    --accent: #00b4d8;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --bg: #eef2f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --border: #e5e5ea;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --ink-muted: #898781;
+}
+html { height: 100%; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100%; margin: 0; }
+
+.header { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; padding: 14px 24px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.18); position: sticky; top: 0; z-index: 100; }
+.header-top-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.header-logo { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.header-logo-mark { width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.header-titles { display: flex; flex-direction: column; line-height: 1.25; }
+.header-titles .title { font-size: 18px; font-weight: 700; letter-spacing: 0.2px; }
+.header-titles .subtitle { font-size: 12.5px; font-weight: 500; opacity: 0.7; letter-spacing: 0.3px; }
+.header-logo .accent { color: var(--accent); }
+
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.fg { display: flex; flex-direction: column; gap: 5px; }
+.fg label { font-size: 10.5px; font-weight: 700; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.6px; }
+.fg input, .fg select { height: 34px; padding: 0 11px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; font-size: 14px; background: rgba(255,255,255,0.1); color: white; }
+.fg input[type="date"] { width: 150px; }
+.fg input[type="number"] { width: 90px; }
+.fg select { min-width: 170px; }
+.fg select option { color: #1d1d1f; }
+.btn-apply { height: 34px; padding: 0 22px; background: var(--accent); color: var(--primary-dark); border: none; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 700; }
+.btn-apply:hover { opacity: 0.88; }
+.btn-ghost { height: 34px; padding: 0 18px; background: rgba(255,255,255,0.14); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; cursor: pointer; font-size: 13.5px; font-weight: 600; }
+.btn-ghost:hover { background: rgba(255,255,255,0.22); }
+.btn-icon { border: none; background: none; cursor: pointer; font-size: 16px; color: var(--danger); padding: 2px 6px; }
+
+.main { padding: 16px 20px; max-width: 1400px; margin: 0 auto; }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-icon { font-size: 40px; margin-bottom: 10px; }
+
+.rutas-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid var(--border); margin-bottom: 16px; overflow: hidden; }
+.section-title { padding: 12px 18px; font-size: 15px; font-weight: 700; color: var(--primary); background: #f8fafc; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.rutas-tbl-wrap { overflow-x: auto; }
+table.rutas-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.rutas-tbl th { padding: 8px 10px; text-align: left; font-weight: 700; color: #334155; background: #f8fafc; border-bottom: 2px solid var(--border); white-space: nowrap; }
+.rutas-tbl td { padding: 7px 10px; border-bottom: 1px solid #f1f1f3; vertical-align: middle; }
+.rutas-tbl select, .rutas-tbl input { height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: 7px; font-size: 13.5px; background: white; color: var(--text); }
+.rutas-tbl select { min-width: 150px; }
+.rutas-tbl input[type="number"] { width: 78px; }
+.rutas-add-row { padding: 10px 18px; }
+
+.resultados { display: flex; flex-direction: column; gap: 14px; }
+.ruta-result { background: white; border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid var(--border); overflow: hidden; }
+.ruta-result-head { padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.ruta-result-title { font-size: 15px; font-weight: 700; color: var(--primary); }
+.ruta-result-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.ruta-result-body { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0; }
+@media (max-width: 900px) { .ruta-result-body { grid-template-columns: 1fr; } }
+.ruta-chart-box { padding: 14px 18px; border-right: 1px solid var(--border); }
+@media (max-width: 900px) { .ruta-chart-box { border-right: none; border-bottom: 1px solid var(--border); } }
+.ruta-chart-box canvas { max-height: 220px; }
+.ventanas-list { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+.ventana-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-radius: 9px; background: #f8fafc; border: 1px solid var(--border); }
+.ventana-item.rec { background: #ecfdf5; border-color: #a7f3d0; }
+.ventana-item .vi-left { display: flex; flex-direction: column; gap: 2px; }
+.ventana-item .vi-salida { font-size: 16px; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
+.ventana-item .vi-meta { font-size: 11.5px; color: var(--muted); }
+.ventana-item .vi-tag { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.3px; }
+.ventana-item .vi-tag.alta { background: #dbeafe; color: #1d4ed8; }
+.ventana-item .vi-tag.umbral { background: #fef3c7; color: #92400e; }
+.ventana-item .vi-badge { font-size: 10.5px; font-weight: 700; color: var(--success); background: #d1fae5; padding: 3px 9px; border-radius: 999px; }
+.ventana-item .vi-warn { font-size: 10.5px; font-weight: 700; color: var(--danger); }
+.no-ventanas { padding: 18px; text-align: center; color: var(--muted); font-size: 13px; }
+
+.loading-inline { padding: 30px; text-align: center; color: var(--muted); }
+.footer-note { font-size: 11.5px; color: var(--ink-muted); padding: 6px 4px 20px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-top-row">
+        <div class="header-logo">
+            <div class="header-logo-mark">
+                <svg width="22" height="22" viewBox="0 0 26 26" fill="none">
+                    <path d="M3 18c2 1.5 4 1.5 6 0s4-1.5 6 0 4 1.5 6 0" stroke="#00b4d8" stroke-width="1.8" stroke-linecap="round"/>
+                    <path d="M3 21.5c2 1.5 4 1.5 6 0s4-1.5 6 0 4 1.5 6 0" stroke="#00b4d8" stroke-width="1.3" stroke-linecap="round" opacity="0.55"/>
+                    <path d="M8 15 L8 9 L16 9 L18 15 Z" fill="#00b4d8" opacity="0.85"/>
+                    <rect x="11" y="5" width="1.4" height="4.5" fill="#00b4d8"/>
+                </svg>
+            </div>
+            <div class="header-titles">
+                <span class="title">Mareas <span class="accent">Gabarras</span></span>
+                <span class="subtitle">NATURISA · Hora de salida sugerida para llegar con marea</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="filters">
+        <div class="fg">
+            <label>Fecha del viaje</label>
+            <input type="date" id="f-fecha">
+        </div>
+        <button class="btn-apply" id="btn-calcular" onclick="calcularTodo()">🌊 Calcular salidas</button>
+        <button class="btn-ghost" onclick="agregarFila()">➕ Agregar destino</button>
+    </div>
+</header>
+
+<div class="main">
+
+    <div class="rutas-card">
+        <div class="section-title">
+            <span>Destinos del día</span>
+            <span class="section-hint" style="font-weight:500;color:var(--muted);font-size:12.5px;">Un destino por gabarra/ruta — todas se calculan juntas</span>
+        </div>
+        <div class="rutas-tbl-wrap">
+            <table class="rutas-tbl">
+                <thead>
+                    <tr>
+                        <th>Destino (sucursal costera)</th>
+                        <th>Duración estimada del viaje</th>
+                        <th>Criterio de marea</th>
+                        <th>Umbral mínimo (m)</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="rutas-tbody"></tbody>
+            </table>
+        </div>
+        <div class="rutas-add-row">
+            <button class="btn-ghost" style="color:var(--primary);background:#eef2f7;border-color:var(--border)" onclick="agregarFila()">➕ Agregar destino</button>
+        </div>
+    </div>
+
+    <div id="resultados-wrap"></div>
+
+</div>
+
+<script>
+const WORKER_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev';
+
+// Sucursales con cobertura de marea (acceso directo a estero/mar abierto)
+const SUCURSALES_MAREA = [
+    { id: 2,  nombre: 'Pesjoya' },
+    { id: 12, nombre: 'Rio Nilo' },
+    { id: 15, nombre: 'Inducam' },
+    { id: 17, nombre: 'Golfomar' },
+    { id: 19, nombre: 'Bonanza' },
+    { id: 20, nombre: 'Roblemar' },
+];
+
+let _filaSeq = 0;
+
+function hoyISO() {
+    const d = new Date();
+    const off = d.getTimezoneOffset();
+    return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+}
+
+function initFecha() {
+    document.getElementById('f-fecha').value = hoyISO();
+}
+
+function optsSucursales() {
+    return SUCURSALES_MAREA.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+}
+
+function agregarFila() {
+    const id = 'fila-' + (++_filaSeq);
+    const tbody = document.getElementById('rutas-tbody');
+    const tr = document.createElement('tr');
+    tr.id = id;
+    tr.innerHTML = `
+        <td><select class="f-destino">${optsSucursales()}</select></td>
+        <td><input type="number" class="f-duracion" value="2" min="0.5" max="24" step="0.5"> h</td>
+        <td>
+            <select class="f-criterio" onchange="toggleUmbral('${id}')">
+                <option value="alta">Marea alta más cercana</option>
+                <option value="umbral">Umbral manual</option>
+            </select>
+        </td>
+        <td><input type="number" class="f-umbral" value="0.5" min="-2" max="2" step="0.1" disabled></td>
+        <td><button class="btn-icon" onclick="eliminarFila('${id}')" title="Quitar">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function toggleUmbral(id) {
+    const tr = document.getElementById(id);
+    const criterio = tr.querySelector('.f-criterio').value;
+    tr.querySelector('.f-umbral').disabled = criterio !== 'umbral';
+}
+
+function eliminarFila(id) {
+    const tr = document.getElementById(id);
+    if (tr) tr.remove();
+}
+
+function leerFilas() {
+    const filas = [];
+    document.querySelectorAll('#rutas-tbody tr').forEach(tr => {
+        const destinoId = parseInt(tr.querySelector('.f-destino').value, 10);
+        const destinoNombre = SUCURSALES_MAREA.find(s => s.id === destinoId)?.nombre || '?';
+        filas.push({
+            id: tr.id,
+            destinoId,
+            destinoNombre,
+            duracionH: parseFloat(tr.querySelector('.f-duracion').value) || 0,
+            criterio: tr.querySelector('.f-criterio').value,
+            umbral: parseFloat(tr.querySelector('.f-umbral').value) || 0,
+        });
+    });
+    return filas;
+}
+
+function sumarHoras(fechaISO, horaHHMM, deltaHoras) {
+    const [hh, mm] = horaHHMM.split(':').map(Number);
+    const base = new Date(fechaISO + 'T' + horaHHMM + ':00');
+    const resultado = new Date(base.getTime() + deltaHoras * 3600000);
+    return resultado;
+}
+
+function fmtFechaHora(d) {
+    const dias = ['dom','lun','mar','mié','jue','vie','sáb'];
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${dias[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} · ${hh}:${mm}`;
+}
+
+async function fetchMarea(idSucursal, fechas) {
+    // Trae la serie horaria de marea para el/los días indicados
+    const todas = [];
+    for (const fecha of fechas) {
+        const resp = await fetch(`${WORKER_URL}/db/marea?idSucursal=${idSucursal}&fecha=${fecha}`);
+        const json = await resp.json();
+        todas.push(...(json.data || []));
+    }
+    return todas.map(r => ({
+        ...r,
+        dt: new Date(r.fecha + 'T' + r.hora + ':00'),
+    })).sort((a, b) => a.dt - b.dt);
+}
+
+function diaSiguiente(fechaISO) {
+    const d = new Date(fechaISO + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+}
+
+// Ventanas donde la marea llega/supera un umbral (agrupando horas contiguas)
+function ventanasPorUmbral(serie, umbral) {
+    const ventanas = [];
+    let actual = null;
+    for (const punto of serie) {
+        const cumple = punto.altura_marea_m !== null && punto.altura_marea_m >= umbral;
+        if (cumple && !actual) {
+            actual = { inicio: punto, fin: punto, max: punto };
+        } else if (cumple && actual) {
+            actual.fin = punto;
+            if (punto.altura_marea_m > actual.max.altura_marea_m) actual.max = punto;
+        } else if (!cumple && actual) {
+            ventanas.push(actual);
+            actual = null;
+        }
+    }
+    if (actual) ventanas.push(actual);
+    return ventanas;
+}
+
+function picosAlta(serie) {
+    return serie.filter(p => p.tipo_pico === 'ALTA');
+}
+
+async function calcularRuta(fila, fechaViaje) {
+    const fechas = [fechaViaje, diaSiguiente(fechaViaje)];
+    const serie = await fetchMarea(fila.destinoId, fechas);
+
+    let candidatos = [];
+    if (fila.criterio === 'alta') {
+        candidatos = picosAlta(serie).map(p => ({
+            arriboDt: p.dt,
+            arriboAltura: p.altura_marea_m,
+            tag: 'alta',
+        }));
+    } else {
+        const ventanas = ventanasPorUmbral(serie, fila.umbral);
+        candidatos = ventanas.map(v => ({
+            arriboDt: v.inicio.dt,
+            arriboAltura: v.inicio.altura_marea_m,
+            tag: 'umbral',
+            finVentanaDt: v.fin.dt,
+        }));
+    }
+
+    // Solo candidatos cuyo arribo cae dentro del día de viaje seleccionado (se consulta día+1 solo
+    // para no perder la ventana nocturna que empieza tarde y cruza medianoche)
+    const finDia = new Date(fechaViaje + 'T23:59:59');
+    candidatos = candidatos.filter(c => c.arriboDt <= finDia);
+
+    const resultados = candidatos.map(c => {
+        const salidaDt = new Date(c.arriboDt.getTime() - fila.duracionH * 3600000);
+        return {
+            ...c,
+            salidaDt,
+            cruzaDiaAnterior: salidaDt.toISOString().slice(0, 10) < fechaViaje,
+        };
+    }).sort((a, b) => a.salidaDt - b.salidaDt);
+
+    return { fila, serie, resultados };
+}
+
+function renderChart(canvasId, serie, resultados) {
+    const labels = serie.map(p => p.hora);
+    const data = serie.map(p => p.altura_marea_m);
+    const salidaLabels = new Set(resultados.map(r => {
+        const h = String(r.salidaDt.getHours()).padStart(2, '0') + ':00';
+        return h;
+    }));
+    const arriboLabels = new Set(resultados.map(r => r.arriboDt.toISOString().slice(11, 16)));
+
+    const pointColors = serie.map(p => {
+        if (arriboLabels.has(p.hora)) return '#10b981';
+        return 'rgba(0,180,216,0.9)';
+    });
+    const pointRadius = serie.map(p => arriboLabels.has(p.hora) ? 5 : 2);
+
+    new Chart(document.getElementById(canvasId), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Altura de marea (m)',
+                data,
+                borderColor: '#00b4d8',
+                backgroundColor: 'rgba(0,180,216,0.08)',
+                fill: true,
+                tension: 0.35,
+                pointBackgroundColor: pointColors,
+                pointRadius,
+                borderWidth: 2,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { title: { display: true, text: 'metros' } },
+                x: { ticks: { maxTicksLimit: 12 } },
+            },
+        },
+    });
+}
+
+function renderVentanas(resultados, fila) {
+    if (!resultados.length) {
+        return `<div class="no-ventanas">No se encontraron ventanas de marea ${fila.criterio === 'alta' ? 'alta' : `≥ ${fila.umbral} m`} para este día en ${fila.destinoNombre}.</div>`;
+    }
+    return resultados.map((r, i) => {
+        const esRecomendada = i === 0;
+        const tagTxt = r.tag === 'alta' ? 'Marea alta' : 'Umbral';
+        const warn = r.cruzaDiaAnterior ? `<div class="vi-warn">⚠ Salida el día anterior</div>` : '';
+        return `
+        <div class="ventana-item ${esRecomendada ? 'rec' : ''}">
+            <div class="vi-left">
+                <span class="vi-salida">🚤 Salir: ${fmtFechaHora(r.salidaDt)}</span>
+                <span class="vi-meta">Llega ${fmtFechaHora(r.arriboDt)} · marea ${r.arriboAltura.toFixed(2)} m</span>
+                ${warn}
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
+                <span class="vi-tag ${r.tag}">${tagTxt}</span>
+                ${esRecomendada ? '<span class="vi-badge">Más próxima</span>' : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function calcularTodo() {
+    const fechaViaje = document.getElementById('f-fecha').value;
+    const filas = leerFilas();
+    const wrap = document.getElementById('resultados-wrap');
+
+    if (!filas.length) {
+        wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">🌊</div>Agrega al menos un destino para calcular la hora de salida.</div>`;
+        return;
+    }
+    if (!fechaViaje) {
+        alert('Selecciona la fecha del viaje.');
+        return;
+    }
+
+    wrap.innerHTML = `<div class="loading-inline">Calculando mareas y horas de salida…</div>`;
+
+    try {
+        const calculos = await Promise.all(filas.map(f => calcularRuta(f, fechaViaje)));
+
+        wrap.innerHTML = `<div class="resultados"></div>`;
+        const cont = wrap.querySelector('.resultados');
+
+        calculos.forEach((calc, idx) => {
+            const canvasId = `chart-${idx}`;
+            const card = document.createElement('div');
+            card.className = 'ruta-result';
+            card.innerHTML = `
+                <div class="ruta-result-head">
+                    <div>
+                        <div class="ruta-result-title">📍 ${calc.fila.destinoNombre}</div>
+                        <div class="ruta-result-sub">Viaje de ${calc.fila.duracionH} h · criterio: ${calc.fila.criterio === 'alta' ? 'marea alta más cercana' : `umbral ≥ ${calc.fila.umbral} m`}</div>
+                    </div>
+                </div>
+                <div class="ruta-result-body">
+                    <div class="ruta-chart-box"><canvas id="${canvasId}"></canvas></div>
+                    <div class="ventanas-list">${renderVentanas(calc.resultados, calc.fila)}</div>
+                </div>
+            `;
+            cont.appendChild(card);
+        });
+
+        calculos.forEach((calc, idx) => renderChart(`chart-${idx}`, calc.serie, calc.resultados));
+    } catch (e) {
+        wrap.innerHTML = `<div class="empty-state">⚠ Error calculando mareas: ${e.message}</div>`;
+    }
+}
+
+initFecha();
+agregarFila();
+</script>
+
+</body>
+</html>
