@@ -781,6 +781,24 @@ async function handleDbMuelles(request, url, env) {
   return corsResponse(JSON.stringify({ data: results }), 200, request)
 }
 
+// GET /db/tiempo-recorrido-muelles -> tiempo estimado entre cada par de muelles
+// (gabarra cargada con balanceado), opcional ?origen=X&destino=Y (en cualquier orden)
+async function handleDbTiempoRecorridoMuelles(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const origen = url.searchParams.get('origen')
+  const destino = url.searchParams.get('destino')
+  let stmt
+  if (origen && destino) {
+    stmt = env.db.prepare(
+      'SELECT * FROM tiempo_recorrido_muelles WHERE (origen = ? AND destino = ?) OR (origen = ? AND destino = ?)'
+    ).bind(origen, destino, destino, origen)
+  } else {
+    stmt = env.db.prepare('SELECT * FROM tiempo_recorrido_muelles ORDER BY origen, destino')
+  }
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
 // Siempre 4 filas por fecha (hora IN 00:00/06:00/12:00/18:00). Sin ?hora= trae las 4;
 // con ?hora=06:00 (u otra) filtra a esa franja especifica.
 async function handleDbClima(request, url, env) {
@@ -1843,6 +1861,10 @@ export default {
 
     if (url.pathname === '/db/muelles' && env.db) {
       return handleDbMuelles(request, url, env)
+    }
+
+    if (url.pathname === '/db/tiempo-recorrido-muelles' && env.db) {
+      return handleDbTiempoRecorridoMuelles(request, url, env)
     }
 
     if (url.pathname === '/db/coordenadas-piscina' && env.db) {
