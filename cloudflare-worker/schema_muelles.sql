@@ -13,6 +13,7 @@ INSERT INTO muelles (nombre, latitud, longitud) VALUES
   ('Golfomar',  -2.687724,  -80.071509),
   ('Roblemar',  -3.011219,  -80.221433),
   ('Bonanza',   -2.997669,  -80.207662),
-  ('Rio Nilo',  -2.997669,  -79.890544)
+  ('Rio Nilo',  -2.997669,  -79.890544),
+  ('Brisas',    -2.212461,  -79.885016)
 ON CONFLICT(nombre) DO UPDATE SET
   latitud = excluded.latitud, longitud = excluded.longitud;
