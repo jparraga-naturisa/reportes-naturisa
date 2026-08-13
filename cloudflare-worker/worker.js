@@ -774,6 +774,13 @@ async function handleDbCoordenadasPiscina(request, url, env) {
   return corsResponse(JSON.stringify({ data: results }), 200, request)
 }
 
+// GET /db/muelles -> coordenadas de los muelles (embarcaderos)
+async function handleDbMuelles(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const { results } = await env.db.prepare('SELECT * FROM muelles ORDER BY nombre').all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
 // Siempre 4 filas por fecha (hora IN 00:00/06:00/12:00/18:00). Sin ?hora= trae las 4;
 // con ?hora=06:00 (u otra) filtra a esa franja especifica.
 async function handleDbClima(request, url, env) {
@@ -1832,6 +1839,10 @@ export default {
 
     if (url.pathname === '/db/calibracion-alimento/recalcular' && env.db) {
       return handleDbCalibracionRecalcular(request, env)
+    }
+
+    if (url.pathname === '/db/muelles' && env.db) {
+      return handleDbMuelles(request, url, env)
     }
 
     if (url.pathname === '/db/coordenadas-piscina' && env.db) {
