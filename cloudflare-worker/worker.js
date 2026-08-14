@@ -1,4 +1,4 @@
-const GATEWAY = 'https://gateway.naturisa.com.ec'
+﻿const GATEWAY = 'https://gateway.naturisa.com.ec'
 
 const ALLOWED_ORIGINS = [
   'https://jparraga-naturisa.github.io',
@@ -27,7 +27,7 @@ function corsResponse(body, status, request, extra) {
   return new Response(body, { status, headers: { ...cors, 'Content-Type': 'application/json', ...(extra || {}) } })
 }
 
-// ── Caché de feeding por mes ───────────────────────────────────────────────
+// â”€â”€ CachÃ© de feeding por mes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const FEEDING_PATH = '/bff/mobile/feedcontrol/balanceado/api/report/feeding_general'
 const CACHE_TTL    = 60 * 60 * 24 * 365
@@ -70,7 +70,7 @@ async function handleFeedingCached(request, url, env, ctx) {
   const endYear  = endParts ? parseInt(endParts[1]) : curYear
   const endMon   = endParts ? parseInt(endParts[2]) : curMonth
 
-  // Rango completamente en el pasado → caché total
+  // Rango completamente en el pasado â†’ cachÃ© total
   if (endYear < curYear || (endYear === curYear && endMon < curMonth)) {
     const ck     = feedCacheKey(url.pathname, url.searchParams, initDate, endDate)
     const cached = await env.data.get(ck)
@@ -85,7 +85,7 @@ async function handleFeedingCached(request, url, env, ctx) {
 
   // Rango incluye mes actual:
   // - Meses pasados: buscar en KV primero
-  // - Si hay HIT: fetch solo mes actual (1 llamada pequeña)
+  // - Si hay HIT: fetch solo mes actual (1 llamada pequeÃ±a)
   // - Si hay MISS: fetch rango completo (1 llamada igual que antes) + guardar meses pasados en KV async
 
   const pastEnd = curMonth > 1
@@ -106,11 +106,11 @@ async function handleFeedingCached(request, url, env, ctx) {
     }
   }
 
-  // MISS: fetch rango completo — misma cantidad de llamadas que antes
+  // MISS: fetch rango completo â€” misma cantidad de llamadas que antes
   const { ok, rows: allRows, envelope } = await fetchFeedRows(request, url.pathname, url.searchParams, initDate, endDate)
   if (!ok) return null
 
-  // Guardar meses pasados en KV de forma asíncrona (no bloquea la respuesta)
+  // Guardar meses pasados en KV de forma asÃ­ncrona (no bloquea la respuesta)
   if (ckPast) {
     const pastRows = allRows.filter(row => {
       const d = rowMonth(row)
@@ -125,7 +125,7 @@ async function handleFeedingCached(request, url, env, ctx) {
     { 'X-Cache': 'MISS', 'X-Cache-Rows': String(allRows.length) })
 }
 
-// ── Reporte diario piscinas (app movil) ────────────────────────────────────
+// â”€â”€ Reporte diario piscinas (app movil) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Replica reporte_diario.py: pivotea feeding_general por PSC/Metrica/Sacos y
 // marca alerta cuando Saldo Tolva > 0 pero no hubo Cargado ni Sobrante Tolva.
 // GET /db/reporte-diario?fecha=YYYY-MM-DD&subsidiaryId=<id>  (fecha default: hoy en Ecuador;
@@ -184,7 +184,7 @@ async function handleDbReporteDiario(request, url) {
   return corsResponse(JSON.stringify({ fecha, filas, alertas, totalPiscinas: filas.length, totalAlertas: alertas.length }), 200, request)
 }
 
-// ── Alerta de cosecha Pre-Final sin Final (app movil) ──────────────────────
+// â”€â”€ Alerta de cosecha Pre-Final sin Final (app movil) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Entre la cosecha Pre-Final y la Final no puede pasar mas de 7 dias. Este
 // endpoint busca ciclos con una cosecha tipo PRE-FINAL registrada que aun no
 // tengan una cosecha FINAL, y devuelve cuantos dias pasaron desde el Pre-Final.
@@ -244,7 +244,7 @@ async function handleDbAlertasCosecha(request, url) {
   return corsResponse(JSON.stringify({ alertas, total: alertas.length }), 200, request)
 }
 
-// ── Tablas propias en D1 (compartidas entre todos los dashboards) ─────────
+// â”€â”€ Tablas propias en D1 (compartidas entre todos los dashboards) â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Todas las columnas y claves JSON de estos endpoints estan en espanol.
 //
 // GET  /db/sucursales        -> lista todas las sucursales {id, codigo, nombre}
@@ -444,7 +444,7 @@ async function refrescarOrdenControl(env) {
   return totalFilas
 }
 
-// ── Consumo de balanceado (AP1 feeding_general por piscina/dia) ────────────
+// â”€â”€ Consumo de balanceado (AP1 feeding_general por piscina/dia) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // GET  /db/consumo-balanceado?idPiscina=<id>&idCiclo=<id>   -> lista consumo diario
 // POST /db/consumo-balanceado/sync                          -> upsert masivo
 
@@ -540,7 +540,7 @@ async function refrescarConsumoBalanceado(env, diasAtras = 30) {
   return totalFilas
 }
 
-// ── Consumo de insumos (Excel SAP subido en consumos-insumos.html) ─────────
+// â”€â”€ Consumo de insumos (Excel SAP subido en consumos-insumos.html) â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // GET  /db/consumo-insumos?idCiclo=<id>&ordenControl=<orden>  -> lista consumo
 // POST /db/consumo-insumos/sync                                -> upsert masivo
 
@@ -587,7 +587,7 @@ async function handleDbConsumoInsumosSync(request, env) {
   return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
 }
 
-// ── Consumo de combustible (Excel SAP subido en consumos-combustible.html) ─
+// â”€â”€ Consumo de combustible (Excel SAP subido en consumos-combustible.html) â”€
 // GET  /db/consumo-combustible?anio=<yyyy>&ordenControl=<orden>&centroCosto=<cc>  -> lista consumo
 // POST /db/consumo-combustible/sync                                                -> upsert masivo
 
@@ -610,29 +610,54 @@ async function handleDbConsumoCombustible(request, url, env) {
 async function handleDbConsumoCombustibleSync(request, env) {
   if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
   const body = await request.json()
-  const filas = Array.isArray(body?.filas) ? body.filas : []
-  if (!filas.length) return corsResponse('{"error":"body.filas vacio"}', 400, request)
+  const filas    = Array.isArray(body?.filas) ? body.filas : []
+  const eliminar = Array.isArray(body?.eliminar) ? body.eliminar.filter(Boolean) : []
+  if (!filas.length && !eliminar.length) return corsResponse('{"error":"body.filas/eliminar vacio"}', 400, request)
 
   const now = ecuadorNowISO()
-  const stmt = env.db.prepare(
-    `INSERT INTO consumo_combustible (clave, centro_costo, descripcion, almacen, fecha, cantidad, unidad,
-       importe, documento_material, clase_movimiento, posicion_doc, usuario, texto_cabecera, orden_control,
-       actualizado_en)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(clave) DO UPDATE SET
-       centro_costo = excluded.centro_costo, descripcion = excluded.descripcion, almacen = excluded.almacen,
-       fecha = excluded.fecha, cantidad = excluded.cantidad, unidad = excluded.unidad, importe = excluded.importe,
-       documento_material = excluded.documento_material, clase_movimiento = excluded.clase_movimiento,
-       posicion_doc = excluded.posicion_doc, usuario = excluded.usuario, texto_cabecera = excluded.texto_cabecera,
-       orden_control = excluded.orden_control, actualizado_en = excluded.actualizado_en`
-  )
-  const batch = filas.filter(f => f.clave).map(f =>
-    stmt.bind(f.clave, f.centroCosto || null, f.descripcion || null, f.almacen || null, f.fecha || null,
-      f.cantidad ?? null, f.unidad || null, f.importe ?? null, f.documentoMaterial || null,
-      f.claseMovimiento || null, f.posicionDoc || null, f.usuario || null, f.textoCabecera || null,
-      f.ordenControl || null, now))
+  const batch = []
+
+  if (eliminar.length) {
+    // Depura pares consumo/anulacion (201/261 <-> 202/262) que ya se hubieran guardado antes:
+    // solo deben persistir movimientos de consumo puro, sin su anulacion correspondiente.
+    // D1 limita los parametros por consulta (100) - se trocea el IN(...) para no excederlo.
+    const DEL_CHUNK = 100
+    for (let i = 0; i < eliminar.length; i += DEL_CHUNK) {
+      const trozo = eliminar.slice(i, i + DEL_CHUNK)
+      const placeholders = trozo.map(() => '?').join(',')
+      batch.push(env.db.prepare(`DELETE FROM consumo_combustible WHERE clave IN (${placeholders})`).bind(...trozo))
+    }
+  }
+
+  if (filas.length) {
+    const stmt = env.db.prepare(
+      `INSERT INTO consumo_combustible (clave, centro_costo, descripcion, almacen, fecha, cantidad, unidad,
+         importe, documento_material, clase_movimiento, posicion_doc, usuario, texto_cabecera, orden_control,
+         actualizado_en)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(clave) DO UPDATE SET
+         centro_costo = excluded.centro_costo, descripcion = excluded.descripcion, almacen = excluded.almacen,
+         fecha = excluded.fecha, cantidad = excluded.cantidad, unidad = excluded.unidad, importe = excluded.importe,
+         documento_material = excluded.documento_material, clase_movimiento = excluded.clase_movimiento,
+         posicion_doc = excluded.posicion_doc, usuario = excluded.usuario, texto_cabecera = excluded.texto_cabecera,
+         orden_control = excluded.orden_control, actualizado_en = excluded.actualizado_en`
+    )
+    filas.filter(f => f.clave).forEach(f =>
+      batch.push(stmt.bind(f.clave, f.centroCosto || null, f.descripcion || null, f.almacen || null, f.fecha || null,
+        f.cantidad ?? null, f.unidad || null, f.importe ?? null, f.documentoMaterial || null,
+        f.claseMovimiento || null, f.posicionDoc || null, f.usuario || null, f.textoCabecera || null,
+        f.ordenControl || null, now)))
+  }
+
   if (batch.length) await env.db.batch(batch)
-  return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
+  return corsResponse(JSON.stringify({ ok: true, count: filas.length, deleted: eliminar.length }), 200, request)
+}
+
+// GET /db/centro-costo -> lista completa de centros de costo (Data Maestra, cacheada en D1)
+async function handleDbCentroCosto(request, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const { results } = await env.db.prepare('SELECT * FROM centro_costo ORDER BY codigo').all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
 }
 
 async function handleDbCiclosManual(request, env) {
@@ -717,7 +742,7 @@ async function handleDbHistoriaCicloSync(request, env) {
   return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
 }
 
-// ── Calibracion de alimento (a, b, R2) por piscina ─────────────────────────
+// â”€â”€ Calibracion de alimento (a, b, R2) por piscina â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Replica proyeccion-alimento.html: fa = a * peso^b, ajustado por regresion lineal
 // sobre ln(peso) vs ln(densidad/alimento_ha_dia), solo semanas completas (semana>0,
 // duracion de semana >= 6 dias o sin fechas) de ciclos COSECHADOS, min 15 puntos por piscina.
@@ -810,7 +835,7 @@ async function handleDbCalibracionRecalcular(request, env) {
   return corsResponse(JSON.stringify({ ok: true, count }), 200, request)
 }
 
-// ── Clima (coordenadas + pronostico) ───────────────────────────────────────
+// â”€â”€ Clima (coordenadas + pronostico) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // GET  /db/coordenadas               -> lista coordenadas por sucursal
 // GET  /db/clima                     -> pronostico, opcional ?idSucursal=<id>
 // POST /db/clima/refrescar           -> trae coordenadas de AP1 (si faltan) y pronostico de Open-Meteo
@@ -875,13 +900,13 @@ async function coordenadasPorSucursal(env) {
   return results
 }
 
-// ── INAMHI (fuente oficial de Ecuador) ─────────────────────────────────────
+// â”€â”€ INAMHI (fuente oficial de Ecuador) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Solo publica el pronostico oficial del dia actual, por 26 localidades
 // (cabeceras provinciales). Cada sucursal se empareja con la localidad INAMHI
 // mas cercana (distancia euclidiana simple, suficiente a esta escala).
 const INAMHI_URL = 'https://inamhi.gob.ec/api_pronos/forecast/daily_forecast/list_by_date_now/'
 const INAMHI_URL_LOCALIDAD = 'https://inamhi.gob.ec/api_pronos/forecast/daily_forecast/list_by_locality_from_date/'
-const INAMHI_HORA_POR_PERIODO = { 'Madrugada': '00:00', 'Mañana': '06:00', 'Tarde': '12:00', 'Noche': '18:00' }
+const INAMHI_HORA_POR_PERIODO = { 'Madrugada': '00:00', 'MaÃ±ana': '06:00', 'Tarde': '12:00', 'Noche': '18:00' }
 
 function localidadMasCercana(lat, lon, localidades) {
   let mejor = null, mejorDist = Infinity
@@ -892,7 +917,7 @@ function localidadMasCercana(lat, lon, localidades) {
   return mejor
 }
 
-// INAMHI solo da hoy + mañana (2 dias) por localidad, via list_by_locality_from_date.
+// INAMHI solo da hoy + maÃ±ana (2 dias) por localidad, via list_by_locality_from_date.
 // Cada sucursal se empareja primero con su localidad INAMHI mas cercana (usando el
 // listado de list_by_date_now, que trae fk_locality_id + lat/lon de las 26 localidades),
 // y luego se pide el detalle de esa localidad puntual (que si trae 2 dias).
@@ -1168,7 +1193,7 @@ async function handleDbClimaHorariaReal(request, url, env) {
   }
 }
 
-// ── Marea (Open-Meteo Marine API, un solo endpoint sirve historico y pronostico) ──
+// â”€â”€ Marea (Open-Meteo Marine API, un solo endpoint sirve historico y pronostico) â”€â”€
 // GET  /db/marea?idSucursal=&fecha=&hora=   -> lista marea
 // POST /db/marea/refrescar?desde=&hasta=    -> trae/actualiza marea para ese rango (default: 2025-01-01 a hoy+16d)
 
@@ -1301,7 +1326,7 @@ async function handleDbMareaExtremosRecalcular(request, env) {
   }
 }
 
-// ── Marea por muelle (Open-Meteo Marine API) ──────────────────────────────
+// â”€â”€ Marea por muelle (Open-Meteo Marine API) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // GET  /db/marea-muelle?muelle=&fecha=&hora=      -> lista marea por muelle
 // POST /db/marea-muelle/refrescar?desde=&hasta=   -> trae/actualiza marea para ese rango
 // A diferencia de `marea` (por sucursal), esta usa las coordenadas propias de
@@ -1452,7 +1477,7 @@ async function handleDbClimaRefrescar(request, env) {
   }
 }
 
-// ── Refresco automatico desde AP1 (cron) ───────────────────────────────────
+// â”€â”€ Refresco automatico desde AP1 (cron) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Requiere los secrets AP1_USER y AP1_PASS (wrangler secret put AP1_USER / AP1_PASS).
 // Cron liviano (cada 6h, ~110 requests): sucursales + piscinas + ciclos.
 // Cron pesado (diario, ~1 request por ciclo activo o recien cosechado): historia_ciclo + calibracion.
@@ -1724,13 +1749,13 @@ async function refrescarPlanCosecha(token, env) {
   return batch.length
 }
 
-// ── Polígonos del mapa (AP1 /maps/layers por sucursal) ────────────────────
-// Guarda las coordenadas del polígono de cada piscina en la columna `poligono`
+// â”€â”€ PolÃ­gonos del mapa (AP1 /maps/layers por sucursal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Guarda las coordenadas del polÃ­gono de cada piscina en la columna `poligono`
 // de la tabla piscinas, como JSON [[lat,lng], ...].
 // Se refresca en el cron liviano cada 6h junto con piscinas/ciclos.
 
-// ── Historial de Ha por sucursal (ingreso manual desde consumos-combustible) ─
-// GET  /db/historial-ha?anio=2026              -> filas del año
+// â”€â”€ Historial de Ha por sucursal (ingreso manual desde consumos-combustible) â”€
+// GET  /db/historial-ha?anio=2026              -> filas del aÃ±o
 // POST /db/historial-ha/sync                   -> upsert masivo desde _manualHa
 
 async function handleDbHistorialHa(request, url, env) {
@@ -1798,7 +1823,7 @@ async function refrescarPoligonos(token, env, subsidiarios) {
   const stmt = env.db.prepare(
     `UPDATE piscinas SET poligono = ?, actualizado_en = ? WHERE codigo_piscina = ?`
   )
-  // Una sola petición con todos los SubsidiaryIds (igual que el frontend)
+  // Una sola peticiÃ³n con todos los SubsidiaryIds (igual que el frontend)
   const qs = subsidiarios.map(s => `SubsidiaryIds=${s.id}`).join('&')
     + '&StageIds=1&StageIds=2&StageIds=3&StageIds=4&StageIds=5'
     + '&UsageIds=9&UsageIds=8&UsageIds=7'
@@ -1817,15 +1842,15 @@ async function refrescarPoligonos(token, env, subsidiarios) {
   return batch.length
 }
 
-// ── Endpoint GET /db/layers — devuelve piscinas con polígono + ciclo activo ─
-// Une piscinas (poligono) con el ciclo activo/más reciente de cada una.
+// â”€â”€ Endpoint GET /db/layers â€” devuelve piscinas con polÃ­gono + ciclo activo â”€
+// Une piscinas (poligono) con el ciclo activo/mÃ¡s reciente de cada una.
 // ?idSucursal=<id>  filtra por sucursal
 async function handleDbLayers(request, url, env) {
   if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
   const idSucursal = url.searchParams.get('idSucursal')
   const where = idSucursal ? 'WHERE p.id_sucursal = ?' : ''
   const binds = idSucursal ? [idSucursal] : []
-  // Para cada piscina toma el ciclo más reciente (fecha_siembra DESC).
+  // Para cada piscina toma el ciclo mÃ¡s reciente (fecha_siembra DESC).
   // Incluye piscinas sin ciclo (LEFT JOIN) con NULLs en los campos del ciclo.
   const { results } = await env.db.prepare(`
     SELECT
@@ -1859,6 +1884,56 @@ async function handleDbLayers(request, url, env) {
 // Coaque NC, migrada a CO - sus datos viejos se borraron a mano y no deben volver).
 const SUCURSALES_EXCLUIDAS = ['NC']
 
+// â”€â”€ Centros de costo (Data Maestra) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Cada orden de control (endpoint control_order) trae su costCenter asociado -
+// se invierte ese mapa para saber, por centro de costo, que orden(es) le pertenecen.
+async function fetchOrdenesControlPorCC(token) {
+  const url = new URL(GATEWAY + '/bff/web/datamaestra/backoffice/api/general/control_order')
+  url.searchParams.append('status', 'ACTIVO')
+  url.searchParams.append('PageSize', '20000')
+  url.searchParams.append('orderBy', 'companyCodeSap asc')
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } })
+  if (!res.ok) return {}
+  const json = await res.json()
+  const rows = (json?.data && json.data.data) ? json.data.data : (json?.data || [])
+  const porCC = {}
+  rows.forEach(oc => {
+    const ord = String(oc.code || '').trim()
+    const cc  = String(oc.costCenter || '').trim()
+    if (!ord || !cc) return
+    if (!porCC[cc]) porCC[cc] = []
+    porCC[cc].push(ord)
+  })
+  return porCC
+}
+
+async function refrescarCentrosCosto(token, env) {
+  const url = new URL(GATEWAY + '/bff/web/datamaestra/backoffice/api/structure/cost_centers')
+  url.searchParams.append('status', 'ACTIVO')
+  url.searchParams.append('PageSize', '5000')
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } })
+  if (!res.ok) return 0
+  const json = await res.json()
+  const rows = json?.data || []
+  const ordenesPorCC = await fetchOrdenesControlPorCC(token).catch(() => ({}))
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO centro_costo (codigo, nombre, codigo_sucursal, id_compania, orden_control, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(codigo) DO UPDATE SET
+       nombre = excluded.nombre, codigo_sucursal = excluded.codigo_sucursal,
+       id_compania = excluded.id_compania, orden_control = excluded.orden_control,
+       actualizado_en = excluded.actualizado_en`
+  )
+  const batch = rows.filter(cc => cc.code).map(cc => {
+    const ordenes = ordenesPorCC[String(cc.code)] || []
+    return stmt.bind(String(cc.code), cc.name || null, cc.subsidiariesCode || cc.prefix || null, cc.companyId ?? null,
+      ordenes.length ? ordenes.join(',') : null, now)
+  })
+  if (batch.length) await env.db.batch(batch)
+  return batch.length
+}
+
 async function refrescoLiviano(env) {
   const token = await ap1Login(env)
   const todasLasSubsidiarias = await refrescarSucursales(token, env)
@@ -1868,6 +1943,7 @@ async function refrescoLiviano(env) {
   await snapshotHaMensual(env).catch(() => 0) // actualiza Ha activas del mes actual
   const nCiclos = await refrescarCiclos(token, env, subsidiarios)
   const nPlan = await refrescarPlanCosecha(token, env)
+  const nCentrosCosto = await refrescarCentrosCosto(token, env).catch(() => 0)
   const nClima = await refrescarClima(env)
   const nHoraria = await refrescarClimaHoraria(env)
   // Real/observado tiene unos dias de retraso en la fuente - se reintentan los ultimos
@@ -1882,6 +1958,7 @@ async function refrescoLiviano(env) {
   const nMarea = await refrescarMarea(env, hace10dias, en15dias).catch(() => 0)
   const nMareaExtremos = await recalcularMareaExtremos(env).catch(() => 0)
   return { subsidiarios: subsidiarios.length, piscinas: nPiscinas, poligonos: nPoligonos, ciclos: nCiclos, planCosecha: nPlan,
+    centrosCosto: nCentrosCosto,
     filasClima: nClima, filasHoraria: nHoraria, filasClimaReal: nClimaReal, filasHorariaReal: nHorariaReal,
     filasInamhi: nInamhi, filasBalanceado: nBalanceado, filasMarea: nMarea, filasMareaExtremos: nMareaExtremos }
 }
@@ -1899,7 +1976,117 @@ async function refrescoPesado(env) {
   return { ...historia, calibracion, ordenControl }
 }
 
-// ── Handler principal ──────────────────────────────────────────────────────
+// â”€â”€ Control de Cambios â€“ D1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+const CAMBIOS_COLS = ['id','fechaReporte','sucursal','area','modulo','descripcion','extras','causa','prioridad','solicitante','estado','fechaResolucion','creadoEn','departamentos','deptDone','deptDoneDates']
+const JSON_COLS    = new Set(['extras','departamentos','deptDone','deptDoneDates'])
+
+function rowToRecord(row) {
+  const rec = { ...row }
+  JSON_COLS.forEach(c => { if (rec[c] != null) try { rec[c] = JSON.parse(rec[c]) } catch(_) {} })
+  return rec
+}
+
+function recordToRow(rec) {
+  const row = { ...rec }
+  JSON_COLS.forEach(c => { if (row[c] != null && typeof row[c] !== 'string') row[c] = JSON.stringify(row[c]) })
+  return row
+}
+
+async function handleCambiosD1(request, url, env) {
+  const path = url.pathname
+
+  // â”€â”€ /d1/cambios-config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  if (path === '/d1/cambios-config') {
+    if (request.method === 'GET') {
+      const row = await env.db.prepare('SELECT value FROM cambios_config WHERE key=?').bind('main').first()
+      return corsResponse(row ? row.value : '{}', 200, request)
+    }
+    if (request.method === 'POST') {
+      const body = await request.text()
+      await env.db.prepare('INSERT OR REPLACE INTO cambios_config (key,value) VALUES (?,?)').bind('main', body).run()
+      return corsResponse('{"ok":true}', 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  // â”€â”€ /d1/cambios-usuarios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  if (path === '/d1/cambios-usuarios') {
+    if (request.method === 'GET') {
+      const { results } = await env.db.prepare('SELECT id,username,password,role FROM cambios_usuarios ORDER BY id').all()
+      return corsResponse(JSON.stringify(results || []), 200, request)
+    }
+    if (request.method === 'POST') {
+      // Recibe array completo; sincroniza por id (upsert)
+      const users = await request.json()
+      if (!Array.isArray(users)) return corsResponse('{"error":"se esperaba array"}', 400, request)
+      const stmts = users.map(u =>
+        env.db.prepare('INSERT OR REPLACE INTO cambios_usuarios (id,username,password,role) VALUES (?,?,?,?)')
+          .bind(u.id, u.username, u.password, u.role || 'user')
+      )
+      // Eliminar los que ya no estÃ¡n
+      const ids = users.map(u => u.id).filter(Boolean)
+      if (ids.length) {
+        const placeholders = ids.map(() => '?').join(',')
+        stmts.push(env.db.prepare(`DELETE FROM cambios_usuarios WHERE id NOT IN (${placeholders})`).bind(...ids))
+      }
+      await env.db.batch(stmts)
+      return corsResponse('{"ok":true}', 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  // â”€â”€ /d1/cambios (registros) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  if (path === '/d1/cambios') {
+    if (request.method === 'GET') {
+      const anio = url.searchParams.get('anio')
+      const mes  = url.searchParams.get('mes')
+      let q = 'SELECT * FROM cambios_registros'
+      const binds = []
+      const wheres = []
+      if (anio) { wheres.push("substr(fechaReporte,1,4)=?"); binds.push(anio) }
+      if (mes)  { wheres.push("substr(fechaReporte,6,2)=?"); binds.push(String(mes).padStart(2,'0')) }
+      if (wheres.length) q += ' WHERE ' + wheres.join(' AND ')
+      q += ' ORDER BY id'
+      const { results } = await env.db.prepare(q).bind(...binds).all()
+      return corsResponse(JSON.stringify((results || []).map(rowToRecord)), 200, request)
+    }
+    if (request.method === 'POST') {
+      // Recibe array completo; sincroniza todos los registros por id
+      const records = await request.json()
+      if (!Array.isArray(records)) return corsResponse('{"error":"se esperaba array"}', 400, request)
+      if (!records.length) {
+        await env.db.prepare('DELETE FROM cambios_registros').run()
+        return corsResponse('{"ok":true}', 200, request)
+      }
+      const stmts = records.map(r => {
+        const row = recordToRow(r)
+        return env.db.prepare(
+          `INSERT OR REPLACE INTO cambios_registros
+           (id,fechaReporte,sucursal,area,modulo,descripcion,extras,causa,prioridad,solicitante,estado,fechaResolucion,creadoEn,departamentos,deptDone,deptDoneDates)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(
+          row.id||null, row.fechaReporte||null, row.sucursal||null, row.area||null,
+          row.modulo||null, row.descripcion||null, row.extras||'{}', row.causa||null,
+          row.prioridad||null, row.solicitante||null, row.estado||'Abierto',
+          row.fechaResolucion||null, row.creadoEn||null,
+          row.departamentos||'[]', row.deptDone||'{}', row.deptDoneDates||'{}'
+        )
+      })
+      // Borrar registros que ya no existen en el array enviado
+      const ids = records.map(r => r.id).filter(Boolean)
+      const placeholders = ids.map(() => '?').join(',')
+      stmts.push(env.db.prepare(`DELETE FROM cambios_registros WHERE id NOT IN (${placeholders})`).bind(...ids))
+      await env.db.batch(stmts)
+      return corsResponse('{"ok":true}', 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  return corsResponse('{"error":"ruta no encontrada"}', 404, request)
+}
+
+// â”€â”€ Handler principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default {
   async scheduled(event, env, ctx) {
@@ -2010,6 +2197,10 @@ export default {
       return handleDbConsumoInsumosSync(request, env)
     }
 
+    if (url.pathname === '/db/centro-costo' && env.db) {
+      return handleDbCentroCosto(request, env)
+    }
+
     if (url.pathname === '/db/consumo-combustible' && env.db) {
       return handleDbConsumoCombustible(request, url, env)
     }
@@ -2110,6 +2301,11 @@ export default {
       return handleDbClimaReal(request, url, env)
     }
 
+    // â”€â”€ Control de Cambios â€“ D1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if (url.pathname.startsWith('/d1/cambios') && env.db) {
+      return handleCambiosD1(request, url, env)
+    }
+
     if (url.pathname.startsWith('/kv/')) {
       const key = url.pathname.replace('/kv/', '')
       // "hc:<cycleId>" = cache compartido de un ciclo ya COSECHADO (historia-ciclo-masivo.html) -
@@ -2136,7 +2332,7 @@ export default {
       return corsResponse('{"error":"method not allowed"}', 405, request)
     }
 
-    // Feeding mensual con caché (si falla, cae al proxy normal)
+    // Feeding mensual con cachÃ© (si falla, cae al proxy normal)
     if (request.method === 'GET' && url.pathname === FEEDING_PATH &&
         url.searchParams.get('timeGranularity') === 'month' && env.data) {
       try {
@@ -2167,3 +2363,4 @@ export default {
     }
   }
 }
+

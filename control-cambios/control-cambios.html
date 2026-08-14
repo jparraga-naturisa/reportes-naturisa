@@ -599,27 +599,17 @@ tbody tr:last-child td{border-bottom:none}
 
 <script>
 // ══════════════════════════════════════════════════════
-//  DATA LAYER  (Cloudflare KV via Worker)
+//  DATA LAYER  (Cloudflare D1 via Worker)
 // ══════════════════════════════════════════════════════
 const API = 'https://naturisa-proxy.parragajonathan965.workers.dev';
-const KV_KEY = 'cambios';
 let RECORDS = [];
 
 async function fetchAllRecords(){
-  // Intenta cargar desde la clave del entorno actual
   let data = null;
   try {
-    const r = await fetch(API + '/kv/' + KV_KEY);
+    const r = await fetch(API + '/d1/cambios');
     if(r.ok) data = await r.json().catch(()=>null);
   } catch(e){}
-
-  if(Array.isArray(data) && data.length > 0){
-    RECORDS = data;
-    return;
-  }
-
-
-
   RECORDS = Array.isArray(data) ? data : [];
 }
 
@@ -627,7 +617,7 @@ function loadData(){ return RECORDS; }
 
 function saveData(d){
   RECORDS = d;
-  fetch(API + '/kv/' + KV_KEY, {
+  fetch(API + '/d1/cambios', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(d)
@@ -827,8 +817,6 @@ const _CFG_DEFAULTS = {
 // ══════════════════════════════════════════════════════
 //  CONFIG (modulos, acciones, campos, motivos via KV)
 // ══════════════════════════════════════════════════════
-const CONFIG_KV_KEY = 'cambios-config';
-const USERS_KV_KEY = 'cambios-usuarios';
 let CONFIG = {};
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
@@ -892,13 +880,13 @@ function applyConfig(){
 
 async function loadConfig(){
   try {
-    const r = await fetch(API + '/kv/' + CONFIG_KV_KEY);
+    const r = await fetch(API + '/d1/cambios-config');
     if(r.ok){
       const data = await r.json().catch(()=>null);
       if(data && data.modulos && data.modConfig){ CONFIG = data; applyConfig(); return; }
     }
   } catch(e){}
-  // Sin config en KV: los objetos hardcodeados ya son correctos.
+  // Sin config en D1: los objetos hardcodeados ya son correctos.
   // Solo agregamos los módulos no configurados sin tocar los originales.
   CONFIG = buildDefaultConfig();
   for(const [area, mods] of Object.entries(CONFIG.modulos)){
@@ -914,7 +902,7 @@ async function loadConfig(){
 
 async function saveConfig(){
   try {
-    const r = await fetch(API+'/kv/'+CONFIG_KV_KEY,{
+    const r = await fetch(API+'/d1/cambios-config',{
       method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(CONFIG)
     });
     if(!r.ok) throw new Error('HTTP '+r.status);
@@ -2242,7 +2230,7 @@ function clearSession(){ sessionStorage.removeItem(SES_KEY); }
 
 async function loadUsuarios(){
   try{
-    const r = await fetch(API+'/kv/'+USERS_KV_KEY);
+    const r = await fetch(API+'/d1/cambios-usuarios');
     if(r.ok){
       const d = await r.json().catch(()=>null);
       if(Array.isArray(d) && d.length){
@@ -2252,12 +2240,12 @@ async function loadUsuarios(){
       }
     }
   }catch(e){}
-  // Si no hay KV, guardar los hardcoded
+  // Si no hay datos en D1, sincronizar los hardcoded
   await saveUsuarios();
 }
 
 async function saveUsuarios(){
-  await fetch(API+'/kv/'+USERS_KV_KEY,{
+  await fetch(API+'/d1/cambios-usuarios',{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(USUARIOS)
   }).catch(()=>{});
 }
