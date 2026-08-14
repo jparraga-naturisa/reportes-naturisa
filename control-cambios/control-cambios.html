@@ -433,11 +433,8 @@ tbody tr:last-child td{border-bottom:none}
           <select id="filter-modulo" onchange="renderHistorial()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
             <option value="">Módulo: Todos</option>
           </select>
-          <select id="filter-anio" onchange="renderHistorial()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
-            <option value="">Año: Todos</option>
-          </select>
+          <select id="filter-anio" onchange="renderHistorial()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px"></select>
           <select id="filter-mes" onchange="renderHistorial()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
-            <option value="">Mes: Todos</option>
             <option value="01">Enero</option><option value="02">Febrero</option>
             <option value="03">Marzo</option><option value="04">Abril</option>
             <option value="05">Mayo</option><option value="06">Junio</option>
@@ -1140,9 +1137,6 @@ function renderHistorial(){
   const filterSuc   = (document.getElementById('filter-sucursal')?.value||'');
   const filterArea  = (document.getElementById('filter-area')?.value||'');
   const filterMod   = (document.getElementById('filter-modulo')?.value||'');
-  const filterAnio  = (document.getElementById('filter-anio')?.value||'');
-  const filterMes   = (document.getElementById('filter-mes')?.value||'');
-
   // Poblar select de módulos dinámicamente según área seleccionada
   const selMod = document.getElementById('filter-modulo');
   if(selMod){
@@ -1154,13 +1148,22 @@ function renderHistorial(){
       modulosUnicos.map(m=>`<option ${m===prevVal?'selected':''}>${m}</option>`).join('');
   }
 
-  // Poblar select de años con los años presentes en los datos
+  // Poblar select de años y pre-seleccionar año actual en primera carga
   const selAnio = document.getElementById('filter-anio');
   if(selAnio){
+    const anioActual = String(new Date().getFullYear());
     const anios = [...new Set(data.map(r=>r.fechaReporte?.slice(0,4)).filter(Boolean))].sort().reverse();
-    selAnio.innerHTML = '<option value="">Año: Todos</option>' +
-      anios.map(a=>`<option value="${a}"${a===filterAnio?'selected':''}>${a}</option>`).join('');
+    const prevAnio = selAnio.value || anioActual;
+    selAnio.innerHTML = anios.map(a=>`<option value="${a}"${a===prevAnio?'selected':''}>${a}</option>`).join('');
   }
+  // Pre-seleccionar mes actual en primera carga
+  const selMesH = document.getElementById('filter-mes');
+  if(selMesH && !selMesH.value){
+    selMesH.value = String(new Date().getMonth()+1).padStart(2,'0');
+  }
+
+  const filterAnio = selAnio?.value || '';
+  const filterMes  = selMesH?.value || '';
 
   const filtered = data.filter(r=>{
     const okF    = currentFilter==='Todos' || r.estado===currentFilter;
