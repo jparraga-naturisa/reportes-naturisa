@@ -270,11 +270,11 @@ tbody tr:last-child td{border-bottom:none}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
       <div class="chart-card">
         <div class="chart-title">Top Solicitantes</div>
-        <div id="dash-top-usuarios"></div>
+        <div style="height:220px"><canvas id="dash-top-usuarios"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-title">Top Sucursales</div>
-        <div id="dash-top-sucursales"></div>
+        <div style="height:220px"><canvas id="dash-top-sucursales"></canvas></div>
       </div>
     </div>
 
@@ -2026,41 +2026,56 @@ function renderDashboard(){
     </div>`;
   }).join('');
 
-  // ── Top Solicitantes y Sucursales (barras apiladas por área) ──
+  // ── Top Solicitantes y Sucursales (barras verticales apiladas por área) ──
   const AREA_BAR_COLORS={'Bodega':'#1a3a5c','Producción':'#00b4d8'};
   const AREA_BAR_DEFAULT=['#6366f1','#10b981','#f59e0b','#ef4444'];
   const areasEnDatos=[...new Set(data.map(r=>r.area).filter(Boolean))].sort();
   function areaColor(area,i){ return AREA_BAR_COLORS[area]||AREA_BAR_DEFAULT[i%AREA_BAR_DEFAULT.length]; }
 
-  function renderTopStackedBars(containerId, groupKey, labelFn){
+  function renderTopChart(canvasId, groupKey, labelFn){
     const map={};
     data.forEach(r=>{
       const k=r[groupKey]; if(!k) return;
-      if(!map[k]) map[k]={total:0};
-      map[k].total++;
+      if(!map[k]) map[k]={};
       const a=r.area||'Sin área';
       map[k][a]=(map[k][a]||0)+1;
     });
-    const sorted=Object.entries(map).sort((a,b)=>b[1].total-a[1].total).slice(0,8);
-    const max=sorted[0]?.[1].total||1;
-    const legend=areasEnDatos.map((a,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)"><span style="width:8px;height:8px;border-radius:2px;background:${areaColor(a,i)};display:inline-block"></span>${a}</span>`).join('');
-    document.getElementById(containerId).innerHTML = sorted.length ? `
-      <div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap">${legend}</div>
-      ${sorted.map(([k,d])=>{
-        const segments=areasEnDatos.map((a,i)=>{
-          const pct=Math.round(((d[a]||0)/max)*100);
-          return pct>0?`<div style="background:${areaColor(a,i)};height:10px;width:${pct}%;transition:width .4s" title="${a}: ${d[a]||0}"></div>`:'';
-        }).join('');
-        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-size:11px;color:var(--text);min-width:120px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${labelFn(k)}">${labelFn(k)}</span>
-          <div style="flex:1;background:#e2e8f0;border-radius:4px;height:10px;display:flex;overflow:hidden">${segments}</div>
-          <span style="font-size:11px;font-weight:700;color:var(--primary);min-width:20px;text-align:right">${d.total}</span>
-        </div>`;
-      }).join('')}` : '<div style="color:var(--muted);font-size:12px;padding:8px 0">Sin datos</div>';
+    const sorted=Object.entries(map)
+      .map(([k,d])=>({k,total:Object.values(d).reduce((a,b)=>a+b,0),d}))
+      .sort((a,b)=>b.total-a.total).slice(0,8);
+    const labels=sorted.map(x=>labelFn(x.k));
+    destroyChart(canvasId);
+    charts[canvasId]=new Chart(document.getElementById(canvasId),{
+      type:'bar',
+      data:{
+        labels,
+        datasets:areasEnDatos.map((area,ai)=>({
+          label:area,
+          data:sorted.map(x=>x.d[area]||0),
+          backgroundColor:areaColor(area,ai),
+          borderRadius:4
+        }))
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{position:'bottom',labels:{font:{size:11},padding:8}},
+          datalabels:{
+            display:true,anchor:'center',align:'center',
+            color:'#fff',font:{size:10,weight:'700'},
+            formatter:v=>v>0?v:null
+          }
+        },
+        scales:{
+          x:{stacked:true,ticks:{font:{size:11}}},
+          y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}}
+        }
+      }
+    });
   }
 
-  renderTopStackedBars('dash-top-usuarios',    'solicitante', k=>k);
-  renderTopStackedBars('dash-top-sucursales',  'sucursal',    k=>fmtSuc(k));
+  renderTopChart('dash-top-usuarios',   'solicitante', k=>k);
+  renderTopChart('dash-top-sucursales', 'sucursal',    k=>fmtSuc(k));
 
   // ── Por Mes y Área / Por Día y Área ──
   const MESES_LABEL=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
