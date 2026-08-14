@@ -217,7 +217,6 @@ tbody tr:last-child td{border-bottom:none}
   </div>
   <nav class="tabs">
     <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
-    <div class="tab" onclick="showTab('registro')">Nuevo Registro</div>
     <div class="tab" onclick="showTab('historial')">Historial</div>
     <div class="tab" id="tab-btn-usuarios" style="display:none" onclick="showTab('usuarios')">Usuarios</div>
     <div class="tab" id="tab-btn-config" style="display:none" onclick="showTab('config')">Configuracion</div>
@@ -280,10 +279,13 @@ tbody tr:last-child td{border-bottom:none}
 
   </div>
 
-  <!-- ── TAB: Nuevo Registro ── -->
-  <div id="tab-registro" style="display:none">
-    <div class="form-card">
-      <div class="section-title">Registrar Cambio / Corrección</div>
+  <!-- ── MODAL: Nuevo Registro ── -->
+  <div id="modal-registro" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;overflow-y:auto;padding:20px">
+    <div style="background:var(--card);border-radius:12px;max-width:780px;margin:0 auto;padding:24px;position:relative">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div class="section-title" style="margin:0" id="modal-registro-title">Nuevo Registro</div>
+        <button onclick="closeNuevoRegistroModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">×</button>
+      </div>
       <div class="form-grid">
         <div class="fg">
           <label>Fecha de Reporte</label>
@@ -382,6 +384,7 @@ tbody tr:last-child td{border-bottom:none}
   <div id="tab-historial" style="display:none">
     <div class="table-wrap">
       <div class="table-toolbar">
+        <button class="btn btn-primary" onclick="openNuevoRegistroModal()" style="flex-shrink:0">+ Nuevo</button>
         <div class="table-search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input type="text" id="search-input" placeholder="Buscar..." oninput="renderHistorial()">
@@ -612,7 +615,7 @@ function toast(msg, type='ok'){
 // ══════════════════════════════════════════════════════
 //  TABS
 // ══════════════════════════════════════════════════════
-const TABS=['dashboard','registro','historial','usuarios','config'];
+const TABS=['dashboard','historial','usuarios','config'];
 function showTab(name){
   TABS.forEach(t=>{
     const el=document.getElementById('tab-'+t);
@@ -620,7 +623,6 @@ function showTab(name){
   });
   if(name==='dashboard') renderDashboard();
   if(name==='historial') renderHistorial();
-  if(name==='registro') document.getElementById('f-fecha').value = today();
   if(name==='config')   renderConfigTab();
 }
 
@@ -1110,13 +1112,15 @@ function saveRecord(){
     toast(`Registro #${_editMode} actualizado`, 'ok');
     _editMode = null;
     clearForm();
-    showTab('historial');
+    closeNuevoRegistroModal();
+    renderHistorial();
   } else {
     data.push(rec);
     saveData(data);
     toast(`Registro #${rec.id} guardado`, 'ok');
     clearForm();
-    showTab('dashboard');
+    closeNuevoRegistroModal();
+    renderDashboard();
   }
 }
 
@@ -1222,7 +1226,7 @@ function openEdit(id){
   const r = loadData().find(x=>x.id===id);
   if(!r) return;
   _editMode = id;
-  showTab('registro');
+  openNuevoRegistroModal();
 
   // Cascada: área → módulo → descripción → causa
   document.getElementById('f-area').value = r.area||'';
@@ -2137,10 +2141,22 @@ showTab = function(name){
   const s = getSession();
   if((name==='usuarios'||name==='config') && s?.role!=='admin') return;
   _origShowTab(name);
-  const TABS_ALL=['dashboard','registro','historial','usuarios','config'];
+  const TABS_ALL=['dashboard','historial','usuarios','config'];
   document.querySelectorAll('.tab').forEach((el,i)=>{ el.classList.toggle('active', TABS_ALL[i]===name); });
   if(name==='usuarios') renderUsuarios();
 };
+
+function openNuevoRegistroModal(){
+  if(!_editMode) clearForm();
+  document.getElementById('f-fecha').value = today();
+  document.getElementById('modal-registro').style.display='block';
+  document.body.style.overflow='hidden';
+}
+function closeNuevoRegistroModal(){
+  document.getElementById('modal-registro').style.display='none';
+  document.body.style.overflow='';
+  _editMode=null;
+}
 
 document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('hdr-date').textContent = new Date().toLocaleDateString('es-EC',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
