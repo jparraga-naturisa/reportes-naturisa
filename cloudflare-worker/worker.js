@@ -7,6 +7,9 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3002',
   'http://localhost:3003',
   'http://localhost:3004',
+  'http://localhost:3005',
+  'http://localhost:3006',
+  'http://localhost:3007',
 ]
 
 function getCors(origin) {
@@ -580,6 +583,54 @@ async function handleDbConsumoInsumosSync(request, env) {
     stmt.bind(f.clave, f.ordenControl || null, f.idCiclo ?? null, f.documentoMaterial || null, f.posicionDoc || null,
       f.codigoMaterial || null, f.descripcion || null, f.cantidad ?? null, f.importe ?? null, f.almacen || null,
       f.unidad || null, f.fecha || null, f.tipoMovimiento || null, now))
+  if (batch.length) await env.db.batch(batch)
+  return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
+}
+
+// ── Consumo de combustible (Excel SAP subido en consumos-combustible.html) ─
+// GET  /db/consumo-combustible?anio=<yyyy>&ordenControl=<orden>&centroCosto=<cc>  -> lista consumo
+// POST /db/consumo-combustible/sync                                                -> upsert masivo
+
+async function handleDbConsumoCombustible(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const anio         = url.searchParams.get('anio')
+  const ordenControl = url.searchParams.get('ordenControl')
+  const centroCosto  = url.searchParams.get('centroCosto')
+  const conds = []
+  const binds = []
+  if (anio)         { conds.push("strftime('%Y', fecha) = ?"); binds.push(String(anio)) }
+  if (ordenControl) { conds.push('orden_control = ?');          binds.push(ordenControl) }
+  if (centroCosto)  { conds.push('centro_costo = ?');           binds.push(centroCosto) }
+  const where = conds.length ? ' WHERE ' + conds.join(' AND ') : ''
+  const stmt = env.db.prepare(`SELECT * FROM consumo_combustible${where} ORDER BY fecha`).bind(...binds)
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbConsumoCombustibleSync(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const body = await request.json()
+  const filas = Array.isArray(body?.filas) ? body.filas : []
+  if (!filas.length) return corsResponse('{"error":"body.filas vacio"}', 400, request)
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO consumo_combustible (clave, centro_costo, descripcion, almacen, fecha, cantidad, unidad,
+       importe, documento_material, clase_movimiento, posicion_doc, usuario, texto_cabecera, orden_control,
+       actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(clave) DO UPDATE SET
+       centro_costo = excluded.centro_costo, descripcion = excluded.descripcion, almacen = excluded.almacen,
+       fecha = excluded.fecha, cantidad = excluded.cantidad, unidad = excluded.unidad, importe = excluded.importe,
+       documento_material = excluded.documento_material, clase_movimiento = excluded.clase_movimiento,
+       posicion_doc = excluded.posicion_doc, usuario = excluded.usuario, texto_cabecera = excluded.texto_cabecera,
+       orden_control = excluded.orden_control, actualizado_en = excluded.actualizado_en`
+  )
+  const batch = filas.filter(f => f.clave).map(f =>
+    stmt.bind(f.clave, f.centroCosto || null, f.descripcion || null, f.almacen || null, f.fecha || null,
+      f.cantidad ?? null, f.unidad || null, f.importe ?? null, f.documentoMaterial || null,
+      f.claseMovimiento || null, f.posicionDoc || null, f.usuario || null, f.textoCabecera || null,
+      f.ordenControl || null, now))
   if (batch.length) await env.db.batch(batch)
   return corsResponse(JSON.stringify({ ok: true, count: batch.length }), 200, request)
 }
@@ -1250,6 +1301,134 @@ async function handleDbMareaExtremosRecalcular(request, env) {
   }
 }
 
+// ── Marea por muelle (Open-Meteo Marine API) ──────────────────────────────
+// GET  /db/marea-muelle?muelle=&fecha=&hora=      -> lista marea por muelle
+// POST /db/marea-muelle/refrescar?desde=&hasta=   -> trae/actualiza marea para ese rango
+// A diferencia de `marea` (por sucursal), esta usa las coordenadas propias de
+// cada muelle (tabla `muelles`) - asi Cargill, Brisas, etc. tambien tienen marea,
+// no solo las 6 sucursales costeras.
+async function refrescarMareaMuelle(env, startDate, endDate) {
+  const { results: muelles } = await env.db.prepare('SELECT nombre, latitud, longitud FROM muelles').all()
+  if (!muelles.length) return 0
+
+  const now = ecuadorNowISO()
+  const stmt = env.db.prepare(
+    `INSERT INTO marea_muelle (muelle, fecha, hora, altura_marea_m, altura_ola_m, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(muelle, fecha, hora) DO UPDATE SET
+       altura_marea_m = excluded.altura_marea_m, altura_ola_m = excluded.altura_ola_m,
+       actualizado_en = excluded.actualizado_en`
+  )
+
+  let totalFilas = 0
+  const CONCURRENCIA = 8
+  for (let i = 0; i < muelles.length; i += CONCURRENCIA) {
+    const lote = muelles.slice(i, i + CONCURRENCIA)
+    const resultados = await Promise.all(lote.map(m => {
+      const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${m.latitud}&longitude=${m.longitud}` +
+        `&hourly=sea_level_height_msl,wave_height&start_date=${startDate}&end_date=${endDate}&timezone=America/Guayaquil`
+      return fetch(url).then(r => r.ok ? r.json() : null).catch(() => null)
+    }))
+    const batch = []
+    resultados.forEach((json, idx) => {
+      const muelle = lote[idx].nombre
+      const h = json?.hourly
+      if (!h?.time) return
+      h.time.forEach((timestamp, i2) => {
+        const [fecha, hora] = timestamp.split('T')
+        batch.push(stmt.bind(muelle, fecha, hora, h.sea_level_height_msl?.[i2] ?? null, h.wave_height?.[i2] ?? null, now))
+      })
+    })
+    const CHUNK = 3000
+    for (let j = 0; j < batch.length; j += CHUNK) {
+      await env.db.batch(batch.slice(j, j + CHUNK))
+      totalFilas += Math.min(CHUNK, batch.length - j)
+    }
+  }
+  return totalFilas
+}
+
+async function handleDbMareaMuelle(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const muelle = url.searchParams.get('muelle')
+  const fecha = url.searchParams.get('fecha')
+  const hora = url.searchParams.get('hora')
+  const conds = []
+  const binds = []
+  if (muelle) { conds.push('muelle = ?'); binds.push(muelle) }
+  if (fecha) { conds.push('fecha = ?'); binds.push(fecha) }
+  if (hora) { conds.push('hora = ?'); binds.push(hora) }
+  const where = conds.length ? ' WHERE ' + conds.join(' AND ') : ''
+  const stmt = env.db.prepare(`SELECT * FROM marea_muelle${where} ORDER BY muelle, fecha, hora`).bind(...binds)
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbMareaMuelleRefrescar(request, url, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const hoy = ecuadorNowISO().slice(0, 10)
+  const en15dias = new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10)
+  const startDate = url.searchParams.get('desde') || '2025-01-01'
+  const endDate = url.searchParams.get('hasta') || en15dias
+  try {
+    const n = await refrescarMareaMuelle(env, startDate, endDate)
+    return corsResponse(JSON.stringify({ ok: true, desde: startDate, hasta: endDate, filas: n }), 200, request)
+  } catch (e) {
+    return corsResponse(JSON.stringify({ error: String(e) }), 500, request)
+  }
+}
+
+async function recalcularMareaMuelleExtremos(env) {
+  const { results } = await env.db.prepare(`
+    WITH serie AS (
+      SELECT muelle, fecha, hora, altura_marea_m,
+        LAG(altura_marea_m) OVER (PARTITION BY muelle ORDER BY fecha, hora) AS prev,
+        LEAD(altura_marea_m) OVER (PARTITION BY muelle ORDER BY fecha, hora) AS next
+      FROM marea_muelle
+      WHERE altura_marea_m IS NOT NULL
+    )
+    SELECT muelle, fecha, hora,
+      CASE WHEN altura_marea_m > prev AND altura_marea_m > next THEN 'ALTA'
+           WHEN altura_marea_m < prev AND altura_marea_m < next THEN 'BAJA' END AS tipo
+    FROM serie
+    WHERE prev IS NOT NULL AND next IS NOT NULL
+      AND ((altura_marea_m > prev AND altura_marea_m > next) OR (altura_marea_m < prev AND altura_marea_m < next))
+  `).all()
+
+  await env.db.prepare('UPDATE marea_muelle SET tipo_pico = NULL').run()
+  const stmt = env.db.prepare(
+    `UPDATE marea_muelle SET tipo_pico = ? WHERE muelle = ? AND fecha = ? AND hora = ?`
+  )
+  const CHUNK = 500
+  let total = 0
+  for (let i = 0; i < results.length; i += CHUNK) {
+    const lote = results.slice(i, i + CHUNK)
+    await env.db.batch(lote.map(r => stmt.bind(r.tipo, r.muelle, r.fecha, r.hora)))
+    total += lote.length
+  }
+  return total
+}
+
+async function handleDbMareaMuelleExtremos(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const muelle = url.searchParams.get('muelle')
+  const stmt = muelle
+    ? env.db.prepare('SELECT * FROM marea_muelle WHERE muelle = ? AND tipo_pico IS NOT NULL ORDER BY fecha, hora').bind(muelle)
+    : env.db.prepare('SELECT * FROM marea_muelle WHERE tipo_pico IS NOT NULL ORDER BY muelle, fecha, hora')
+  const { results } = await stmt.all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+async function handleDbMareaMuelleExtremosRecalcular(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  try {
+    const n = await recalcularMareaMuelleExtremos(env)
+    return corsResponse(JSON.stringify({ ok: true, count: n }), 200, request)
+  } catch (e) {
+    return corsResponse(JSON.stringify({ error: String(e) }), 500, request)
+  }
+}
+
 async function handleDbClimaReal(request, url, env) {
   if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
   const startDate = url.searchParams.get('desde') || '2025-01-01'
@@ -1831,6 +2010,14 @@ export default {
       return handleDbConsumoInsumosSync(request, env)
     }
 
+    if (url.pathname === '/db/consumo-combustible' && env.db) {
+      return handleDbConsumoCombustible(request, url, env)
+    }
+
+    if (url.pathname === '/db/consumo-combustible/sync' && env.db) {
+      return handleDbConsumoCombustibleSync(request, env)
+    }
+
     if (url.pathname === '/db/historial-ha' && env.db) {
       return handleDbHistorialHa(request, url, env)
     }
@@ -1899,6 +2086,22 @@ export default {
       return handleDbMareaExtremosRecalcular(request, env)
     }
 
+    if (url.pathname === '/db/marea-muelle' && env.db) {
+      return handleDbMareaMuelle(request, url, env)
+    }
+
+    if (url.pathname === '/db/marea-muelle/refrescar' && env.db) {
+      return handleDbMareaMuelleRefrescar(request, url, env)
+    }
+
+    if (url.pathname === '/db/marea-muelle-extremos' && env.db) {
+      return handleDbMareaMuelleExtremos(request, url, env)
+    }
+
+    if (url.pathname === '/db/marea-muelle-extremos/recalcular' && env.db) {
+      return handleDbMareaMuelleExtremosRecalcular(request, env)
+    }
+
     if (url.pathname === '/db/clima/horaria/real' && env.db) {
       return handleDbClimaHorariaReal(request, url, env)
     }
@@ -1917,7 +2120,7 @@ export default {
       // Piscinas/Ciclos al instante sin esperar a "Generar reporte".
       const esCicloCosechado = /^hc:\d+$/.test(key)
       const esIndice = /^hc-index:[A-Z0-9]+$/.test(key)
-      if (!esCicloCosechado && !esIndice && !['excel','ciclos','cambios','cambios-dev','cambios-config','cambios-config-dev'].includes(key)) {
+      if (!esCicloCosechado && !esIndice && !['excel','ciclos','cambios','cambios-dev','cambios-config','cambios-config-dev','cambios-usuarios'].includes(key)) {
         return corsResponse('{"error":"key no permitida"}', 400, request)
       }
       if (request.method === 'GET') {

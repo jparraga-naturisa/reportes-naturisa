@@ -534,15 +534,17 @@ tbody tr:last-child td{border-bottom:none}
 
   <!-- ── TAB: Usuarios (solo admin) ── -->
   <div id="tab-usuarios" style="display:none">
-    <div class="form-card" style="max-width:600px;margin-bottom:20px">
-      <div class="section-title">Gestión de Usuarios</div>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:4px">
-        Los usuarios están definidos en el código del sistema. Para agregar o cambiar contraseñas, edita el archivo <strong>control-cambios.html</strong> en GitHub y súbelo — todos los equipos recibirán el cambio automáticamente.
-      </p>
-    </div>
     <div class="table-wrap">
-      <table class="usr-tbl"><thead><tr><th>Usuario</th><th>Rol</th><th>Tipo</th></tr></thead>
-      <tbody id="tbl-usuarios"></tbody></table>
+      <div class="table-toolbar" style="padding:14px 18px">
+        <span style="font-size:15px;font-weight:700">Usuarios</span>
+        <button class="btn btn-primary" onclick="openUsuarioModal()" style="margin-left:auto;padding:7px 16px;font-size:13px">+ Nuevo Usuario</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table><thead><tr>
+          <th>Usuario</th><th>Rol</th><th>Acciones</th>
+        </tr></thead>
+        <tbody id="tbl-usuarios"></tbody></table>
+      </div>
     </div>
   </div>
 
@@ -829,6 +831,7 @@ const _CFG_DEFAULTS = {
 //  CONFIG (modulos, acciones, campos, motivos via KV)
 // ══════════════════════════════════════════════════════
 const CONFIG_KV_KEY = 'cambios-config';
+const USERS_KV_KEY = 'cambios-usuarios';
 let CONFIG = {};
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
@@ -2240,6 +2243,28 @@ function getSession(){ try{ return JSON.parse(sessionStorage.getItem(SES_KEY)||'
 function setSession(s){ sessionStorage.setItem(SES_KEY, JSON.stringify(s)); }
 function clearSession(){ sessionStorage.removeItem(SES_KEY); }
 
+async function loadUsuarios(){
+  try{
+    const r = await fetch(API+'/kv/'+USERS_KV_KEY);
+    if(r.ok){
+      const d = await r.json().catch(()=>null);
+      if(Array.isArray(d) && d.length){
+        USUARIOS.length=0;
+        d.forEach(u=>USUARIOS.push(u));
+        return;
+      }
+    }
+  }catch(e){}
+  // Si no hay KV, guardar los hardcoded
+  await saveUsuarios();
+}
+
+async function saveUsuarios(){
+  await fetch(API+'/kv/'+USERS_KV_KEY,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(USUARIOS)
+  }).catch(()=>{});
+}
+
 function doLogin(){
   const username = document.getElementById('login-user').value.trim();
   const password = document.getElementById('login-pass').value;
@@ -2284,14 +2309,76 @@ function showApp(){
 }
 
 // ── Gestión de usuarios (admin) ──
+let _editUserId = null;
+
+function openUsuarioModal(id){
+  _editUserId = id||null;
+  const u = id ? USUARIOS.find(x=>x.id===id) : null;
+  document.getElementById('modal-usuario-title').textContent = u ? 'Editar Usuario' : 'Nuevo Usuario';
+  document.getElementById('uf-username').value = u?.username||'';
+  document.getElementById('uf-password').value = '';
+  document.getElementById('uf-role').value = u?.role||'user';
+  document.getElementById('modal-usuario').style.display='flex';
+  document.body.style.overflow='hidden';
+}
+
+function closeUsuarioModal(){
+  document.getElementById('modal-usuario').style.display='none';
+  document.body.style.overflow='';
+  _editUserId=null;
+}
+
+async function saveUsuarioModal(){
+  const username = document.getElementById('uf-username').value.trim();
+  const password = document.getElementById('uf-password').value;
+  const role     = document.getElementById('uf-role').value;
+  if(!username){ toast('El usuario es requerido','err'); return; }
+  if(_editUserId){
+    const idx = USUARIOS.findIndex(u=>u.id===_editUserId);
+    if(idx<0) return;
+    USUARIOS[idx].username = username;
+    USUARIOS[idx].role = role;
+    if(password) USUARIOS[idx].password = password;
+  } else {
+    if(USUARIOS.find(u=>u.username.toLowerCase()===username.toLowerCase())){
+      toast('Ya existe un usuario con ese nombre','err'); return;
+    }
+    const newId = Math.max(0,...USUARIOS.map(u=>u.id))+1;
+    USUARIOS.push({id:newId, username, password, role});
+  }
+  await saveUsuarios();
+  closeUsuarioModal();
+  renderUsuarios();
+  toast('Usuario guardado','ok');
+}
+
+async function deleteUsuario(id){
+  const s = getSession();
+  if(s?.id===id){ toast('No puedes eliminar tu propio usuario','err'); return; }
+  if(!confirm('¿Eliminar este usuario?')) return;
+  const idx = USUARIOS.findIndex(u=>u.id===id);
+  if(idx<0) return;
+  USUARIOS.splice(idx,1);
+  await saveUsuarios();
+  renderUsuarios();
+  toast('Usuario eliminado','ok');
+}
+
 function renderUsuarios(){
   const s = getSession();
   const tbody = document.getElementById('tbl-usuarios');
   if(!tbody) return;
   tbody.innerHTML = USUARIOS.map(u=>`<tr>
-    <td style="font-weight:600">${u.username}${u.id===s?.id?' <span style="font-size:10px;color:var(--muted)">(tú)</span>':''}</td>
+    <td>
+      <div style="font-weight:600;font-size:13px">${u.username}${u.id===s?.id?' <span style="font-size:10px;color:var(--muted)">(tú)</span>':''}</div>
+    </td>
     <td><span class="${u.role==='admin'?'role-badge-admin':'role-badge-user'}">${u.role==='admin'?'Administrador':'Usuario'}</span></td>
-    <td style="color:var(--muted);font-size:12px">${u.role==='admin'?'Administrador del sistema':'Usuario estándar'}</td>
+    <td>
+      <div style="display:flex;gap:6px">
+        <button onclick="openUsuarioModal(${u.id})" style="padding:4px 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:12px;font-weight:600;cursor:pointer;color:var(--text)">Editar</button>
+        ${u.id!==s?.id?`<button onclick="deleteUsuario(${u.id})" style="padding:4px 8px;border:1px solid #fecdd3;border-radius:6px;background:#fff1f2;font-size:12px;cursor:pointer;color:#be123c">✕</button>`:''}
+      </div>
+    </td>
   </tr>`).join('');
 }
 
@@ -2330,9 +2417,42 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   initForm();
   await fetchAllRecords();
   await loadConfig();
+  await loadUsuarios();
   const s = getSession();
   if(s){ showApp(); }
 });
 </script>
+
+<!-- ── Modal Usuario ── -->
+<div id="modal-usuario" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:12px;width:100%;max-width:420px;padding:28px;position:relative;margin:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-size:16px;font-weight:700" id="modal-usuario-title">Nuevo Usuario</div>
+      <button onclick="closeUsuarioModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">×</button>
+    </div>
+    <div class="form-grid" style="grid-template-columns:1fr">
+      <div class="fg">
+        <label>Usuario</label>
+        <input type="text" id="uf-username" placeholder="nombre de usuario" autocomplete="off">
+      </div>
+      <div class="fg">
+        <label>Contraseña</label>
+        <input type="password" id="uf-password" placeholder="contraseña" autocomplete="new-password">
+        <span style="font-size:11px;color:var(--muted);margin-top:3px;display:block">Al editar, dejar vacío para no cambiar la contraseña.</span>
+      </div>
+      <div class="fg">
+        <label>Rol</label>
+        <select id="uf-role">
+          <option value="user">Usuario</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeUsuarioModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveUsuarioModal()">Guardar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
