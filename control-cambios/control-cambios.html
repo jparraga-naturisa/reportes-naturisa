@@ -527,9 +527,7 @@ tbody tr:last-child td{border-bottom:none}
 //  DATA LAYER  (Cloudflare KV via Worker)
 // ══════════════════════════════════════════════════════
 const API = 'https://naturisa-proxy.parragajonathan965.workers.dev';
-const KV_KEY = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'cambios-dev'
-  : 'cambios';
+const KV_KEY = 'cambios';
 let RECORDS = [];
 
 async function fetchAllRecords(){
@@ -545,20 +543,7 @@ async function fetchAllRecords(){
     return;
   }
 
-  // Si es entorno local y no hay datos, copiar desde producción
-  if(KV_KEY === 'cambios-dev'){
-    try {
-      const r2 = await fetch(API + '/kv/cambios');
-      if(r2.ok){
-        const prod = await r2.json().catch(()=>null);
-        if(Array.isArray(prod) && prod.length > 0){
-          RECORDS = prod;
-          fetch(API+'/kv/cambios-dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(prod)}).catch(()=>{});
-          return;
-        }
-      }
-    } catch(e){}
-  }
+
 
   RECORDS = Array.isArray(data) ? data : [];
 }
@@ -768,7 +753,7 @@ const _CFG_DEFAULTS = {
 // ══════════════════════════════════════════════════════
 //  CONFIG (modulos, acciones, campos, motivos via KV)
 // ══════════════════════════════════════════════════════
-const CONFIG_KV_KEY = KV_KEY === 'cambios-dev' ? 'cambios-config-dev' : 'cambios-config';
+const CONFIG_KV_KEY = 'cambios-config';
 let CONFIG = {};
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
