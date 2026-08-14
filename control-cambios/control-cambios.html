@@ -21,19 +21,20 @@ body{display:flex;flex-direction:column;overflow:hidden;height:100vh}
 .app-shell{display:flex;height:100vh;overflow:hidden}
 
 /* ── Sidebar ── */
-.sidebar{width:220px;background:#0d1b2a;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
-.sidebar-logo{padding:18px 16px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.06)}
-.sidebar-logo-icon{background:#1c4f8a;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.sidebar-logo-text{font-size:13px;font-weight:700;color:#c8d8e8;line-height:1.3}
-.sidebar-logo-sub{font-size:10px;color:rgba(255,255,255,.25);font-weight:400}
-.sidebar-nav{padding:8px 8px;flex:1}
-.sidebar-section{font-size:9px;font-weight:700;color:rgba(255,255,255,.18);text-transform:uppercase;letter-spacing:1.2px;padding:14px 10px 5px}
-.tab{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:6px;font-size:13px;font-weight:400;color:rgba(255,255,255,.35);cursor:pointer;transition:all .15s;margin-bottom:1px;border-bottom:none;border-left:3px solid transparent}
-.tab:hover{background:rgba(255,255,255,.04);color:rgba(255,255,255,.65)}
-.tab.active{background:rgba(28,79,138,.25);color:#a8c4e0;font-weight:600;border-left-color:#3a7fc1}
-.tab svg{flex-shrink:0;opacity:.4}
-.tab.active svg{opacity:.8}
-.sidebar-footer{padding:14px 10px;border-top:1px solid rgba(255,255,255,.06)}
+.sidebar{width:220px;background:#152238;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sidebar-logo{padding:14px 16px 12px;display:flex;flex-direction:column;gap:2px;border-bottom:none}
+.sidebar-logo-icon{display:none}
+.sidebar-logo-text{font-size:15px;font-weight:800;color:#4db8ff;line-height:1.2;letter-spacing:.5px}
+.sidebar-logo-sub{font-size:11px;color:rgba(255,255,255,.45);font-weight:400}
+.sidebar-logo-date{font-size:10px;color:rgba(255,255,255,.3);margin-top:2px}
+.sidebar-nav{padding:4px 8px;flex:1}
+.sidebar-section{display:none}
+.tab{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;font-size:13px;font-weight:400;color:rgba(255,255,255,.55);cursor:pointer;transition:all .15s;margin-bottom:1px;border-bottom:none;border-left:3px solid transparent}
+.tab:hover{color:rgba(255,255,255,.85)}
+.tab.active{color:#fff;font-weight:500;border-left-color:#4db8ff}
+.tab svg{flex-shrink:0;opacity:.5}
+.tab.active svg{opacity:1}
+.sidebar-footer{padding:14px 12px;border-top:1px solid rgba(255,255,255,.08);margin-top:auto}
 
 /* ── Main area ── */
 .main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
@@ -166,7 +167,7 @@ tbody tr:last-child td{border-bottom:none}
 .login-card .btn-login:hover{opacity:.88}
 .user-chip{display:flex;align-items:center;gap:7px;font-size:12px;opacity:.9}
 .user-chip .avatar{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px}
-.sidebar-footer .avatar{width:32px;height:32px;border-radius:50%;background:#1c4f8a;color:#a8c4e0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.sidebar-footer .avatar{width:32px;height:32px;border-radius:50%;background:#2d7dd2;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
 .btn-logout{padding:4px 12px;border:1px solid rgba(255,255,255,.35);border-radius:5px;background:transparent;color:#fff;font-size:11px;font-weight:600;cursor:pointer;transition:background .15s}
 .btn-logout:hover{background:rgba(255,255,255,.15)}
 
@@ -230,13 +231,9 @@ tbody tr:last-child td{border-bottom:none}
   <!-- ── Sidebar ── -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <div class="sidebar-logo-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
-      </div>
-      <div>
-        <div class="sidebar-logo-text">Naturisa</div>
-        <div class="sidebar-logo-sub">Control de Cambios</div>
-      </div>
+      <div class="sidebar-logo-text">NATURISA</div>
+      <div class="sidebar-logo-date" id="sidebar-date"></div>
+      <div class="sidebar-logo-sub">Control de Cambios</div>
     </div>
     <nav class="sidebar-nav">
       <div class="sidebar-section">Principal</div>
@@ -2413,7 +2410,11 @@ function closeNuevoRegistroModal(){
 }
 
 document.addEventListener('DOMContentLoaded', async ()=>{
-  document.getElementById('hdr-date').textContent = new Date().toLocaleDateString('es-EC',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  const _hoy = new Date();
+  const _fechaStr = _hoy.toLocaleDateString('es-EC',{day:'numeric',month:'short',year:'numeric'});
+  document.getElementById('hdr-date').textContent = _fechaStr;
+  const sd = document.getElementById('sidebar-date');
+  if(sd) sd.textContent = _fechaStr;
   initForm();
   await fetchAllRecords();
   await loadConfig();
