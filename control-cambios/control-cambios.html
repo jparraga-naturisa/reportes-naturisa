@@ -269,8 +269,20 @@ tbody tr:last-child td{border-bottom:none}
 
     <!-- Filtro gráfico Mes-Área -->
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-      <div class="section-title" style="margin:0">Casos por Mes y Área</div>
+      <div class="section-title" style="margin:0">Casos por</div>
+      <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        <button id="chart-mode-mes" onclick="setChartMode('mes')" style="padding:4px 12px;font-size:12px;font-weight:600;border:none;background:var(--primary);color:#fff;cursor:pointer">Por Mes</button>
+        <button id="chart-mode-dia" onclick="setChartMode('dia')" style="padding:4px 12px;font-size:12px;font-weight:600;border:none;background:var(--card);color:var(--muted);cursor:pointer">Por Día</button>
+      </div>
       <select id="dash-chart-anio" onchange="renderDashboard()" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text)">
+      </select>
+      <select id="dash-chart-mes" onchange="renderDashboard()" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text);display:none">
+        <option value="01">Enero</option><option value="02">Febrero</option>
+        <option value="03">Marzo</option><option value="04">Abril</option>
+        <option value="05">Mayo</option><option value="06">Junio</option>
+        <option value="07">Julio</option><option value="08">Agosto</option>
+        <option value="09">Septiembre</option><option value="10">Octubre</option>
+        <option value="11">Noviembre</option><option value="12">Diciembre</option>
       </select>
     </div>
     <div class="chart-card" style="margin-bottom:20px">
@@ -1855,7 +1867,18 @@ async function cfgSaveModule(){
 //  DASHBOARD + CHARTS
 // ══════════════════════════════════════════════════════
 let charts={};
+let _chartMode='mes';
 function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
+function setChartMode(mode){
+  _chartMode=mode;
+  const btnMes=document.getElementById('chart-mode-mes');
+  const btnDia=document.getElementById('chart-mode-dia');
+  const selMesChart=document.getElementById('dash-chart-mes');
+  if(btnMes) { btnMes.style.background=mode==='mes'?'var(--primary)':'var(--card)'; btnMes.style.color=mode==='mes'?'#fff':'var(--muted)'; }
+  if(btnDia) { btnDia.style.background=mode==='dia'?'var(--primary)':'var(--card)'; btnDia.style.color=mode==='dia'?'#fff':'var(--muted)'; }
+  if(selMesChart) selMesChart.style.display=mode==='dia'?'':'none';
+  renderDashboard();
+}
 
 function renderDashboard(){
   const allData = loadData();
@@ -1992,31 +2015,57 @@ function renderDashboard(){
     </div>`;
   }).join('');
 
-  // ── Por Mes y Área (barras verticales, 12 meses del año seleccionado) ──
+  // ── Por Mes y Área / Por Día y Área ──
   const MESES_LABEL=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const AREA_COLORS=['#1a3a5c','#00b4d8','#6366f1','#10b981','#f59e0b','#ef4444'];
   const chartAnio = selAnioChart?.value || String(esteAnio);
-  const mesAreaMap={};
+  const chartMesSel = document.getElementById('dash-chart-mes');
+  // Pre-seleccionar mes actual en modo día
+  if(chartMesSel && !chartMesSel.dataset.init){
+    chartMesSel.dataset.init='1';
+    chartMesSel.value = String(new Date().getMonth()+1).padStart(2,'0');
+  }
+  const chartMes = chartMesSel?.value || String(new Date().getMonth()+1).padStart(2,'0');
   const areasSet=new Set();
-  allData.forEach(r=>{
-    if(!r.fechaReporte) return;
-    const [y,m]=r.fechaReporte.split('-');
-    if(y!==chartAnio) return;
-    const area=r.area||'Sin área';
-    areasSet.add(area);
-    const mi=+m-1;
-    if(!mesAreaMap[mi]) mesAreaMap[mi]={};
-    mesAreaMap[mi][area]=(mesAreaMap[mi][area]||0)+1;
-  });
+  let labels=[], dataMap={};
+
+  if(_chartMode==='dia'){
+    // Días del mes seleccionado
+    const diasEnMes = new Date(+chartAnio, +chartMes, 0).getDate();
+    labels = Array.from({length:diasEnMes},(_,i)=>String(i+1));
+    allData.forEach(r=>{
+      if(!r.fechaReporte) return;
+      const [y,m,d]=r.fechaReporte.split('-');
+      if(y!==chartAnio || m!==chartMes) return;
+      const area=r.area||'Sin área';
+      areasSet.add(area);
+      const di=+d-1;
+      if(!dataMap[di]) dataMap[di]={};
+      dataMap[di][area]=(dataMap[di][area]||0)+1;
+    });
+  } else {
+    labels = MESES_LABEL;
+    allData.forEach(r=>{
+      if(!r.fechaReporte) return;
+      const [y,m]=r.fechaReporte.split('-');
+      if(y!==chartAnio) return;
+      const area=r.area||'Sin área';
+      areasSet.add(area);
+      const mi=+m-1;
+      if(!dataMap[mi]) dataMap[mi]={};
+      dataMap[mi][area]=(dataMap[mi][area]||0)+1;
+    });
+  }
+
   const areasAll=[...areasSet].sort();
   destroyChart('mes-area');
   charts['mes-area']=new Chart(document.getElementById('chart-mes-area'),{
     type:'bar',
     data:{
-      labels:MESES_LABEL,
+      labels,
       datasets:areasAll.map((area,ai)=>({
         label:area,
-        data:Array.from({length:12},(_,i)=>(mesAreaMap[i]&&mesAreaMap[i][area])||0),
+        data:Array.from({length:labels.length},(_,i)=>(dataMap[i]&&dataMap[i][area])||0),
         backgroundColor:AREA_COLORS[ai%AREA_COLORS.length],
         borderRadius:4
       }))
