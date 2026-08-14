@@ -15,24 +15,37 @@
   --bg:#f0f4f8;--card:#ffffff;--text:#1e293b;--muted:#64748b;--border:#e2e8f0;
 }
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text)}
-body{display:flex;flex-direction:column;overflow:hidden}
+body{display:flex;flex-direction:column;overflow:hidden;height:100vh}
 
-/* ── Header ── */
-.header{background:var(--primary);color:#fff;padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.25);flex-shrink:0;gap:24px}
-.header-logo{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;letter-spacing:.5px;flex-shrink:0}
+/* ── App shell ── */
+.app-shell{display:flex;height:100vh;overflow:hidden}
+
+/* ── Sidebar ── */
+.sidebar{width:220px;background:#0f1f2e;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sidebar-logo{padding:20px 20px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sidebar-logo-icon{background:var(--accent);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sidebar-logo-text{font-size:13px;font-weight:700;color:#fff;line-height:1.3}
+.sidebar-logo-sub{font-size:10px;color:rgba(255,255,255,.45);font-weight:400}
+.sidebar-nav{padding:12px 10px;flex:1}
+.sidebar-section{font-size:9px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1px;padding:16px 10px 6px}
+.tab{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13px;font-weight:500;color:rgba(255,255,255,.6);cursor:pointer;transition:background .15s,color .15s;margin-bottom:2px;border-bottom:none}
+.tab:hover{background:rgba(255,255,255,.07);color:#fff}
+.tab.active{background:var(--accent);color:#fff}
+.tab svg{flex-shrink:0;opacity:.7}
+.tab.active svg{opacity:1}
+.sidebar-footer{padding:14px 10px;border-top:1px solid rgba(255,255,255,.08)}
+
+/* ── Main area ── */
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.topbar{height:52px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:700;color:var(--text)}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.content{flex:1;overflow-y:auto;padding:20px 24px}
+
+/* ── Header compat (keep for login) ── */
 .header-logo .accent{color:var(--accent)}
 .header-logo .sep{opacity:.4;margin:0 4px}
-.header-right{display:flex;align-items:center;gap:12px;font-size:12px;opacity:.85;flex-shrink:0}
 .badge-env{background:rgba(255,255,255,.15);padding:2px 9px;border-radius:20px;font-size:11px}
-
-/* ── Tabs ── */
-.tabs{display:flex;gap:0;flex:1;align-self:stretch;overflow:hidden}
-.tab{padding:0 18px;font-size:13px;font-weight:600;color:rgba(255,255,255,.65);cursor:pointer;border-bottom:3px solid transparent;display:flex;align-items:center;transition:color .15s,border-color .15s;white-space:nowrap}
-.tab:hover{color:#fff}
-.tab.active{color:#fff;border-bottom-color:var(--accent)}
-
-/* ── Scroll content ── */
-.content{flex:1;overflow-y:auto;padding:20px 24px}
 
 /* ── KPI Cards ── */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
@@ -153,6 +166,7 @@ tbody tr:last-child td{border-bottom:none}
 .login-card .btn-login:hover{opacity:.88}
 .user-chip{display:flex;align-items:center;gap:7px;font-size:12px;opacity:.9}
 .user-chip .avatar{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px}
+.sidebar-footer .avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
 .btn-logout{padding:4px 12px;border:1px solid rgba(255,255,255,.35);border-radius:5px;background:transparent;color:#fff;font-size:11px;font-weight:600;cursor:pointer;transition:background .15s}
 .btn-logout:hover{background:rgba(255,255,255,.15)}
 
@@ -192,7 +206,7 @@ tbody tr:last-child td{border-bottom:none}
 
 /* ── Responsive ── */
 @media(max-width:600px){
-  .header{padding:0 14px;height:auto;min-height:54px;flex-wrap:wrap}.tabs{flex-wrap:wrap}.tab{padding:10px 12px;font-size:12px}.content{padding:14px}.form-grid{grid-template-columns:1fr}
+  .sidebar{width:180px}.content{padding:14px}.form-grid{grid-template-columns:1fr}
   .kpi-grid{grid-template-columns:repeat(2,1fr)}.table-search input{width:140px}
 }
 </style>
@@ -212,29 +226,62 @@ tbody tr:last-child td{border-bottom:none}
   </div>
 </div>
 
-<header class="header">
-  <div class="header-logo">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
-    Naturisa <span class="sep">|</span> <span class="accent">Control de Cambios</span>
-  </div>
-  <nav class="tabs">
-    <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
-    <div class="tab" onclick="showTab('historial')">Historial</div>
-    <div class="tab" id="tab-btn-usuarios" style="display:none" onclick="showTab('usuarios')">Usuarios</div>
-    <div class="tab" id="tab-btn-config" style="display:none" onclick="showTab('config')">Configuracion</div>
-  </nav>
-  <div class="header-right">
-    <span id="hdr-date"></span>
-    <div class="user-chip" id="hdr-user" style="display:none">
-      <div class="avatar" id="hdr-avatar"></div>
-      <span id="hdr-username"></span>
-      <button class="btn-logout" onclick="doLogout()">Salir</button>
+<div class="app-shell" id="app-shell" style="display:none">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+      </div>
+      <div>
+        <div class="sidebar-logo-text">Naturisa</div>
+        <div class="sidebar-logo-sub">Control de Cambios</div>
+      </div>
     </div>
-  </div>
-</header>
+    <nav class="sidebar-nav">
+      <div class="sidebar-section">Principal</div>
+      <div class="tab active" onclick="showTab('dashboard')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </div>
+      <div class="tab" onclick="showTab('historial')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+        Historial
+      </div>
+      <div class="sidebar-section">Admin</div>
+      <div class="tab" id="tab-btn-usuarios" style="display:none" onclick="showTab('usuarios')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Usuarios
+      </div>
+      <div class="tab" id="tab-btn-config" style="display:none" onclick="showTab('config')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Configuración
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="hdr-user" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div class="avatar" id="hdr-avatar" style="flex-shrink:0"></div>
+          <div>
+            <div id="hdr-username" style="font-size:12px;font-weight:600;color:#fff"></div>
+            <div style="font-size:10px;color:rgba(255,255,255,.4)">Usuario</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="doLogout()" style="width:100%;text-align:center;padding:7px;border-radius:6px;background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer">Cerrar sesión</button>
+      </div>
+    </div>
+  </aside>
 
+  <!-- ── Main ── -->
+  <div class="main-area">
+    <div class="topbar">
+      <span class="topbar-title" id="topbar-title">Dashboard</span>
+      <div class="topbar-right">
+        <span id="hdr-date" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+    </div>
+    <main class="content">
 <!-- ═══════════════════ CONTENT ═══════════════════ -->
-<main class="content">
 
   <!-- ── TAB: Dashboard ── -->
   <div id="tab-dashboard">
@@ -499,7 +546,9 @@ tbody tr:last-child td{border-bottom:none}
     </div>
   </div>
 
-</main>
+    </main>
+  </div>
+</div>
 
 <!-- ── Modal Detalle ── -->
 <div class="overlay" id="modal-overlay" onclick="closeModal(event)">
@@ -2212,6 +2261,7 @@ function doLogin(){
 function doLogout(){
   clearSession();
   document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app-shell').style.display='none';
   document.getElementById('hdr-user').style.display='none';
   document.getElementById('tab-btn-usuarios').style.display='none';
   document.getElementById('tab-btn-config').style.display='none';
@@ -2221,14 +2271,15 @@ function showApp(){
   const s = getSession();
   if(!s) return;
   document.getElementById('login-screen').style.display='none';
-  // Header
+  document.getElementById('app-shell').style.display='flex';
+  // Sidebar user info
   const hdrUser = document.getElementById('hdr-user');
-  hdrUser.style.display='flex';
+  hdrUser.style.display='block';
   document.getElementById('hdr-avatar').textContent = s.username.charAt(0).toUpperCase();
   document.getElementById('hdr-username').textContent = s.username;
   // Tabs solo admin
-  document.getElementById('tab-btn-usuarios').style.display = s.role==='admin'?'':'none';
-  document.getElementById('tab-btn-config').style.display   = s.role==='admin'?'':'none';
+  document.getElementById('tab-btn-usuarios').style.display = s.role==='admin'?'flex':'none';
+  document.getElementById('tab-btn-config').style.display   = s.role==='admin'?'flex':'none';
   showTab('dashboard');
 }
 
@@ -2251,7 +2302,14 @@ showTab = function(name){
   if((name==='usuarios'||name==='config') && s?.role!=='admin') return;
   _origShowTab(name);
   const TABS_ALL=['dashboard','historial','usuarios','config'];
-  document.querySelectorAll('.tab').forEach((el,i)=>{ el.classList.toggle('active', TABS_ALL[i]===name); });
+  document.querySelectorAll('.tab').forEach(el=>{
+    const onclick = el.getAttribute('onclick')||'';
+    const m = onclick.match(/showTab\('(\w+)'\)/);
+    if(m) el.classList.toggle('active', m[1]===name);
+  });
+  const TITLES={dashboard:'Dashboard',historial:'Historial',usuarios:'Usuarios',config:'Configuración'};
+  const t=document.getElementById('topbar-title');
+  if(t) t.textContent=TITLES[name]||name;
   if(name==='usuarios') renderUsuarios();
 };
 
