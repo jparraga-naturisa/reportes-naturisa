@@ -1158,7 +1158,8 @@ function renderHistorial(){
   }
   // Pre-seleccionar mes actual en primera carga
   const selMesH = document.getElementById('filter-mes');
-  if(selMesH && !selMesH.value){
+  if(selMesH && !selMesH.dataset.init){
+    selMesH.dataset.init = '1';
     selMesH.value = String(new Date().getMonth()+1).padStart(2,'0');
   }
 
