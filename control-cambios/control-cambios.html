@@ -2026,30 +2026,41 @@ function renderDashboard(){
     </div>`;
   }).join('');
 
-  // ── Top Solicitantes ──
-  const TOP_COLORS=['#1a3a5c','#00b4d8','#6366f1','#10b981','#f59e0b','#ef4444','#ec4899','#8b5cf6'];
-  function renderTopBars(containerId, countMap, labelFn){
-    const sorted = Object.entries(countMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
-    const max = sorted[0]?.[1]||1;
-    document.getElementById(containerId).innerHTML = sorted.length
-      ? sorted.map(([k,c],i)=>`
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-size:11px;color:var(--text);min-width:120px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${labelFn(k)}">${labelFn(k)}</span>
-          <div style="flex:1;background:#e2e8f0;border-radius:4px;height:10px">
-            <div style="background:${TOP_COLORS[i%TOP_COLORS.length]};border-radius:4px;height:10px;width:${Math.round((c/max)*100)}%;transition:width .4s"></div>
-          </div>
-          <span style="font-size:11px;font-weight:700;color:${TOP_COLORS[i%TOP_COLORS.length]};min-width:20px;text-align:right">${c}</span>
-        </div>`).join('')
-      : '<div style="color:var(--muted);font-size:12px;padding:8px 0">Sin datos</div>';
-  }
-  const usuariosMap={};
-  data.forEach(r=>{ if(r.solicitante){ usuariosMap[r.solicitante]=(usuariosMap[r.solicitante]||0)+1; } });
-  renderTopBars('dash-top-usuarios', usuariosMap, k=>k);
+  // ── Top Solicitantes y Sucursales (barras apiladas por área) ──
+  const AREA_BAR_COLORS={'Bodega':'#1a3a5c','Producción':'#00b4d8'};
+  const AREA_BAR_DEFAULT=['#6366f1','#10b981','#f59e0b','#ef4444'];
+  const areasEnDatos=[...new Set(data.map(r=>r.area).filter(Boolean))].sort();
+  function areaColor(area,i){ return AREA_BAR_COLORS[area]||AREA_BAR_DEFAULT[i%AREA_BAR_DEFAULT.length]; }
 
-  // ── Top Sucursales ──
-  const sucursalesMap={};
-  data.forEach(r=>{ if(r.sucursal){ sucursalesMap[r.sucursal]=(sucursalesMap[r.sucursal]||0)+1; } });
-  renderTopBars('dash-top-sucursales', sucursalesMap, k=>fmtSuc(k));
+  function renderTopStackedBars(containerId, groupKey, labelFn){
+    const map={};
+    data.forEach(r=>{
+      const k=r[groupKey]; if(!k) return;
+      if(!map[k]) map[k]={total:0};
+      map[k].total++;
+      const a=r.area||'Sin área';
+      map[k][a]=(map[k][a]||0)+1;
+    });
+    const sorted=Object.entries(map).sort((a,b)=>b[1].total-a[1].total).slice(0,8);
+    const max=sorted[0]?.[1].total||1;
+    const legend=areasEnDatos.map((a,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)"><span style="width:8px;height:8px;border-radius:2px;background:${areaColor(a,i)};display:inline-block"></span>${a}</span>`).join('');
+    document.getElementById(containerId).innerHTML = sorted.length ? `
+      <div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap">${legend}</div>
+      ${sorted.map(([k,d])=>{
+        const segments=areasEnDatos.map((a,i)=>{
+          const pct=Math.round(((d[a]||0)/max)*100);
+          return pct>0?`<div style="background:${areaColor(a,i)};height:10px;width:${pct}%;transition:width .4s" title="${a}: ${d[a]||0}"></div>`:'';
+        }).join('');
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:11px;color:var(--text);min-width:120px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${labelFn(k)}">${labelFn(k)}</span>
+          <div style="flex:1;background:#e2e8f0;border-radius:4px;height:10px;display:flex;overflow:hidden">${segments}</div>
+          <span style="font-size:11px;font-weight:700;color:var(--primary);min-width:20px;text-align:right">${d.total}</span>
+        </div>`;
+      }).join('')}` : '<div style="color:var(--muted);font-size:12px;padding:8px 0">Sin datos</div>';
+  }
+
+  renderTopStackedBars('dash-top-usuarios',    'solicitante', k=>k);
+  renderTopStackedBars('dash-top-sucursales',  'sucursal',    k=>fmtSuc(k));
 
   // ── Por Mes y Área / Por Día y Área ──
   const MESES_LABEL=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
