@@ -433,6 +433,18 @@ tbody tr:last-child td{border-bottom:none}
           <select id="filter-modulo" onchange="renderHistorial()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
             <option value="">Módulo: Todos</option>
           </select>
+          <select id="filter-anio" onchange="renderHistorial()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <option value="">Año: Todos</option>
+          </select>
+          <select id="filter-mes" onchange="renderHistorial()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <option value="">Mes: Todos</option>
+            <option value="01">Enero</option><option value="02">Febrero</option>
+            <option value="03">Marzo</option><option value="04">Abril</option>
+            <option value="05">Mayo</option><option value="06">Junio</option>
+            <option value="07">Julio</option><option value="08">Agosto</option>
+            <option value="09">Septiembre</option><option value="10">Octubre</option>
+            <option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
         </div>
       </div>
       <div style="overflow-x:auto">
@@ -1128,6 +1140,8 @@ function renderHistorial(){
   const filterSuc   = (document.getElementById('filter-sucursal')?.value||'');
   const filterArea  = (document.getElementById('filter-area')?.value||'');
   const filterMod   = (document.getElementById('filter-modulo')?.value||'');
+  const filterAnio  = (document.getElementById('filter-anio')?.value||'');
+  const filterMes   = (document.getElementById('filter-mes')?.value||'');
 
   // Poblar select de módulos dinámicamente según área seleccionada
   const selMod = document.getElementById('filter-modulo');
@@ -1140,17 +1154,27 @@ function renderHistorial(){
       modulosUnicos.map(m=>`<option ${m===prevVal?'selected':''}>${m}</option>`).join('');
   }
 
+  // Poblar select de años con los años presentes en los datos
+  const selAnio = document.getElementById('filter-anio');
+  if(selAnio){
+    const anios = [...new Set(data.map(r=>r.fechaReporte?.slice(0,4)).filter(Boolean))].sort().reverse();
+    selAnio.innerHTML = '<option value="">Año: Todos</option>' +
+      anios.map(a=>`<option value="${a}"${a===filterAnio?'selected':''}>${a}</option>`).join('');
+  }
+
   const filtered = data.filter(r=>{
-    const okF   = currentFilter==='Todos' || r.estado===currentFilter;
-    const okSuc = !filterSuc || r.sucursal===filterSuc;
-    const okArea= !filterArea || r.area===filterArea;
-    const okMod = !filterMod || r.modulo===filterMod;
-    const okQ   = !q || r.descripcion?.toLowerCase().includes(q)
-                     || (r.sucursal||'').toLowerCase().includes(q)
-                     || (r.area||'').toLowerCase().includes(q)
-                     || (r.modulo||'').toLowerCase().includes(q)
-                     || (r.solicitante||'').toLowerCase().includes(q);
-    return okF && okSuc && okArea && okMod && okQ;
+    const okF    = currentFilter==='Todos' || r.estado===currentFilter;
+    const okSuc  = !filterSuc  || r.sucursal===filterSuc;
+    const okArea = !filterArea || r.area===filterArea;
+    const okMod  = !filterMod  || r.modulo===filterMod;
+    const okAnio = !filterAnio || r.fechaReporte?.startsWith(filterAnio);
+    const okMes  = !filterMes  || r.fechaReporte?.slice(5,7)===filterMes;
+    const okQ    = !q || r.descripcion?.toLowerCase().includes(q)
+                      || (r.sucursal||'').toLowerCase().includes(q)
+                      || (r.area||'').toLowerCase().includes(q)
+                      || (r.modulo||'').toLowerCase().includes(q)
+                      || (r.solicitante||'').toLowerCase().includes(q);
+    return okF && okSuc && okArea && okMod && okAnio && okMes && okQ;
   }).sort((a,b)=>new Date(b.fechaReporte)-new Date(a.fechaReporte));
 
   const tbody = document.getElementById('tbl-historial');
