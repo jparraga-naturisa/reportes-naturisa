@@ -267,6 +267,17 @@ tbody tr:last-child td{border-bottom:none}
       </div>
     </div>
 
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div class="chart-card">
+        <div class="chart-title">Top Solicitantes</div>
+        <div id="dash-top-usuarios"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top Sucursales</div>
+        <div id="dash-top-sucursales"></div>
+      </div>
+    </div>
+
     <!-- Filtro gráfico Mes-Área -->
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
       <div class="section-title" style="margin:0">Casos por</div>
@@ -2014,6 +2025,31 @@ function renderDashboard(){
       </div>
     </div>`;
   }).join('');
+
+  // ── Top Solicitantes ──
+  const TOP_COLORS=['#1a3a5c','#00b4d8','#6366f1','#10b981','#f59e0b','#ef4444','#ec4899','#8b5cf6'];
+  function renderTopBars(containerId, countMap, labelFn){
+    const sorted = Object.entries(countMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const max = sorted[0]?.[1]||1;
+    document.getElementById(containerId).innerHTML = sorted.length
+      ? sorted.map(([k,c],i)=>`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:11px;color:var(--text);min-width:120px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${labelFn(k)}">${labelFn(k)}</span>
+          <div style="flex:1;background:#e2e8f0;border-radius:4px;height:10px">
+            <div style="background:${TOP_COLORS[i%TOP_COLORS.length]};border-radius:4px;height:10px;width:${Math.round((c/max)*100)}%;transition:width .4s"></div>
+          </div>
+          <span style="font-size:11px;font-weight:700;color:${TOP_COLORS[i%TOP_COLORS.length]};min-width:20px;text-align:right">${c}</span>
+        </div>`).join('')
+      : '<div style="color:var(--muted);font-size:12px;padding:8px 0">Sin datos</div>';
+  }
+  const usuariosMap={};
+  data.forEach(r=>{ if(r.solicitante){ usuariosMap[r.solicitante]=(usuariosMap[r.solicitante]||0)+1; } });
+  renderTopBars('dash-top-usuarios', usuariosMap, k=>k);
+
+  // ── Top Sucursales ──
+  const sucursalesMap={};
+  data.forEach(r=>{ if(r.sucursal){ sucursalesMap[r.sucursal]=(sucursalesMap[r.sucursal]||0)+1; } });
+  renderTopBars('dash-top-sucursales', sucursalesMap, k=>fmtSuc(k));
 
   // ── Por Mes y Área / Por Día y Área ──
   const MESES_LABEL=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
