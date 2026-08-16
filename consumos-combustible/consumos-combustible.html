@@ -30,20 +30,56 @@
             --radius-sm: 8px;
         }
         html { height: 100%; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); height: 100%; display: flex; flex-direction: column; overflow: hidden; margin: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); height: 100%; overflow: hidden; margin: 0; }
 
-        /* Header */
-        .header { background: var(--primary); color: white; padding: 0 20px; height: 52px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
-        .header-logo { display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 700; letter-spacing: 0.3px; }
-        .header-logo .accent { color: var(--accent); }
-        .header-logo .sep { opacity: 0.4; margin: 0 4px; }
+        /* ── Sidebar layout ── */
+        body { overflow: hidden; }
+        .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 175px; background: var(--primary); display: flex; flex-direction: column; z-index: 200; transition: width 0.22s ease; overflow: hidden; }
+        .sb-logo { display: flex; align-items: center; gap: 9px; padding: 14px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); min-height: 64px; position: relative; }
+        .sb-logo .accent { color: var(--accent); font-size: 15px; font-weight: 800; }
+        .sb-logo .sep { opacity: 0.35; margin: 0 3px; color: #fff; }
+        .sb-app-switcher { position: relative; }
+        .sb-app-btn { background: none; border: none; color: rgba(255,255,255,0.75); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; padding: 0; white-space: nowrap; }
+        .sb-app-btn:hover { color: #fff; }
+        .sb-app-menu { display: none; position: absolute; top: calc(100% + 8px); left: 0; background: #1e2d45; border: 1px solid #2e4a6e; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.4); min-width: 200px; z-index: 9999; overflow: hidden; }
+        .sb-app-menu a { display: block; padding: 10px 16px; color: #e2e8f0; text-decoration: none; font-size: 13px; transition: background 0.12s; }
+        .sb-app-menu a:hover { background: rgba(255,255,255,0.08); }
+        .sb-app-menu a.active { background: #0f2744; font-weight: 700; }
 
-        /* Header user dropdown */
-        .hdr-right { display: flex; align-items: center; gap: 14px; }
-        .hdr-user-btn { display: flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 3px 10px 3px 4px; cursor: pointer; color: white; font-size: 12.5px; font-weight: 600; transition: background 0.15s; white-space: nowrap; }
+        /* Toggle collapse button */
+        .sb-toggle { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.15); border: none; color: rgba(255,255,255,0.8); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; transition: background 0.15s; flex-shrink: 0; }
+        .sb-toggle:hover { background: rgba(255,255,255,0.28); }
+
+        /* Sidebar nav */
+        .sb-nav { flex: 1; padding: 10px 0; overflow-y: auto; overflow-x: hidden; }
+        .sb-nav-item { display: flex; align-items: center; gap: 11px; width: 100%; padding: 10px 18px; background: none; border: none; border-left: 3px solid transparent; color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 500; cursor: pointer; text-align: left; transition: color 0.15s, background 0.15s, border-color 0.15s; white-space: nowrap; }
+        .sb-nav-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
+        .sb-nav-item.active { background: rgba(255,255,255,0.1); color: #fff; border-left-color: var(--accent); font-weight: 700; }
+        .sb-nav-icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.85; }
+        .sb-nav-label { transition: opacity 0.15s; }
+
+        /* Collapsed state */
+        body.sb-collapsed .sidebar { width: 52px; }
+        body.sb-collapsed .content-wrap { left: 52px; }
+        body.sb-collapsed .sb-logo-text { display: none; }
+        body.sb-collapsed .sb-toggle { right: 50%; transform: translate(50%, -50%); }
+        body.sb-collapsed .sb-nav-item { justify-content: center; padding: 11px 0; border-left: none; border-right: 3px solid transparent; }
+        body.sb-collapsed .sb-nav-item.active { border-left: none; border-right-color: var(--accent); }
+        body.sb-collapsed .sb-nav-label { opacity: 0; width: 0; overflow: hidden; }
+        body.sb-collapsed .sb-date,
+        body.sb-collapsed .sb-app-switcher,
+        body.sb-collapsed #sap-excel-last-update { display: none !important; }
+        body.sb-collapsed .sb-footer { padding: 10px 0; display: flex; justify-content: center; }
+        body.sb-collapsed .hdr-user-btn { width: 34px; height: 34px; padding: 0; justify-content: center; border-radius: 50%; }
+        body.sb-collapsed .hdr-user-btn span:not(.hdr-user-av) { display: none; }
+        body.sb-collapsed .hdr-user-btn svg { display: none; }
+
+        /* Sidebar footer (user) */
+        .sb-footer { border-top: 1px solid rgba(255,255,255,0.1); padding: 12px 14px; position: relative; }
+        .hdr-user-btn { display: flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 4px 8px 4px 4px; cursor: pointer; color: white; font-size: 10.5px; font-weight: 600; transition: background 0.15s; white-space: nowrap; width: 100%; overflow: hidden; }
         .hdr-user-btn:hover { background: rgba(255,255,255,0.2); }
-        .hdr-user-av { width: 26px; height: 26px; border-radius: 50%; background: #00b4d8; color: #0a2540; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0; }
-        .hdr-user-dd { position: absolute; top: calc(100% + 6px); right: 0; background: white; border-radius: 10px; box-shadow: var(--shadow-md), 0 8px 24px rgba(0,0,0,0.12); min-width: 216px; overflow: hidden; display: none; z-index: 9999; border: 1px solid var(--border); }
+        .hdr-user-av { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #0a2540; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0; }
+        .hdr-user-dd { position: absolute; bottom: calc(100% + 6px); left: 14px; right: 14px; background: white; border-radius: 10px; box-shadow: var(--shadow-md), 0 8px 24px rgba(0,0,0,0.18); overflow: hidden; display: none; z-index: 9999; border: 1px solid var(--border); }
         .hdr-user-dd.open { display: block; }
         .hdr-dd-head { padding: 10px 14px; font-size: 12.5px; font-weight: 700; color: var(--text); background: #fafafa; border-bottom: 1px solid var(--border); }
         .hdr-dd-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 14px; background: none; border: none; font-size: 12.5px; font-weight: 500; color: var(--text); cursor: pointer; text-align: left; transition: background 0.12s; }
@@ -58,8 +94,34 @@
         .hdr-dd-upload { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 14px; font-size: 12.5px; font-weight: 500; color: var(--text); cursor: pointer; transition: background 0.12s; box-sizing: border-box; }
         .hdr-dd-upload:hover { background: #f5f5f7; }
 
+        /* Topbar (thin, above main content) */
+        .topbar { display: none; }
+        .sb-date { font-size: 9px; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+
+        /* Content wrapper */
+        .content-wrap { position: fixed; left: 175px; top: 0; right: 0; bottom: 0; display: flex; flex-direction: column; overflow: hidden; transition: left 0.22s ease; }
+
+        /* Filter panel (Linear style) */
+        .fp-bar { display: flex; align-items: center; gap: 8px; padding: 0; background: transparent; flex-shrink: 0; }
+        .fp-btn { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: white; font-size: 12px; font-weight: 600; color: var(--text); cursor: pointer; transition: background 0.12s; }
+        .fp-btn:hover { background: var(--bg); }
+        .fp-btn.active { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+        .fp-badge { background: #1d4ed8; color: white; border-radius: 10px; font-size: 10px; font-weight: 700; padding: 0 5px; min-width: 16px; text-align: center; }
+        .fp-chip { display: flex; align-items: center; gap: 5px; padding: 3px 8px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 20px; font-size: 11.5px; font-weight: 600; color: #1e40af; }
+        .fp-chip-x { cursor: pointer; opacity: 0.6; font-size: 13px; line-height: 1; }
+        .fp-chip-x:hover { opacity: 1; }
+        .fp-panel { position: fixed; z-index: 8000; background: white; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.14); min-width: 400px; padding: 14px 16px 10px; display: none; }
+        .fp-panel.open { display: block; }
+        .fp-panel-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+        .fp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .fp-row select { height: 30px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12.5px; background: white; cursor: pointer; }
+        .fp-label { font-size: 12px; color: var(--muted); min-width: 36px; }
+        .fp-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+        .fp-clear { font-size: 12px; color: var(--muted); background: none; border: none; cursor: pointer; }
+        .fp-clear:hover { color: var(--danger); }
+
         /* Login Bar */
-        .login-bar { background: #fffbeb; border-bottom: 1px solid #fde68a; padding: 6px 20px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; flex-wrap: wrap; }
+        .login-bar { background: #fffbeb; border-bottom: 1px solid #fde68a; padding: 6px 20px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; flex-wrap: wrap; flex-shrink: 0; }
         .login-bar.connected { background: #f0fdf4; border-color: #bbf7d0; }
         .login-bar input[type="text"], .login-bar input[type="password"] { padding: 5px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12.5px; width: 150px; }
         .btn { padding: 5px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: opacity 0.15s; }
@@ -70,15 +132,16 @@
         #login-status.ok { color: #166534; font-weight: 600; }
         .user-avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--primary-light); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
 
-        /* Filters */
-        .filters { background: white; border-bottom: 1px solid var(--border); padding: 8px 20px; display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; flex-shrink: 0; }
+        /* Filters — ahora vive dentro de .fp-panel (panel flotante estilo insumos),
+        que ya aporta fondo/borde/sombra; aqui solo el layout de los campos. */
+        .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; max-width: 520px; }
         .fg { display: flex; flex-direction: column; gap: 3px; }
         .fg label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
         .fg select, .fg input[type="date"] { height: 28px; padding: 0 9px; box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: white; min-width: 130px; }
         .tsm-btn { height:28px; padding:0 10px; box-sizing: border-box; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--card); cursor:pointer; font-size:12.5px; min-width:200px; max-width:260px; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text); }
         .tsm-dd { display:none; position:absolute; top:calc(100% + 4px); left:0; background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:var(--shadow-md), 0 6px 18px rgba(0,0,0,.1); z-index:9999; min-width:240px; max-width:340px; }
         .tsm-q { width:100%; padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px; outline:none; background:var(--bg); color:var(--text); }
-        .tsm-list { max-height:220px; overflow-y:auto; padding:0 4px 4px; }
+        .tsm-list { max-height:175px; overflow-y:auto; padding:0 4px 4px; }
         .tsm-opt { padding:5px 10px; cursor:pointer; font-size:13px; border-radius:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:7px; }
         .tsm-opt:hover { background:var(--bg); }
         .tsm-opt.tsm-active { background:#dbeafe; color:#1d4ed8; font-weight:600; }
@@ -93,14 +156,14 @@
         .nav-wrap { display: flex; align-items: center; gap: 3px; }
 
         /* Main */
-        .main { padding: 12px 20px; width: 100%; box-sizing: border-box; }
+        .main { padding: 12px 20px; width: 100%; box-sizing: border-box; overflow-y: auto; flex: 1; }
 
         /* KPI Cards */
         .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 12px; }
         .kpi-inc-row { display:flex; align-items:center; gap:5px; font-size:10px; line-height:1.3; }
         .kpi-inc-dot { font-size:7px; flex-shrink:0; }
         .kpi-inc-n   { font-weight:700; min-width:16px; }
-        .kpi-card { background: white; border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); border-left: 3px solid transparent; min-width: 0; }
+        .kpi-card { background: white; border-radius: var(--radius); padding: 10px 10px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); border-left: 3px solid transparent; min-width: 0; overflow: hidden; }
         /* Tabs en el header */
         .hdr-tabs { display:flex;flex:1;overflow-x:auto;scrollbar-width:none;align-self:stretch;padding:0 12px; }
         .hdr-tabs::-webkit-scrollbar { display:none; }
@@ -110,6 +173,10 @@
         .sap-tbl { width:100%;border-collapse:collapse;font-size:12px; }
         .sap-tbl th { padding:7px 10px;text-align:left;font-weight:700;color:#334155;background:#f8fafc;border-bottom:1px solid var(--border);white-space:nowrap; }
         .sap-tbl td { padding:6px 10px;border-bottom:1px solid #f1f1f3; }
+        /* Tabla resumen compacta para ver todas las sucursales */
+        .sap-tbl-compact { font-size:10px; }
+        .sap-tbl-compact th { padding:2px 6px; white-space:nowrap; }
+        .sap-tbl-compact td { padding:1px 6px; white-space:nowrap; }
         .sap-tbl tbody tr:not(.cic-hdr):hover td { background:#f8fafc; }
         .sap-tbl tbody tr.cic-hdr:hover td { background:transparent !important; }
         .sap-tbl tfoot tr:hover td { background:inherit; }
@@ -161,6 +228,10 @@
         .empty-icon { font-size: 40px; margin-bottom: 8px; }
 
         @media (max-width: 900px) {
+            .sidebar { width: 60px; }
+            .sb-logo .accent, .sb-logo .sep, .sb-app-switcher, .sb-nav-item span { display: none; }
+            .sb-nav-item { justify-content: center; padding: 12px; }
+            .topbar, .content-wrap { left: 60px; }
             .charts-grid { grid-template-columns: 1fr; }
             .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
             .filters { padding: 8px 12px; gap: 8px; }
@@ -168,16 +239,16 @@
         }
         @media (max-width: 600px) {
             .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-            .header { padding: 0 12px; }
         }
 
-        /* Nav tabs */
-        .nav-tabs { background: white; border-bottom: 1px solid var(--border); padding: 0 20px; display: none; gap: 0; }
-        .nav-tab { padding: 10px 20px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2.5px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 7px; transition: color 0.15s; }
-        .nav-tab:hover { color: var(--primary); }
-        .nav-tab.active { color: var(--primary); border-bottom-color: var(--accent); }
+        /* Nav tabs (hidden — using sidebar nav) */
+        .nav-tabs { display: none !important; }
+        .nav-tab { display: none; }
+        /* Tabs en el header (hidden) */
+        .hdr-tabs { display: none !important; }
+        .sap-tab  { display: none !important; }
         .screen { display: none; }
-        .screen.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+        .screen.active { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
     </style>
 </head>
 <body>
@@ -219,6 +290,20 @@
       <button onclick="document.getElementById('sap-ceco-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted,#64748b);line-height:1;padding:0 4px">&times;</button>
     </div>
     <div id="sap-ceco-modal-body" style="overflow-y:auto;flex:1;padding:0"></div>
+  </div>
+</div>
+
+<!-- ── Modal Detalle de Sucursal (drill-down desde Centro de Costo) ─────────── -->
+<div id="sap-ceco-sub-modal" onclick="if(event.target===this)this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9600;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--bg,#fff);border:1px solid var(--border,#e5e5ea);border-radius:14px;width:100%;max-width:900px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 32px rgba(0,0,0,0.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border,#e5e5ea);flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:13px;font-weight:400;color:var(--muted)">Consumo</span>
+        <span style="font-size:15px;font-weight:700;color:var(--text)" id="sap-ceco-sub-modal-title"></span>
+      </div>
+      <button onclick="document.getElementById('sap-ceco-sub-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted,#64748b);line-height:1;padding:0 4px">&times;</button>
+    </div>
+    <div id="sap-ceco-sub-modal-body" style="overflow-y:auto;flex:1;padding:0"></div>
   </div>
 </div>
 
@@ -276,42 +361,66 @@
     </div>
 </div>
 
-<header class="header">
-    <div class="header-logo">
-        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-            <circle cx="13" cy="13" r="12" stroke="#00b4d8" stroke-width="1.8"/>
-            <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.85" transform="rotate(-20 13 13)"/>
-            <ellipse cx="13" cy="13" rx="6" ry="4" fill="#00b4d8" opacity="0.5" transform="rotate(30 13 13)"/>
-        </svg>
-        <span class="accent">NATURISA</span><span class="sep">|</span><div style="position:relative;display:inline-block;margin-left:6px">
-            <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'" style="background:none;border:none;color:inherit;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;padding:0">
-                Consumos Combustible <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M2 4l4 4 4-4"/></svg>
-            </button>
-            <div class="hdr-switcher-menu" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:#1e2d45;border:1px solid #2e4a6e;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.4);min-width:200px;z-index:9999;overflow:hidden">
-                <a href="../consumos-insumos/consumos-insumos.html" style="display:block;padding:10px 16px;color:#e2e8f0;text-decoration:none;font-size:13.5px;">Consumos Insumos</a>
-                <a href="../consumos-combustible/consumos-combustible.html" style="display:block;padding:10px 16px;color:#e2e8f0;text-decoration:none;font-size:13.5px;background:#0f2744;font-weight:700">Consumos Combustible</a>
+<aside class="sidebar">
+    <div class="sb-logo">
+        <button class="sb-toggle" id="sb-toggle-btn" onclick="_sbToggle()" title="Colapsar menú">&#8249;</button>
+        <div class="sb-logo-text" style="width:100%">
+            <div class="accent">NATURISA</div>
+            <div id="header-date" class="sb-date"></div>
+            <div class="sb-app-switcher">
+                <button class="sb-app-btn" onclick="this.parentElement.querySelector('.sb-app-menu').style.display=this.parentElement.querySelector('.sb-app-menu').style.display==='block'?'none':'block'">
+                    Consumos Combustible <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor"><path d="M2 4l4 4 4-4"/></svg>
+                </button>
+                <div class="sb-app-menu">
+                    <a href="../consumos-insumos/consumos-insumos.html">Consumos Insumos</a>
+                    <a href="../consumos-combustible/consumos-combustible.html" class="active">Consumos Combustible</a>
+                </div>
             </div>
         </div>
     </div>
-    <!-- Tabs de navegación (desplazables) -->
-    <nav class="hdr-tabs" id="hdr-tabs">
-        <button id="sap-tab-resumen"   class="sap-tab sap-tab-active" onclick="sapSetTab('resumen')">Resumen</button>
-        <button id="sap-tab-material"  class="sap-tab"                onclick="sapSetTab('material')">Por Material</button>
-        <button id="sap-tab-ciclo"     class="sap-tab" style="display:none" onclick="sapSetTab('ciclo')">Por Ciclo</button>
-        <button id="sap-tab-tendencia" class="sap-tab"                onclick="sapSetTab('tendencia')">Tendencia</button>
-        <button id="sap-tab-ceco"      class="sap-tab"                onclick="sapSetTab('ceco')">Por Centro de Costo</button>
-        <button id="sap-tab-detalle"   class="sap-tab"                onclick="sapSetTab('detalle')">Detalle</button>
+
+    <nav class="sb-nav" id="hdr-tabs">
+        <button id="sap-tab-resumen" class="sb-nav-item active" onclick="sapSetTab('resumen')">
+            <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <span class="sb-nav-label">Resumen</span>
+        </button>
+        <button id="sap-tab-material" class="sb-nav-item" onclick="sapSetTab('material')">
+            <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <span class="sb-nav-label">Por Material</span>
+        </button>
+        <button id="sap-tab-ciclo" class="sb-nav-item" style="display:none" onclick="sapSetTab('ciclo')">
+            <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            <span class="sb-nav-label">Por Ciclo</span>
+        </button>
+        <button id="sap-tab-tendencia" class="sb-nav-item" onclick="sapSetTab('tendencia')">
+            <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <span class="sb-nav-label">Tendencia</span>
+        </button>
+        <button id="sap-tab-ceco" class="sb-nav-item" onclick="sapSetTab('ceco')">
+            <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v2m0 8v2M9.5 9.5a2.5 2.5 0 0 1 2.5-1.5c1.4 0 2.5.9 2.5 2s-1.1 1.8-2.5 2-2.5.9-2.5 2 1.1 2 2.5 2a2.5 2.5 0 0 0 2.5-1.5"/></svg>
+            <span class="sb-nav-label">Por Centro de Costo</span>
+        </button>
+        <button id="sap-tab-tipo" class="sb-nav-item" onclick="sapSetTab('tipo')">
+            <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            <span class="sb-nav-label">Por Tipo</span>
+        </button>
+        <button id="sap-tab-detalle" class="sb-nav-item" onclick="sapSetTab('detalle')">
+            <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            <span class="sb-nav-label">Detalle</span>
+        </button>
     </nav>
-    <div class="hdr-right">
-        <span style="font-size:12px;opacity:0.65;" id="header-date"></span>
-        <!-- Usuario: visible solo cuando está logueado -->
-        <div id="hdr-user-wrap" style="position:relative;display:none">
-            <button class="hdr-user-btn" onclick="_hdrUserToggle(event)">
-                <span class="hdr-user-av" id="hdr-user-av"></span>
-                <span id="hdr-user-name"></span>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:0.7"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div class="hdr-user-dd" id="hdr-user-dd">
+
+    <!-- Última actualización -->
+    <div id="sap-excel-last-update" style="display:none;padding:6px 14px;font-size:9px;color:rgba(255,255,255,0.45);border-top:1px solid rgba(255,255,255,0.08);white-space:nowrap"></div>
+
+    <!-- Usuario (footer del sidebar) -->
+    <div class="sb-footer" id="hdr-user-wrap" style="display:none">
+        <button class="hdr-user-btn" onclick="_hdrUserToggle(event)">
+            <span class="hdr-user-av" id="hdr-user-av"></span>
+            <span id="hdr-user-name" style="flex:1;text-align:left"></span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:0.7"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="hdr-user-dd" id="hdr-user-dd">
                 <div class="hdr-dd-head" id="hdr-user-fullname"></div>
                 <!-- Sección opciones: solo para admin -->
                 <div id="hdr-opc-section" style="display:none">
@@ -354,8 +463,10 @@
                 </button>
             </div>
         </div>
-    </div>
-</header>
+</aside>
+
+<!-- ── Content wrapper ────────────────────────────────────── -->
+<div class="content-wrap">
 
 <!-- Login Bar -->
 <div class="login-bar" id="login-bar">
@@ -383,8 +494,20 @@
     <!-- Barra de progreso (oculta por defecto) -->
     <div id="sap-progress" style="display:none;padding:8px 20px;background:#eff6ff;border-bottom:1px solid #bfdbfe;flex-shrink:0"></div>
 
-    <!-- Filtros -->
-    <div class="filters">
+    <!-- Barra de acciones con filtro estilo Linear (igual que insumos) -->
+    <div class="fp-bar" id="fp-action-bar">
+        <button class="fp-btn" id="fp-toggle-btn" onclick="_fpToggle(event)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+            Filtrar
+            <span class="fp-badge" id="fp-count" style="display:none">0</span>
+        </button>
+    </div>
+
+    <!-- Panel flotante de filtros: envuelve los mismos campos de siempre, ahora
+    ocultos por defecto y mostrados como panel flotante en vez de barra fija. -->
+    <div class="fp-panel" id="fp-panel">
+        <div class="fp-panel-title">Mostrar registros donde</div>
+        <div class="filters" id="sap-filters-bar">
         <div id="sap-year-fg" class="fg">
             <label>Año</label>
             <select id="sap-year" style="min-width:90px" onchange="sapOnDateChange()">
@@ -508,6 +631,8 @@
                 <div style="display:flex;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden">
                     <button id="tend-view-sub-btn" onclick="_sapTendSetView('sub')" style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;background:#1e3a5f;color:#fff">Por Sucursal</button>
                     <button id="tend-view-mat-btn" onclick="_sapTendSetView('mat')" style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;background:#e2e8f0;color:#475569">Por Material</button>
+                    <button id="tend-view-ceco-btn" onclick="_sapTendSetView('ceco')" style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;background:#e2e8f0;color:#475569">Por Centro de Costo</button>
+                    <button id="tend-view-tipo-btn" onclick="_sapTendSetView('tipo')" style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;background:#e2e8f0;color:#475569">Por Tipo</button>
                 </div>
             </div>
         </div>
@@ -558,6 +683,18 @@
                 <input type="hidden" id="sap-mat-sub" value="">
             </div>
         </div>
+        <div id="sap-mat-cc-fg" class="fg" style="display:none">
+            <label>Centro de Costo</label>
+            <select id="sap-mat-cc" style="min-width:200px" onchange="updateSapResults()">
+                <option value="">— Todos —</option>
+            </select>
+        </div>
+        <div id="sap-mat-almsub-fg" class="fg" style="display:none">
+            <label>Sucursal</label>
+            <select id="sap-mat-almsub" style="min-width:160px" onchange="updateSapResults()">
+                <option value="">— Todas —</option>
+            </select>
+        </div>
         <!-- Filtros exclusivos de la pestaña Por Centro de Costo -->
         <div id="sap-ceco-year-fg" class="fg" style="display:none">
             <label>Año</label>
@@ -577,8 +714,31 @@
                 <option value="">— Todas —</option>
             </select>
         </div>
-        <!-- Última actualización Excel -->
-        <div id="sap-excel-last-update" style="margin-left:auto;display:flex;flex-direction:column;justify-content:center;font-size:11px;color:#64748b;white-space:nowrap;display:none"></div>
+        <!-- Filtros exclusivos de la pestaña Por Tipo -->
+        <div id="sap-tipo-year-fg" class="fg" style="display:none">
+            <label>Año</label>
+            <select id="sap-tipo-year" style="min-width:90px" onchange="updateSapResults()">
+                <option value="">— Todos —</option>
+            </select>
+        </div>
+        <div id="sap-tipo-month-fg" class="fg" style="display:none">
+            <label>Mes</label>
+            <select id="sap-tipo-month" style="min-width:130px" onchange="updateSapResults()">
+                <option value="">— Todos —</option>
+            </select>
+        </div>
+        <div id="sap-tipo-sub-fg" class="fg" style="display:none">
+            <label>Sucursal</label>
+            <select id="sap-tipo-sub" style="min-width:160px" onchange="updateSapResults()">
+                <option value="">— Todas —</option>
+            </select>
+        </div>
+        <!-- Filtros de Detalle: se llenan por JS (opciones dependen de los datos) -->
+        <div id="sap-det-filters-fg" class="fg" style="display:none;flex-direction:row;flex-wrap:wrap;gap:8px;max-width:460px"></div>
+        </div>
+        <div class="fp-actions">
+            <button class="fp-btn" onclick="_fpClose()">Cerrar</button>
+        </div>
     </div>
 
     <!-- Resultados -->
@@ -661,10 +821,8 @@ const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
 const API_WAREHOUSES = _PROXY + '/bff/web/ap1/backoffice/api/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000&orderBy=name';
 const API_POOL_PROD   = _PROXY + '/bff/web/ap1/backoffice/api/report_production/pool_production';
 const API_CYCLES_NAV  = _PROXY + '/bff/web/ap1/backoffice/api/cycles_navigation';
-const API_POOLS         = _PROXY + '/bff/web/ap1/backoffice/api/pools';
-const API_SUB_USERS     = _PROXY + '/bff/web/ap1/backoffice/api/subsidiary_users/' + CODE_APP;
-const API_COST_CENTERS    = _PROXY + '/bff/web/datamaestra/backoffice/api/structure/cost_centers?status=ACTIVO&PageSize=5000';
-const API_CONTROL_ORDERS  = _PROXY + '/bff/web/datamaestra/backoffice/api/general/control_order?status=ACTIVO&PageSize=20000&orderBy=companyCodeSap%20asc';
+// Centros de costo y ordenes de control ya no se piden a AP1/Data Maestra desde aqui -
+// se leen de D1 (/db/centro-costo), refrescado por cron en el worker.
 
 let subsidiaries = [];
 var _combCostCenters    = [];
@@ -796,35 +954,77 @@ function populateSubsidiaries(list) {
 }
 
 // ── Centros de Costo + Órdenes de Control (Combustible) ──────
+// Todo se lee de D1 (tabla centro_costo, refrescada por cron desde Data Maestra) -
+// el navegador ya no depende de AP1 para esto. La tabla trae "orden_control" con
+// las ordenes separadas por coma; se reconstruye la misma forma que antes usaba
+// _combControlOrders (lista de {code, costCenter}) para no tocar el resto del codigo.
 async function loadCombCostCenters() {
-    const token = getToken();
-    if (!token) return;
     try {
-        const [resCc, resOc] = await Promise.all([
-            fetch(API_COST_CENTERS,   { headers: { Authorization: 'Bearer ' + token } }),
-            fetch(API_CONTROL_ORDERS, { headers: { Authorization: 'Bearer ' + token } })
-        ]);
+        const resCc = await fetch(_PROXY + '/db/centro-costo');
         if (resCc.ok) {
             const json = await resCc.json();
-            _combCostCenters = json.data || [];
-            _combCCMap = {};
-            _combCostCenters.forEach(function(cc) {
-                if (cc.code) _combCCMap[String(cc.code)] = {
-                    subCode:   cc.subsidiariesCode || cc.prefix || '',
-                    companyId: cc.companyId || null
-                };
+            _combCostCenters = (json.data || []).map(function(cc) {
+                return { code: cc.codigo, name: cc.nombre, subsidiariesCode: cc.codigo_sucursal, companyId: cc.id_compania };
             });
-        }
-        if (resOc.ok) {
-            const json = await resOc.json();
-            _combControlOrders = (json.data && json.data.data) ? json.data.data : (json.data || []);
+            _combCCMap = {};
+            _combControlOrders = [];
+            (json.data || []).forEach(function(cc) {
+                if (cc.codigo) _combCCMap[String(cc.codigo)] = {
+                    subCode:   cc.codigo_sucursal || '',
+                    companyId: cc.id_compania || null
+                };
+                String(cc.orden_control || '').split(',').forEach(function(ord) {
+                    ord = ord.trim();
+                    if (ord) _combControlOrders.push({ code: ord, costCenter: cc.codigo, description: cc.nombre });
+                });
+            });
         }
         _combBuildCodeMap();
         _combBuildLetterCodeMap();
         _combBuildOrderMap();
         _combBuildOrderToCCMap();
+        sapPopulateMatCCAndAlm(); // refresca el select de Centro de Costo con los nombres recien cargados
         if (_sapExcelRows.length) updateSapResults();
     } catch(e) { console.warn('[COMB] Error cargando datos maestra:', e); }
+}
+
+// Sucursales reales desde D1 (tabla sucursales: id, codigo, nombre, cluster) - es la
+// fuente autoritativa compartida por todos los dashboards. Reemplaza al mapa estatico
+// _COMB_SUB_STATIC, que tenia ids/nombres desactualizados para varios codigos
+// (acopios, matrices, etc).
+var _combSucursalesPorCodigo = {}; // codigo -> {id, name, cluster}
+// Clusters de sucursales.cluster que NO son granjas de producción - oficinas,
+// acopios y laboratorios no deben aparecer en los filtros/tablas de sucursal de
+// combustible, ni las que no tienen cluster asignado (null).
+var _COMB_CLUSTERS_EXCLUIDOS = ['Oficina', 'Acopio', 'Laboratorio'];
+var _combGranjaSids = new Set(); // ids de sucursales que SI son granja (para filtrar)
+async function loadCombSucursales() {
+    try {
+        const res = await fetch(_PROXY + '/db/sucursales');
+        if (!res.ok) return;
+        const json = await res.json();
+        _combSucursalesPorCodigo = {};
+        _combGranjaSids = new Set();
+        (json.data || []).forEach(function(s) {
+            if (!s.codigo) return;
+            _combSucursalesPorCodigo[String(s.codigo).trim()] = { id: s.id, name: s.nombre || s.codigo, cluster: s.cluster || '' };
+            if (s.cluster && _COMB_CLUSTERS_EXCLUIDOS.indexOf(s.cluster) < 0) _combGranjaSids.add(s.id);
+        });
+        sapPopulateMatCCAndAlm();
+        if (_sapExcelRows.length) updateSapResults();
+    } catch(e) { console.warn('[COMB] Error cargando sucursales D1:', e); }
+}
+
+// Resuelve un codigo de sucursal ("NA", "AP", etc.) a {id, name} - D1 primero
+// (autoritativo), mapa estatico como respaldo si D1 no trajo ese codigo todavia.
+function _combSucursalPorCodigo(code) {
+    return _combSucursalesPorCodigo[code] || _COMB_SUB_STATIC[code] || null;
+}
+
+// true si la sucursal (por id) es una granja de producción (no oficina/acopio/
+// laboratorio/sin-cluster). Si aun no cargo D1, no filtra (deja pasar todo).
+function _combEsGranja(subId) {
+    return !_combGranjaSids.size || _combGranjaSids.has(subId);
 }
 
 // Mapa código ciclo → {id, name} construido desde ciclos AP1 reales
@@ -890,9 +1090,15 @@ function _combGetSub(ccCode) {
     if (!entry) return null;
     var subCode = typeof entry === 'object' ? entry.subCode : entry;
     if (!subCode) return null;
-    // Para códigos compuestos "NA-PE", usar el primer código
+    // Para códigos compuestos "NA-MA-KA-PE-JO", usar el primer código como sucursal
+    // "principal" (compat con el resto del código que espera una sola sucursal).
+    // Para repartir el costo entre TODAS las sucursales del código compuesto según
+    // sus Ha, usar _combCCSucursales()/_combRowSucursales() en su lugar.
     var primaryCode = subCode.split('-')[0];
     if (!primaryCode) return null;
+    // Tabla sucursales de D1 (autoritativa, no depende de ciclos AP1/login)
+    var d1Sub = _combSucursalPorCodigo(primaryCode);
+    if (d1Sub) return { _subsidiaryId: d1Sub.id, _subName: d1Sub.name, cycleCode: primaryCode + '-comb', poolName: null, idCycle: null };
     // Intentar en mapa de ciclos (prefijos de letras: NA, CR, etc.)
     var sub = _combCodeMap[primaryCode];
     if (sub) return { _subsidiaryId: sub.id, _subName: sub.name, cycleCode: primaryCode + '-comb', poolName: null, idCycle: null };
@@ -926,40 +1132,66 @@ function _combBuildOrderToCCMap() {
     });
 }
 
-// Resuelve lista de nombres de subsidiarias desde un código de CC usando data maestra
-function _combSubNamesFromCC(ccCode) {
-    if (!ccCode) return [];
-    var cc = _combCostCenters.find(function(c) { return String(c.code) === String(ccCode); });
-    if (!cc) return [];
-    var raw = String(cc.subsidiariesCode || cc.prefix || '').trim();
-    if (!raw) return [];
-    // Numérico → buscar por id en subsidiaries
-    var asNum = parseInt(raw, 10);
-    if (!isNaN(asNum)) {
-        var s = subsidiaries.find(function(x) { return x.id === asNum; });
-        return s ? [s.name] : [];
-    }
-    // Prefijo de letras (puede ser compuesto "NA-PE-CR") → ciclos AP1, luego correlación companyId, luego crudo
-    return raw.split('-').map(function(prefix) {
-        prefix = prefix.trim();
-        if (!prefix) return null;
-        var entry = _combCodeMap[prefix];
-        if (entry) return entry.name;
-        if (_combLetterCodeMap[prefix]) return _combLetterCodeMap[prefix];
-        return prefix;
-    }).filter(Boolean);
-}
-
-function _combSubNameFromCC(ccCode) {
-    var names = _combSubNamesFromCC(ccCode);
-    return names.length ? names[0] : '';
-}
-
 // Devuelve el código de CC efectivo: row.cc si existe, o el CC resuelto desde la orden de control
 function _combResolvedCC(row) {
     if (row.cc) return String(row.cc).trim();
     var ord = String(row.o || '').trim();
     return ord ? (_combOrderToCCMap[ord] || '') : '';
+}
+
+// Todas las sucursales del codigo_sucursal de un centro de costo (puede venir
+// compuesto, ej. "NA-MA-KA-PE-JO" = ese CC reparte su costo entre esas 5).
+function _combCCSucursales(ccCode) {
+    var entry = _combCCMap[String(ccCode || '')];
+    if (!entry) return [];
+    var subCode = typeof entry === 'object' ? entry.subCode : entry;
+    if (!subCode) return [];
+    var seen = {}, subs = [];
+    subCode.split('-').forEach(function(p) {
+        p = p.trim();
+        if (!p) return;
+        var s = _combSucursalPorCodigo(p) || _combCodeMap[p];
+        if (!s) {
+            var numId = parseInt(p, 10);
+            if (!isNaN(numId)) {
+                var apiSub = subsidiaries.find(function(x) { return x.id === numId; });
+                if (apiSub) s = { id: apiSub.id, name: apiSub.name };
+            }
+        }
+        if (s && !seen[s.id]) { seen[s.id] = 1; subs.push({ id: s.id, name: s.name }); }
+    });
+    return subs;
+}
+
+// Sucursales a las que se le carga el costo de una fila: via su CC (directo o
+// resuelto desde orden de control), o si nada de eso resuelve, via el ciclo
+// vinculado a la orden de control (una sola sucursal, comportamiento anterior).
+function _combRowSucursales(row) {
+    var cc = _combResolvedCC(row);
+    if (cc) {
+        var subs = _combCCSucursales(cc);
+        if (subs.length) return subs;
+    }
+    var ord = String(row.o || '').trim();
+    var cy = ord ? _combOrderMap[ord] : null;
+    if (cy && cy._subsidiaryId) return [{ id: cy._subsidiaryId, name: cy._subName }];
+    return [];
+}
+
+// Reparte el costo entre las sucursales de un CC compuesto proporcional a sus Ha
+// activas (_sapPools). Si ninguna tiene Ha registrada, reparte en partes iguales.
+function _combSucursalWeights(subs) {
+    if (!subs.length) return [];
+    if (subs.length === 1) return [{ id: subs[0].id, name: subs[0].name, weight: 1 }];
+    var haById = {};
+    _sapPools.forEach(function(p) { if (p.subsidiaryId) haById[p.subsidiaryId] = (haById[p.subsidiaryId] || 0) + p.poolSize; });
+    var total = 0;
+    subs.forEach(function(s) { total += haById[s.id] || 0; });
+    if (total > 0) {
+        return subs.map(function(s) { return { id: s.id, name: s.name, weight: (haById[s.id] || 0) / total }; });
+    }
+    var eq = 1 / subs.length;
+    return subs.map(function(s) { return { id: s.id, name: s.name, weight: eq }; });
 }
 
 // Resuelve subsidiario desde una fila: intenta cc primero, luego orden de control
@@ -984,8 +1216,6 @@ function _combGetSubAny(row) {
 
 // ── Auth helpers ──────────────────────────────────────────────
 function getToken() { return localStorage.getItem('nat_token') || ''; }
-
-function pad(n) { return String(n).padStart(2, '0'); }
 
 async function doLogin() {
     const user = document.getElementById('inp-user').value.trim();
@@ -1076,6 +1306,58 @@ function doLogout() {
     applyLoginUI(false, '');
     document.getElementById('inp-pass').value = '';
     document.getElementById('sap-results').innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div>Sesión cerrada. Vuelve a iniciar sesión.</div></div>';
+}
+
+function _sbToggle() {
+    var collapsed = document.body.classList.toggle('sb-collapsed');
+    localStorage.setItem('sb-collapsed', collapsed ? '1' : '');
+    var btn = document.getElementById('sb-toggle-btn');
+    if (btn) btn.innerHTML = collapsed ? '&#8250;' : '&#8249;';
+}
+(function() {
+    if (localStorage.getItem('sb-collapsed') === '1') {
+        document.body.classList.add('sb-collapsed');
+        var btn = document.getElementById('sb-toggle-btn');
+        if (btn) btn.innerHTML = '&#8250;';
+    }
+})();
+
+// ── Panel flotante de filtros (igual que insumos: botón "Filtrar" + panel) ──
+// A diferencia de insumos, aca no se duplican los selects dentro del panel -
+// el panel simplemente envuelve los mismos campos de .filters/.fg de siempre,
+// asi que cada onchange existente sigue aplicando el filtro sin pasos extra.
+function _fpToggle(e) {
+    e.stopPropagation();
+    var p = document.getElementById('fp-panel');
+    if (p.classList.contains('open')) { _fpClose(); return; }
+    var btn = document.getElementById('fp-toggle-btn');
+    var r = btn.getBoundingClientRect();
+    p.style.top  = (r.bottom + 6) + 'px';
+    p.style.left = r.left + 'px';
+    p.classList.add('open');
+    _fpRenderCount();
+    setTimeout(function() { document.addEventListener('click', _fpOutside); }, 10);
+}
+function _fpOutside(e) {
+    var p = document.getElementById('fp-panel');
+    if (p && !p.contains(e.target) && !e.target.closest('#fp-toggle-btn')) { _fpClose(); }
+}
+function _fpClose() {
+    var p = document.getElementById('fp-panel');
+    if (p) p.classList.remove('open');
+    document.removeEventListener('click', _fpOutside);
+}
+function _fpRenderCount() {
+    var count = 0;
+    document.querySelectorAll('#sap-filters-bar .fg').forEach(function(fg) {
+        if (fg.style.display === 'none') return;
+        var input = fg.querySelector('select, input[type="hidden"]');
+        if (input && input.value) count++;
+    });
+    var badge = document.getElementById('fp-count');
+    var btn   = document.getElementById('fp-toggle-btn');
+    if (badge) { badge.textContent = count; badge.style.display = count ? 'inline-block' : 'none'; }
+    if (btn)   { btn.classList.toggle('active', count > 0); }
 }
 
 function applyLoginUI(on, nombre) {
@@ -1242,46 +1524,30 @@ function sapSave() {
     }
 }
 
-function showSapScreen() {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('screen-consumos-sap').classList.add('active');
-    document.getElementById('tab-consumos-sap').classList.add('active');
-    sapLoad();              // carga ciclos + meta de localStorage (síncrono)
-    _sapSyncFilters();
-    sapPopulateClusterSub();
-    sapPopulatePiscinaCiclo();
-    sapUpdateStatus();
-    // Cargar Excel desde IndexedDB — primero filas fusionadas, fallback al buffer crudo
-    _sapIdbGet('rows').then(function(savedRows) {
-        if (savedRows && savedRows.length) {
-            // Migrar al convenio normalizado: 261 (consumo) = positivo, 262 (anulación) = negativo
-            var needsMigration = false;
-            savedRows.forEach(function(r) {
-                if (r.mv === '262' && r.q > 0) { r.q = -r.q; r.i = -r.i; needsMigration = true; }
-                else if ((!r.mv || r.mv === '261') && r.q < 0) { r.q = -r.q; r.i = -r.i; needsMigration = true; }
-            });
-            savedRows = savedRows.filter(function(r) { return _COMB_MATS[r.m]; });
-            if (needsMigration) _sapIdbPut('rows', savedRows);
-            _sapExcelRows = savedRows;
-            sapPopulateYearMonth(); sapPopulateClusterSub(); sapPopulatePiscinaCiclo();
-            sapUpdateStatus(); updateSapResults();
-            return;
-        }
-        return _sapIdbGet('buffer').then(function(buf) {
-            if (!buf) { updateSapResults(); return; }
-            const wb      = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true });
-            const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
-            if (!rawRows.length) { updateSapResults(); return; }
-            const keys    = _sapDetectRawKeys(rawRows);
-            _sapExcelRows = _sapNormalizeRows(rawRows, keys).filter(function(r) { return _COMB_MATS[r.m]; });
-            sapPopulateYearMonth();
-            sapUpdateStatus();
-            updateSapResults();
-        });
-    }).catch(function(e) {
-        console.warn('SAP IDB read error:', e);
-        updateSapResults();
+// Carga el consumo desde D1 (tabla consumo_combustible, ya neteada de anulaciones)
+// para que el dashboard no dependa del almacenamiento local del navegador.
+async function _combLoadFromD1() {
+    const resp = await fetch(_PROXY + '/db/consumo-combustible');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    const rows = json.data || [];
+    return rows.map(function(r) {
+        return {
+            o:  r.orden_control       || '',
+            m:  '',
+            d:  r.descripcion         || '',
+            q:  parseFloat(r.cantidad) || 0,
+            i:  parseFloat(r.importe)  || 0,
+            a:  r.almacen             || '',
+            f:  r.fecha               || '',
+            u:  r.unidad              || '',
+            dm: r.documento_material  || '',
+            pd: r.posicion_doc        || '',
+            mv: String(r.clase_movimiento || '').trim(),
+            cc: r.centro_costo        || '',
+            nu: r.usuario             || '',
+            tx: r.texto_cabecera      || ''
+        };
     });
 }
 
@@ -1353,6 +1619,7 @@ function sapPopulateYearMonth() {
     fillYM('sap-year',     'sap-month',     thisYear, thisMon);
     fillYM('sap-mat-year',  'sap-mat-month',  thisYear, thisMon);
     fillYM('sap-ceco-year', 'sap-ceco-month', thisYear, thisMon);
+    fillYM('sap-tipo-year', 'sap-tipo-month', thisYear, thisMon);
     // Año de Tendencia (solo año, sin mes)
     var selTY = document.getElementById('sap-tend-year');
     if (selTY) {
@@ -1366,6 +1633,7 @@ function sapPopulateYearMonth() {
     sapPopulateTendMat();
     sapPopulateMatCluster();
     sapPopulateMatSub();
+    sapPopulateMatCCAndAlm();
     sapPopulateCicSub();
 }
 
@@ -1544,9 +1812,6 @@ function _cicCycleToggle(e) {
 
 function _cicCycleClose() { var dd = document.getElementById('sap-cic-cycle-dd'); if (dd) dd.style.display = 'none'; }
 
-function sapOnCicSubChange()  { window._cicPoolSel={}; window._cicCycleSel={}; sapPopulateCicPools(); updateSapResults(); }
-function sapOnCicPoolChange() { sapPopulateCicCycles(); updateSapResults(); }
-
 window._tendClusterSel = {};
 window._tendSubSel     = {};
 
@@ -1674,7 +1939,7 @@ function sapPopulateTendMat() {
         if (yearVal && (r.f || '').slice(0, 4) !== yearVal) return;
         if (nSub) { if (!subSel[_sapCamp(ciclo)]) return; }
         else if (clusterIds && !clusterIds[ciclo._subsidiaryId]) return;
-        var code = r.m || '';
+        var code = r.m || r.d || '';
         if (code && !seen[code]) { seen[code] = true; opts.push({ code: code, desc: r.d || code }); }
     });
     opts.sort(function(a, b) { return a.desc.localeCompare(b.desc, 'es'); });
@@ -1756,6 +2021,43 @@ function sapPopulateMatCluster() {
     list.innerHTML = html;
     _matClusterUpdateBtn();
     sapPopulateMatSub();
+}
+
+// Llena los selects de Centro de Costo y Sucursal del tab Por Material.
+// Centro de Costo: solo los que realmente aparecen en las filas cargadas.
+// Sucursal: la lista completa de sucursales existentes (no derivada del almacén) -
+// el costo de cada fila se le carga a la sucursal resuelta via centro de costo,
+// o si no tiene, via orden de control -> centro de costo (ver _combGetSubAny).
+function sapPopulateMatCCAndAlm() {
+    var selCc  = document.getElementById('sap-mat-cc');
+    var selAlm = document.getElementById('sap-mat-almsub');
+    if (!selCc || !selAlm) return;
+
+    var ccSeen = {};
+    var ccNameMap = {};
+    _combCostCenters.forEach(function(cc) { if (cc.code) ccNameMap[String(cc.code)] = cc.name || ''; });
+    _sapExcelRows.forEach(function(r) { if (r.cc) ccSeen[String(r.cc).trim()] = 1; });
+    var ccOpts = Object.keys(ccSeen).map(function(code) {
+        return { code: code, label: code + (ccNameMap[code] ? ' — ' + ccNameMap[code] : '') };
+    }).sort(function(a,b) { return a.label.localeCompare(b.label, 'es'); });
+    var curCc = selCc.value;
+    selCc.innerHTML = '<option value="">— Todos —</option>' +
+        ccOpts.map(function(o) { return '<option value="' + o.code + '"' + (o.code===curCc?' selected':'') + '>' + o.label + '</option>'; }).join('');
+
+    var subOpts = sapAllSubs()
+        .filter(function(s) { return _combEsGranja(s.id); })
+        .map(function(s) { return { id: s.id, name: s.name }; })
+        .sort(function(a,b) { return a.name.localeCompare(b.name, 'es'); });
+    var curAlm = selAlm.value;
+    selAlm.innerHTML = '<option value="">— Todas —</option>' +
+        subOpts.map(function(o) { return '<option value="' + o.id + '"' + (String(o.id)===curAlm?' selected':'') + '>' + o.name + '</option>'; }).join('');
+
+    var selTipoSub = document.getElementById('sap-tipo-sub');
+    if (selTipoSub) {
+        var curTipoSub = selTipoSub.value;
+        selTipoSub.innerHTML = '<option value="">— Todas —</option>' +
+            subOpts.map(function(o) { return '<option value="' + o.id + '"' + (String(o.id)===curTipoSub?' selected':'') + '>' + o.name + '</option>'; }).join('');
+    }
 }
 
 function sapPopulateMatSub() {
@@ -1868,8 +2170,11 @@ function sapOnPoolChange() {
 // Detecta los nombres de columna del Excel original (solo se usa al subir)
 function _sapDetectRawKeys(rows) {
     const keys = Object.keys(rows[0]);
-    const col  = function() { const t=Array.from(arguments); return keys.find(k=>t.some(x=>k.toLowerCase().replace(/[\s\.]/g,'').includes(x)))||''; };
-    const exact = function(x) { return keys.find(k=>k.trim().toLowerCase()===x)||''; };
+    // Quita tildes/diacríticos antes de comparar ("Posición" -> "posicion") para que
+    // encabezados en español con acentos no dejen de calzar con los candidatos ASCII.
+    const _norm = function(s) { return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); };
+    const col  = function() { const t=Array.from(arguments); return keys.find(k=>t.some(x=>_norm(k).replace(/[\s\.]/g,'').includes(_norm(x))))||''; };
+    const exact = function(x) { return keys.find(k=>_norm(k).trim()===_norm(x))||''; };
     const detected = {
         kOrden:   col('orden') || exact('w') || keys[0],
         kMat:     exact('material') || col('nmat','nºmat','codigom','articu','codmat') || keys[0],
@@ -1943,6 +2248,86 @@ function _sapRowKey(r) {
     return (r.o||'') + '||' + (r.m||'') + '||' + (r.f||'') + '||' + String(r.i||0) + '||' + String(r.q||0);
 }
 
+const _COMB_D1_API_KEY = '7ZqqzEIfHRki9wAETFFgdK3R2UG8oYFJU6SRUOIA5S4';
+
+// 201/261 = consumo (movimiento real). 202/262 = anulacion de un consumo previo.
+// Cruza cada anulacion con su consumo original por orden+material+almacen+cantidad
+// absoluta; el par completo (consumo anulado + su anulacion) NO debe llegar a D1,
+// solo los consumos "puros" que no fueron anulados.
+function _combNetear(rows) {
+    var CONSUMO = { '201': 1, '261': 1 };
+    var ANULA   = { '202': 1, '262': 1 };
+    function claveNeto(r) {
+        return (r.o||'') + '||' + (r.m||'') + '||' + (r.a||'') + '||' + (r.cc||'') + '||' + Math.abs(parseFloat(r.q)||0).toFixed(4);
+    }
+    var pendientes = {};
+    rows.forEach(function(r) {
+        if (ANULA[r.mv]) {
+            var k = claveNeto(r);
+            pendientes[k] = (pendientes[k] || 0) + 1;
+        }
+    });
+    var netos = [], excluidas = [];
+    rows.forEach(function(r) {
+        if (ANULA[r.mv]) { excluidas.push(r); return; } // la anulacion misma nunca entra
+        if (CONSUMO[r.mv] || !r.mv) {
+            var k = claveNeto(r);
+            if (pendientes[k] > 0) { pendientes[k]--; excluidas.push(r); return; } // consumo anulado
+            netos.push(r);
+            return;
+        }
+        excluidas.push(r); // otra clase de movimiento no contemplada -> fuera por seguridad
+    });
+    return { netos: netos, excluidas: excluidas };
+}
+
+async function _combSyncD1(allRows) {
+    if (!allRows || !allRows.length) return;
+    var _net = _combNetear(allRows);
+
+    function toFila(r) {
+        return {
+            clave:            _sapRowKey(r),
+            centroCosto:      r.cc || null,
+            descripcion:      r.d  || null,
+            almacen:          r.a  || null,
+            fecha:            r.f  || null,
+            cantidad:         parseFloat(r.q) || null,
+            unidad:           r.u  || null,
+            importe:          parseFloat(r.i) || null,
+            documentoMaterial: r.dm || null,
+            claseMovimiento:  r.mv || null,
+            posicionDoc:      r.pd || null,
+            usuario:          r.nu || null,
+            textoCabecera:    r.tx || null,
+            ordenControl:     r.o  || null
+        };
+    }
+    var filas    = _net.netos.map(toFila);
+    var eliminar = _net.excluidas.map(_sapRowKey);
+
+    var LOTE = 500;
+    var maxLen = Math.max(filas.length, eliminar.length);
+    for (var i = 0; i < maxLen; i += LOTE) {
+        var body = {};
+        var loteF = filas.slice(i, i + LOTE);
+        var loteE = eliminar.slice(i, i + LOTE);
+        if (loteF.length) body.filas = loteF;
+        if (loteE.length) body.eliminar = loteE;
+        if (!loteF.length && !loteE.length) continue;
+        var resp = await fetch(_PROXY + '/db/consumo-combustible/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Api-Key': _COMB_D1_API_KEY },
+            body: JSON.stringify(body)
+        });
+        if (!resp.ok) {
+            var txt = await resp.text();
+            throw new Error('D1 sync HTTP ' + resp.status + ': ' + txt);
+        }
+    }
+    console.log('[D1] consumo_combustible sync: ' + filas.length + ' consumos puros, ' + eliminar.length + ' excluidos (anulados/anulaciones).');
+}
+
 function sapSubirNuevoExcel(input) {
     const file = input.files[0];
     if (!file) return;
@@ -1965,6 +2350,11 @@ function sapSubirNuevoExcel(input) {
             // Merge acumulativo: solo agregar filas que no existen ya
             const existingKeys = new Set(_sapExcelRows.map(_sapRowKey));
             const added = newRows.filter(function(r) { return !existingKeys.has(_sapRowKey(r)); });
+            console.log('[SAP] Diagnostico merge: rawRows=' + rawRows.length + ' newRows=' + newRows.length +
+                ' yaEnMemoria=' + _sapExcelRows.length + ' agregadas=' + added.length +
+                ' fechasNewRows(min/max)=' + newRows.reduce(function(mn,r){return !mn||r.f<mn?r.f:mn;},'') + '/' +
+                newRows.reduce(function(mx,r){return r.f>mx?r.f:mx;},'') +
+                ' clavesNewRows(muestra)=' + JSON.stringify(newRows.slice(0,3).map(_sapRowKey)));
             _sapExcelRows = _sapExcelRows.concat(added);
             _sapExcelRows.sort(function(a,b) { return (a.f||'').localeCompare(b.f||''); });
 
@@ -1981,42 +2371,16 @@ function sapSubirNuevoExcel(input) {
             localStorage.setItem(SAP_KEY_EXCEL_TS, String(_excelVer));
 
             sapSave(); sapPopulateYearMonth(); sapUpdateStatus(); updateSapResults();
-            alert('Agregadas ' + added.length + ' filas nuevas.\nTotal acumulado: ' + _sapExcelRows.length + ' filas.');
+
+            _combSyncD1(_sapExcelRows).then(function() {
+                alert('Agregadas ' + added.length + ' filas nuevas.\nTotal acumulado: ' + _sapExcelRows.length + ' filas.\nGuardado en la nube (D1).');
+            }).catch(function(err) {
+                console.warn('D1 sync error:', err);
+                alert('Agregadas ' + added.length + ' filas nuevas.\nTotal acumulado: ' + _sapExcelRows.length + ' filas.\nAviso: no se pudo sincronizar con D1 (' + err.message + ').');
+            });
         } catch(ex) { alert('Error leyendo el archivo: ' + ex.message); }
     };
     reader.readAsArrayBuffer(file);
-}
-
-function sapExportarCiclos() {
-    if (!_sapCycles || !_sapCycles.length) { alert('No hay ciclos cargados. Carga los ciclos primero desde una conexión local.'); return; }
-    var json = JSON.stringify(_sapCycles, null, 2);
-    var blob = new Blob([json], { type: 'application/json' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'naturisa_ciclos_' + new Date().toISOString().slice(0,10) + '.json';
-    a.click();
-    URL.revokeObjectURL(a.href);
-}
-
-function sapImportarCiclos(input) {
-    var file = input.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            var ciclos = JSON.parse(e.target.result);
-            if (!Array.isArray(ciclos) || !ciclos.length) { alert('Archivo inválido o sin ciclos.'); return; }
-            _sapCycles = ciclos;
-            sapSave();
-            _kvPushCiclos();
-            sapPopulateClusterSub();
-            sapPopulatePiscinaCiclo();
-            updateSapResults();
-            alert('Importados ' + ciclos.length + ' ciclos correctamente.');
-        } catch(err) { alert('Error al leer el archivo: ' + err.message); }
-    };
-    reader.readAsText(file);
-    input.value = '';
 }
 
 function sapBorrarExcel() {
@@ -2046,7 +2410,7 @@ function _sapRefreshHaBadge(filteredHa) {
     if (!badge || !_sapPools.length) return;
     var ha = filteredHa != null ? filteredHa
            : _sapPools.reduce(function(s, p) { return s + p.poolSize; }, 0);
-    badge.textContent = '🌊 ' + ha.toLocaleString('es-EC', {minimumFractionDigits:1, maximumFractionDigits:1}) + ' Ha';
+    badge.textContent = '🌊 ' + ha.toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' Ha';
     badge.style.display = '';
 }
 
@@ -2057,58 +2421,31 @@ async function sapActualizarHa() {
 }
 
 async function sapCargarPools() {
-    if (_sapPools.length) { _sapRefreshHaBadge(); return; } // ya en localStorage, no rellamar
-    const token = getToken();
-    if (!token) return;
-    const subs = sapAllSubs();
-    const hdrs = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
-    const rawAll = [];
+    // Piscinas activas desde D1 (tabla piscinas, refrescada por cron) - no requiere
+    // login/token, a diferencia del antiguo llamado directo a AP1 /pools. Siempre se
+    // refresca (no usa el cache de localStorage como corte) para no quedarse con datos
+    // viejos de antes de este cambio.
     try {
-        // Una petición por subsidiario en paralelo — evita el cap global de 1000
-        await Promise.all(subs.map(async function(sub) {
-            let pg = 0;
-            while (pg < 5) {
-                try {
-                    const url = API_POOLS + '?subsidiaryIds=' + sub.id +
-                                '&status=ACTIVO&pageSize=500&page=' + pg;
-                    const res = await fetch(url, { headers: hdrs });
-                    if (!res.ok) break;
-                    const raw  = await res.json();
-                    const meta = (raw.data && !Array.isArray(raw.data)) ? raw.data : {};
-                    const items = Array.isArray(meta.data) ? meta.data : _sapParseItems(raw);
-                    if (!items.length) break;
-                    rawAll.push(...items);
-                    if ((meta.currentPage || 1) >= (meta.totalPages || 1)) break;
-                    pg++;
-                } catch(_) { break; }
-            }
-        }));
-        // Dedup: idPool si existe, sino nombre+subsidiario como clave
-        const seen = new Set();
-        const unique = rawAll.filter(function(p) {
-            var uid = p.idPool != null ? ('id_' + p.idPool)
-                    : ((p.name || p.codePool || '') + '_' + (p.subsidiaryId || ''));
-            if (!uid || seen.has(uid)) return false;
-            seen.add(uid);
-            return true;
-        });
-        _sapPools = unique.map(function(p) {
+        const res = await fetch(_PROXY + '/db/piscinas');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const rows = (json.data || []).filter(function(p) { return p.estado === 'ACTIVO'; });
+        _sapPools = rows.map(function(p) {
                 return {
-                    poolName:     p.name || p.poolName || p.codePool || '',
-                    poolSize:     parseFloat(p.size || p.poolSize || p.ha || 0) || 0,
-                    subsidiaryId: p.subsidiaryId || null,
-                    subName:      p.subsidiaryName || ''
+                    poolName:     p.nombre || p.codigo_piscina || '',
+                    poolSize:     parseFloat(p.tamano || 0) || 0,
+                    subsidiaryId: p.id_sucursal || null,
+                    subName:      ''
                 };
             }).filter(function(p) { return p.poolSize > 0; });
         try { localStorage.setItem(SAP_KEY_POOLS, JSON.stringify(_sapPools)); } catch(_) {}
         const ha = _sapPools.reduce(function(s, p) { return s + p.poolSize; }, 0);
-        console.log('[SAP] pools: total=' + rawAll.length + ' únicas=' + _sapPools.length +
-                    ' Ha=' + ha.toFixed(1));
+        console.log('[D1] piscinas activas: ' + _sapPools.length + ' Ha=' + ha.toFixed(1));
         _sapRefreshHaBadge();
         sapUpdateStatus();
         updateSapResults();
     } catch(e) {
-        console.warn('[SAP] Error cargando pools:', e);
+        console.warn('[D1] Error cargando piscinas:', e);
     }
 }
 
@@ -2312,7 +2649,7 @@ async function sapSincronizarParaTodos() {
         await sapCargarPools();
         _poolsHa = _sapPools.reduce(function(s,p){return s+p.poolSize;},0);
         if (_sapPools.length) {
-            steps.push('✅ Ha piscinas (' + _poolsHa.toFixed(1) + ' Ha)');
+            steps.push('✅ Ha piscinas (' + _poolsHa.toFixed(2) + ' Ha)');
         }
     } catch(e) { steps.push('❌ Error Ha: ' + e.message); }
 
@@ -2479,7 +2816,7 @@ function sapUpdateStatus() {
         ? '🔗 <strong>' + _sapCycles.length + ' ciclos</strong> AP1 2026 · ' + _sapSubsFetched.size + ' sucursales escaneadas'
         : '🔗 <span style="color:var(--muted)">Sin ciclos cargados</span>';
     const haPart = _sapPools.length
-        ? ' &nbsp;·&nbsp; 🌊 <strong>' + _sapPools.reduce(function(s,p){return s+p.poolSize;},0).toLocaleString('es-EC',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' Ha</strong> activas'
+        ? ' &nbsp;·&nbsp; 🌊 <strong>' + _sapPools.reduce(function(s,p){return s+p.poolSize;},0).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Ha</strong> activas'
         : '';
     el.innerHTML = '<span style="margin-right:20px">' + exPart + '</span><span>' + cyPart + haPart + '</span>';
 
@@ -2564,7 +2901,7 @@ function _sapBuildKpiHtml(imp, ha, dias, subLabel, diasCiclo) {
             '<div style="' + _cel + ';' + _sep + '">' +
                 '<div style="font-size:16px;line-height:1;margin-bottom:2px">&#x1F30A;</div>' +
                 '<div style="' + _lbl + '">Hect&aacute;reas</div>' +
-                '<div style="' + _val + '">' + (ha > 0 ? ha.toLocaleString('es-EC',{minimumFractionDigits:1,maximumFractionDigits:1}) : '—') + ' <span style="font-size:11px;font-weight:500;opacity:0.8">Ha</span></div>' +
+                '<div style="' + _val + '">' + (ha > 0 ? ha.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—') + ' <span style="font-size:11px;font-weight:500;opacity:0.8">Ha</span></div>' +
             '</div>' +
             diasCard +
             '<div style="' + _cel + ';' + _sep + '">' +
@@ -2586,7 +2923,7 @@ function sapSelectResumenRow(el, camp) {
     _sapKpiSelected = camp;
     document.querySelectorAll('.sap-res-row').forEach(function(r) { r.style.background = ''; r.style.outline = ''; });
     el.style.background = '#dbeafe'; el.style.outline = '2px solid #3b82f6';
-    var rows = _sapKpiRows.filter(function(fr) { return _sapCamp(fr.ciclo) === camp; });
+    var rows = _sapKpiRows.filter(function(fr) { return String(fr.ciclo._subsidiaryId || fr.ciclo._subName || '') === camp; });
     var imp  = rows.reduce(function(s, fr) { return s + (fr.row.i || 0); }, 0);
     var subName = rows.length ? (rows[0].ciclo._subName || camp) : camp;
     var sid = rows.length ? rows[0].ciclo._subsidiaryId : null;
@@ -2612,12 +2949,24 @@ function sapClearResumenRow() {
 
 var _sapKpiGlobal = '';
 
+// Muestra/oculta el botón "Filtrar" (fp-action-bar). Detalle tiene su propia
+// barra de filtros inline y no usa este panel.
+function _fpBarShow(show) {
+    var bar = document.getElementById('fp-action-bar');
+    if (bar) bar.style.display = show ? '' : 'none';
+    if (!show) _fpClose();
+}
+
 function _sapSyncFilters() {
     var sharedIds = ['sap-year-fg','sap-month-fg','sap-cluster-fg','sap-sub-fg','sap-pool-fg','sap-cycle-fg'];
-    var matIds    = ['sap-mat-year-fg','sap-mat-month-fg','sap-mat-cluster-fg','sap-mat-sub-fg'];
+    var matIds    = ['sap-mat-year-fg','sap-mat-month-fg','sap-mat-cc-fg','sap-mat-almsub-fg'];
     var cicIds    = ['sap-cic-sub-fg','sap-cic-pool-fg','sap-cic-cycle-fg'];
     var cecoIds   = ['sap-ceco-year-fg','sap-ceco-month-fg','sap-ceco-sub-fg'];
-    var allSpecial = matIds.concat(cicIds).concat(cecoIds);
+    var tipoIds   = ['sap-tipo-year-fg','sap-tipo-month-fg','sap-tipo-sub-fg'];
+    var allSpecial = matIds.concat(cicIds).concat(cecoIds).concat(tipoIds);
+    _fpBarShow(true);
+    var detFg = document.getElementById('sap-det-filters-fg');
+    if (detFg) detFg.style.display = _sapTab === 'detalle' ? 'flex' : 'none';
 
     if (_sapTab === 'tendencia') {
         sharedIds.concat(allSpecial).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
@@ -2626,27 +2975,29 @@ function _sapSyncFilters() {
     }
     ['sap-tend-view-fg','sap-tend-year-fg','sap-tend-cluster-fg','sap-tend-sub-fg','sap-tend-mat-fg','sap-tend-metric-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
     if (_sapTab === 'material') {
-        sharedIds.concat(cicIds).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        sharedIds.concat(cicIds).concat(cecoIds).concat(tipoIds).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         matIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
         return;
     }
     if (_sapTab === 'ciclo') {
-        sharedIds.concat(matIds).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        sharedIds.concat(matIds).concat(cecoIds).concat(tipoIds).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         cicIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
         return;
     }
     if (_sapTab === 'ceco') {
         sharedIds.concat(allSpecial).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         ['sap-ceco-year-fg','sap-ceco-month-fg','sap-ceco-sub-fg'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
-        var fb = document.querySelector('.filters'); if (fb) fb.style.display = '';
+        return;
+    }
+    if (_sapTab === 'tipo') {
+        sharedIds.concat(allSpecial).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        tipoIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
         return;
     }
     if (_sapTab === 'detalle') {
         sharedIds.concat(allSpecial).forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
-        var fb = document.querySelector('.filters'); if (fb) fb.style.display = 'none';
         return;
     }
-    var fb = document.querySelector('.filters'); if (fb) fb.style.display = '';
     // Resumen
     allSpecial.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
     ['sap-cluster-fg','sap-sub-fg','sap-pool-fg','sap-cycle-fg'].forEach(function(id) {
@@ -2668,28 +3019,38 @@ function _sapTendSetView(v) {
 
 function sapSetTab(tab) {
     _sapTab = tab;
-    document.querySelectorAll('.sap-tab').forEach(function(b) { b.classList.remove('sap-tab-active'); });
+    document.querySelectorAll('.sb-nav-item').forEach(function(b) { b.classList.remove('active'); });
     var el = document.getElementById('sap-tab-' + tab);
-    if (el) el.classList.add('sap-tab-active');
+    if (el) el.classList.add('active');
     var res = document.getElementById('sap-results');
-    if (res) res.style.padding = tab === 'tendencia' ? '0' : '10px 14px 14px';
+    if (res) {
+        res.style.padding   = tab === 'tendencia' ? '0' : '10px 14px 14px';
+        res.style.overflowY = tab === 'tendencia' ? 'hidden' : 'auto';
+    }
     _sapSyncFilters();
     updateSapResults();
 }
 
 function updateSapResults() {
+    _fpRenderCount();
     const resultsDiv   = document.getElementById('sap-results');
     const isTendencia  = _sapTab === 'tendencia';
     const isMaterial   = _sapTab === 'material';
     const isCiclo      = _sapTab === 'ciclo';
     const isDetalle    = _sapTab === 'detalle';
     const isCeco       = _sapTab === 'ceco';
+    const isTipo       = _sapTab === 'tipo';
+    const isResumen    = !isTendencia && !isMaterial && !isCiclo && !isDetalle && !isCeco && !isTipo;
     // Material, Ciclo, Tendencia y CeCo usan todos los ciclos (sin filtro cluster/sub compartido)
     const activeCycles = (isTendencia || isMaterial || isCiclo || isCeco) ? _sapCycles : sapGetActiveCycles();
 
-    if (!_sapExcelRows.length) { _sapRenderCyclesOnly(activeCycles, resultsDiv); return; }
+    if (!_sapExcelRows.length && !isTipo) { _sapRenderCyclesOnly(activeCycles, resultsDiv); return; }
     if (isDetalle) { _combRenderDetalle(resultsDiv); return; }
-    if (!activeCycles.length) {
+    if (isTipo) { _combRenderPorTipo(resultsDiv); return; }
+    // Por Material, Resumen, Por Centro de Costo y Tendencia no dependen de tener
+    // ciclos AP1 cargados - filtran directo por año/mes/centro de costo/sucursal
+    // (via orden de control), asi que no deben bloquearse por este gate.
+    if (!activeCycles.length && !isMaterial && !isResumen && !isCeco && !isTendencia) {
         resultsDiv.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div>Ningun ciclo coincide con los filtros &mdash; ajusta la seleccion o carga mas ciclos.</div></div>';
         return;
     }
@@ -2708,6 +3069,8 @@ function updateSapResults() {
     const cecoSubSel = isCeco ? ((document.getElementById('sap-ceco-sub') || {}).value || '') : '';
     const matSubCodes     = isMaterial ? Object.keys(window._matSubSel     || {}) : [];
     const matClusterCodes = isMaterial ? Object.keys(window._matClusterSel || {}) : [];
+    const matCcSel   = isMaterial ? ((document.getElementById('sap-mat-cc')     || {}).value || '') : '';
+    const matAlmSel  = isMaterial ? ((document.getElementById('sap-mat-almsub') || {}).value || '') : '';
     const matClusterIds = (function() {
         if (!matClusterCodes.length) return null;
         var ids = {};
@@ -2722,6 +3085,11 @@ function updateSapResults() {
         tendClusterCodes.forEach(function(k) { (CLUSTERS[k]||[]).forEach(function(id) { ids[id]=true; }); });
         return ids;
     })();
+    // Resumen: sucursal (id numerico) y/o cluster, resueltos via CC/orden de control
+    // (igual que Material), no via ciclos AP1.
+    const resSubId  = isResumen ? (parseInt((document.getElementById('sap-subsidiary') || {}).value) || null) : null;
+    const resCluster = isResumen ? ((document.getElementById('sap-cluster') || {}).value || '') : '';
+    const resClusterIds = resCluster ? (CLUSTERS[resCluster] || []) : null;
     const tendYearSel   = isTendencia ? ((document.getElementById('sap-tend-year') || {}).value || '') : '';
     const tendMatVal    = isTendencia ? ((document.getElementById('sap-tend-mat')     || {}).value || '') : '';
     const tendMatCodes  = tendMatVal ? tendMatVal.split(',').filter(Boolean) : [];
@@ -2741,15 +3109,59 @@ function updateSapResults() {
     const grouped = {};
     const ordenesCon = new Set();
     const _subsByCc  = {};   // cc|o → sub resuelto
+    // Sucursales realmente involucradas en las filas de Material que pasaron los
+    // filtros, resueltas via centro de costo -> codigo_sucursal (o ciclo si no hay CC).
+    // El costo se le carga a esa sucursal, asi que sus Ha son las que corresponden
+    // para Costo/Ha y Costo/Ha/Dia - no las del filtro de cluster/sucursal por ciclo.
+    const matSubIdsMatched = new Set();
     let matched = 0;
     _sapExcelRows.forEach(function(row) {
         const _sub = _combGetSubAny(row);
-        if (!_sub) return; // solo filas vinculadas a un ciclo/CC activo
         const fecha = row.f || '';
+
+        if (isMaterial) {
+            // Por Material no exige ciclo resuelto. La sucursal (o sucursales, si el CC
+            // reparte entre varias) se decide via centro de costo -> codigo_sucursal, y
+            // el costo se reparte proporcional a las Ha de cada una.
+            if (yearSel   && fecha.slice(0,4) !== yearSel)  return;
+            if (monthSel  && fecha.slice(5,7) !== monthSel) return;
+            if (matCcSel && String(row.cc||'').trim() !== matCcSel) return;
+
+            var _subsRow = _combRowSucursales(row);
+            var _weights = _combSucursalWeights(_subsRow);
+            var _share = 1;
+            if (matAlmSel) {
+                var _w = _weights.find(function(w) { return String(w.id) === matAlmSel; });
+                if (!_w) return; // esta sucursal no participa del costo de esta fila
+                _share = _w.weight;
+                matSubIdsMatched.add(_w.id);
+            } else {
+                _weights.forEach(function(w) { matSubIdsMatched.add(w.id); });
+            }
+            if (matSubCodes.length) { if (!_sub || matSubCodes.indexOf(_sapCamp(_sub)) < 0) return; }
+            else if (matClusterIds && (!_sub || !matClusterIds[_sub._subsidiaryId])) return;
+            matched++;
+            if (_sub) {
+                var _rowKeyM = (row.cc || '') + '||' + (row.o || '');
+                ordenesCon.add(_rowKeyM);
+                _subsByCc[_rowKeyM] = _sub;
+            }
+            const keyM = fecha + '||' + (row.m || row.d || '');
+            if (!grouped[keyM]) grouped[keyM] = { fecha:fecha, matCode:row.m||'',
+                desc:row.d||'', cantidad:0, importe:0, almacenes:new Set() };
+            grouped[keyM].cantidad += (row.q || 0) * _share;
+            grouped[keyM].importe  += (row.i || 0) * _share;
+            grouped[keyM].almacenes.add(row.a || '');
+            return;
+        }
+
+        if (!_sub) return; // demas pestañas: solo filas vinculadas a un ciclo/CC activo
         if (yearSel   && fecha.slice(0,4) !== yearSel)  return;
         if (monthSel  && fecha.slice(5,7) !== monthSel) return;
-        if (matSubCodes.length) { if (matSubCodes.indexOf(_sapCamp(_sub)) < 0) return; }
-        else if (matClusterIds && !matClusterIds[_sub._subsidiaryId]) return;
+        if (isResumen) {
+            if (resSubId && _sub._subsidiaryId !== resSubId) return;
+            if (!resSubId && resClusterIds && !resClusterIds.includes(_sub._subsidiaryId)) return;
+        }
         if (cecoSubSel && _sub._subName !== cecoSubSel) return;
         if (tendYearSel && fecha.slice(0,4) !== tendYearSel) return;
         if (tendSubCodes.length) { if (tendSubCodes.indexOf(_sapCamp(_sub)) < 0) return; }
@@ -2778,10 +3190,29 @@ function updateSapResults() {
     const unidadMap = {};
     _sapExcelRows.forEach(function(row) {
         const _sub2 = _combGetSubAny(row);
-        if (!_sub2) return;
         const fecha = row.f || '';
+        if (isMaterial) {
+            if (yearSel   && fecha.slice(0,4) !== yearSel)  return;
+            if (monthSel  && fecha.slice(5,7) !== monthSel) return;
+            if (matCcSel && String(row.cc||'').trim() !== matCcSel) return;
+            if (matAlmSel) {
+                var _w2 = _combSucursalWeights(_combRowSucursales(row)).find(function(w) { return String(w.id) === matAlmSel; });
+                if (!_w2) return;
+            }
+            if (matSubCodes.length) { if (!_sub2 || matSubCodes.indexOf(_sapCamp(_sub2)) < 0) return; }
+            else if (matClusterIds && (!_sub2 || !matClusterIds[_sub2._subsidiaryId])) return;
+            const uM = (row.u || '—').trim();
+            if (!unidadMap[uM]) unidadMap[uM] = 0;
+            unidadMap[uM] += (row.q || 0) * (matAlmSel ? _w2.weight : 1);
+            return;
+        }
+        if (!_sub2) return;
         if (yearSel    && fecha.slice(0,4) !== yearSel)  return;
         if (monthSel   && fecha.slice(5,7) !== monthSel) return;
+        if (isResumen) {
+            if (resSubId && _sub2._subsidiaryId !== resSubId) return;
+            if (!resSubId && resClusterIds && !resClusterIds.includes(_sub2._subsidiaryId)) return;
+        }
         if (matSubCodes.length) { if (matSubCodes.indexOf(_sapCamp(_sub2)) < 0) return; }
         else if (matClusterIds && !matClusterIds[_sub2._subsidiaryId]) return;
         if (cecoSubSel && _sub2._subName !== cecoSubSel) return;
@@ -2803,7 +3234,7 @@ function updateSapResults() {
     const items     = Object.values(grouped).sort(function(a,b) { return b.fecha.localeCompare(a.fecha) || a.desc.localeCompare(b.desc,'es'); });
     const totalImp  = items.reduce(function(s,i) { return s+Math.abs(i.importe); }, 0);
     const totalQty  = items.reduce(function(s,i) { return s+Math.abs(i.cantidad); }, 0);
-    const matUnicos = new Set(items.map(function(i) { return i.matCode; })).size;
+    const matUnicos = new Set(items.map(function(i) { return i.matCode || i.desc; })).size;
     const diasUnicos = new Set(items.map(function(i) { return i.fecha; })).size;
     // Ha: desde /pools (piscinas activas) filtrado por sucursal/cluster activo
     var totalHa = 0;
@@ -2835,18 +3266,10 @@ function updateSapResults() {
             if (_clv && CLUSTERS[_clv]) subIdSet = new Set(CLUSTERS[_clv]);
             if (_sbv) subIdSet = new Set([_sbv]);
         } else if (isMaterial) {
-            if (matSubCodes.length) {
-                var _subIds = [];
-                matSubCodes.forEach(function(camp) {
-                    var _mc = _sapCycles.find(function(c) { return _sapCamp(c) === camp; });
-                    if (_mc && _mc._subsidiaryId) _subIds.push(_mc._subsidiaryId);
-                });
-                if (_subIds.length) subIdSet = new Set(_subIds);
-            } else if (matClusterIds) {
-                var _cids = [];
-                matClusterCodes.forEach(function(k) { (CLUSTERS[k]||[]).forEach(function(id) { _cids.push(id); }); });
-                if (_cids.length) subIdSet = new Set(_cids);
-            }
+            // Sucursales a las que realmente se cargó el costo (via centro de costo ->
+            // codigo_sucursal de cada fila que paso los filtros), no el filtro de
+            // cluster/sucursal por ciclo - ese solo restringe cuales ciclos mirar.
+            if (matSubIdsMatched.size) subIdSet = matSubIdsMatched;
         } else if (isCiclo) {
             // Sucursales seleccionadas (sin piscina/ciclo específico)
             if (cicSubCodes.length) {
@@ -2890,7 +3313,7 @@ function updateSapResults() {
             : '<td style="color:transparent;border-top:none">·</td>';
         lastFecha = i.fecha;
         trows += '<tr>' + fechaCell +
-            '<td><span style="display:block;font-size:10px;color:var(--muted);line-height:1.2">' + i.matCode + '</span>' +
+            '<td>' + (i.matCode ? '<span style="display:block;font-size:10px;color:var(--muted);line-height:1.2">' + i.matCode + '</span>' : '') +
                 '<span style="font-weight:500;font-size:13px">' + i.desc + '</span></td>' +
             '<td style="font-size:11px;color:var(--muted)">' + alm + '</td>' +
             '<td style="text-align:right;font-weight:600">' + fmt2(i.cantidad) + '</td>' +
@@ -2943,17 +3366,89 @@ function updateSapResults() {
     const filteredRows = [];
     _sapExcelRows.forEach(function(row) {
         const ciclo = _combGetSubAny(row);
-        if (!ciclo) return;
         const fecha = row.f || '';
+
+        if (isMaterial) {
+            // Igual que en el agrupamiento de arriba: la sucursal (o sucursales) se
+            // decide via centro de costo, con reparto proporcional a Ha si el CC
+            // alcanza a varias sucursales a la vez.
+            if (yearSel   && fecha.slice(0,4) !== yearSel)  return;
+            if (monthSel  && fecha.slice(5,7) !== monthSel) return;
+            if (matCcSel && String(row.cc||'').trim() !== matCcSel) return;
+
+            var _subsRow3 = _combRowSucursales(row);
+            var _weights3 = _combSucursalWeights(_subsRow3);
+            var _rowForPush = row, _cicloForPush = ciclo || {};
+            if (matAlmSel) {
+                var _w3 = _weights3.find(function(w) { return String(w.id) === matAlmSel; });
+                if (!_w3) return;
+                if (_w3.weight !== 1) _rowForPush = Object.assign({}, row, { q: (row.q||0)*_w3.weight, i: (row.i||0)*_w3.weight });
+                _cicloForPush = Object.assign({}, _cicloForPush, { _subName: _w3.name, _subsidiaryId: _w3.id });
+            }
+            if (matSubCodes.length) { if (!ciclo || matSubCodes.indexOf(_sapCamp(ciclo)) < 0) return; }
+            else if (matClusterIds && (!ciclo || !matClusterIds[ciclo._subsidiaryId])) return;
+            filteredRows.push({ row: _rowForPush, ciclo: _cicloForPush });
+            return;
+        }
+
+        if (isResumen) {
+            // Igual que Material: sucursal(es) via centro de costo/orden de control, con
+            // reparto por Ha si el CC alcanza a varias. A diferencia de Material, aca se
+            // empuja una fila por cada sucursal involucrada (no se suma todo en un total),
+            // porque Resumen necesita el desglose por sucursal.
+            if (yearSel  && fecha.slice(0,4) !== yearSel)  return;
+            if (monthSel && fecha.slice(5,7) !== monthSel) return;
+            var _subsRes = _combRowSucursales(row);
+            var _weightsRes = _combSucursalWeights(_subsRes);
+            _weightsRes.forEach(function(w) {
+                if (resSubId && w.id !== resSubId) return;
+                if (!resSubId && resClusterIds && resClusterIds.indexOf(w.id) < 0) return;
+                var _rowRes = w.weight !== 1 ? Object.assign({}, row, { q: (row.q||0)*w.weight, i: (row.i||0)*w.weight }) : row;
+                filteredRows.push({ row: _rowRes, ciclo: { _subName: w.name, _subsidiaryId: w.id } });
+            });
+            return;
+        }
+
+        if (isCeco) {
+            // Igual que Resumen: sucursal(es) via centro de costo/orden de control, con
+            // reparto por Ha si el CC alcanza a varias. Solo granjas (sin oficinas/
+            // acopios/laboratorios), y una fila por sucursal para que el desglose por
+            // sucursal dentro de cada centro de costo salga correcto.
+            if (yearSel  && fecha.slice(0,4) !== yearSel)  return;
+            if (monthSel && fecha.slice(5,7) !== monthSel) return;
+            var _subsCeco = _combRowSucursales(row);
+            var _weightsCeco = _combSucursalWeights(_subsCeco);
+            _weightsCeco.forEach(function(w) {
+                if (!_combEsGranja(w.id)) return;
+                if (cecoSubSel && w.name !== cecoSubSel) return;
+                var _rowCeco = w.weight !== 1 ? Object.assign({}, row, { q: (row.q||0)*w.weight, i: (row.i||0)*w.weight }) : row;
+                filteredRows.push({ row: _rowCeco, ciclo: { _subName: w.name, _subsidiaryId: w.id } });
+            });
+            return;
+        }
+
+        if (isTendencia) {
+            // Igual que Resumen/Ceco: sucursal(es) via centro de costo/orden de control,
+            // con reparto por Ha si el CC alcanza a varias, solo granjas, una fila por
+            // sucursal involucrada.
+            if (tendYearSel && fecha.slice(0,4) !== tendYearSel) return;
+            var _subsTend = _combRowSucursales(row);
+            var _weightsTend = _combSucursalWeights(_subsTend);
+            _weightsTend.forEach(function(w) {
+                if (!_combEsGranja(w.id)) return;
+                if (tendSubCodes.length) { if (tendSubCodes.indexOf(String(w.id)) < 0) return; }
+                else if (tendClusterIds && !tendClusterIds[w.id]) return;
+                if (tendMatCodes.length && tendMatCodes.indexOf(row.m || row.d || '') < 0) return;
+                var _rowTend = w.weight !== 1 ? Object.assign({}, row, { q: (row.q||0)*w.weight, i: (row.i||0)*w.weight }) : row;
+                filteredRows.push({ row: _rowTend, ciclo: { _subName: w.name, _subsidiaryId: w.id } });
+            });
+            return;
+        }
+
+        if (!ciclo) return;
         if (yearSel   && fecha.slice(0,4) !== yearSel)  return;
         if (monthSel  && fecha.slice(5,7) !== monthSel) return;
-        if (matSubCodes.length) { if (matSubCodes.indexOf(_sapCamp(ciclo)) < 0) return; }
-        else if (matClusterIds && !matClusterIds[ciclo._subsidiaryId]) return;
         if (cecoSubSel && ciclo._subName !== cecoSubSel) return;
-        if (tendYearSel && fecha.slice(0,4) !== tendYearSel) return;
-        if (tendSubCodes.length) { if (tendSubCodes.indexOf(_sapCamp(ciclo)) < 0) return; }
-        else if (tendClusterIds && !tendClusterIds[ciclo._subsidiaryId]) return;
-        if (tendMatCodes.length && tendMatCodes.indexOf(row.m || '') < 0) return;
         if (cicSubCodes.length && cicSubCodes.indexOf(_sapCamp(ciclo)) < 0) return;
         if (cicPoolCodes.length  && cicPoolCodes.indexOf(ciclo.poolName||'') < 0) return;
         if (cicCycleCodes.length && cicCycleCodes.indexOf(String(ciclo.idCycle)) < 0) return;
@@ -2985,7 +3480,7 @@ function updateSapResults() {
 
     var viewBody = document.getElementById('sap-view-body');
     if      (_sapTab === 'resumen')   _sapRenderResumen(filteredRows, diasMes, viewBody, kpiHtml);
-    else if (_sapTab === 'material')  _sapRenderPorMaterial(filteredRows, diasMes, viewBody, kpiHtml);
+    else if (_sapTab === 'material')  _sapRenderPorMaterial(filteredRows, diasMes, viewBody, kpiHtml, totalHa);
     else if (_sapTab === 'ciclo') {
         if (cicPoolCodes.length === 0) {
             viewBody.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div>Seleccione al menos una piscina para ver los datos.</div></div>';
@@ -2995,13 +3490,14 @@ function updateSapResults() {
     }
     else if (_sapTab === 'tendencia') { sapPopulateTendMat(); _sapRenderTendencia(filteredRows, viewBody); }
     else if (_sapTab === 'ceco') {
-        // Poblar select de sucursal con las que tienen datos
+        // Poblar select de sucursal con las que tienen datos (solo granjas)
         var _cecoSubSel = document.getElementById('sap-ceco-sub');
         if (_cecoSubSel) {
             var _cecoSubSet = {};
             _sapExcelRows.forEach(function(r) {
-                var s = _combGetSubAny(r);
-                if (s && s._subName) _cecoSubSet[s._subName] = true;
+                _combSucursalWeights(_combRowSucursales(r)).forEach(function(w) {
+                    if (_combEsGranja(w.id) && w.name) _cecoSubSet[w.name] = true;
+                });
             });
             var _cecoSubNames = Object.keys(_cecoSubSet).sort();
             var _cecoSubPrev = _cecoSubSel.value;
@@ -3012,7 +3508,7 @@ function updateSapResults() {
     }
 }
 
-var _combDetF = { sub: '', year: String(new Date().getFullYear()), month: String(new Date().getMonth()+1).padStart(2,'0'), mv: '', cc: '', desc: '', desde: '', hasta: '' };
+var _combDetF = { sub: '', year: '', month: '', mv: '', cc: '', desc: '', desde: '', hasta: '' };
 function _combYMChange() {
     var d = document.getElementById('cdf-desde');
     var h = document.getElementById('cdf-hasta');
@@ -3070,6 +3566,123 @@ function _detSubPopover(el, names) {
     overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
 }
 
+// ── Vista: Por Tipo de Equipo (Sucursal × categoria) ──────────────────────────
+// Clasifica cada centro de costo (por su nombre) en una categoria de equipo.
+var _COMB_TIPOS = ['Aireación', 'Estación Bombeo', 'Vehículos', 'Maquinaria y Eq. Menores', 'Otros'];
+function _combTipoDeCCNombre(nombre) {
+    var n = String(nombre || '').toLowerCase();
+    if (/aireador/.test(n)) return 'Aireación';
+    if (/estaci[oó]n.*bombeo/.test(n)) return 'Estación Bombeo';
+    if (/^(camion|camioneta|moto|volqueta|tractor|retroexcavadora|lancha|gabarra)/.test(n)) return 'Vehículos';
+    if (/(bomba de agua|motor.*fuera de bor|montacarga|cosechadora|canguro|maquinaria pesada|generador|generaci[oó]n el[eé]ctrica|subestaci[oó]n el[eé]ctrica|blower|caldero|alimentador.*autom|planta desalinizadora)/.test(n)) return 'Maquinaria y Eq. Menores';
+    return 'Otros';
+}
+
+function _combRenderPorTipo(resultsDiv) {
+    if (!_sapExcelRows.length) {
+        resultsDiv.innerHTML = '<div class="empty-state"><div class="empty-icon">⛽</div><div>Sube el Excel SAP para ver el resumen por tipo</div></div>';
+        return;
+    }
+    var yearSel  = (document.getElementById('sap-tipo-year')  || {}).value || '';
+    var monthSel = (document.getElementById('sap-tipo-month') || {}).value || '';
+    var subSel   = parseInt((document.getElementById('sap-tipo-sub') || {}).value) || null;
+
+    var ccNameMap = {};
+    _combCostCenters.forEach(function(cc) { if (cc.code) ccNameMap[String(cc.code)] = cc.name || ''; });
+
+    // matriz[subId] = { subId, subName, ha, tipos: { tipo: costo } }
+    var matriz = {};
+    _sapExcelRows.forEach(function(row) {
+        var fecha = row.f || '';
+        if (yearSel  && fecha.slice(0,4) !== yearSel)  return;
+        if (monthSel && fecha.slice(5,7) !== monthSel) return;
+
+        var cc = _combResolvedCC(row);
+        var ccNombre = cc ? (ccNameMap[cc] || '') : '';
+        var tipo = _combTipoDeCCNombre(ccNombre);
+
+        var subs = _combRowSucursales(row);
+        var weights = _combSucursalWeights(subs);
+        weights.forEach(function(w) {
+            if (!_combEsGranja(w.id)) return; // solo granjas, igual que Resumen
+            if (subSel && w.id !== subSel) return;
+            if (!matriz[w.id]) matriz[w.id] = { subId: w.id, subName: w.name, tipos: {} };
+            if (!matriz[w.id].tipos[tipo]) matriz[w.id].tipos[tipo] = 0;
+            matriz[w.id].tipos[tipo] += (row.i || 0) * w.weight;
+        });
+    });
+
+    var haById = {};
+    _sapPools.forEach(function(p) { if (p.subsidiaryId) haById[p.subsidiaryId] = (haById[p.subsidiaryId] || 0) + p.poolSize; });
+
+    var rows = Object.values(matriz).map(function(g) {
+        g.ha = haById[g.subId] || 0;
+        return g;
+    }).sort(function(a,b) { return a.subName.localeCompare(b.subName, 'es'); });
+
+    if (!rows.length) {
+        resultsDiv.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin movimientos para los filtros seleccionados.</div></div>';
+        return;
+    }
+
+    var diasMes = 30;
+    var TIPOS = _COMB_TIPOS;
+
+    var totales = { ha: 0, tipos: {}, total: 0 };
+    TIPOS.forEach(function(t) { totales.tipos[t] = 0; });
+
+    var thead1 = '<tr><th rowspan="2" style="vertical-align:bottom">Sucursal</th><th rowspan="2" class="num" style="vertical-align:bottom">Ha</th>';
+    TIPOS.forEach(function(t) { thead1 += '<th colspan="2" style="text-align:center;border-left:2px solid var(--border)">' + t + '</th>'; });
+    thead1 += '<th colspan="2" style="text-align:center;border-left:2px solid var(--border)">Total</th></tr>';
+    var thead2 = '<tr>';
+    TIPOS.forEach(function() { thead2 += '<th class="num" style="border-left:2px solid var(--border)">Costo $</th><th class="num">Cst/Ha/Día</th>'; });
+    thead2 += '<th class="num" style="border-left:2px solid var(--border)">Costo $</th><th class="num">Cst/Ha/Día</th></tr>';
+
+    var tbody = '';
+    rows.forEach(function(g) {
+        var rowTotal = 0;
+        TIPOS.forEach(function(t) { rowTotal += g.tipos[t] || 0; });
+        totales.ha += g.ha;
+        totales.total += rowTotal;
+
+        tbody += '<tr><td style="font-weight:700">' + g.subName + '</td>' +
+            '<td class="num">' + (g.ha ? _sapFmt2(g.ha) : '—') + '</td>';
+        TIPOS.forEach(function(t) {
+            var c = g.tipos[t] || 0;
+            totales.tipos[t] += c;
+            var haDia = g.ha > 0 && diasMes > 0 ? c / (g.ha * diasMes) : null;
+            tbody += '<td class="num" style="border-left:2px solid var(--border)">' + (c ? '$' + _sapFmt2(c) : '—') + '</td>' +
+                '<td class="num">' + (haDia !== null && c ? '$' + _sapFmt2(haDia) : '—') + '</td>';
+        });
+        var totHaDia = g.ha > 0 && diasMes > 0 ? rowTotal / (g.ha * diasMes) : null;
+        tbody += '<td class="num" style="border-left:2px solid var(--border);font-weight:700;color:#065f46">' + (rowTotal ? '$' + _sapFmt2(rowTotal) : '—') + '</td>' +
+            '<td class="num" style="font-weight:700">' + (totHaDia !== null && rowTotal ? '$' + _sapFmt2(totHaDia) : '—') + '</td></tr>';
+    });
+
+    var tfoot = '<tr style="background:#f5f5f7;border-top:2px solid var(--primary)"><td style="font-weight:800">TOTAL GENERAL</td>' +
+        '<td class="num" style="font-weight:800">' + _sapFmt2(totales.ha) + '</td>';
+    TIPOS.forEach(function(t) {
+        var c = totales.tipos[t];
+        var haDia = totales.ha > 0 && diasMes > 0 ? c / (totales.ha * diasMes) : null;
+        tfoot += '<td class="num" style="border-left:2px solid var(--border);font-weight:800">' + (c ? '$' + _sapFmt2(c) : '—') + '</td>' +
+            '<td class="num" style="font-weight:800">' + (haDia !== null && c ? '$' + _sapFmt2(haDia) : '—') + '</td>';
+    });
+    var grandHaDia = totales.ha > 0 && diasMes > 0 ? totales.total / (totales.ha * diasMes) : null;
+    tfoot += '<td class="num" style="border-left:2px solid var(--border);font-weight:800;color:#065f46">$' + _sapFmt2(totales.total) + '</td>' +
+        '<td class="num" style="font-weight:800">' + (grandHaDia !== null ? '$' + _sapFmt2(grandHaDia) : '—') + '</td></tr>';
+
+    resultsDiv.innerHTML =
+        '<div class="table-card" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">' +
+        '<div style="padding-bottom:10px;margin-bottom:6px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+            '<span style="color:var(--text);font-size:14px;font-weight:700">Resumen por Tipo de Equipo</span>' +
+        '</div>' +
+        '<div class="table-wrapper" style="flex:1;overflow:auto;min-height:0">' +
+        '<table class="sap-tbl sap-tbl-compact"><thead style="position:sticky;top:0;z-index:2">' + thead1 + thead2 + '</thead>' +
+        '<tbody>' + tbody + '</tbody>' +
+        '<tfoot style="position:sticky;bottom:0;z-index:2">' + tfoot + '</tfoot>' +
+        '</table></div></div>';
+}
+
 function _combRenderDetalle(resultsDiv) {
     if (!_sapExcelRows.length) {
         resultsDiv.innerHTML = '<div class="empty-state"><div class="empty-icon">⛽</div><div>Sube el Excel SAP para ver el detalle de consumos</div></div>';
@@ -3077,29 +3690,20 @@ function _combRenderDetalle(resultsDiv) {
     }
     _combDetRead();
     var f = _combDetF;
-    // Auto-calcular rango de fecha según año/mes seleccionados
-    if (f.year && f.month) {
-        var _y = parseInt(f.year), _m = parseInt(f.month);
-        var _lastDay = new Date(_y, _m, 0).getDate();
-        if (!f.desde) f.desde = f.year + '-' + f.month + '-01';
-        if (!f.hasta) f.hasta = f.year + '-' + f.month + '-' + String(_lastDay).padStart(2,'0');
-    } else if (f.year && !f.month) {
-        if (!f.desde) f.desde = f.year + '-01-01';
-        if (!f.hasta) f.hasta = f.year + '-12-31';
-    }
 
     var ccNameMap = {};
     _combCostCenters.forEach(function(cc) { if (cc.code) ccNameMap[String(cc.code)] = cc.name || ''; });
 
-    // Base: solo diesel/gasolina con CC o orden de control válidos
-    var baseRows = _sapExcelRows.filter(function(r) {
-        return !!_combGetSubAny(r);
-    });
+    // Detalle muestra TODAS las filas del Excel (sin requerir CC/orden reconocido)
+    var baseRows = _sapExcelRows.slice();
 
     function _detRowMeta(r) {
-        var _cs = _combGetSubAny(r);
+        // Todas las sucursales del centro de costo de esta fila (puede ser mas de una
+        // si el CC es compuesto, ej. "NA-MA-KA-PE-JO"), no solo la primera.
+        var _subs = _combRowSucursales(r).map(function(s) { return s.name; });
         return {
-            sn: _cs ? _cs._subName : '',
+            subs: _subs,
+            sn: _subs.join(', '),
             yr: (r.f || '').slice(0,4),
             mo: (r.f || '').slice(5,7),
             mv: r.mv || '',
@@ -3108,7 +3712,7 @@ function _combRenderDetalle(resultsDiv) {
     }
     function _detMatch(r, skip) {
         var m = _detRowMeta(r);
-        if (skip !== 'sub'  && f.sub   && m.sn !== f.sub)   return false;
+        if (skip !== 'sub'  && f.sub   && m.subs.indexOf(f.sub) < 0) return false;
         if (skip !== 'year' && f.year  && m.yr !== f.year)  return false;
         if (skip !== 'month'&& f.month && m.mo !== f.month) return false;
         if (skip !== 'mv'   && f.mv    && m.mv !== f.mv)    return false;
@@ -3123,10 +3727,16 @@ function _combRenderDetalle(resultsDiv) {
     baseRows.forEach(function(r) {
         var m = _detRowMeta(r);
         if (m.yr) yearSet[m.yr] = 1; // año: sin filtros para que siempre aparezca
-        if (_detMatch(r, 'sub')  && m.sn) subSet[m.sn] = 1;
+        if (_detMatch(r, 'sub')) m.subs.forEach(function(sn) { subSet[sn] = 1; });
         if (_detMatch(r, 'mv')   && m.mv) mvSet[m.mv]  = 1;
         if (_detMatch(r, 'cc')   && m.cn) ccSet[m.cn]  = 1;
     });
+    // Si el año guardado no existe en los datos, usar el más reciente disponible
+    var availYears = Object.keys(yearSet).sort();
+    if (f.year && availYears.length && availYears.indexOf(f.year) === -1) {
+        f.year = availYears[availYears.length - 1];
+        _combDetF.year = f.year;
+    }
 
     // Aplicar todos los filtros para las filas de la tabla
     var rows = baseRows.filter(function(r) { return _detMatch(r, ''); });
@@ -3156,13 +3766,19 @@ function _combRenderDetalle(resultsDiv) {
         var r = rows[i];
         var _rcc = _combResolvedCC(r);
         var ccName = _rcc ? (ccNameMap[_rcc] || '') : '';
-        // Sucursal desde almacén: extraer prefijo de letras (ej. "NA15" → "NA")
-        var _almPrefix = (r.a || '').match(/^([A-Za-z]+)/);
-        var _almCode   = _almPrefix ? _almPrefix[1].toUpperCase() : '';
-        var subName    = _almCode ? (_combLetterCodeMap[_almCode] || _almCode) : '';
+        // Sucursal(es) del centro de costo. Si son varias (CC compuesto), mostrar
+        // "Compartido (N)" clicable en vez de listarlas todas en la celda.
+        var _rSubs = _combRowSucursales(r).map(function(s) { return s.name; });
+        var subCell;
+        if (_rSubs.length > 1) {
+            var _namesArr = '[' + _rSubs.map(function(n) { return "'" + String(n).replace(/'/g, "\\'") + "'"; }).join(',') + ']';
+            subCell = '<span style="cursor:pointer;color:#1e88e5;text-decoration:underline dotted" onclick="_detSubPopover(this, ' + _namesArr + ')">Compartido (' + _rSubs.length + ')</span>';
+        } else {
+            subCell = _rSubs[0] || '';
+        }
         var iNeg = (r.i || 0) < 0;
         tbody += '<tr>' +
-            '<td style="font-weight:600;white-space:nowrap">' + subName + '</td>' +
+            '<td style="font-weight:600;white-space:nowrap">' + subCell + '</td>' +
             '<td>' + (r.d || '') + '</td>' +
             '<td>' + (r.a || '') + '</td>' +
             '<td style="white-space:nowrap">' + (r.f || '') + '</td>' +
@@ -3198,9 +3814,8 @@ function _combRenderDetalle(resultsDiv) {
     var INP_YM   = 'onchange="_combYMChange()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;cursor:pointer"';
 
     var filtersHtml =
-        '<div style="padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);background:#f8fafc">' +
             '<select id="cdf-sub" ' + INP + '>' + selOpts(subSet, f.sub, 'Sucursal') + '</select>' +
-            '<select id="cdf-year" ' + INP_YM + '>' + (function(){ var s=''; Object.keys(yearSet).sort().forEach(function(v){ s+='<option value="'+v+'"'+(f.year===v?' selected':'')+'>'+v+'</option>'; }); return s; })() + '</select>' +
+            '<select id="cdf-year" ' + INP_YM + '><option value=""' + (!f.year?' selected':'') + '>Todos los años</option>' + (function(){ var s=''; Object.keys(yearSet).sort().forEach(function(v){ s+='<option value="'+v+'"'+(f.year===v?' selected':'')+'>'+v+'</option>'; }); return s; })() + '</select>' +
             '<select id="cdf-month" ' + INP_YM + '>' + mesOpts(f.month) + '</select>' +
             '<div style="display:flex;align-items:center;gap:4px">' +
                 '<label style="font-size:11px;color:#64748b;white-space:nowrap">Desde</label>' +
@@ -3213,15 +3828,22 @@ function _combRenderDetalle(resultsDiv) {
             '<select id="cdf-mv" ' + INP + '><option value="">Clase Mov.</option>' +
                 Object.keys(mvSet).sort().map(function(v){ return '<option value="'+v+'"'+(f.mv===v?' selected':'')+'>'+v+'</option>'; }).join('') +
             '</select>' +
-            '<select id="cdf-cc" ' + INP + '>' + selOpts(ccSet, f.cc, 'Centro de Costo') + '</select>' +
-            '<span style="margin-left:auto"></span>' +
-            (_sapExcelMeta && _sapExcelMeta.savedAt ? '<span style="font-size:11px;color:#64748b;white-space:nowrap"><span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;display:block">Última actualización</span>' + _sapExcelMeta.savedAt + '</span>' : '') +
-        '</div>';
+            '<select id="cdf-cc" ' + INP + '>' + selOpts(ccSet, f.cc, 'Centro de Costo') + '</select>';
+
+    // Los filtros de Detalle viven en el panel flotante compartido (fp-panel), no
+    // dentro de la tabla - se reconstruyen en cada render porque sus opciones
+    // dependen de los datos ya filtrados.
+    var detFiltersFg = document.getElementById('sap-det-filters-fg');
+    if (detFiltersFg) detFiltersFg.innerHTML = filtersHtml;
+
+    var updateLabel = _sapExcelMeta && _sapExcelMeta.savedAt
+        ? '<div style="padding:6px 14px;font-size:11px;color:#64748b;border-bottom:1px solid var(--border);background:#f8fafc"><span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Última actualización</span> ' + _sapExcelMeta.savedAt + '</div>'
+        : '';
 
     resultsDiv.innerHTML =
         '<div class="table-card" style="padding:0">' +
-        filtersHtml +
-        '<div class="table-wrapper" style="overflow-x:auto"><table class="sap-tbl">' + thead + tbody + '</table></div>' +
+        updateLabel +
+        '<div class="table-wrapper" style="overflow-x:auto"><table class="sap-tbl sap-tbl-compact">' + thead + tbody + '</table></div>' +
         note + '</div>';
 }
 
@@ -3234,7 +3856,7 @@ function _sapRenderCyclesOnly(cycles, resultsDiv) {
     let rows = '';
     _combCostCenters.forEach(function(cc) {
         var subCode = (cc.subsidiariesCode || '').split('-')[0];
-        var sub = _COMB_SUB_STATIC[subCode];
+        var sub = _combSucursalPorCodigo(subCode);
         var subName = sub ? sub.name : (cc.subsidiariesCode || '—');
         rows += '<tr><td><code style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;color:#334155">' + (cc.code || '') + '</code></td>' +
             '<td style="font-weight:600">' + (cc.name || '') + '</td>' +
@@ -3257,26 +3879,25 @@ function _cycleDias(c) {
     }
     return c.totalDays || 0;
 }
-function _sapFmt0(n) { return Math.abs(n).toLocaleString('es-EC',{maximumFractionDigits:0}); }
-function _sapMesLabel(mm) { return SAP_MESES[parseInt(mm,10)-1] || mm; }
-
 // ── Vista 1: Resumen (Camp × Mes) ────────────────────────────────────────────
-function _sapCampCluster(campCode) {
-    var cycle = _sapCycles.find(function(c) { return _sapCamp(c) === campCode; });
-    if (!cycle) return 'Otros';
-    var sid = cycle._subsidiaryId;
-    var entry = Object.entries(CLUSTERS).find(function(e) { return e[1].includes(sid); });
+// Cluster de una sucursal por su id numerico directo (no via ciclo) - usado en
+// Resumen ahora que las filas se resuelven via centro de costo/orden de control.
+function _combClusterForSubId(subId) {
+    var entry = Object.entries(CLUSTERS).find(function(e) { return e[1].includes(subId); });
     return entry ? entry[0] : 'Otros';
 }
 
 function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
+    // Agrupa por sucursal (id numerico, resuelto via centro de costo/orden de
+    // control) en vez de por "campamento" de ciclo AP1 - ya no depende de login.
     var grp = {};
     filteredRows.forEach(function(fr) {
-        var camp = _sapCamp(fr.ciclo);
-        if (!grp[camp]) grp[camp] = { camp:camp, subName: fr.ciclo._subName || camp, costo:0, gal:0, cicloPs:{}, cluster: _sapCampCluster(camp) };
+        var camp = String(fr.ciclo._subsidiaryId || fr.ciclo._subName || '');
+        if (!camp) return;
+        if (!grp[camp]) grp[camp] = { camp:camp, subName: fr.ciclo._subName || camp, costo:0, gal:0, cicloPs:{},
+            cluster: _combClusterForSubId(fr.ciclo._subsidiaryId) };
         grp[camp].costo += fr.row.i || 0;
         grp[camp].gal   += fr.row.q || 0;
-        grp[camp].cicloPs[fr.ciclo.poolName || fr.ciclo.idCycle] = fr.ciclo.ps || 0;
     });
 
     // Agregar filas cero solo cuando se ve el mes actual (no en meses históricos)
@@ -3287,32 +3908,29 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
     var _showZeroRows = _selMonth === _curMonthStr && (_selYear === _curYearStr || _selYear === '');
     if (_showZeroRows) {
         var _activeSids = new Set(CAMPAMENTOS_DEFAULT.map(function(s) { return s.id; }));
-        var _sidToCampInfo = {};
-        _sapCycles.forEach(function(c) {
-            var sid = c._subsidiaryId, camp = _sapCamp(c);
-            if (sid && camp && !_sidToCampInfo[sid]) _sidToCampInfo[sid] = { camp: camp, name: c._subName || camp };
-        });
+        var _sidToName = {};
+        sapAllSubs().forEach(function(s) { _sidToName[s.id] = s.name; });
         var _seenCamps = new Set(Object.keys(grp));
         _sapPools.forEach(function(p) {
             if (!_activeSids.has(p.subsidiaryId)) return;
-            var info = _sidToCampInfo[p.subsidiaryId];
-            if (!info || _seenCamps.has(info.camp)) return;
-            _seenCamps.add(info.camp);
-            grp[info.camp] = { camp: info.camp, subName: info.name, costo: 0, cicloPs: {}, cluster: _sapCampCluster(info.camp) };
-        });
-        // Completar cicloPs para las sucursales sin consumo
-        _sapCycles.forEach(function(c) {
-            var camp = _sapCamp(c);
-            if (camp && grp[camp] && c.ps && c.poolName) grp[camp].cicloPs[c.poolName] = c.ps;
+            var camp = String(p.subsidiaryId);
+            if (_seenCamps.has(camp)) return;
+            _seenCamps.add(camp);
+            grp[camp] = { camp: camp, subName: _sidToName[p.subsidiaryId] || camp, costo: 0, gal: 0, cicloPs: {},
+                cluster: _combClusterForSubId(p.subsidiaryId) };
         });
     }
 
-    var rows = Object.values(grp).sort(function(a,b) {
+    // Oficinas, acopios, laboratorios y sucursales sin cluster asignado no se
+    // muestran aqui (no son granjas de producción).
+    var rows = Object.values(grp)
+        .filter(function(g) { return _combEsGranja(parseInt(g.camp, 10)); })
+        .sort(function(a,b) {
         if (_sapResumenGrupo) {
             var cc = a.cluster.localeCompare(b.cluster,'es');
             if (cc !== 0) return cc;
         }
-        return a.camp.localeCompare(b.camp);
+        return a.subName.localeCompare(b.subName, 'es');
     });
 
     // Título dinámico con mes/año del filtro
@@ -3346,7 +3964,7 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
             '<button style="font-size:11.5px;padding:5px 12px;background:#f5f5f7;color:#1e3a5f;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-weight:600;transition:background .15s" onmouseover="this.style.background=\'#e5e5ea\'" onmouseout="this.style.background=\'#f5f5f7\'" onclick="_sapToggleResumenGrupo()">' + btnLabel + '</button>' +
             '</div>' +
         '</div>' +
-        '<div class="table-wrapper" style="flex:1;overflow-y:auto;min-height:0;margin-top:0"><table class="sap-tbl"><thead style="position:sticky;top:0;z-index:2"><tr>' +
+        '<div class="table-wrapper" style="flex:1;overflow-y:auto;min-height:0;margin-top:0"><table class="sap-tbl sap-tbl-compact"><thead style="position:sticky;top:0;z-index:2"><tr>' +
         (_sapResumenGrupo ? '<th>Cluster</th>' : '') +
         '<th>Sucursal</th>' +
         '<th class="num" style="width:110px;padding-right:28px">Ha</th>' +
@@ -3371,7 +3989,7 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
 
     // Paso 1: calcular ha/haDia para cada fila y acumular totales
     rows.forEach(function(g) {
-        var sid = g.camp ? (_sapCycles.find(function(c){return _sapCamp(c)===g.camp;}) || {})._subsidiaryId : null;
+        var sid = g.camp ? parseInt(g.camp, 10) : null;
         var _cicloHa = Object.values(g.cicloPs).reduce(function(s,v){return s+v;},0);
         var ha = _isCurrentMonth && sid && poolsHaBySubId[sid]
                ? poolsHaBySubId[sid]
@@ -3434,8 +4052,8 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
     // Layout: todo cabe en pantalla sin scroll de página
     el.innerHTML =
         '<div style="display:flex;gap:12px;align-items:stretch;flex:1;min-height:0">' +
-            '<div class="table-card" style="flex:1;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden">' + html + '</div>' +
-            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;overflow:hidden">' +
+            '<div class="table-card" style="flex:0 0 45%;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden">' + html + '</div>' +
+            '<div style="flex:1 1 55%;min-width:0;display:flex;flex-direction:column;gap:8px;overflow:hidden">' +
                 '<div id="sap-kpi-container">' + (kpiHtml || '') + '</div>' +
                 '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:10px 14px">' +
                     '<div class="chart-title" style="flex-shrink:0;font-size:12px;margin-bottom:6px">$/Ha/Día por Sucursal</div>' +
@@ -3528,35 +4146,30 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
 }
 
 // ── Vista 2: Por Material (Camp × Material) ───────────────────────────────────
-function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
+function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml, totalHa) {
     if (!filteredRows.length) {
         el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin datos para los filtros seleccionados.</div></div>';
         return;
     }
 
-    // Agrupar por material; acumular Ha únicas de la sucursal
-    var grp = {}, totalCicloPs = {}, campSet = new Set();
+    // Agrupar por material. totalHa llega ya calculado (via centro de costo ->
+    // sucursal -> piscinas activas), no se recalcula aqui.
+    var grp = {};
     filteredRows.forEach(function(fr) {
-        var key = fr.row.m || '(sin código)';
+        var key = fr.row.m || fr.row.d || '(sin código)';
         if (!grp[key]) grp[key] = { matCode:fr.row.m||'', desc:fr.row.d||'', unidad:fr.row.u||'', costo:0, cant:0 };
         grp[key].costo += fr.row.i || 0;
         grp[key].cant  += fr.row.q || 0;
         if (!grp[key].unidad && fr.row.u) grp[key].unidad = fr.row.u;
-        var pool = fr.ciclo.poolName;
-        if (pool && fr.ciclo.ps) totalCicloPs[pool] = fr.ciclo.ps || 0;
-        campSet.add(_sapCamp(fr.ciclo));
     });
 
-    var _matSelYr = (document.getElementById('sap-mat-year')  || {}).value || '';
-    var _matSelMo = (document.getElementById('sap-mat-month') || {}).value || '';
-    var _matMesKey = _matSelYr && _matSelMo ? (_matSelYr + '-' + _matSelMo.padStart(2,'0')) : null;
-    var totalHa = Object.values(totalCicloPs).reduce(function(s,v) { return s+v; }, 0);
+    totalHa = totalHa || 0;
     var rows      = Object.values(grp).sort(function(a,b) { return b.costo - a.costo; });
     var grandCosto = rows.reduce(function(s,g) { return s + g.costo; }, 0);
     var grandCant  = rows.reduce(function(s,g) { return s + g.cant;  }, 0);
     var grandHaDia = totalHa > 0 && diasMes > 0 ? grandCosto / (totalHa * diasMes) : null;
 
-    var _fmt4 = function(n) { return n.toLocaleString('es-EC', {minimumFractionDigits:4, maximumFractionDigits:4}); };
+    var _fmt4 = function(n) { return n.toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2}); };
 
     // ─── Tabla ────────────────────────────────────────────────────────────────
     var html =
@@ -3564,8 +4177,7 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
             '<span style="color:var(--text);font-size:14px;font-weight:700">Consumos por Material</span>' +
         '</div>' +
         '<div class="table-wrapper" style="flex:1;overflow-y:auto;min-height:0;margin-top:0">' +
-        '<table class="sap-tbl"><thead style="position:sticky;top:0;z-index:2"><tr>' +
-        '<th>Código</th>' +
+        '<table class="sap-tbl sap-tbl-compact"><thead style="position:sticky;top:0;z-index:2"><tr>' +
         '<th>Material</th>' +
         '<th>UM</th>' +
         '<th class="num" style="width:100px;padding-right:18px">Cantidad</th>' +
@@ -3577,8 +4189,7 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
     rows.forEach(function(g) {
         var costoHa = totalHa > 0 ? g.costo / totalHa : null;
         var haDia   = totalHa > 0 && diasMes > 0 ? g.costo / (totalHa * diasMes) : null;
-        html += '<tr style="cursor:pointer" onclick="_sapOpenMatDetail(\'' + (g.matCode || '').replace(/'/g, "\\'") + '\')" title="Ver detalle por sucursal y órdenes">' +
-            '<td style="font-size:11px;color:var(--muted);white-space:nowrap">' + g.matCode + '</td>' +
+        html += '<tr style="cursor:pointer" onclick="_sapOpenMatDetail(\'' + (g.matCode || g.desc || '').replace(/'/g, "\\'") + '\')" title="Ver detalle por sucursal y órdenes">' +
             '<td style="font-weight:500">' + g.desc + '</td>' +
             '<td style="color:var(--muted);font-size:11px">' + g.unidad + '</td>' +
             '<td class="num" style="padding-right:18px">' + _sapFmt2(g.cant) + '</td>' +
@@ -3592,7 +4203,7 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
     html += '</tbody>' +
         '<tfoot style="position:sticky;bottom:0;z-index:2">' +
             '<tr style="background:#f5f5f7;border-top:2px solid var(--primary)">' +
-                '<td colspan="3" style="font-weight:800;font-size:13px;padding:8px 10px;color:var(--text)">TOTAL</td>' +
+                '<td colspan="2" style="font-weight:800;font-size:13px;padding:8px 10px;color:var(--text)">TOTAL</td>' +
                 '<td class="num" style="font-weight:800;padding:8px 18px 8px 10px;color:var(--text)">' + _sapFmt2(grandCant) + '</td>' +
                 '<td class="num" style="font-weight:800;padding:8px 18px 8px 10px;color:var(--text)">$' + _sapFmt2(grandCosto) + '</td>' +
                 '<td class="num" style="font-weight:800;padding:8px 18px 8px 10px;color:var(--text)">' + (grandCostoHa !== null ? '$' + _sapFmt2(grandCostoHa) : '—') + '</td>' +
@@ -3603,14 +4214,13 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
 
     // ─── Layout: tabla izquierda + card+gráfico derecha ───────────────────────
     var canvasId = 'sap-mat-chart';
-    var chartHeight = Math.max(300, rows.length * 32);
+    var chartHeight = Math.max(360, rows.length * 40);
     el.innerHTML =
         '<div style="display:flex;gap:12px;align-items:flex-start;flex:1;min-height:0;overflow-y:auto">' +
-            '<div class="table-card" style="flex:1;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0">' + html + '</div>' +
-            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;flex-shrink:0">' +
-                '<div id="sap-kpi-container">' + (kpiHtml || '') + '</div>' +
+            '<div class="table-card" style="flex:0 0 45%;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden">' + html + '</div>' +
+            '<div style="flex:1 1 55%;min-width:0;display:flex;flex-direction:column;gap:8px;flex-shrink:0">' +
                 '<div class="table-card" style="margin-bottom:0;display:flex;flex-direction:column;padding:10px 14px">' +
-                    '<div class="chart-title" style="flex-shrink:0;font-size:12px;margin-bottom:6px">$/Ha/D&iacute;a por Material</div>' +
+                    '<div class="chart-title" style="flex-shrink:0;font-size:12px;margin-bottom:6px">Costo Total por Material</div>' +
                     '<div style="position:relative;height:' + chartHeight + 'px">' +
                         '<canvas id="' + canvasId + '"></canvas>' +
                     '</div>' +
@@ -3618,7 +4228,7 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
             '</div>' +
         '</div>';
 
-    // ─── Gráfico de barras horizontales ───────────────────────────────────────
+    // ─── Gráfico de pastel (pocos materiales, la proporción se lee mejor) ─────
     if (typeof Chart === 'undefined') return;
     if (_sapMatChartInst) { _sapMatChartInst.destroy(); _sapMatChartInst = null; }
     var ctx = document.getElementById(canvasId);
@@ -3627,51 +4237,135 @@ function _sapRenderPorMaterial(filteredRows, diasMes, el, kpiHtml) {
     var MAT_PAL = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EC4899','#14B8A6',
                    '#F97316','#84CC16','#06B6D4','#EF4444','#6366F1','#F43F5E'];
     var chartRows = rows.map(function(g) {
-        return { desc: g.desc || g.matCode, haDia: totalHa > 0 && diasMes > 0 ? g.costo / (totalHa * diasMes) : 0 };
-    }).sort(function(a, b) { return b.haDia - a.haDia; });
+        return { desc: g.desc || g.matCode, costo: Math.abs(g.costo || 0) };
+    }).sort(function(a, b) { return b.costo - a.costo; });
+    var chartTotal = chartRows.reduce(function(s, g) { return s + g.costo; }, 0);
+    var chartColors = chartRows.map(function(_, i) { return MAT_PAL[i % MAT_PAL.length]; });
 
+    // Etiquetas afuera con línea guía y anticolisión (sin datalabels: no soporta
+    // líneas guía). Reparte por lado izq/der según ángulo y separa verticalmente
+    // en pasadas iterativas para que las líneas nunca se cruc en.
+    var outerPctPlugin = {
+        id: 'outerPctComb',
+        afterDraw: function(chart) {
+            var chCtx = chart.ctx, data = chart.data;
+            var meta = chart.getDatasetMeta(0);
+            var total = data.datasets[0].data.reduce(function(a,b){ return a+b; }, 0);
+            if (!total) return;
+
+            var items = [];
+            meta.data.forEach(function(arc, i) {
+                var value = data.datasets[0].data[i];
+                var pct = value / total * 100;
+                if (!value) return;
+                var mid = (arc.startAngle + arc.endAngle) / 2;
+                var cx = arc.x, cy = arc.y, r = arc.outerRadius;
+                var cos = Math.cos(mid), sin = Math.sin(mid);
+                var isRight = cos >= 0;
+                items.push({
+                    i: i, value: value, pct: pct, isRight: isRight,
+                    cx: cx, cy: cy, r: r,
+                    x1: cx + (r + 4) * cos,  y1: cy + (r + 4) * sin,
+                    xe: cx + (r + 20) * cos,
+                    y:  cy + (r + 20) * sin,
+                    color: data.datasets[0].backgroundColor[i],
+                    label: data.labels[i]
+                });
+            });
+
+            if (items.length === 1) {
+                var only = items[0], arc0 = meta.data[only.i];
+                chCtx.save();
+                chCtx.fillStyle = only.color;
+                chCtx.font = 'bold 16px sans-serif';
+                chCtx.textAlign = 'center';
+                chCtx.textBaseline = 'middle';
+                chCtx.fillText(only.pct.toFixed(2) + '%', arc0.x, arc0.y);
+                chCtx.restore();
+                return;
+            }
+
+            var MIN_GAP = 34;
+            [items.filter(function(l){return l.isRight;}), items.filter(function(l){return !l.isRight;})].forEach(function(group) {
+                group.sort(function(a,b){ return a.y - b.y; });
+                for (var iter = 0; iter < 150; iter++) {
+                    var moved = false;
+                    for (var j = 1; j < group.length; j++) {
+                        var gap = group[j].y - group[j-1].y;
+                        if (gap < MIN_GAP) {
+                            var push = (MIN_GAP - gap) / 2;
+                            group[j-1].y -= push;
+                            group[j].y   += push;
+                            moved = true;
+                        }
+                    }
+                    if (!moved) break;
+                }
+            });
+            var yMin = 10, yMax = chart.height - 10;
+            var xSafeLeft  = chart.chartArea.left  + 2;
+            var xSafeRight = chart.chartArea.right - 2;
+            items.forEach(function(item) {
+                item.y  = Math.max(yMin, Math.min(yMax, item.y));
+                // El corrimiento vertical (separar etiquetas que chocaban) puede dejar
+                // el "codo" de la línea por dentro del círculo si no se re-ajusta el X
+                // segun la nueva altura - recalcular la distancia minima al centro para
+                // que la línea/etiqueta siempre quede afuera del donut en su nueva fila.
+                var dy = item.y - item.cy;
+                var minDist = item.r + 14;
+                if (Math.abs(dy) < item.r) minDist = Math.sqrt(item.r * item.r - dy * dy) + 14;
+                item.xe = item.isRight
+                    ? Math.max(item.xe, item.cx + minDist)
+                    : Math.min(item.xe, item.cx - minDist);
+                item.xe = item.isRight
+                    ? Math.min(item.xe, xSafeRight - 18)
+                    : Math.max(item.xe, xSafeLeft  + 18);
+            });
+
+            chCtx.save();
+            items.forEach(function(item) {
+                var xLabel = item.xe + (item.isRight ? 22 : -22);
+                var label = item.label + ' (' + item.pct.toFixed(2) + '%)';
+                chCtx.beginPath();
+                chCtx.moveTo(item.x1, item.y1);
+                chCtx.lineTo(item.xe, item.y);
+                chCtx.lineTo(xLabel, item.y);
+                chCtx.strokeStyle = item.color;
+                chCtx.lineWidth = 1;
+                chCtx.stroke();
+                chCtx.fillStyle = item.color;
+                chCtx.font = 'bold 11px sans-serif';
+                chCtx.textAlign = item.isRight ? 'left' : 'right';
+                chCtx.textBaseline = 'middle';
+                chCtx.fillText(label, xLabel + (item.isRight ? 3 : -3), item.y);
+            });
+            chCtx.restore();
+        }
+    };
 
     _sapMatChartInst = new Chart(ctx.getContext('2d'), {
-        type: 'bar',
+        type: 'doughnut',
         data: {
             labels: chartRows.map(function(g) { return g.desc; }),
             datasets: [{
-                label: '$/Ha/Día',
-                data: chartRows.map(function(g) { return parseFloat(g.haDia.toFixed(6)); }),
-                backgroundColor: chartRows.map(function(_, i) { return i % 2 === 0 ? '#1e88e5' : '#90caf9'; }),
-                borderRadius: 3, borderSkipped: false,
-                datalabels: {
-                    display: true, anchor: 'end', align: 'end', offset: 2,
-                    font: { size: 9, weight: '700' }, color: '#1e3a5f',
-                    formatter: function(v) { return '$' + v.toFixed(4); }
-                }
+                data: chartRows.map(function(g) { return parseFloat(g.costo.toFixed(2)); }),
+                backgroundColor: chartColors,
+                borderWidth: 2, borderColor: '#fff'
             }]
         },
         options: {
-            indexAxis: 'y',
             responsive: true, maintainAspectRatio: false,
-            layout: { padding: { right: 70 } },
+            layout: { padding: { top: 65, bottom: 65, left: 70, right: 70 } },
             plugins: {
                 legend: { display: false },
-                datalabels: { display: true },
+                datalabels: { display: false },
                 tooltip: { callbacks: { label: function(c) {
-                    return ' $' + c.raw.toLocaleString('es-EC', {minimumFractionDigits:4, maximumFractionDigits:4}) + '/Ha/Día';
+                    return ' ' + c.label + ': $' + c.raw.toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2}) +
+                        (chartTotal > 0 ? ' (' + (c.raw / chartTotal * 100).toFixed(2) + '%)' : '');
                 }}}
-            },
-            scales: {
-                x: {
-                    grid: { color: '#f1f5f9' },
-                    ticks: { font: { size: 10, weight: '700' }, callback: function(v) { return '$' + v.toFixed(4); } }
-                },
-                y: {
-                    ticks: {
-                        font: { size: 10, weight: '700' },
-                        autoSkip: false,
-                        callback: function(val, index) { return chartRows[index] ? chartRows[index].desc : val; }
-                    }
-                }
             }
-        }
+        },
+        plugins: [outerPctPlugin]
     });
 }
 
@@ -3805,7 +4499,7 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
             '<span style="color:var(--text);font-size:14px;font-weight:700">Consumos por Ciclo</span>' +
         '</div>' +
         '<div class="table-wrapper" style="flex:1;overflow-y:auto;min-height:0;margin-top:0">' +
-        '<table class="sap-tbl"><thead style="position:sticky;top:0;z-index:2"><tr>' +
+        '<table class="sap-tbl sap-tbl-compact"><thead style="position:sticky;top:0;z-index:2"><tr>' +
         '<th>Material</th>' +
         '<th>UM</th>' +
         '<th class="num" style="width:100px;padding-right:18px">Cantidad</th>' +
@@ -3909,7 +4603,7 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
                     var mk  = m.code || m.desc;
                     var mat = g.mats[mk];
                     if (!mat || !mat.costo || den <= 0) return 0;
-                    return parseFloat((mat.costo / den).toFixed(4));
+                    return parseFloat((mat.costo / den).toFixed(2));
                 }),
                 backgroundColor: col + 'cc',
                 borderColor: col,
@@ -3922,7 +4616,7 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
         // Un solo ciclo — colorear cada barra individualmente
         var den = _grandHaDen || rows.reduce(function(s,g) { return s + g.ps*(g.totalDays||30); }, 0);
         datasets = [{
-            data: matArr.map(function(m) { return den > 0 ? parseFloat((m.costo / den).toFixed(4)) : 0; }),
+            data: matArr.map(function(m) { return den > 0 ? parseFloat((m.costo / den).toFixed(2)) : 0; }),
             backgroundColor: matArr.map(function(_, i) { return i % 2 === 0 ? '#1e88e5' : '#90caf9'; }),
             borderRadius: 3, borderSkipped: false,
             datalabels: {
@@ -3944,7 +4638,7 @@ function _sapRenderPorCiclo(filteredRows, el, kpiHtml) {
                 legend: { display: multiCiclo, position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
                 datalabels: { display: !multiCiclo },
                 tooltip: { callbacks: { label: function(c) {
-                    return ' ' + (c.dataset.label || '') + ': $' + c.raw.toFixed(4) + '/Ha/Día';
+                    return ' ' + (c.dataset.label || '') + ': $' + c.raw.toFixed(2) + '/Ha/Día';
                 }}}
             },
             scales: {
@@ -3986,7 +4680,7 @@ function _sapTendChangeMetric(id) {
         if (kind === 'mat') {
             fmt = id === 'total' ? '$' + v.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2})
                 : id === 'ha'   ? '$' + v.toFixed(2)
-                :                 '$' + v.toFixed(4);
+                :                 '$' + v.toFixed(2);
         } else {
             fmt = id === 'total' ? '$' + v.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2})
                 : '$' + v.toFixed(2);
@@ -4012,9 +4706,9 @@ function _sapTendChangeMetric(id) {
     if (_sapTendMatChartInst && window._tendState) {
         var st = window._tendState;
         _sapTendMatChartInst.data.datasets.forEach(function(ds, ci) {
-            var mc = st.matList[ci];
+            var mc = st.list[ci];
             ds.data = st.mesesList.map(function(m) {
-                var costo = (st.matMeses[mc] || {})[m] || 0;
+                var costo = (st.valMeses[mc] || {})[m] || 0;
                 if (!costo) return null;
                 var ha   = st.mesHaTotal[m] || 0;
                 var pts  = m.split('-');
@@ -4023,11 +4717,11 @@ function _sapTendChangeMetric(id) {
                 if (id === 'total')  v = costo;
                 else if (id === 'ha') v = ha > 0 ? costo / ha : null;
                 else                  v = (ha > 0 && dias > 0) ? costo / (ha * dias) : null;
-                return v !== null ? parseFloat(v.toFixed(4)) : null;
+                return v !== null ? parseFloat(v.toFixed(2)) : null;
             });
         });
         _sapTendMatChartInst.options.scales.y.ticks.callback = function(v) {
-            return '$' + (id === 'hadía' ? v.toFixed(4) : v.toFixed(2));
+            return '$' + (id === 'hadía' ? v.toFixed(2) : v.toFixed(2));
         };
         _sapTendMatChartInst.update('none');
     }
@@ -4046,7 +4740,7 @@ function _sapRenderPorCeco(filteredRows, diasMes, el) {
 
     // Acumular por NOMBRE de centro de costo (agrupa subcentros con mismo nombre)
     // grpNombre[ccName] = { ccName, costo, gal, subs: { subName: { costo, gal, codes:[...] } } }
-    var grpNombre = {}, totalCicloPs = {}, campSet = new Set();
+    var grpNombre = {}, subIdsUsados = new Set();
     filteredRows.forEach(function(fr) {
         var cc      = _combResolvedCC(fr.row);
         var subName = fr.ciclo._subName || '—';
@@ -4058,20 +4752,20 @@ function _sapRenderPorCeco(filteredRows, diasMes, el) {
         if (!grpNombre[ccName]) grpNombre[ccName] = { ccName: ccName, costo: 0, gal: 0, subs: {} };
         grpNombre[ccName].costo += fr.row.i || 0;
         grpNombre[ccName].gal   += fr.row.q || 0;
-        if (!grpNombre[ccName].subs[subName]) grpNombre[ccName].subs[subName] = { subName: subName, costo: 0, gal: 0, codes: [] };
+        if (!grpNombre[ccName].subs[subName]) grpNombre[ccName].subs[subName] = { subName: subName, costo: 0, gal: 0, codes: [], rows: [] };
         grpNombre[ccName].subs[subName].costo += fr.row.i || 0;
         grpNombre[ccName].subs[subName].gal   += fr.row.q || 0;
         if (grpNombre[ccName].subs[subName].codes.indexOf(cc) < 0) grpNombre[ccName].subs[subName].codes.push(cc);
+        grpNombre[ccName].subs[subName].rows.push(fr.row);
 
-        if (fr.ciclo.poolName && fr.ciclo.ps) totalCicloPs[fr.ciclo.poolName] = fr.ciclo.ps || 0;
-        campSet.add(_sapCamp(fr.ciclo));
+        if (fr.ciclo._subsidiaryId) subIdsUsados.add(fr.ciclo._subsidiaryId);
     });
 
-    // Ha total
-    var _selYr = (document.getElementById('sap-ceco-year')  || {}).value || '';
-    var _selMo = (document.getElementById('sap-ceco-month') || {}).value || '';
-    var _mesKey = _selYr && _selMo ? (_selYr + '-' + _selMo.padStart(2,'0')) : null;
-    var totalHa = Object.values(totalCicloPs).reduce(function(s,v){return s+v;},0);
+    // Ha total: suma de las sucursales (granja) realmente involucradas en estas filas
+    var _haById = {};
+    _sapPools.forEach(function(p) { if (p.subsidiaryId) _haById[p.subsidiaryId] = (_haById[p.subsidiaryId] || 0) + p.poolSize; });
+    var totalHa = 0;
+    subIdsUsados.forEach(function(id) { totalHa += _haById[id] || 0; });
 
     _sapCecoData = { grpNombre: grpNombre, totalHa: totalHa, diasMes: diasMes };
 
@@ -4085,7 +4779,7 @@ function _sapRenderPorCeco(filteredRows, diasMes, el) {
             '<span style="margin-left:10px;font-size:12px;color:var(--muted)">' + rows.length + ' centros de costo</span>' +
         '</div>' +
         '<div class="table-wrapper" style="flex:1;overflow-y:auto;min-height:0;margin-top:0">' +
-        '<table class="sap-tbl"><thead style="position:sticky;top:0;z-index:2"><tr>' +
+        '<table class="sap-tbl sap-tbl-compact"><thead style="position:sticky;top:0;z-index:2"><tr>' +
         '<th>Centro de Costo</th>' +
         '<th class="num" style="width:110px;padding-right:18px">Galones</th>' +
         '<th class="num" style="width:130px;padding-right:18px">Costo $</th>' +
@@ -4118,8 +4812,8 @@ function _sapRenderPorCeco(filteredRows, diasMes, el) {
     var chartHeight = Math.max(300, rows.length * 36);
     el.innerHTML =
         '<div style="display:flex;gap:12px;align-items:flex-start;flex:1;min-height:0;overflow-y:auto">' +
-            '<div class="table-card" style="flex:1;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0">' + html + '</div>' +
-            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;flex-shrink:0">' +
+            '<div class="table-card" style="flex:0 0 45%;min-width:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden">' + html + '</div>' +
+            '<div style="flex:1 1 55%;min-width:0;display:flex;flex-direction:column;gap:8px;flex-shrink:0">' +
                 '<div class="table-card" style="margin-bottom:0;display:flex;flex-direction:column;padding:10px 14px">' +
                     '<div class="chart-title" style="flex-shrink:0;font-size:12px;margin-bottom:6px">$/Ha/D&iacute;a por Centro de Costo</div>' +
                     '<div style="position:relative;height:' + chartHeight + 'px">' +
@@ -4145,13 +4839,13 @@ function _sapRenderPorCeco(filteredRows, diasMes, el) {
             labels: chartRows.map(function(g) { return g.label; }),
             datasets: [{
                 label: '$/Ha/Día',
-                data: chartRows.map(function(g) { return parseFloat(g.haDia.toFixed(6)); }),
+                data: chartRows.map(function(g) { return parseFloat(g.haDia.toFixed(2)); }),
                 backgroundColor: chartRows.map(function(_, i) { return i % 2 === 0 ? '#1e88e5' : '#90caf9'; }),
                 borderRadius: 3, borderSkipped: false,
                 datalabels: {
                     display: true, anchor: 'end', align: 'end', offset: 2,
                     font: { size: 9, weight: '700' }, color: '#1e3a5f',
-                    formatter: function(v) { return '$' + v.toFixed(4); }
+                    formatter: function(v) { return '$' + v.toFixed(2); }
                 }
             }]
         },
@@ -4163,11 +4857,11 @@ function _sapRenderPorCeco(filteredRows, diasMes, el) {
                 legend: { display: false },
                 datalabels: { display: true },
                 tooltip: { callbacks: { label: function(c) {
-                    return ' $' + c.raw.toLocaleString('es-EC', {minimumFractionDigits:4, maximumFractionDigits:4}) + '/Ha/Día';
+                    return ' $' + c.raw.toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2}) + '/Ha/Día';
                 }}}
             },
             scales: {
-                x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10, weight: '700' }, callback: function(v) { return '$' + v.toFixed(4); } } },
+                x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10, weight: '700' }, callback: function(v) { return '$' + v.toFixed(2); } } },
                 y: { ticks: { font: { size: 10, weight: '700' }, autoSkip: false,
                     callback: function(val, index) { return chartRows[index] ? chartRows[index].label : val; } } }
             }
@@ -4181,14 +4875,16 @@ function _sapCecoOpenModal(ccName) {
     var g = d.grpNombre[ccName];
     if (!g) return;
 
-    var _fmt4 = function(n) { return n.toLocaleString('es-EC', {minimumFractionDigits:4, maximumFractionDigits:4}); };
+    var _fmt4 = function(n) { return n.toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2}); };
     var totalHa = d.totalHa, diasMes = d.diasMes;
 
     var subs = Object.values(g.subs).sort(function(a,b){ return b.costo - a.costo; });
+    var safeCc = ccName.replace(/'/g, "\\'");
 
     var rows = subs.map(function(s) {
-        return '<tr>' +
-            '<td style="font-weight:600;padding:8px 12px">' + s.subName + '</td>' +
+        var safeSub = s.subName.replace(/'/g, "\\'");
+        return '<tr class="sap-res-row" style="cursor:pointer" onclick="_sapCecoOpenSubModal(\'' + safeCc + '\',\'' + safeSub + '\')" title="Ver detalle de consumo">' +
+            '<td style="font-weight:600;padding:8px 12px">' + s.subName + ' <span style="font-size:10px;color:var(--muted);font-weight:400">›</span></td>' +
             '<td style="padding:8px 12px;font-size:11px;color:var(--muted)">' + s.codes.join(', ') + '</td>' +
             '<td class="num" style="padding:8px 18px 8px 10px">' + _sapFmt2(s.gal) + '</td>' +
             '<td class="num" style="padding:8px 18px 8px 10px;font-weight:600;color:#065f46">$' + _sapFmt2(s.costo) + '</td>' +
@@ -4215,6 +4911,58 @@ function _sapCecoOpenModal(ccName) {
     modal.style.display = 'flex';
 }
 
+function _sapCecoOpenSubModal(ccName, subName) {
+    var d = _sapCecoData;
+    if (!d || !d.grpNombre) return;
+    var g = d.grpNombre[ccName];
+    var s = g ? g.subs[subName] : null;
+    if (!s) return;
+
+    var fmtFecha = function(f) {
+        if (!f) return '—';
+        var p = f.split('-');
+        return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : f;
+    };
+
+    var rows = s.rows.slice().sort(function(a,b) { return (b.f||'').localeCompare(a.f||''); });
+    var totCant = 0, totCosto = 0;
+    var trs = rows.map(function(r) {
+        totCant += r.q || 0; totCosto += r.i || 0;
+        return '<tr>' +
+            '<td style="padding:7px 12px;white-space:nowrap">' + fmtFecha(r.f) + '</td>' +
+            '<td style="padding:7px 12px;font-size:11px;font-family:monospace;color:var(--muted)">' + (r.cc || '—') + '</td>' +
+            '<td style="padding:7px 12px">' + (r.a || '—') + '</td>' +
+            '<td style="padding:7px 12px;font-size:11px;font-family:monospace;color:var(--muted)">' + (r.dm || '—') + '</td>' +
+            '<td style="padding:7px 12px;font-size:11px;font-family:monospace;color:var(--muted)">' + (r.pd || '—') + '</td>' +
+            '<td style="padding:7px 12px;font-size:11px;color:var(--muted)">' + (r.d || '—') + '</td>' +
+            '<td class="num" style="padding:7px 12px">' + _sapFmt2(r.q) + '</td>' +
+            '<td class="num" style="padding:7px 12px;font-weight:600;color:#065f46">$' + _sapFmt2(r.i) + '</td>' +
+            '</tr>';
+    }).join('');
+
+    document.getElementById('sap-ceco-sub-modal-title').textContent = ccName + ' — ' + subName;
+    document.getElementById('sap-ceco-sub-modal-body').innerHTML =
+        '<table class="sap-tbl" style="width:100%">' +
+            '<thead><tr style="background:#f8fafc;position:sticky;top:0">' +
+                '<th style="padding:8px 12px;text-align:left">Fecha</th>' +
+                '<th style="padding:8px 12px;text-align:left">Centro de Costo</th>' +
+                '<th style="padding:8px 12px;text-align:left">Almacén</th>' +
+                '<th style="padding:8px 12px;text-align:left">Documento</th>' +
+                '<th style="padding:8px 12px;text-align:left">Posición</th>' +
+                '<th style="padding:8px 12px;text-align:left">Material</th>' +
+                '<th class="num" style="padding:8px 12px;width:100px">Cantidad</th>' +
+                '<th class="num" style="padding:8px 12px;width:110px">Costo $</th>' +
+            '</tr></thead>' +
+            '<tbody>' + trs + '</tbody>' +
+            '<tfoot><tr style="background:#f5f5f7;border-top:2px solid var(--primary)">' +
+                '<td colspan="6" style="font-weight:800;padding:8px 12px;color:var(--text)">TOTAL (' + rows.length + ' movimientos)</td>' +
+                '<td class="num" style="font-weight:800;padding:8px 12px">' + _sapFmt2(totCant) + '</td>' +
+                '<td class="num" style="font-weight:800;padding:8px 12px;color:#065f46">$' + _sapFmt2(totCosto) + '</td>' +
+            '</tr></tfoot>' +
+        '</table>';
+    document.getElementById('sap-ceco-sub-modal').style.display = 'flex';
+}
+
 function _sapRenderTendencia(filteredRows, el) {
     var poolsHaBySubId = {};
     _sapPools.forEach(function(p) {
@@ -4224,6 +4972,11 @@ function _sapRenderTendencia(filteredRows, el) {
 
     var meses = {}, camps = new Set(), subNames = {}, campSubId = {};
     var matMeses = {}, matDescMap = {}, subMatMeses = {};
+    // Por Centro de Costo / Por Tipo: mismos totales por mes, desglosados por sucursal
+    var cecoMeses = {}, subCecoMeses = {};
+    var tipoMeses = {}, subTipoMeses = {};
+    var ccNameCache = {};
+    _combCostCenters.forEach(function(cc) { if (cc.code) ccNameCache[String(cc.code)] = cc.name || cc.code; });
 
     filteredRows.forEach(function(fr) {
         var camp = _sapCamp(fr.ciclo);
@@ -4239,7 +4992,21 @@ function _sapRenderTendencia(filteredRows, el) {
         var pn = fr.ciclo.poolName || String(fr.ciclo.idCycle);
         if (pn) meses[mes][camp].ciclos[pn] = fr.ciclo.ps || 0;
 
-        var mc = fr.row.m || '(sin código)';
+        var ccCode = _combResolvedCC(fr.row);
+        var ccName = ccCode ? (ccNameCache[ccCode] || ccCode) : 'Sin centro de costo';
+        var tipoName = _combTipoDeCCNombre(ccName);
+        if (!cecoMeses[ccName]) cecoMeses[ccName] = {};
+        cecoMeses[ccName][mes] = (cecoMeses[ccName][mes] || 0) + (fr.row.i || 0);
+        if (!subCecoMeses[camp]) subCecoMeses[camp] = {};
+        if (!subCecoMeses[camp][ccName]) subCecoMeses[camp][ccName] = {};
+        subCecoMeses[camp][ccName][mes] = (subCecoMeses[camp][ccName][mes] || 0) + (fr.row.i || 0);
+        if (!tipoMeses[tipoName]) tipoMeses[tipoName] = {};
+        tipoMeses[tipoName][mes] = (tipoMeses[tipoName][mes] || 0) + (fr.row.i || 0);
+        if (!subTipoMeses[camp]) subTipoMeses[camp] = {};
+        if (!subTipoMeses[camp][tipoName]) subTipoMeses[camp][tipoName] = {};
+        subTipoMeses[camp][tipoName][mes] = (subTipoMeses[camp][tipoName][mes] || 0) + (fr.row.i || 0);
+
+        var mc = fr.row.m || fr.row.d || '(sin código)';
         matDescMap[mc] = fr.row.d || mc;
         if (!matMeses[mc]) matMeses[mc] = {};
         matMeses[mc][mes] = (matMeses[mc][mes] || 0) + (fr.row.i || 0);
@@ -4284,15 +5051,8 @@ function _sapRenderTendencia(filteredRows, el) {
         if (v === null || v === undefined) return '—';
         if (_sapTendMetric === 'total') return '$' + v.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});
         if (_sapTendMetric === 'ha')    return '$' + v.toFixed(2);
-        return '$' + v.toFixed(4);
+        return '$' + v.toFixed(2);
     }
-    var _metricLabels = { total: '$ Total', ha: '$/Ha', 'hadía': '$/Ha/D&iacute;a' };
-    function _metricBtn(id, lbl) {
-        var active = _sapTendMetric === id;
-        return '<button data-tend-btn="' + id + '" onclick="_sapTendChangeMetric(\'' + id + '\')" style="padding:3px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;transition:background .12s;' +
-            (active ? 'background:#1e3a5f;color:#fff;' : 'background:#e2e8f0;color:#475569;') + '">' + lbl + '</button>';
-    }
-
     // ── Sucursal: encabezado (thead sticky) ────────────────────────────────────
     var _mesThCells = mesesList.map(function(m) {
         var p = m.split('-');
@@ -4301,7 +5061,7 @@ function _sapRenderTendencia(filteredRows, el) {
             '<br><span style="font-size:10px;font-weight:400;opacity:.8">' + p[0] + '</span></th>';
     }).join('');
 
-    var _thLbl = _sapTendView === 'sub' ? 'Sucursal' : 'Material';
+    var _thLbl = _sapTendView === 'sub' ? 'Sucursal' : _sapTendView === 'ceco' ? 'Centro de Costo' : _sapTendView === 'tipo' ? 'Tipo' : 'Material';
     var thead = '<thead><tr style="background:#f8fafc;color:#334155">' +
         '<th style="' + _thTop + ';text-align:left;left:0;z-index:4">' + _thLbl + '</th>' +
         _mesThCells + '</tr></thead>';
@@ -4399,53 +5159,69 @@ function _sapRenderTendencia(filteredRows, el) {
         });
     });
 
+    // Fila-grupo colapsable generica (usada por las vistas Material/Centro de
+    // Costo/Tipo: fila principal con el total por mes, sub-filas de sucursal
+    // colapsadas debajo).
+    function _buildTendGroupTbody(keys, groupMeses, subGroupMeses, idPrefix, labelFn) {
+        var body = '';
+        keys.forEach(function(key, ri) {
+            var tbodyId = idPrefix + '-' + ri;
+            var rowBg = '#f1f5f9';
+            var label = labelFn ? labelFn(key) : key;
+            body += '<tbody>';
+            body += '<tr class="cic-hdr" style="background:' + rowBg + ';cursor:pointer" onclick="sapToggleCicMats(\'' + tbodyId + '\',this)">';
+            body += '<td style="' + _tdBase + ';position:sticky;left:0;background:' + rowBg + ';z-index:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px" title="' + String(label).replace(/"/g,'&quot;') + '">' +
+                '<span id="' + tbodyId + '-arrow" style="margin-right:6px;display:inline-block">▶</span>' + label + '</td>';
+            mesesList.forEach(function(m) {
+                var costo = (groupMeses[key] || {})[m] || 0;
+                if (!costo) { body += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1">—</td>'; return; }
+                var ha = mesHaTotal[m] || 0;
+                var dias = 30;
+                var val = _calcVal(costo, ha, dias);
+                body += '<td data-tend-val data-costo="' + costo + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="mat" style="' + _tdBase + ';text-align:right;color:#065f46">' + _fmtMat(val) + '</td>';
+            });
+            body += '</tr></tbody>';
+            body += '<tbody id="' + tbodyId + '" style="display:none">';
+            campList.forEach(function(camp) {
+                if (!subGroupMeses[camp] || !subGroupMeses[camp][key]) return;
+                body += '<tr style="background:#ffffff">';
+                body += '<td style="' + _tdBase + ';padding-left:28px;position:sticky;left:0;background:#ffffff;z-index:1;font-size:11px;white-space:nowrap">' + (subNames[camp] || camp) + '</td>';
+                mesesList.forEach(function(m) {
+                    var costo = (subGroupMeses[camp][key]||{})[m] || 0;
+                    if (!costo) { body += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1;font-size:11px">—</td>'; return; }
+                    var ha = mesHaBySub[camp][m] || 0;
+                    var dias = 30;
+                    var val = _calcVal(costo, ha, dias);
+                    body += '<td data-tend-val data-costo="' + costo + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="mat" style="' + _tdBase + ';text-align:right;font-size:11px;color:#065f46">' + _fmtMat(val) + '</td>';
+                });
+                body += '</tr>';
+            });
+            body += '</tbody>';
+        });
+        return body;
+    }
+
     // ── Separador + título Material (se desplaza, no sticky) ─────────────────
     var matList = Object.keys(matMeses).sort(function(a, b) {
         var totA = Object.values(matMeses[a]).reduce(function(s,v){return s+v;},0);
         var totB = Object.values(matMeses[b]).reduce(function(s,v){return s+v;},0);
         return totB - totA;
     });
-    // ── Filas de materiales con sucursales colapsables ───────────────────────
-    var tbodyMat = '';
-    matList.forEach(function(mc, ri) {
-        var tbodyId = 'tend-mat-subs-' + ri;
-        var rowBg = '#f1f5f9';
-        // Fila de material (clickable)
-        tbodyMat += '<tbody>';
-        tbodyMat += '<tr class="cic-hdr" style="background:' + rowBg + ';cursor:pointer" onclick="sapToggleCicMats(\'' + tbodyId + '\',this)">';
-        tbodyMat += '<td style="' + _tdBase + ';position:sticky;left:0;background:' + rowBg + ';z-index:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px" title="' + (matDescMap[mc]||mc).replace(/"/g,'&quot;') + '">' +
-            '<span id="' + tbodyId + '-arrow" style="margin-right:6px;display:inline-block">▶</span>' +
-            (matDescMap[mc] || mc) + '</td>';
-        mesesList.forEach(function(m) {
-            var costo = (matMeses[mc] || {})[m] || 0;
-            if (!costo) { tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1">—</td>'; return; }
-            var ha   = mesHaTotal[m] || 0;
-            var pts  = m.split('-');
-            var dias = 30;
-            var val      = _calcVal(costo, ha, dias);
-            tbodyMat += '<td data-tend-val data-costo="' + costo + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="mat" ' +
-                'style="' + _tdBase + ';text-align:right;color:#065f46">' + _fmtMat(val) + '</td>';
-        });
-        tbodyMat += '</tr></tbody>';
-        // Sucursales que usaron este material (colapsadas)
-        tbodyMat += '<tbody id="' + tbodyId + '" style="display:none">';
-        campList.forEach(function(camp) {
-            if (!subMatMeses[camp] || !subMatMeses[camp][mc]) return;
-            tbodyMat += '<tr style="background:#ffffff">';
-            tbodyMat += '<td style="' + _tdBase + ';padding-left:28px;position:sticky;left:0;background:#ffffff;z-index:1;font-size:11px;white-space:nowrap">' + (subNames[camp] || camp) + '</td>';
-            mesesList.forEach(function(m) {
-                var costo = (subMatMeses[camp][mc]||{})[m] || 0;
-                if (!costo) { tbodyMat += '<td style="' + _tdBase + ';text-align:right;color:#cbd5e1;font-size:11px">—</td>'; return; }
-                var ha   = mesHaBySub[camp][m] || 0;
-                var pts  = m.split('-');
-                var dias = 30;
-                var val      = _calcVal(costo, ha, dias);
-                tbodyMat += '<td data-tend-val data-costo="' + costo + '" data-ha="' + ha + '" data-dias="' + dias + '" data-kind="mat" style="' + _tdBase + ';text-align:right;font-size:11px;color:#065f46">' + _fmtMat(val) + '</td>';
-            });
-            tbodyMat += '</tr>';
-        });
-        tbodyMat += '</tbody>';
+    var tbodyMat = _buildTendGroupTbody(matList, matMeses, subMatMeses, 'tend-mat-subs', function(mc) { return matDescMap[mc] || mc; });
+
+    var cecoList = Object.keys(cecoMeses).sort(function(a, b) {
+        var totA = Object.values(cecoMeses[a]).reduce(function(s,v){return s+v;},0);
+        var totB = Object.values(cecoMeses[b]).reduce(function(s,v){return s+v;},0);
+        return totB - totA;
     });
+    var tbodyCeco = _buildTendGroupTbody(cecoList, cecoMeses, subCecoMeses, 'tend-ceco-subs');
+
+    var tipoList = Object.keys(tipoMeses).sort(function(a, b) {
+        var totA = Object.values(tipoMeses[a]).reduce(function(s,v){return s+v;},0);
+        var totB = Object.values(tipoMeses[b]).reduce(function(s,v){return s+v;},0);
+        return totB - totA;
+    });
+    var tbodyTipo = _buildTendGroupTbody(tipoList, tipoMeses, subTipoMeses, 'tend-tipo-subs');
 
     // ── Total — tfoot; sticky bottom se aplica por JS ─────────────────────────
     var tfoot = '<tfoot><tr style="background:#f5f5f7;border-top:2px solid var(--primary)">' +
@@ -4462,20 +5238,32 @@ function _sapRenderTendencia(filteredRows, el) {
     tfoot += '</tr></tfoot>';
 
     // Actualizar botones de vista en la barra de filtros
-    var _vSub = document.getElementById('tend-view-sub-btn');
-    var _vMat = document.getElementById('tend-view-mat-btn');
-    if (_vSub) { _vSub.style.background = _sapTendView==='sub' ? '#1e3a5f' : '#e2e8f0'; _vSub.style.color = _sapTendView==='sub' ? '#fff' : '#475569'; }
-    if (_vMat) { _vMat.style.background = _sapTendView==='mat' ? '#1e3a5f' : '#e2e8f0'; _vMat.style.color = _sapTendView==='mat' ? '#fff' : '#475569'; }
+    ['sub','mat','ceco','tipo'].forEach(function(v) {
+        var btn = document.getElementById('tend-view-' + v + '-btn');
+        if (!btn) return;
+        var active = _sapTendView === v;
+        btn.style.background = active ? '#1e3a5f' : '#e2e8f0';
+        btn.style.color      = active ? '#fff' : '#475569';
+    });
 
     // Ensamblar tabla según vista activa
     var _tableBody;
     if (_sapTendView === 'sub') {
         _tableBody = thead + tbodySub + tbodyProm;
+    } else if (_sapTendView === 'ceco') {
+        _tableBody = thead + tbodyCeco + tfoot;
+    } else if (_sapTendView === 'tipo') {
+        _tableBody = thead + tbodyTipo + tfoot;
     } else {
         _tableBody = thead + tbodyMat + tfoot;
     }
 
-    var _chartMats = matList;
+    var _chartMats = _sapTendView === 'ceco' ? cecoList : _sapTendView === 'tipo' ? tipoList : matList;
+    var _chartMatsLabel = _sapTendView === 'ceco' ? 'Centros de Costo' : _sapTendView === 'tipo' ? 'Tipos' : 'Materiales';
+    var _chartValMap  = _sapTendView === 'ceco' ? cecoMeses : _sapTendView === 'tipo' ? tipoMeses : matMeses;
+    var _chartLabelFn = (_sapTendView === 'ceco' || _sapTendView === 'tipo')
+        ? function(k) { return k; }
+        : function(mc) { return matDescMap[mc] || mc; };
     var _SAP_PAL   = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EC4899','#14B8A6',
                        '#F97316','#06B6D4','#84CC16','#EF4444','#A855F7','#0EA5E9',
                        '#FBBF24','#34D399','#F472B6','#60A5FA','#FB7185','#4ADE80',
@@ -4491,7 +5279,7 @@ function _sapRenderTendencia(filteredRows, el) {
                     _tableBody +
                 '</table>' +
                 '<div class="chart-card" style="margin:14px;padding:14px 16px">' +
-                    '<div class="chart-title">' + _chartMats.length + ' Materiales — ' + _metricLabel + ' por Mes' +
+                    '<div class="chart-title">' + _chartMats.length + ' ' + _chartMatsLabel + ' — ' + _metricLabel + ' por Mes' +
                         '<span class="chart-sub" style="margin-left:8px">líneas: tendencia mensual</span>' +
                     '</div>' +
                     '<div style="display:flex;gap:0;height:calc(100vh - 220px)">' +
@@ -4506,8 +5294,8 @@ function _sapRenderTendencia(filteredRows, el) {
 
     // ── Guardar estado para actualizaciones in-place ──────────────────────────
     window._tendState = {
-        matList: matList, matMeses: matMeses, mesHaTotal: mesHaTotal,
-        mesesList: mesesList, matDescMap: matDescMap,
+        list: _chartMats, valMeses: _chartValMap, mesHaTotal: mesHaTotal,
+        mesesList: mesesList,
         SAP_PAL: _SAP_PAL
     };
 
@@ -4536,15 +5324,15 @@ function _sapRenderTendencia(filteredRows, el) {
         var _datasets = _chartMats.map(function(mc, ci) {
             var color = _SAP_PAL[ci % _SAP_PAL.length];
             return {
-                label: (matDescMap[mc] || mc).substring(0, 28),
+                label: _chartLabelFn(mc).substring(0, 28),
                 data: mesesList.map(function(m) {
-                    var costo = (matMeses[mc] || {})[m] || 0;
+                    var costo = (_chartValMap[mc] || {})[m] || 0;
                     if (!costo) return null;
                     var ha   = mesHaTotal[m] || 0;
                     var pts  = m.split('-');
                     var dias = 30;
                     var v = _calcVal(costo, ha, dias);
-                    return v !== null ? parseFloat(v.toFixed(4)) : null;
+                    return v !== null ? parseFloat(v.toFixed(2)) : null;
                 }),
                 borderColor: color,
                 backgroundColor: color + '22',
@@ -4584,7 +5372,7 @@ function _sapRenderTendencia(filteredRows, el) {
                         ticks: {
                             font: { size: 10 },
                             callback: function(v) {
-                                return '$' + (_sapTendMetric === 'hadía' ? v.toFixed(4) : v.toFixed(2));
+                                return '$' + (_sapTendMetric === 'hadía' ? v.toFixed(2) : v.toFixed(2));
                             }
                         }
                     }
@@ -4768,84 +5556,13 @@ function sapOpenHaHistModal() {
     modal.style.display = 'flex';
 }
 
-function sapOpenMaterialesModal() {
-    const modal    = document.getElementById('sap-mat-modal');
-    const body     = document.getElementById('sap-mat-modal-body');
-    const titleEl  = document.getElementById('sap-mat-modal-title');
-    if (!modal || !body) return;
-
-    const yearSel  = (document.getElementById('sap-year')  || {}).value || '';
-    const monthSel = (document.getElementById('sap-month') || {}).value || '';
-    const activeCycles = sapGetActiveCycles();
-        const matMap = {};
-    _sapExcelRows.forEach(function(row) {
-        if (!_combGetSubAny(row)) return;
-        const fecha = row.f || '';
-        if (yearSel  && fecha.slice(0,4) !== yearSel)  return;
-        if (monthSel && fecha.slice(5,7) !== monthSel) return;
-        const key = row.m || '(sin código)';
-        if (!matMap[key]) matMap[key] = { code: row.m || '', desc: row.d || '', unidad: row.u || '', cantidad: 0, importe: 0 };
-        matMap[key].cantidad += row.q || 0;
-        matMap[key].importe  += row.i || 0;
-        if (!matMap[key].unidad && row.u) matMap[key].unidad = row.u;
-    });
-
-    const items = Object.values(matMap).sort(function(a, b) {
-        return Math.abs(b.importe) - Math.abs(a.importe);
-    });
-
-    if (!items.length) {
-        body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Sin datos para los filtros seleccionados</div>';
-        titleEl.textContent = 'Materiales';
-        modal.style.display = 'flex';
-        return;
-    }
-
-    const fmt2 = function(n) { return Math.abs(n).toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2}); };
-    const periodoLabel = yearSel ? (yearSel + (monthSel ? ' / ' + SAP_MESES[parseInt(monthSel,10)-1] : '')) : 'Todos los períodos';
-
-    let rows = '';
-    items.forEach(function(i) {
-        rows += '<tr>' +
-            '<td style="font-size:11px;color:var(--muted);white-space:nowrap">' + i.code + '</td>' +
-            '<td style="font-weight:500">' + i.desc + '</td>' +
-            '<td style="text-align:center;font-size:12px;color:var(--muted)">' + i.unidad + '</td>' +
-            '<td style="text-align:right;font-weight:600">' + fmt2(i.cantidad) + '</td>' +
-            '<td style="text-align:right;font-weight:600;color:#065f46">$' + fmt2(i.importe) + '</td>' +
-            '</tr>';
-    });
-
-    const totalImp = items.reduce(function(s, i) { return s + Math.abs(i.importe); }, 0);
-    const totalQty = items.reduce(function(s, i) { return s + Math.abs(i.cantidad); }, 0);
-
-    titleEl.textContent = items.length + ' materiales — ' + periodoLabel;
-    body.innerHTML =
-        '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-        '<thead><tr style="background:#f8fafc;border-bottom:2px solid var(--border)">' +
-            '<th style="padding:10px 12px;text-align:left;font-weight:600;color:var(--muted)">Código</th>' +
-            '<th style="padding:10px 12px;text-align:left;font-weight:600">Descripción</th>' +
-            '<th style="padding:10px 12px;text-align:center;font-weight:600;color:var(--muted)">UM</th>' +
-            '<th style="padding:10px 12px;text-align:right;font-weight:600">Cantidad</th>' +
-            '<th style="padding:10px 12px;text-align:right;font-weight:600">Importe $</th>' +
-        '</tr></thead>' +
-        '<tbody>' + rows + '</tbody>' +
-        '<tfoot><tr style="background:#f1f5f9;border-top:2px solid var(--border);font-weight:700">' +
-            '<td colspan="3" style="padding:10px 12px">Total</td>' +
-            '<td style="padding:10px 12px;text-align:right">' + fmt2(totalQty) + '</td>' +
-            '<td style="padding:10px 12px;text-align:right;color:#065f46">$' + fmt2(totalImp) + '</td>' +
-        '</tr></tfoot>' +
-        '</table>';
-
-    modal.style.display = 'flex';
-}
-
 function _sapOpenMatDetail(matCode) {
     var modal   = document.getElementById('sap-mat-modal');
     var titleEl = document.getElementById('sap-mat-modal-title');
     var body    = document.getElementById('sap-mat-modal-body');
     if (!modal || !body) return;
 
-    var matRows = _sapKpiRows.filter(function(fr) { return (fr.row.m || '') === matCode; });
+    var matRows = _sapKpiRows.filter(function(fr) { return (fr.row.m || fr.row.d || '') === matCode; });
     if (!matRows.length) return;
 
     var desc   = matRows[0].row.d || matCode;
@@ -4865,7 +5582,7 @@ function _sapOpenMatDetail(matCode) {
     var bySub = {};
     matRows.forEach(function(fr) {
         var sid  = fr.ciclo._subsidiaryId;
-        var name = fr.ciclo._subName || _sapCamp(fr.ciclo);
+        var name = fr.ciclo._subName || _sapCamp(fr.ciclo) || 'Sin sucursal resuelta';
         if (!bySub[name]) bySub[name] = { name: name, sid: sid, camp: _sapCamp(fr.ciclo), costo: 0, cant: 0, cicloPs: {} };
         bySub[name].costo += fr.row.i || 0;
         bySub[name].cant  += fr.row.q || 0;
@@ -4887,7 +5604,7 @@ function _sapOpenMatDetail(matCode) {
             '<td style="padding:7px 12px;font-weight:600">' + s.name + '</td>' +
             '<td style="padding:7px 12px;text-align:right">' + _sapFmt2(s.cant) + '</td>' +
             '<td style="padding:7px 12px;text-align:right;font-weight:600;color:#065f46">$' + _sapFmt2(s.costo) + '</td>' +
-            '<td style="padding:7px 12px;text-align:right">' + (haDia !== null ? '$' + haDia.toFixed(4) : '—') + '</td>' +
+            '<td style="padding:7px 12px;text-align:right">' + (haDia !== null ? '$' + haDia.toFixed(2) : '—') + '</td>' +
             '</tr>';
     }).join('');
 
@@ -4895,7 +5612,7 @@ function _sapOpenMatDetail(matCode) {
     var byOrd = {};
     matRows.forEach(function(fr) {
         var ord = fr.row.o || '—';
-        if (!byOrd[ord]) byOrd[ord] = { ord: ord, sub: fr.ciclo._subName || _sapCamp(fr.ciclo), pool: fr.ciclo.poolName || '—', costo: 0, cant: 0 };
+        if (!byOrd[ord]) byOrd[ord] = { ord: ord, sub: fr.ciclo._subName || _sapCamp(fr.ciclo) || '—', pool: fr.ciclo.poolName || '—', costo: 0, cant: 0 };
         byOrd[ord].costo += fr.row.i || 0;
         byOrd[ord].cant  += fr.row.q || 0;
     });
@@ -4931,7 +5648,7 @@ function _sapOpenMatDetail(matCode) {
     var chartData = subRows.map(function(s) {
         var cicloHa = Object.values(s.cicloPs).reduce(function(acc,v){return acc+v;},0);
         var ha  = (_isCurMo && s.sid && poolsHaBySid[s.sid]) ? poolsHaBySid[s.sid] : (cicloHa || (s.sid && poolsHaBySid[s.sid] ? poolsHaBySid[s.sid] : 0));
-        var haDia = ha > 0 && diasMes > 0 ? parseFloat((s.costo / (ha * diasMes)).toFixed(4)) : 0;
+        var haDia = ha > 0 && diasMes > 0 ? parseFloat((s.costo / (ha * diasMes)).toFixed(2)) : 0;
         return { name: s.name, haDia: haDia };
     }).sort(function(a,b){ return b.haDia - a.haDia; });
     var labels = chartData.map(function(d){ return d.name; });
@@ -4948,7 +5665,7 @@ function _sapOpenMatDetail(matCode) {
                 datalabels: {
                     anchor: 'start', align: 'end', offset: 4, rotation: -90,
                     font: { size: 10, weight: '700' }, color: '#1e3a5f',
-                    formatter: function(v) { return '$' + v.toFixed(4); }
+                    formatter: function(v) { return '$' + v.toFixed(2); }
                 }
             }]
         },
@@ -4959,7 +5676,7 @@ function _sapOpenMatDetail(matCode) {
                 legend: { display: false },
                 datalabels: { display: true },
                 tooltip: { callbacks: { label: function(c) {
-                    return ' $' + c.raw.toFixed(4) + '/Ha/Día';
+                    return ' $' + c.raw.toFixed(2) + '/Ha/Día';
                 }}}
             },
             scales: {
@@ -4968,14 +5685,6 @@ function _sapOpenMatDetail(matCode) {
             }
         }
     });
-}
-
-function sapExportExcel() {
-    const table = document.getElementById('sap-tabla-result');
-    if (!table) { alert('No hay datos para exportar'); return; }
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(table), 'Consumos SAP');
-    XLSX.writeFile(wb, 'Consumos_SAP_' + new Date().toISOString().slice(0,10) + '.xlsx');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -4989,6 +5698,7 @@ function initSapScreen() {
     sapPopulateClusterSub();
     sapPopulatePiscinaCiclo();
     sapUpdateStatus();
+    loadCombSucursales();
     loadCombCostCenters();
 
     // Cargar pools: localStorage primero (rápido)
@@ -5036,8 +5746,11 @@ function initSapScreen() {
         if (needsRender) updateSapResults();
     });
 
-    // Siempre descargar Excel desde KV — garantiza datos actualizados para todos los usuarios.
-    // Fallback a IndexedDB local si KV no tiene datos o hay error de red.
+    // Piscinas activas (Ha) desde D1 - no requiere login.
+    sapCargarPools();
+
+    // Fuente principal: D1 (consumo_combustible, ya validado/neteado). Si falla o
+    // esta vacia, cae al flujo anterior (KV compartido, luego IndexedDB local).
     function _applyAndRender(rows) {
         if (rows && rows.length) {
             // Migración de signos para filas antiguas almacenadas con convenio incorrecto
@@ -5045,7 +5758,9 @@ function initSapScreen() {
                 if (r.mv === '262' && r.q > 0) { r.q = -r.q; r.i = -r.i; }
                 else if ((!r.mv || r.mv === '261') && r.q < 0) { r.q = -r.q; r.i = -r.i; }
             });
-            _sapExcelRows = rows.filter(function(r) { return _COMB_MATS[r.m]; });
+            // Filas de D1 no traen codigo de material (m vacio) - ya vienen pre-filtradas
+            // a combustible desde el insert, asi que no se descartan por este filtro.
+            _sapExcelRows = rows.filter(function(r) { return !r.m || _COMB_MATS[r.m]; });
         }
         sapPopulateYearMonth(); sapPopulateClusterSub(); sapPopulatePiscinaCiclo();
         sapUpdateStatus(); updateSapResults();
@@ -5055,15 +5770,28 @@ function initSapScreen() {
             _applyAndRender(saved && saved.length ? saved : []);
         }).catch(function() { updateSapResults(); });
     }
-    _kvPull('excel').then(function(kvRows) {
-        if (kvRows && kvRows.length) {
-            _sapIdbPut('rows', kvRows); // mantener IDB sincronizado para uso offline
-            _applyAndRender(kvRows);
-        } else {
-            _fallbackToIdb(); // KV vacío → usar IDB local
+    function _fallbackToKvOrIdb() {
+        _kvPull('excel').then(function(kvRows) {
+            if (kvRows && kvRows.length) {
+                _sapIdbPut('rows', kvRows); // mantener IDB sincronizado para uso offline
+                _applyAndRender(kvRows);
+            } else {
+                _fallbackToIdb(); // KV vacío → usar IDB local
+            }
+        }).catch(function() {
+            _fallbackToIdb(); // fallo de red → usar IDB local
+        });
+    }
+    _combLoadFromD1().then(function(rows) {
+        if (rows.length) {
+            _applyAndRender(rows);
+            console.log('[D1] consumo_combustible cargado: ' + rows.length + ' filas');
+            return;
         }
-    }).catch(function() {
-        _fallbackToIdb(); // fallo de red → usar IDB local
+        _fallbackToKvOrIdb();
+    }).catch(function(e) {
+        console.warn('[D1] Error cargando consumo-combustible, uso KV/IndexedDB:', e);
+        _fallbackToKvOrIdb();
     });
 }
 
@@ -5077,15 +5805,23 @@ function initSapScreen() {
         if (user) document.getElementById('inp-user').value = user;
         applyLoginUI(true, name || user || '');
         loadSubsidiaries().then(initSapScreen);
+    } else {
+        // Sin login: los datos de combustible/centro de costo/piscinas ya vienen de D1
+        // (no dependen de AP1), asi que se cargan igual detras del modal de login.
+        initSapScreen();
     }
-    // If no token, login-modal is already visible (display:flex in HTML)
 })();
 
 // ── Ajuste de escala: el contenido siempre cabe en pantalla ──────────────────
+// Usa outerWidth (tamaño real de la ventana) en vez de innerWidth: innerWidth
+// cambia cuando el usuario hace zoom con Ctrl+rueda/Ctrl+/-, lo que hacía que
+// este ajuste peleara con el zoom del navegador (al hacer zoom in, innerWidth
+// baja y el script encogía todo de vuelta, anulando el zoom). outerWidth no
+// cambia con el zoom de pagina, solo con el tamaño real de la ventana.
 (function() {
     var BASE_W = 1440; // ancho de referencia del diseño
     function applyFit() {
-        var z = Math.min(window.innerWidth / BASE_W, 1); // solo reduce, nunca agranda
+        var z = Math.min(window.outerWidth / BASE_W, 1); // solo reduce, nunca agranda
         document.documentElement.style.zoom = String(z);
     }
     window.addEventListener('resize', applyFit);
@@ -5094,11 +5830,12 @@ function initSapScreen() {
 </script>
 <script>
 document.addEventListener('click',function(e){
-    document.querySelectorAll('.hdr-switcher-menu').forEach(function(m){
+    document.querySelectorAll('.sb-app-menu').forEach(function(m){
         if(!m.parentElement.contains(e.target)) m.style.display='none';
     });
 });
 </script>
+</div><!-- /content-wrap -->
 </body>
 </html>
 

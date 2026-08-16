@@ -1266,6 +1266,7 @@ function renderHistorial(){
       <td>
         <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
           <button onclick="openDetail(${r.id})" style="padding:4px 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:12px;font-weight:600;cursor:pointer;color:var(--text)">Ver</button>
+          ${r.estado!=='Resuelto'?`<button onclick="quickResolve(${r.id})" style="padding:4px 10px;border:1px solid #bbf7d0;border-radius:6px;background:#f0fdf4;font-size:12px;font-weight:600;cursor:pointer;color:#15803d">Resolver</button>`:''}
           <button onclick="deleteRecord(${r.id})" style="padding:4px 8px;border:1px solid #fecdd3;border-radius:6px;background:#fff1f2;font-size:12px;cursor:pointer;color:#be123c">✕</button>
           ${r.departamentos&&r.departamentos.length? r.departamentos.map(d=>{
             const done=(r.deptDone||[]).includes(d);
