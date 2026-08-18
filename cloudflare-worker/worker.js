@@ -850,6 +850,13 @@ async function handleDbCoordenadasPiscina(request, url, env) {
   return corsResponse(JSON.stringify({ data: results }), 200, request)
 }
 
+// GET /db/balanceado-tipos -> catalogo de productos de balanceado (INICIADOR/ENGORDE)
+async function handleDbBalanceadoTipos(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const { results } = await env.db.prepare('SELECT * FROM balanceado_tipos ORDER BY tipo, nombre_producto').all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
 // GET /db/muelles -> coordenadas de los muelles (embarcaderos)
 async function handleDbMuelles(request, url, env) {
   if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
@@ -2235,6 +2242,10 @@ export default {
 
     if (url.pathname === '/db/calibracion-alimento/recalcular' && env.db) {
       return handleDbCalibracionRecalcular(request, env)
+    }
+
+    if (url.pathname === '/db/balanceado-tipos' && env.db) {
+      return handleDbBalanceadoTipos(request, url, env)
     }
 
     if (url.pathname === '/db/muelles' && env.db) {
