@@ -2952,7 +2952,9 @@ function updateSapResults() {
     _sapKpiSelected = null;
 
     if (_sapTab === 'resumen' || _sapTab === 'tendencia' || _sapTab === 'material' || _sapTab === 'ciclo') {
-        var _vbStyle = 'flex:1;min-height:0;display:flex;flex-direction:column';
+        var _vbStyle = 'flex:1;min-height:0;display:flex;flex-direction:column;height:100%';
+        // Para tabs con split-view: overflow hidden para que flex llene el alto
+        resultsDiv.style.overflowY = (_sapTab === 'resumen') ? 'hidden' : 'auto';
         var _fpSave2 = document.getElementById('fp-action-bar');
         if (_fpSave2 && _fpSave2.parentNode) _fpSave2.parentNode.removeChild(_fpSave2);
         resultsDiv.innerHTML = '<div id="sap-view-body" style="' + _vbStyle + '"></div>';
@@ -3225,8 +3227,8 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
 
     // Layout: tabla izquierda (sin scroll interno) + KPIs/gráfico derecha
     el.innerHTML =
-        '<div style="display:flex;gap:12px;align-items:stretch;flex:1;min-height:0">' +
-            '<div class="table-card" style="flex:0 0 43%;min-width:0;margin-bottom:0;display:flex;flex-direction:column;padding:8px 25px">' + html + '</div>' +
+        '<div style="display:flex;gap:12px;align-items:stretch;flex:1;min-height:0;height:100%">' +
+            '<div class="table-card" style="flex:0 0 43%;min-width:0;margin-bottom:0;display:flex;flex-direction:column;padding:8px 25px;overflow:hidden">' + html + '</div>' +
             '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;overflow:hidden">' +
                 '<div id="sap-kpi-container" style="flex-shrink:0">' + (kpiHtml || '') + '</div>' +
                 '<div class="table-card" style="margin-bottom:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:10px 14px">' +
