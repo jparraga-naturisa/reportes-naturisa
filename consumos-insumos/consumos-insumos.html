@@ -4926,7 +4926,7 @@ function initSapScreen() {
 (function() {
     var BASE_W = 1440; // ancho de referencia del diseño
     function applyFit() {
-        var z = Math.min(window.innerWidth / BASE_W, 1); // solo reduce, nunca agranda
+        var z = Math.min(window.innerWidth / BASE_W, 1.5); // reduce en pantallas pequeñas, escala hasta 1.5x en grandes
         document.documentElement.style.zoom = String(z);
     }
     window.addEventListener('resize', applyFit);
