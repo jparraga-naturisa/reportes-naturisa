@@ -3254,7 +3254,7 @@ function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
         var dataRows = Array.from(rows).filter(function(r) { return !r.style.background || r.style.background.indexOf('e0f2fe') === -1; });
         var count = dataRows.length || rows.length;
         var extra = spare / count / 2;
-        var tope = _sapResumenGrupo ? 7.7 : 3.2;
+        var tope = _sapResumenGrupo ? 14 : 9;
         extra = Math.min(extra, tope);
         dataRows.forEach(function(r) {
             r.querySelectorAll('td').forEach(function(td) {
