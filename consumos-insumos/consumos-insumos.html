@@ -2696,6 +2696,10 @@ function sapSetTab(tab) {
 }
 
 function updateSapResults() {
+    // Actualizar devicePixelRatio de Chart.js antes de renderizar para evitar blur con CSS zoom
+    if (typeof Chart !== 'undefined' && window._sapZoom) {
+        Chart.defaults.devicePixelRatio = (window.devicePixelRatio || 1) * window._sapZoom;
+    }
     const resultsDiv   = document.getElementById('sap-results');
     const isTendencia  = _sapTab === 'tendencia';
     const isMaterial   = _sapTab === 'material';
@@ -4926,8 +4930,13 @@ function initSapScreen() {
 (function() {
     var BASE_W = 1440; // ancho de referencia del diseño
     function applyFit() {
-        var z = Math.min(window.innerWidth / BASE_W, 1.5); // reduce en pantallas pequeñas, escala hasta 1.5x en grandes
+        var z = Math.min(window.innerWidth / BASE_W, 1.5);
         document.documentElement.style.zoom = String(z);
+        window._sapZoom = z;
+        // Compensar resolución del canvas: Chart.js renderiza a dpr*zoom para evitar blur
+        if (typeof Chart !== 'undefined') {
+            Chart.defaults.devicePixelRatio = (window.devicePixelRatio || 1) * z;
+        }
     }
     window.addEventListener('resize', applyFit);
     applyFit();
