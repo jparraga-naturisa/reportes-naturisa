@@ -1614,6 +1614,23 @@ async function refrescarCiclos(token, env, subsidiarios) {
     for (const poolRow of (nav?.data || [])) {
       for (const det of (poolRow.detail || [])) {
         if (det.idCycle && det.status) statusMap.set(det.idCycle, det.status)
+        // Agregar ciclos en seco (pre-cría) de piscinas activas que no aparecen en cycle_sowing_report
+        if (det.idCycle && !porCycleId.has(det.idCycle) && (poolRow.status === 'ACTIVO' || det.status === 'SECA')) {
+          const subCod  = (sub.codigo || '').toUpperCase()
+          const poolOrd = String(poolRow.poolOrder || '').padStart(4, '0')
+          const cycNum  = String(det.cycleNumber || '').padStart(4, '0')
+          const cycleCode = (subCod && poolOrd && cycNum) ? `${subCod}-${poolOrd}-${cycNum}` : null
+          porCycleId.set(det.idCycle, {
+            cycleId: det.idCycle,
+            subsidiaryCode: subCod,
+            poolName: String(poolRow.poolName || poolRow.name || '').trim(),
+            cycleNumber: det.cycleNumber ?? null,
+            cycleCode,
+            cycleUsage: det.cycleUsage || null,
+            dateSowing: null,
+            poolSize: poolRow.poolSize ?? null,
+          })
+        }
       }
     }
   }
@@ -1669,7 +1686,10 @@ async function refrescarCiclos(token, env, subsidiarios) {
       c.cycleNumber ?? null, c.cycleCode || null, c.cycleUsage || null, c.dateSowing || null, c.poolSize ?? null,
       estado, diasCiclo, diasSecos, diasProduccion, fechaInicio, fechaCosecha, now))
   }
-  if (batch.length) await env.db.batch(batch)
+  const LOTE = 500
+  for (let i = 0; i < batch.length; i += LOTE) {
+    await env.db.batch(batch.slice(i, i + LOTE))
+  }
   return batch.length
 }
 
@@ -2119,7 +2139,7 @@ export default {
     // abiertas a proposito: las consumen dashboards estaticos en el navegador (GitHub Pages) donde
     // cualquier valor incrustado en el HTML/JS quedaria visible en DevTools de todos modos - meterle
     // una key ahi no protege nada real, solo da una falsa sensacion de seguridad.
-    if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
+if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
       const key = request.headers.get('X-Api-Key') || ''
       if (!env.DB_API_KEY || key !== env.DB_API_KEY) {
         return corsResponse('{"error":"no autorizado"}', 401, request)
