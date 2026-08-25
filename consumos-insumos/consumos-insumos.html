@@ -830,7 +830,7 @@ async function loadSubsidiaries() {
         const json = await res.json();
         const rows = json.data || [];
         const list = rows
-            .map(function(s) { return { id: s.id, name: s.nombre, codigo: s.codigo }; })
+            .map(function(s) { return { id: s.id, name: s.nombre, codigo: s.codigo, cluster: s.cluster || null }; })
             .sort(function(a, b) { return a.name.localeCompare(b.name, 'es'); });
         if (list.length === 0) {
             populateSubsidiaries(CAMPAMENTOS_DEFAULT);
@@ -1034,8 +1034,9 @@ function sapAllSubs() {
 function sapPopulateClusterSub() {
     const selCl = document.getElementById('sap-cluster');
     if (selCl.options.length <= 1) {
+        var clusterNames = [...new Set(sapAllSubs().map(s => s.cluster).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'es');});
         selCl.innerHTML = '<option value="">— Todos los clusters —</option>' +
-            Object.keys(CLUSTERS).map(k => '<option value="' + k + '">' + k + '</option>').join('');
+            clusterNames.map(k => '<option value="' + k + '">' + k + '</option>').join('');
     }
     _sapRepoblateSubSelect();
     if (typeof _fpSync === 'function') _fpSync();
@@ -1043,8 +1044,7 @@ function sapPopulateClusterSub() {
 
 function _sapRepoblateSubSelect() {
     const cluster    = document.getElementById('sap-cluster').value;
-    const clusterIds = cluster ? (CLUSTERS[cluster] || []) : null;
-    const subs = clusterIds ? sapAllSubs().filter(s => clusterIds.includes(s.id)) : sapAllSubs();
+    const subs = cluster ? sapAllSubs().filter(s => s.cluster === cluster) : sapAllSubs();
     document.getElementById('sap-subsidiary').innerHTML =
         '<option value="">— Todas las sucursales —</option>' +
         subs.map(s => '<option value="' + s.id + '">' + s.name + (_sapSubsFetched.has(s.id) ? ' ✓' : '') + '</option>').join('');
@@ -1053,10 +1053,9 @@ function _sapRepoblateSubSelect() {
 function sapPopulatePiscinaCiclo() {
     const subIdVal   = parseInt(document.getElementById('sap-subsidiary').value) || null;
     const cluster    = document.getElementById('sap-cluster').value;
-    const clusterIds = cluster ? (CLUSTERS[cluster] || []) : null;
     const vis = _sapCycles.filter(c =>
-        (!subIdVal   || c._subsidiaryId === subIdVal) &&
-        (!clusterIds || clusterIds.includes(c._subsidiaryId))
+        (!subIdVal || c._subsidiaryId === subIdVal) &&
+        (!cluster  || c._subCluster === cluster)
     );
     const pools = [...new Set(vis.map(c => c.poolName).filter(Boolean))].sort((a,b) => a.localeCompare(b,'es'));
     document.getElementById('sap-pool').innerHTML =
@@ -1299,7 +1298,7 @@ function _tendClusterCb(checked) {
 }
 
 function sapPopulateTendCluster() {
-    var opts = Object.keys(CLUSTERS).sort(function(a,b) { return a.localeCompare(b,'es'); });
+    var opts = [...new Set(sapAllSubs().map(function(s){return s.cluster;}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'es');});
     var sel  = window._tendClusterSel;
     var nSel = Object.keys(sel).length;
     function row(k) {
@@ -1341,7 +1340,7 @@ function sapPopulateTendSub() {
     var clusterIds = null;
     if (nCluster) {
         clusterIds = {};
-        Object.keys(clusterSel).forEach(function(k) { (CLUSTERS[k]||[]).forEach(function(id) { clusterIds[id]=true; }); });
+        sapAllSubs().forEach(function(s) { if (s.cluster && clusterSel[s.cluster]) clusterIds[s.id]=true; });
     }
     var seen = {}, opts = [];
     _sapCycles.forEach(function(c) {
@@ -1405,7 +1404,7 @@ function sapPopulateTendMat() {
         var clSel = window._tendClusterSel;
         if (Object.keys(clSel).length) {
             clusterIds = {};
-            Object.keys(clSel).forEach(function(k) { (CLUSTERS[k]||[]).forEach(function(id) { clusterIds[id]=true; }); });
+            sapAllSubs().forEach(function(s) { if (s.cluster && clSel[s.cluster]) clusterIds[s.id]=true; });
         }
     }
     var orderToCycle = {};
@@ -1495,7 +1494,8 @@ function sapPopulateMatCluster() {
     }
     var nSel = Object.keys(sel).length;
     var html = '<div class="tsm-opt' + (nSel===0 ? ' tsm-active' : '') + '" data-v="">' + cb(false) + '— Todos —</div>';
-    html += Object.keys(CLUSTERS).map(function(k) {
+    var clusterNames = [...new Set(sapAllSubs().map(function(s){return s.cluster;}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'es');});
+    html += clusterNames.map(function(k) {
         var active = !!sel[k];
         return '<div class="tsm-opt' + (active?' tsm-active':'') + '" data-v="' + k + '">' + cb(active) + k + '</div>';
     }).join('');
@@ -1509,7 +1509,7 @@ function sapPopulateMatSub() {
     var clusterIds = null;
     if (clusterCodes.length) {
         clusterIds = {};
-        clusterCodes.forEach(function(k) { (CLUSTERS[k]||[]).forEach(function(id) { clusterIds[id]=true; }); });
+        sapAllSubs().forEach(function(s) { if (s.cluster && clusterCodes.includes(s.cluster)) clusterIds[s.id]=true; });
     }
     var seen = {}, opts = [];
     _sapCycles.forEach(function(c) {
@@ -1955,14 +1955,13 @@ var _fpSyncOrig = typeof sapPopulateYearMonth === 'function' ? null : null;
 function sapOnCycleChange()   { updateSapResults(); }
 function sapOnPoolChange() {
     // Solo actualiza el selector de ciclos — NO reconstruye el de piscinas
-    const subIdVal   = parseInt(document.getElementById('sap-subsidiary').value) || null;
-    const cluster    = document.getElementById('sap-cluster').value;
-    const clusterIds = cluster ? (CLUSTERS[cluster] || []) : null;
-    const poolName   = document.getElementById('sap-pool').value;
+    const subIdVal = parseInt(document.getElementById('sap-subsidiary').value) || null;
+    const cluster  = document.getElementById('sap-cluster').value;
+    const poolName = document.getElementById('sap-pool').value;
     const vis = _sapCycles.filter(c =>
-        (!subIdVal   || c._subsidiaryId === subIdVal) &&
-        (!clusterIds || clusterIds.includes(c._subsidiaryId)) &&
-        (!poolName   || c.poolName === poolName)
+        (!subIdVal || c._subsidiaryId === subIdVal) &&
+        (!cluster  || c._subCluster === cluster) &&
+        (!poolName || c.poolName === poolName)
     );
     document.getElementById('sap-cycle').innerHTML =
         '<option value="">— Todos los ciclos —</option>' +
@@ -2256,7 +2255,8 @@ async function sapCargarCiclos(force) {
     const setP = function(msg) {
         progressEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#1e40af"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span>' + msg + '</div>';
     };
-    const subById = Object.fromEntries(sapAllSubs().map(function(s) { return [String(s.id), s.name]; }));
+    const subById      = Object.fromEntries(sapAllSubs().map(function(s) { return [String(s.id), s.name]; }));
+    const subClusterById = Object.fromEntries(sapAllSubs().map(function(s) { return [String(s.id), s.cluster || null]; }));
 
     setP('Cargando ciclos desde D1...');
     try {
@@ -2300,6 +2300,7 @@ async function sapCargarCiclos(force) {
                 controlOrderDocument: cod,
                 _subsidiaryId:        sid,
                 _subName:             subById[String(sid)] || c.codigo_sucursal || ('Sub ' + sid),
+                _subCluster:          subClusterById[String(sid)] || null,
                 ps:                   parseFloat(c.tamano_piscina) || 0,
                 startDate:            c.fecha_inicio || c.fecha_siembra || null,
                 totalDays:            parseFloat(c.dias_ciclo) || 0,
@@ -2499,16 +2500,15 @@ function sapUpdateStatus() {
 }
 
 function sapGetActiveCycles() {
-    const subIdVal   = parseInt(document.getElementById('sap-subsidiary').value) || null;
-    const cluster    = document.getElementById('sap-cluster').value;
-    const clusterIds = cluster ? (CLUSTERS[cluster] || []) : null;
-    const poolName   = document.getElementById('sap-pool').value;
-    const cycleId    = document.getElementById('sap-cycle').value;
+    const subIdVal = parseInt(document.getElementById('sap-subsidiary').value) || null;
+    const cluster  = document.getElementById('sap-cluster').value;
+    const poolName = document.getElementById('sap-pool').value;
+    const cycleId  = document.getElementById('sap-cycle').value;
     return _sapCycles.filter(c =>
-        (!subIdVal   || c._subsidiaryId === subIdVal) &&
-        (!clusterIds || clusterIds.includes(c._subsidiaryId)) &&
-        (!poolName   || c.poolName === poolName) &&
-        (!cycleId    || c.idCycle === cycleId)
+        (!subIdVal || c._subsidiaryId === subIdVal) &&
+        (!cluster  || c._subCluster === cluster) &&
+        (!poolName || c.poolName === poolName) &&
+        (!cycleId  || c.idCycle === cycleId)
     );
 }
 
@@ -2732,7 +2732,7 @@ function updateSapResults() {
     const matClusterIds = (function() {
         if (!matClusterCodes.length) return null;
         var ids = {};
-        matClusterCodes.forEach(function(k) { (CLUSTERS[k]||[]).forEach(function(id) { ids[id]=true; }); });
+        sapAllSubs().forEach(function(s) { if (s.cluster && matClusterCodes.includes(s.cluster)) ids[s.id]=true; });
         return ids;
     })();
     const tendSubCodes  = isTendencia ? Object.keys(window._tendSubSel     || {}) : [];
@@ -2740,7 +2740,7 @@ function updateSapResults() {
     const tendClusterIds = (function() {
         if (!tendClusterCodes.length) return null;
         var ids = {};
-        tendClusterCodes.forEach(function(k) { (CLUSTERS[k]||[]).forEach(function(id) { ids[id]=true; }); });
+        sapAllSubs().forEach(function(s) { if (s.cluster && tendClusterCodes.includes(s.cluster)) ids[s.id]=true; });
         return ids;
     })();
     const tendYearSel   = isTendencia ? ((document.getElementById('sap-tend-year') || {}).value || '') : '';
@@ -2850,7 +2850,7 @@ function updateSapResults() {
             // Resumen: usar filtros de cluster/sub del resumen
             var _clv = (document.getElementById('sap-cluster') || {}).value || '';
             var _sbv = parseInt((document.getElementById('sap-subsidiary') || {}).value) || null;
-            if (_clv && CLUSTERS[_clv]) subIdSet = new Set(CLUSTERS[_clv]);
+            if (_clv) subIdSet = new Set(sapAllSubs().filter(function(s){return s.cluster===_clv;}).map(function(s){return s.id;}));
             if (_sbv) subIdSet = new Set([_sbv]);
         } else if (isMaterial) {
             if (matSubCodes.length) {
@@ -2861,8 +2861,7 @@ function updateSapResults() {
                 });
                 if (_subIds.length) subIdSet = new Set(_subIds);
             } else if (matClusterIds) {
-                var _cids = [];
-                matClusterCodes.forEach(function(k) { (CLUSTERS[k]||[]).forEach(function(id) { _cids.push(id); }); });
+                var _cids = sapAllSubs().filter(function(s){return s.cluster && matClusterCodes.includes(s.cluster);}).map(function(s){return s.id;});
                 if (_cids.length) subIdSet = new Set(_cids);
             }
         } else if (isCiclo) {
@@ -3051,9 +3050,7 @@ function _sapMesLabel(mm) { return SAP_MESES[parseInt(mm,10)-1] || mm; }
 function _sapCampCluster(campCode) {
     var cycle = _sapCycles.find(function(c) { return _sapCamp(c) === campCode; });
     if (!cycle) return 'Otros';
-    var sid = cycle._subsidiaryId;
-    var entry = Object.entries(CLUSTERS).find(function(e) { return e[1].includes(sid); });
-    return entry ? entry[0] : 'Otros';
+    return cycle._subCluster || 'Otros';
 }
 
 function _sapRenderResumen(filteredRows, diasMes, el, kpiHtml) {
