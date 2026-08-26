@@ -65,11 +65,6 @@ export default function ResultadosScreen({ route, navigation }) {
     });
     const arr = Object.values(mats).sort((a, b) => b.costo - a.costo);
     const max = arr[0]?.costo || 1;
-        const costo  = rows.reduce((s, r) => s + (r.importe || 0), 0);
-        const dias   = ciclo.dias || 30;
-        const haDay  = ciclo.ha > 0 && dias > 0 ? costo / (ciclo.ha * dias) : null;
-
-        const mats = {};
     return (
       <View style={s.card}>
         <View style={[s.pills, { paddingTop: 12 }]}>
