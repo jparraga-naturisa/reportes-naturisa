@@ -444,8 +444,8 @@ function showToast(msg, ms = 2500) {
 async function init() {
   try {
     const [rSubs, rCiclos] = await Promise.all([
-      apiFetch('/db-sucursales'),
-      apiFetch('/db-ciclos?estado=ACTIVO'),
+      apiFetch('/db/sucursales'),
+      apiFetch('/db/ciclos?estado=ACTIVO'),
     ]);
 
     _subs = (rSubs.data || rSubs).map(s => ({
@@ -589,7 +589,7 @@ async function cargarConsumoCiclo(idCiclo) {
   if (!ciclo || ciclo.loaded) return;
   ciclo.loaded = true;
   try {
-    const r = await apiFetch('/db-consumo-insumos?idCiclo=' + idCiclo);
+    const r = await apiFetch('/db/consumo-insumos?idCiclo=' + idCiclo);
     const rows = r.data || [];
     _consumos[idCiclo] = rows;
     ciclo.costo = rows.reduce((s,r) => s + (r.importe || 0), 0);
@@ -616,7 +616,7 @@ async function abrirDetalle(idCiclo) {
   // Cargar si no hay datos
   if (!_consumos[idCiclo]) {
     try {
-      const r = await apiFetch('/db-consumo-insumos?idCiclo=' + idCiclo);
+      const r = await apiFetch('/db/consumo-insumos?idCiclo=' + idCiclo);
       _consumos[idCiclo] = r.data || [];
       ciclo.costo = (_consumos[idCiclo] || []).reduce((s,r) => s + (r.importe || 0), 0);
       ciclo.loaded = true;
