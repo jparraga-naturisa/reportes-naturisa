@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Consumos Ciclos",
+    "slug": "consumos-ciclos",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.naturisa.consumosciclos",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "de81a2cb-8d80-4e3b-b6eb-49b42502cde1"
+      }
+    },
+    "owner": "jparraga"
+  }
+}
