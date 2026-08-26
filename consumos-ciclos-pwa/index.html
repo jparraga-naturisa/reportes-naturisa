@@ -445,7 +445,7 @@ async function init() {
   try {
     const [rSubs, rCiclos] = await Promise.all([
       apiFetch('/db/sucursales'),
-      apiFetch('/db/ciclos?estado=ACTIVO'),
+      apiFetch('/db/ciclos?estado=PRODUCCION'),
     ]);
 
     _subs = (rSubs.data || rSubs).map(s => ({
