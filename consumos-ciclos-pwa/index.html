@@ -11,593 +11,471 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Consumos por Ciclo</title>
 <style>
-:root {
-  --navy:       #1e3a5f;
-  --navy-dark:  #0f172a;
-  --navy-mid:   #1e293b;
-  --accent:     #3b82f6;
-  --green:      #34d399;
-  --text:       #f8fafc;
-  --muted:      #94a3b8;
-  --border:     #334155;
-  --card:       #1e293b;
-  --safe-top:   env(safe-area-inset-top, 0px);
-  --safe-bot:   env(safe-area-inset-bottom, 0px);
-}
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; background: var(--navy-dark); color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; }
-
-/* Header */
-.app-header {
-  background: var(--navy);
-  padding: calc(var(--safe-top) + 18px) 20px 18px;
-  display: flex; align-items: center; gap: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.4);
-  flex-shrink: 0; z-index: 10; position: relative;
+html, body {
+  height: 100%; overflow: hidden;
+  background: #0f172a; color: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 16px;
 }
-.btn-back { background: none; border: none; color: var(--text); font-size: 32px; cursor: pointer; display: none; padding: 0 6px; line-height: 1; }
-.app-header h1 { font-size: 20px; font-weight: 700; flex: 1; }
 
-/* Vistas */
-#view-search, #view-result { display: flex; flex-direction: column; height: 100%; }
-#view-result { display: none; }
+/* ── Pantalla base ── */
+.screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  transition: transform .3s cubic-bezier(.4,0,.2,1);
+}
+.screen.off-right { transform: translateX(100%); }
+.screen.off-left  { transform: translateX(-100%); }
 
-/* Panel de filtros */
-.filter-panel { padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
+/* ── Header ── */
+.hdr {
+  background: #1e3a5f;
+  padding: calc(env(safe-area-inset-top, 0px) + 18px) 20px 18px;
+  display: flex; align-items: center; gap: 14px;
+  flex-shrink: 0; box-shadow: 0 2px 12px rgba(0,0,0,.4);
+}
+.hdr h1 { font-size: 20px; font-weight: 700; flex: 1; }
+.hdr-btn { background: none; border: none; color: #94a3b8; font-size: 15px; cursor: pointer; padding: 6px; white-space: nowrap; }
+.btn-back-big { background: none; border: none; color: #f8fafc; font-size: 30px; cursor: pointer; padding: 0 4px; line-height: 1; }
 
-.filter-group label { display: block; font-size: 13px; font-weight: 600; color: var(--muted);
+/* ── Login ── */
+#s-login { background: #0f172a; justify-content: center; align-items: center; padding: 32px 28px; }
+.login-box { width: 100%; max-width: 380px; }
+.login-logo { text-align: center; margin-bottom: 36px; }
+.login-logo .ico { font-size: 56px; }
+.login-logo h2 { font-size: 26px; font-weight: 800; margin-top: 10px; }
+.login-logo p  { font-size: 15px; color: #94a3b8; margin-top: 6px; }
+.fld label { display: block; font-size: 13px; font-weight: 600; color: #94a3b8;
   text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.fld + .fld { margin-top: 16px; }
+.fld input {
+  width: 100%; background: #1e293b; border: 1.5px solid #334155;
+  border-radius: 14px; padding: 16px 18px; font-size: 17px; color: #f8fafc; outline: none;
+}
+.fld input:focus { border-color: #3b82f6; }
+.login-err { font-size: 14px; color: #f87171; text-align: center; min-height: 20px; margin-top: 10px; }
+.btn-primary {
+  width: 100%; background: #3b82f6; color: #fff; border: none;
+  border-radius: 16px; padding: 18px; font-size: 18px; font-weight: 700;
+  cursor: pointer; margin-top: 20px; transition: opacity .15s;
+}
+.btn-primary:active { opacity: .8; }
+.btn-primary:disabled { background: #334155; cursor: default; }
 
-.filter-select {
-  width: 100%;
-  background: var(--card);
-  border: 1.5px solid var(--border);
-  border-radius: 14px;
-  padding: 16px 18px;
-  font-size: 17px;
-  color: var(--text);
-  -webkit-appearance: none;
-  appearance: none;
+/* ── Filtros ── */
+#s-filtros { background: #0f172a; }
+.filtros-body { flex: 1; overflow-y: auto; padding: 24px 20px; display: flex; flex-direction: column; gap: 20px; }
+.flt label { display: block; font-size: 13px; font-weight: 600; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.flt select {
+  width: 100%; background: #1e293b; border: 1.5px solid #334155;
+  border-radius: 14px; padding: 16px 18px; font-size: 17px; color: #f8fafc;
+  -webkit-appearance: none; appearance: none; outline: none; cursor: pointer;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 16px center;
-  cursor: pointer;
-  outline: none;
-  transition: border-color .15s;
+  background-repeat: no-repeat; background-position: right 16px center;
 }
-.filter-select:focus { border-color: var(--accent); }
-.filter-select:disabled { opacity: .4; cursor: not-allowed; }
-.filter-select option { background: #1e293b; }
+.flt select:focus  { border-color: #3b82f6; }
+.flt select:disabled { opacity: .4; }
+.flt select option { background: #1e293b; }
 
-.btn-buscar {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 16px;
-  padding: 18px;
-  font-size: 18px;
-  font-weight: 700;
-  cursor: pointer;
-  width: 100%;
-  transition: opacity .15s;
-  letter-spacing: .2px;
-  margin-top: 4px;
-}
-.btn-buscar:active { opacity: .8; }
-.btn-buscar:disabled { background: var(--border); cursor: not-allowed; opacity: 1; }
+.filtros-footer { padding: 16px 20px calc(env(safe-area-inset-bottom,0px) + 20px); flex-shrink: 0; }
 
-/* Loader inicial */
-.init-loading { flex: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 16px; color: var(--muted); font-size: 16px; }
-.spinner { width: 40px; height: 40px; border: 3px solid var(--border);
-  border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Vista resultado */
-.scroll-view { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(var(--safe-bot) + 24px); }
+/* ── Resultados ── */
+#s-resultado { background: #0f172a; }
+.res-scroll { flex: 1; overflow-y: auto; padding-bottom: calc(env(safe-area-inset-bottom,0px) + 20px); }
 
 /* KPIs */
-.kpi-row { display: flex; gap: 10px; padding: 14px 14px 6px; overflow-x: auto; }
-.kpi-card { background: var(--card); border-radius: 14px; padding: 12px 16px; flex: 1; min-width: 100px; }
-.kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
-.kpi-value { font-size: 22px; font-weight: 800; }
-.kpi-value.green { color: var(--green); }
-.kpi-value.blue  { color: #60a5fa; }
+.kpis { display: flex; gap: 10px; padding: 14px 14px 6px; overflow-x: auto; }
+.kpi { background: #1e293b; border-radius: 14px; padding: 12px 16px; flex: 1; min-width: 100px; flex-shrink: 0; }
+.kpi-l { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.kpi-v { font-size: 22px; font-weight: 800; }
+.green { color: #34d399; }
+.blue  { color: #60a5fa; }
 
-/* Cards de ciclo */
-.cycle-card { margin: 6px 12px 8px; background: var(--card); border-radius: 16px;
-  border: 1px solid var(--border); overflow: hidden; }
+/* Card ciclo */
+.ccard { margin: 6px 12px 8px; background: #1e293b; border-radius: 16px; border: 1px solid #334155; overflow: hidden; }
+.ccard-hdr { padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+.cbadge { background: #3b82f6; color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 8px; flex-shrink: 0; }
+.cbadge.seca { background: #64748b; }
+.cinfo { flex: 1; min-width: 0; }
+.ccode { font-size: 17px; font-weight: 700; }
+.csub  { font-size: 13px; color: #94a3b8; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ccost { text-align: right; flex-shrink: 0; }
+.ccost-v { font-size: 19px; font-weight: 800; color: #34d399; }
+.ccost-ha { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 
-.cycle-header { padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
-.cycle-badge { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700;
-  padding: 4px 10px; border-radius: 8px; flex-shrink: 0; }
-.cycle-badge.seca { background: #64748b; }
-.cycle-info { flex: 1; min-width: 0; }
-.cycle-code { font-size: 17px; font-weight: 700; }
-.cycle-sub  { font-size: 13px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cycle-cost { text-align: right; flex-shrink: 0; }
-.cycle-cost-val { font-size: 19px; font-weight: 800; color: var(--green); }
-.cycle-cost-ha  { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
-.cycle-pills { padding: 0 16px 12px; display: flex; gap: 8px; flex-wrap: wrap; }
-.pill { background: var(--navy-dark); border-radius: 8px; padding: 5px 10px; font-size: 13px; color: var(--muted); }
-.pill span { color: var(--text); font-weight: 600; }
+.cpills { padding: 0 16px 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.pill { background: #0f172a; border-radius: 8px; padding: 5px 10px; font-size: 13px; color: #94a3b8; }
+.pill b { color: #f8fafc; }
 
 /* Materiales */
-.mat-section-title { padding: 12px 16px 6px; font-size: 13px; font-weight: 700;
-  color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-.mat-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-  border-top: 1px solid var(--border); }
-.mat-icon { width: 44px; height: 44px; background: var(--navy); border-radius: 12px;
-  display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
-.mat-info { flex: 1; min-width: 0; }
-.mat-name { font-size: 15px; font-weight: 600; line-height: 1.3; }
-.mat-code { font-size: 12px; color: var(--muted); margin-top: 2px; }
-.mat-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; margin-top: 5px; }
-.mat-bar { height: 100%; background: var(--accent); border-radius: 2px; }
-.mat-nums { text-align: right; flex-shrink: 0; }
-.mat-costo { font-size: 17px; font-weight: 800; color: var(--green); }
-.mat-ha    { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.mat-title { padding: 10px 16px 4px; font-size: 13px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; }
+.mrow { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid #334155; }
+.mico { width: 44px; height: 44px; background: #1e3a5f; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.minfo { flex: 1; min-width: 0; }
+.mname { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.mcode { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+.mbar-w { height: 4px; background: #334155; border-radius: 2px; margin-top: 5px; }
+.mbar   { height: 100%; background: #3b82f6; border-radius: 2px; }
+.mnums  { text-align: right; flex-shrink: 0; }
+.mcosto { font-size: 17px; font-weight: 800; color: #34d399; }
+.mha    { font-size: 12px; color: #94a3b8; margin-top: 3px; }
+.no-data { padding: 12px 16px 14px; font-size: 14px; color: #64748b; border-top: 1px solid #334155; }
 
-.empty { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 16px; }
-.empty-icon { font-size: 44px; margin-bottom: 12px; }
+/* Spinner */
+.spinner-wrap { display: flex; align-items: center; justify-content: center; padding: 60px 20px; gap: 14px; color: #94a3b8; font-size: 16px; }
+.spin { width: 36px; height: 36px; border: 3px solid #334155; border-top-color: #3b82f6; border-radius: 50%; animation: sp .7s linear infinite; }
+@keyframes sp { to { transform: rotate(360deg); } }
 
 /* Toast */
-.toast { position: fixed; bottom: calc(var(--safe-bot) + 24px); left: 50%;
-  transform: translateX(-50%); background: var(--card); color: var(--text);
-  padding: 12px 22px; border-radius: 24px; font-size: 15px;
-  box-shadow: 0 4px 20px rgba(0,0,0,.5); z-index: 999; opacity: 0;
-  transition: opacity .2s; white-space: nowrap; }
+.toast { position: fixed; bottom: calc(env(safe-area-inset-bottom,0px) + 24px); left: 50%; transform: translateX(-50%);
+  background: #1e293b; color: #f8fafc; padding: 12px 22px; border-radius: 24px; font-size: 15px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5); z-index: 999; opacity: 0; transition: opacity .2s; white-space: nowrap; pointer-events: none; }
 .toast.show { opacity: 1; }
-
-.loading-inline { display: flex; align-items: center; justify-content: center;
-  padding: 50px 20px; gap: 14px; color: var(--muted); font-size: 16px; }
 </style>
 </head>
 <body>
 
-<!-- ══ VISTA: LOGIN ══ -->
-<div id="view-login" style="display:flex;flex-direction:column;height:100%;align-items:center;justify-content:center;padding:32px 24px;">
-  <div style="width:100%;max-width:360px;">
-    <div style="text-align:center;margin-bottom:32px;">
-      <div style="font-size:48px;margin-bottom:10px;">🦐</div>
-      <div style="font-size:26px;font-weight:800;color:var(--text);">Consumos por Ciclo</div>
-      <div style="font-size:15px;color:var(--muted);margin-top:6px;">Naturisa · Inicia sesión para continuar</div>
+<!-- ══ PANTALLA 0: LOGIN ══ -->
+<div class="screen" id="s-login">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="ico">🦐</div>
+      <h2>Consumos por Ciclo</h2>
+      <p>Inicia sesión con tu usuario AP1</p>
     </div>
-    <div style="display:flex;flex-direction:column;gap:14px;">
-      <div>
-        <label style="display:block;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Usuario</label>
-        <input id="login-user" type="text" autocomplete="username" placeholder="Usuario AP1"
-          style="width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;font-size:17px;color:var(--text);outline:none;"
-          onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'"
-          onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
-      </div>
-      <div>
-        <label style="display:block;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Contraseña</label>
-        <input id="login-pass" type="password" autocomplete="current-password" placeholder="Contraseña"
-          style="width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;font-size:17px;color:var(--text);outline:none;"
-          onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'"
-          onkeydown="if(event.key==='Enter')doLogin()">
-      </div>
-      <div id="login-error" style="font-size:15px;color:#f87171;text-align:center;min-height:20px;"></div>
-      <button id="login-btn" onclick="doLogin()"
-        style="background:var(--accent);color:#fff;border:none;border-radius:16px;padding:18px;font-size:18px;font-weight:700;cursor:pointer;width:100%;transition:opacity .15s;">
-        Ingresar
-      </button>
+    <div class="fld">
+      <label>Usuario</label>
+      <input id="lu" type="text" autocomplete="username" placeholder="Usuario"
+        onkeydown="if(event.key==='Enter')document.getElementById('lp').focus()">
     </div>
+    <div class="fld">
+      <label>Contraseña</label>
+      <input id="lp" type="password" autocomplete="current-password" placeholder="Contraseña"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-err" id="lerr"></div>
+    <button class="btn-primary" id="lbtn" onclick="doLogin()">Ingresar</button>
   </div>
 </div>
 
-<!-- ══ VISTA: FILTROS ══ -->
-<div id="view-search" style="display:none;">
-  <div class="app-header">
+<!-- ══ PANTALLA 1: FILTROS ══ -->
+<div class="screen off-right" id="s-filtros">
+  <div class="hdr">
     <h1>🦐 Consumos por Ciclo</h1>
-    <button type="button" onclick="cerrarSesion()" title="Cerrar sesión"
-      style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:4px 6px;">
-      ⎋ Salir
-    </button>
+    <button class="hdr-btn" onclick="cerrarSesion()">⎋ Salir</button>
   </div>
-
-  <div id="init-loader" class="init-loading">
-    <div class="spinner"></div>
-    Cargando sucursales…
+  <div class="filtros-body" id="filtros-body">
+    <div class="spinner-wrap"><div class="spin"></div>Cargando…</div>
   </div>
-
-  <div id="filter-form" style="display:none; flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;">
-    <div class="filter-panel">
-
-      <div class="filter-group">
-        <label>Sucursal</label>
-        <select class="filter-select" id="sel-sub" onchange="onSubChange()">
-          <option value="">— Todas las sucursales —</option>
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <label>Piscina</label>
-        <select class="filter-select" id="sel-pool" onchange="onPoolChange()" disabled>
-          <option value="">— Todas las piscinas —</option>
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <label>Ciclo</label>
-        <select class="filter-select" id="sel-ciclo" disabled>
-          <option value="">— Todos los ciclos —</option>
-        </select>
-      </div>
-
-      <button class="btn-buscar" id="btn-buscar" onclick="buscar()">🔍 Buscar</button>
-    </div>
+  <div class="filtros-footer">
+    <button class="btn-primary" id="btn-buscar" onclick="buscar()">🔍 Buscar</button>
   </div>
 </div>
 
-<!-- ══ VISTA: RESULTADO ══ -->
-<div id="view-result">
-  <div class="app-header">
-    <button class="btn-back" id="btn-back" onclick="volverFiltros()">‹</button>
-    <h1 id="result-title">Resultados</h1>
+<!-- ══ PANTALLA 2: RESULTADOS ══ -->
+<div class="screen off-right" id="s-resultado">
+  <div class="hdr">
+    <button class="btn-back-big" onclick="goBack()">‹</button>
+    <h1 id="res-title">Resultados</h1>
   </div>
-  <div class="scroll-view" id="result-scroll">
-    <div class="loading-inline"><div class="spinner"></div>Cargando…</div>
+  <div class="res-scroll" id="res-body">
+    <div class="spinner-wrap"><div class="spin"></div>Cargando…</div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-const PROXY    = 'https://naturisa-proxy.parragajonathan965.workers.dev';
-const API_KEY  = 'nat-2024-x9k2p';
-const AUTH_URL = PROXY + '/bff/web/ap1/security/api/auth';
-const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
+const PROXY   = 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const API_KEY = 'nat-2024-x9k2p';
+const AUTH    = PROXY + '/bff/web/ap1/security/api/auth';
+const CAPP    = '55ab9cb4-c887-4f42-98ec-b90470be6613';
 
 let _subs   = [];
 let _ciclos = [];
-let _consumos = {};
-let _natToken = null;
+let _cache  = {};   // idCiclo → filas consumo
 
-// ── Login ────────────────────────────────────────────────────────────────────
-async function doLogin() {
-  const user = document.getElementById('login-user').value.trim();
-  const pass = document.getElementById('login-pass').value.trim();
-  const err  = document.getElementById('login-error');
-  const btn  = document.getElementById('login-btn');
-  if (!user || !pass) { err.textContent = 'Ingresa usuario y contraseña'; return; }
-  btn.textContent = 'Ingresando…'; btn.disabled = true; err.textContent = '';
-  try {
-    const res  = await fetch(AUTH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ userName: user, password: pass, codeApplication: CODE_APP, includeUserInfo: true })
-    });
-    const json = await res.json();
-    if (json.code === 200 && json.data?.token) {
-      _natToken = json.data.token;
-      localStorage.setItem('nat_token', _natToken);
-      localStorage.setItem('nat_user', user);
-      const u = json.data.usuario;
-      localStorage.setItem('nat_name', u ? (u.firstNames + ' ' + u.lastNames).trim() : user);
-      document.getElementById('view-login').style.display   = 'none';
-      document.getElementById('view-search').style.display  = 'flex';
-      init();
-    } else {
-      err.textContent = '⚠ Usuario o contraseña incorrectos';
-    }
-  } catch(e) {
-    err.textContent = '⚠ Error de conexión: ' + e.message;
-  } finally {
-    btn.textContent = 'Ingresar'; btn.disabled = false;
-  }
-}
-
-function checkSession() {
-  const t = localStorage.getItem('nat_token');
-  if (t) {
-    _natToken = t;
-    document.getElementById('view-login').style.display  = 'none';
-    document.getElementById('view-search').style.display = 'flex';
-    return true;
-  }
-  return false;
-}
-
-const fmt$ = v => v >= 1000
+// ── Utilidades ───────────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const f$ = v  => v >= 1000
   ? '$' + (v/1000).toLocaleString('es-EC',{minimumFractionDigits:1,maximumFractionDigits:1}) + 'k'
   : '$' + v.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});
-const fmt2 = v => (v||0).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});
+const f2 = v  => (v||0).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});
 
-function toast(msg, ms=2500) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
+function toast(msg, ms=2800) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), ms);
 }
 
-async function get(path) {
+async function api(path) {
   const r = await fetch(PROXY + path, { headers: {'X-Api-Key': API_KEY} });
-  if (!r.ok) throw new Error('HTTP ' + r.status);
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' → ' + path);
   return r.json();
 }
 
-function matIcon(d) {
+function go(from, to) {
+  $(from).classList.add('off-left');
+  $(to).classList.remove('off-right');
+}
+function goBack() {
+  $('s-resultado').classList.add('off-right');
+  $('s-filtros').classList.remove('off-left');
+}
+
+function mIcon(d) {
   d = (d||'').toLowerCase();
   if (d.includes('balanceado')||d.includes('alimento')) return '🐟';
-  if (d.includes('oxigeno')||d.includes('oxíge'))      return '💨';
-  if (d.includes('calcio')||d.includes('carbonato'))   return '🪨';
-  if (d.includes('cloro'))                             return '🧪';
-  if (d.includes('dolomita'))                          return '⛰️';
-  if (d.includes('larva')||d.includes('nauplio'))      return '🦐';
-  if (d.includes('diesel')||d.includes('combustible')) return '⛽';
-  if (d.includes('probiotico')||d.includes('vitamina'))return '💊';
+  if (d.includes('oxigeno')||d.includes('oxíge'))       return '💨';
+  if (d.includes('calcio')||d.includes('carbonato'))    return '🪨';
+  if (d.includes('cloro'))                              return '🧪';
+  if (d.includes('dolomita'))                           return '⛰️';
+  if (d.includes('larva')||d.includes('nauplio'))       return '🦐';
+  if (d.includes('diesel')||d.includes('combustible'))  return '⛽';
+  if (d.includes('probiotico')||d.includes('vitamina')) return '💊';
   return '📦';
 }
 
-// ── Init: cargar sucursales y ciclos ────────────────────────────────────────
-async function init() {
+// ── Login ────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const u = $('lu').value.trim(), p = $('lp').value.trim();
+  if (!u || !p) { $('lerr').textContent = 'Ingresa usuario y contraseña'; return; }
+  const btn = $('lbtn');
+  btn.textContent = 'Ingresando…'; btn.disabled = true; $('lerr').textContent = '';
   try {
-    const [rSubs, rCiclos] = await Promise.all([
-      get('/db/sucursales'),
-      get('/db/ciclos?estado=PRODUCCION'),
-    ]);
-
-    const subById = {};
-    _subs = (rSubs.data||[]).map(s => { subById[s.id] = s; return s; });
-
-    _ciclos = (rCiclos.data||[]).map(c => ({
-      idCiclo:   c.id_ciclo,
-      codigo:    c.codigo_ciclo || String(c.id_ciclo),
-      piscina:   c.nombre_piscina || '',
-      ha:        c.tamano_piscina || 0,
-      diasCiclo: c.dias_ciclo || c.dias_produccion || 0,
-      estado:    c.estado || '',
-      subId:     c.id_sucursal,
-      subName:   (subById[c.id_sucursal]||{}).nombre || c.codigo_sucursal || '',
-      cluster:   (subById[c.id_sucursal]||{}).cluster || null,
-    }));
-
-    // Poblar sucursales (solo las que tienen ciclos activos)
-    const subIds = [...new Set(_ciclos.map(c => c.subId))];
-    const subSel = document.getElementById('sel-sub');
-    _subs
-      .filter(s => subIds.includes(s.id))
-      .sort((a,b) => a.nombre.localeCompare(b.nombre,'es'))
-      .forEach(s => {
-        const o = document.createElement('option');
-        o.value = s.id; o.textContent = s.nombre;
-        subSel.appendChild(o);
-      });
-
-    document.getElementById('init-loader').style.display = 'none';
-    document.getElementById('filter-form').style.display = 'block';
-
-  } catch(e) {
-    document.getElementById('init-loader').innerHTML =
-      '<div style="text-align:center;color:#f87171;padding:20px">⚠️ Error al cargar.<br><small>' + e.message + '</small><br><br><button onclick="init()" style="background:#3b82f6;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:14px;cursor:pointer">Reintentar</button></div>';
-  }
-}
-
-// ── Cascada de filtros ───────────────────────────────────────────────────────
-function onSubChange() {
-  const subId = parseInt(document.getElementById('sel-sub').value) || null;
-  const selPool = document.getElementById('sel-pool');
-  const selCiclo = document.getElementById('sel-ciclo');
-
-  selPool.innerHTML = '<option value="">— Todas las piscinas —</option>';
-  selCiclo.innerHTML = '<option value="">— Todos los ciclos —</option>';
-
-  const ciclosFilt = subId ? _ciclos.filter(c => c.subId === subId) : _ciclos;
-  const piscinas = [...new Set(ciclosFilt.map(c => c.piscina).filter(Boolean))].sort((a,b) => a.localeCompare(b,'es',{numeric:true}));
-
-  piscinas.forEach(p => {
-    const o = document.createElement('option');
-    o.value = p; o.textContent = p;
-    selPool.appendChild(o);
-  });
-
-  selPool.disabled = false;
-  selCiclo.disabled = true;
-}
-
-function onPoolChange() {
-  const subId  = parseInt(document.getElementById('sel-sub').value)  || null;
-  const pool   = document.getElementById('sel-pool').value;
-  const selCiclo = document.getElementById('sel-ciclo');
-
-  selCiclo.innerHTML = '<option value="">— Todos los ciclos —</option>';
-
-  let filt = _ciclos;
-  if (subId) filt = filt.filter(c => c.subId === subId);
-  if (pool)  filt = filt.filter(c => c.piscina === pool);
-
-  filt.sort((a,b) => b.idCiclo - a.idCiclo).forEach(c => {
-    const o = document.createElement('option');
-    o.value = c.idCiclo;
-    o.textContent = c.codigo + (c.ha ? ' (' + fmt2(c.ha) + ' Ha)' : '');
-    selCiclo.appendChild(o);
-  });
-
-  selCiclo.disabled = filt.length === 0;
-}
-
-// ── Buscar ───────────────────────────────────────────────────────────────────
-async function buscar() {
-  const subId   = parseInt(document.getElementById('sel-sub').value)   || null;
-  const pool    = document.getElementById('sel-pool').value;
-  const cicloId = document.getElementById('sel-ciclo').value;
-
-  // Requiere al menos sucursal seleccionada para no cargar todo
-  if (!subId && !cicloId) {
-    toast('Selecciona al menos una sucursal');
-    return;
-  }
-
-  // Filtrar ciclos según selección
-  let lista = _ciclos;
-  if (subId)   lista = lista.filter(c => c.subId === subId);
-  if (pool)    lista = lista.filter(c => c.piscina === pool);
-  if (cicloId) lista = lista.filter(c => String(c.idCiclo) === cicloId);
-
-  if (!lista.length) { toast('Sin ciclos con esos filtros'); return; }
-
-  // Límite de seguridad: máximo 20 ciclos a la vez
-  if (lista.length > 20) {
-    toast('Demasiados ciclos (' + lista.length + '). Selecciona piscina o ciclo específico.');
-    return;
-  }
-
-  // Título
-  let titulo = cicloId
-    ? (lista[0]?.codigo || 'Ciclo')
-    : pool ? pool
-    : subId ? (lista[0]?.subName || 'Resultados')
-    : 'Todos los ciclos';
-
-  document.getElementById('result-title').textContent = titulo;
-  document.getElementById('result-scroll').innerHTML = '<div class="loading-inline"><div class="spinner"></div>Cargando consumos…</div>';
-
-  // Cambiar vista
-  document.getElementById('view-search').style.display = 'none';
-  const vr = document.getElementById('view-result');
-  vr.style.display = 'flex';
-  document.getElementById('btn-back').style.display = 'block';
-
-  // Cargar consumos de los ciclos (secuencial para no saturar)
-  try {
-    for (const c of lista) {
-      if (_consumos[c.idCiclo]) continue;
-      const r = await get('/db/consumo-insumos?idCiclo=' + c.idCiclo);
-      _consumos[c.idCiclo] = r.data || [];
-    }
-  } catch(e) {
-    document.getElementById('result-scroll').innerHTML =
-      '<div class="empty"><div class="empty-icon">⚠️</div>Error al cargar consumos.<br><small>' + e.message + '</small></div>';
-    return;
-  }
-
-  renderResultado(lista);
-}
-
-// ── Render resultado ─────────────────────────────────────────────────────────
-function renderResultado(lista) {
-  // Agrupar: si hay un solo ciclo mostrar directo sus materiales
-  const unCiclo = lista.length === 1;
-
-  let grandCosto = 0;
-  let grandHa    = 0;
-
-  // Enriquecer ciclos con costo
-  lista.forEach(c => {
-    const rows = _consumos[c.idCiclo] || [];
-    c.costo = rows.reduce((s,r) => s + (r.importe||0), 0);
-    grandCosto += c.costo;
-    grandHa    += c.ha || 0;
-  });
-
-  // KPIs globales
-  const haDay = grandHa > 0
-    ? grandCosto / grandHa / (lista.reduce((s,c) => s + (c.diasCiclo||30), 0) / lista.length)
-    : null;
-
-  let html = `
-    <div class="kpi-row">
-      <div class="kpi-card"><div class="kpi-label">Total Consumo</div><div class="kpi-value green">${fmt$(grandCosto)}</div></div>
-      <div class="kpi-card"><div class="kpi-label">Ciclos</div><div class="kpi-value blue">${lista.length}</div></div>
-      <div class="kpi-card"><div class="kpi-label">$/Ha</div><div class="kpi-value">${grandHa > 0 && grandCosto > 0 ? fmt$(grandCosto/grandHa) : '—'}</div></div>
-    </div>`;
-
-  lista.sort((a,b) => a.piscina.localeCompare(b.piscina,'es',{numeric:true})).forEach(c => {
-    const rows  = _consumos[c.idCiclo] || [];
-    const dias  = c.diasCiclo || 30;
-    const haDay = c.ha > 0 && dias > 0 ? c.costo / (c.ha * dias) : null;
-
-    html += `
-      <div class="cycle-card">
-        <div class="cycle-header">
-          <div class="cycle-badge${c.estado==='SECA'?' seca':''}">${c.estado||'PROD'}</div>
-          <div class="cycle-info">
-            <div class="cycle-code">${c.codigo}</div>
-            <div class="cycle-sub">${c.subName}</div>
-          </div>
-          <div class="cycle-cost">
-            <div class="cycle-cost-val">${c.costo > 0 ? fmt$(c.costo) : '—'}</div>
-            <div class="cycle-cost-ha">${c.ha > 0 && c.costo > 0 ? fmt$(c.costo/c.ha)+'/Ha' : 'Sin consumo'}</div>
-          </div>
-        </div>
-        <div class="cycle-pills">
-          <div class="pill">🌊 <span>${c.piscina}</span></div>
-          <div class="pill">📐 <span>${fmt2(c.ha)} Ha</span></div>
-          <div class="pill">📅 <span>${dias} días</span></div>
-          ${haDay !== null ? '<div class="pill">💰 <span>$'+fmt2(haDay)+'/Ha/día</span></div>' : ''}
-        </div>`;
-
-    // Materiales
-    if (rows.length) {
-      const mats = {};
-      rows.forEach(r => {
-        const k = r.codigo_material || '(sin código)';
-        if (!mats[k]) mats[k] = { code: r.codigo_material||'', desc: r.descripcion||'', unidad: r.unidad||'', costo: 0, cant: 0 };
-        mats[k].costo += r.importe  || 0;
-        mats[k].cant  += r.cantidad || 0;
-      });
-      const matArr  = Object.values(mats).sort((a,b) => b.costo - a.costo);
-      const maxCosto = matArr[0]?.costo || 1;
-
-      html += '<div class="mat-section-title">Insumos</div>';
-      matArr.forEach(m => {
-        const pct = Math.round((m.costo / maxCosto) * 100);
-        html += `
-          <div class="mat-row">
-            <div class="mat-icon">${matIcon(m.desc)}</div>
-            <div class="mat-info">
-              <div class="mat-name">${m.desc||m.code}</div>
-              <div class="mat-code">${m.code} · ${fmt2(m.cant)} ${m.unidad}</div>
-              <div class="mat-bar-wrap"><div class="mat-bar" style="width:${pct}%"></div></div>
-            </div>
-            <div class="mat-nums">
-              <div class="mat-costo">${fmt$(m.costo)}</div>
-              <div class="mat-ha">${c.ha > 0 ? '$'+fmt2(m.costo/c.ha)+'/Ha' : ''}</div>
-            </div>
-          </div>`;
-      });
+    const r = await fetch(AUTH, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', Accept:'application/json'},
+      body: JSON.stringify({userName:u, password:p, codeApplication:CAPP, includeUserInfo:true})
+    });
+    const j = await r.json();
+    if (j.code === 200 && j.data?.token) {
+      localStorage.setItem('nat_token', j.data.token);
+      localStorage.setItem('nat_user', u);
+      go('s-login', 's-filtros');
+      cargarFiltros();
     } else {
-      html += '<div style="padding:10px 14px 12px;font-size:12px;color:var(--muted)">Sin consumos registrados</div>';
+      $('lerr').textContent = '⚠ Usuario o contraseña incorrectos';
     }
-
-    html += '</div>'; // cycle-card
-  });
-
-  document.getElementById('result-scroll').innerHTML = html;
+  } catch(e) { $('lerr').textContent = '⚠ Error: ' + e.message; }
+  finally { btn.textContent = 'Ingresar'; btn.disabled = false; }
 }
 
 function cerrarSesion() {
   localStorage.removeItem('nat_token');
-  _natToken = null; _subs = []; _ciclos = []; _consumos = {};
-  document.getElementById('view-search').style.display = 'none';
-  document.getElementById('view-result').style.display = 'none';
-  document.getElementById('view-login').style.display  = 'flex';
-  document.getElementById('login-pass').value = '';
-  document.getElementById('login-error').textContent = '';
+  _subs = []; _ciclos = []; _cache = {};
+  $('s-filtros').classList.remove('off-left');
+  $('s-filtros').classList.add('off-right');
+  $('s-login').classList.remove('off-left');
+  $('lp').value = ''; $('lerr').textContent = '';
 }
 
-function volverFiltros() {
-  document.getElementById('view-result').style.display = 'none';
-  document.getElementById('view-search').style.display = 'flex';
-  document.getElementById('btn-back').style.display = 'none';
+// ── Filtros ──────────────────────────────────────────────────────────────────
+async function cargarFiltros() {
+  $('filtros-body').innerHTML = '<div class="spinner-wrap"><div class="spin"></div>Cargando sucursales…</div>';
+  try {
+    const [rs, rc] = await Promise.all([
+      api('/db/sucursales'),
+      api('/db/ciclos?estado=PRODUCCION'),
+    ]);
+    const byId = {};
+    _subs = (rs.data||[]).map(s => { byId[s.id] = s; return s; });
+    _ciclos = (rc.data||[]).map(c => ({
+      id:     c.id_ciclo,
+      codigo: c.codigo_ciclo || String(c.id_ciclo),
+      pool:   c.nombre_piscina || '',
+      ha:     c.tamano_piscina || 0,
+      dias:   c.dias_ciclo || c.dias_produccion || 0,
+      estado: c.estado || '',
+      subId:  c.id_sucursal,
+      sub:    (byId[c.id_sucursal]||{}).nombre || '',
+    }));
+
+    // Sucursales con ciclos activos
+    const subIds = [...new Set(_ciclos.map(c => c.subId))];
+    const subsActivas = _subs.filter(s => subIds.includes(s.id))
+      .sort((a,b) => a.nombre.localeCompare(b.nombre,'es'));
+
+    $('filtros-body').innerHTML = `
+      <div class="flt">
+        <label>Sucursal</label>
+        <select id="f-sub" onchange="onSub()">
+          <option value="">— Selecciona sucursal —</option>
+          ${subsActivas.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('')}
+        </select>
+      </div>
+      <div class="flt">
+        <label>Piscina</label>
+        <select id="f-pool" onchange="onPool()" disabled>
+          <option value="">— Todas las piscinas —</option>
+        </select>
+      </div>
+      <div class="flt">
+        <label>Ciclo</label>
+        <select id="f-ciclo" disabled>
+          <option value="">— Todos los ciclos —</option>
+        </select>
+      </div>`;
+  } catch(e) {
+    $('filtros-body').innerHTML = `<div class="spinner-wrap" style="flex-direction:column;gap:12px;color:#f87171">
+      ⚠ Error al cargar<br><small>${e.message}</small><br>
+      <button class="btn-primary" style="width:auto;padding:12px 24px;font-size:15px" onclick="cargarFiltros()">Reintentar</button>
+    </div>`;
+  }
 }
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+function onSub() {
+  const subId = parseInt($('f-sub').value) || null;
+  const sp = $('f-pool'), sc = $('f-ciclo');
+  sp.innerHTML = '<option value="">— Todas las piscinas —</option>';
+  sc.innerHTML = '<option value="">— Todos los ciclos —</option>';
+  sc.disabled = true;
+  if (!subId) { sp.disabled = true; return; }
+  const filt = _ciclos.filter(c => c.subId === subId);
+  const pools = [...new Set(filt.map(c => c.pool).filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b,'es',{numeric:true}));
+  pools.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; sp.appendChild(o); });
+  sp.disabled = false;
+  // Si solo hay una piscina, seleccionarla
+  if (pools.length === 1) { sp.value = pools[0]; onPool(); }
 }
 
-// Arranque: verificar sesión guardada o mostrar login
-if (!checkSession()) {
-  // Pre-fill usuario guardado
+function onPool() {
+  const subId = parseInt($('f-sub').value) || null;
+  const pool  = $('f-pool').value;
+  const sc    = $('f-ciclo');
+  sc.innerHTML = '<option value="">— Todos los ciclos —</option>';
+  let filt = _ciclos;
+  if (subId) filt = filt.filter(c => c.subId === subId);
+  if (pool)  filt = filt.filter(c => c.pool === pool);
+  filt.sort((a,b) => b.id - a.id).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = c.codigo + (c.ha ? ' · ' + f2(c.ha) + ' Ha' : '');
+    sc.appendChild(o);
+  });
+  sc.disabled = filt.length === 0;
+  // Si solo hay un ciclo, seleccionarlo
+  if (filt.length === 1) sc.value = filt[0].id;
+}
+
+// ── Buscar ───────────────────────────────────────────────────────────────────
+async function buscar() {
+  const subId   = parseInt($('f-sub').value)   || null;
+  const pool    = $('f-pool')?.value  || '';
+  const cicloId = $('f-ciclo')?.value || '';
+
+  if (!subId) { toast('Selecciona una sucursal'); return; }
+
+  let lista = _ciclos.filter(c => c.subId === subId);
+  if (pool)    lista = lista.filter(c => c.pool === pool);
+  if (cicloId) lista = lista.filter(c => String(c.id) === cicloId);
+
+  if (!lista.length) { toast('Sin ciclos con esos filtros'); return; }
+  if (lista.length > 15) { toast('Selecciona una piscina o ciclo específico (' + lista.length + ' ciclos)'); return; }
+
+  const titulo = cicloId ? lista[0].codigo : pool ? pool : lista[0].sub;
+  $('res-title').textContent = titulo;
+  $('res-body').innerHTML = '<div class="spinner-wrap"><div class="spin"></div>Cargando consumos…</div>';
+  go('s-filtros', 's-resultado');
+
+  try {
+    for (const c of lista) {
+      if (_cache[c.id]) continue;
+      const r = await api('/db/consumo-insumos?idCiclo=' + c.id);
+      _cache[c.id] = r.data || [];
+    }
+    renderRes(lista);
+  } catch(e) {
+    $('res-body').innerHTML = `<div class="spinner-wrap" style="flex-direction:column;color:#f87171">⚠ ${e.message}</div>`;
+  }
+}
+
+// ── Render resultado ─────────────────────────────────────────────────────────
+function renderRes(lista) {
+  lista.forEach(c => { c.costo = (_cache[c.id]||[]).reduce((s,r) => s+(r.importe||0), 0); });
+  const totalCosto = lista.reduce((s,c) => s+c.costo, 0);
+  const totalHa    = lista.reduce((s,c) => s+(c.ha||0), 0);
+
+  let html = `<div class="kpis">
+    <div class="kpi"><div class="kpi-l">Total</div><div class="kpi-v green">${f$(totalCosto)}</div></div>
+    <div class="kpi"><div class="kpi-l">Ciclos</div><div class="kpi-v blue">${lista.length}</div></div>
+    <div class="kpi"><div class="kpi-l">$/Ha</div><div class="kpi-v">${totalHa>0&&totalCosto>0?f$(totalCosto/totalHa):'—'}</div></div>
+  </div>`;
+
+  lista.sort((a,b) => a.pool.localeCompare(b.pool,'es',{numeric:true})).forEach(c => {
+    const rows  = _cache[c.id] || [];
+    const dias  = c.dias || 30;
+    const haDay = c.ha>0 && dias>0 ? c.costo/(c.ha*dias) : null;
+
+    html += `<div class="ccard">
+      <div class="ccard-hdr">
+        <div class="cbadge${c.estado==='SECA'?' seca':''}">${c.estado||'PROD'}</div>
+        <div class="cinfo">
+          <div class="ccode">${c.codigo}</div>
+          <div class="csub">${c.sub}</div>
+        </div>
+        <div class="ccost">
+          <div class="ccost-v">${c.costo>0?f$(c.costo):'—'}</div>
+          <div class="ccost-ha">${c.ha>0&&c.costo>0?f$(c.costo/c.ha)+'/Ha':'Sin datos'}</div>
+        </div>
+      </div>
+      <div class="cpills">
+        <div class="pill">🌊 <b>${c.pool}</b></div>
+        <div class="pill">📐 <b>${f2(c.ha)} Ha</b></div>
+        <div class="pill">📅 <b>${dias} días</b></div>
+        ${haDay!==null?`<div class="pill">💰 <b style="color:${haDay>2.67?'#f87171':'#34d399'}">$${f2(haDay)}/Ha/día</b></div>`:''}
+      </div>`;
+
+    if (rows.length) {
+      const mats = {};
+      rows.forEach(r => {
+        const k = r.codigo_material||'?';
+        if (!mats[k]) mats[k] = {code:k, desc:r.descripcion||k, u:r.unidad||'', costo:0, cant:0};
+        mats[k].costo += r.importe||0;
+        mats[k].cant  += r.cantidad||0;
+      });
+      const arr = Object.values(mats).sort((a,b) => b.costo-a.costo);
+      const max = arr[0]?.costo||1;
+      html += '<div class="mat-title">Insumos</div>';
+      arr.forEach(m => {
+        const pct = Math.round(m.costo/max*100);
+        html += `<div class="mrow">
+          <div class="mico">${mIcon(m.desc)}</div>
+          <div class="minfo">
+            <div class="mname">${m.desc}</div>
+            <div class="mcode">${m.code} · ${f2(m.cant)} ${m.u}</div>
+            <div class="mbar-w"><div class="mbar" style="width:${pct}%"></div></div>
+          </div>
+          <div class="mnums">
+            <div class="mcosto">${f$(m.costo)}</div>
+            <div class="mha">${c.ha>0?'$'+f2(m.costo/c.ha)+'/Ha':''}</div>
+          </div>
+        </div>`;
+      });
+    } else {
+      html += '<div class="no-data">Sin consumos registrados</div>';
+    }
+    html += '</div>';
+  });
+
+  $('res-body').innerHTML = html;
+}
+
+// ── Service Worker ───────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+// ── Inicio ───────────────────────────────────────────────────────────────────
+(function() {
+  const t = localStorage.getItem('nat_token');
   const u = localStorage.getItem('nat_user');
-  if (u) document.getElementById('login-user').value = u;
-} else {
-  init();
-}
+  if (u) $('lu').value = u;
+  if (t) {
+    go('s-login', 's-filtros');
+    cargarFiltros();
+  }
+})();
 </script>
 </body>
 </html>

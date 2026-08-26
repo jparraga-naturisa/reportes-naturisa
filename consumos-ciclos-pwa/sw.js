@@ -1,4 +1,4 @@
-const CACHE = 'ciclos-v5';
+const CACHE = 'ciclos-v6';
 const PRECACHE = ['/', '/consumos-ciclos-pwa/', '/consumos-ciclos-pwa/index.html'];
 
 self.addEventListener('install', e => {
