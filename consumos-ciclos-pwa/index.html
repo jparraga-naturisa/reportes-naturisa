@@ -12,700 +12,484 @@
 <title>Consumos por Ciclo</title>
 <style>
 :root {
-  --navy: #1e3a5f;
-  --navy-dark: #0f172a;
-  --navy-mid: #1e293b;
-  --accent: #3b82f6;
-  --accent-light: #dbeafe;
-  --green: #065f46;
-  --green-light: #d1fae5;
-  --red: #dc2626;
-  --text: #f8fafc;
-  --text-muted: #94a3b8;
-  --border: #334155;
-  --card: #1e293b;
-  --card2: #0f172a;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --navy:       #1e3a5f;
+  --navy-dark:  #0f172a;
+  --navy-mid:   #1e293b;
+  --accent:     #3b82f6;
+  --green:      #34d399;
+  --text:       #f8fafc;
+  --muted:      #94a3b8;
+  --border:     #334155;
+  --card:       #1e293b;
+  --safe-top:   env(safe-area-inset-top, 0px);
+  --safe-bot:   env(safe-area-inset-bottom, 0px);
 }
-
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--navy-dark); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; }
 
-html, body {
-  height: 100%;
-  background: var(--navy-dark);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  overflow: hidden;
-}
-
-/* ── Header ── */
+/* Header */
 .app-header {
   background: var(--navy);
   padding: calc(var(--safe-top) + 14px) 16px 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  display: flex; align-items: center; gap: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,.4);
-  position: relative;
-  z-index: 10;
-  flex-shrink: 0;
+  flex-shrink: 0; z-index: 10; position: relative;
 }
-.app-header h1 {
-  font-size: 17px;
-  font-weight: 700;
-  flex: 1;
-  letter-spacing: -.2px;
-}
-.btn-back {
-  background: none;
-  border: none;
-  color: var(--text);
-  font-size: 22px;
-  cursor: pointer;
-  padding: 2px 4px;
-  display: none;
-}
-.btn-refresh {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px;
-}
-.btn-refresh:active { opacity: .5; }
+.btn-back { background: none; border: none; color: var(--text); font-size: 26px; cursor: pointer; display: none; padding: 0 4px; line-height: 1; }
+.app-header h1 { font-size: 17px; font-weight: 700; flex: 1; }
 
-/* ── Filtros ── */
-.filters {
-  background: var(--navy-mid);
-  padding: 10px 12px;
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-  scrollbar-width: none;
-}
-.filters::-webkit-scrollbar { display: none; }
+/* Vistas */
+#view-search, #view-result { display: flex; flex-direction: column; height: 100%; }
+#view-result { display: none; }
 
-.filter-chip {
-  background: var(--navy-dark);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 5px 12px;
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all .15s;
-  flex-shrink: 0;
-}
-.filter-chip.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  font-weight: 600;
-}
+/* Panel de filtros */
+.filter-panel { padding: 16px 14px; display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; }
 
-/* ── Search bar ── */
-.search-bar {
-  background: var(--navy-mid);
-  padding: 8px 12px;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-}
-.search-input {
+.filter-group label { display: block; font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+
+.filter-select {
   width: 100%;
-  background: var(--navy-dark);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 12px 8px 34px;
-  font-size: 14px;
-  color: var(--text);
-  outline: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: 10px center;
-}
-.search-input::placeholder { color: var(--text-muted); }
-
-/* ── Scroll container ── */
-.scroll-view {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(var(--safe-bot) + 16px);
-}
-
-/* ── KPI bar ── */
-.kpi-bar {
-  display: flex;
-  gap: 8px;
-  padding: 10px 12px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.kpi-bar::-webkit-scrollbar { display: none; }
-.kpi-card {
   background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px 14px;
-  flex: 1;
-  min-width: 100px;
-  flex-shrink: 0;
-}
-.kpi-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
-.kpi-value { font-size: 18px; font-weight: 800; color: var(--text); }
-.kpi-value.green { color: #34d399; }
-.kpi-value.blue { color: #60a5fa; }
-
-/* ── Lista de ciclos ── */
-.section-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: .6px;
-  padding: 12px 12px 4px;
-}
-
-.cycle-card {
-  margin: 4px 10px;
-  background: var(--card);
-  border-radius: 14px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform .1s;
-  border: 1px solid var(--border);
-}
-.cycle-card:active { transform: scale(.98); }
-
-.cycle-card-header {
   padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  font-size: 15px;
+  color: var(--text);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s;
 }
-.cycle-badge {
+.filter-select:focus { border-color: var(--accent); }
+.filter-select:disabled { opacity: .4; cursor: not-allowed; }
+.filter-select option { background: #1e293b; }
+
+.btn-buscar {
   background: var(--accent);
   color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-.cycle-badge.seca { background: #64748b; }
-.cycle-info { flex: 1; min-width: 0; }
-.cycle-code { font-size: 14px; font-weight: 700; color: var(--text); }
-.cycle-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cycle-costo {
-  text-align: right;
-  flex-shrink: 0;
-}
-.cycle-costo-val { font-size: 16px; font-weight: 800; color: #34d399; }
-.cycle-costo-ha { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
-
-.cycle-meta {
-  padding: 0 14px 10px;
-  display: flex;
-  gap: 12px;
-}
-.meta-pill {
-  background: var(--navy-dark);
-  border-radius: 6px;
-  padding: 3px 8px;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-.meta-pill span { color: var(--text); font-weight: 600; }
-
-/* ── Vista Detalle ── */
-#view-detail { display: none; flex-direction: column; height: 100%; }
-#view-list   { display: flex; flex-direction: column; height: 100%; }
-
-.detail-kpi-row {
-  display: flex;
-  gap: 8px;
-  padding: 10px 12px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.detail-kpi-row::-webkit-scrollbar { display: none; }
-.dkpi {
-  background: var(--card);
-  border-radius: 10px;
-  padding: 8px 12px;
-  flex: 1;
-  min-width: 80px;
-  flex-shrink: 0;
-  text-align: center;
-}
-.dkpi-label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; }
-.dkpi-value { font-size: 15px; font-weight: 800; color: var(--text); margin-top: 2px; }
-.dkpi-value.green { color: #34d399; }
-
-/* ── Tabla de materiales ── */
-.mat-list { padding: 0 10px; }
-
-.mat-row {
-  background: var(--card);
-  border-radius: 12px;
-  margin-bottom: 6px;
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.mat-icon {
-  width: 36px; height: 36px;
-  background: var(--navy);
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
+  border: none;
+  border-radius: 14px;
+  padding: 15px;
   font-size: 16px;
-  flex-shrink: 0;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  transition: opacity .15s;
+  letter-spacing: .2px;
 }
-.mat-info { flex: 1; min-width: 0; }
-.mat-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
-.mat-code { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
-.mat-nums { text-align: right; flex-shrink: 0; }
-.mat-costo { font-size: 15px; font-weight: 800; color: #34d399; }
-.mat-cant { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.btn-buscar:active { opacity: .8; }
+.btn-buscar:disabled { background: var(--border); cursor: not-allowed; opacity: 1; }
 
-/* ── Barra de progreso de insumos ── */
-.mat-bar-wrap {
-  height: 3px;
-  background: var(--border);
-  border-radius: 2px;
-  margin-top: 4px;
-  overflow: hidden;
-}
-.mat-bar { height: 100%; background: var(--accent); border-radius: 2px; }
-
-/* ── Loading / Empty ── */
-.loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-  gap: 14px;
-  color: var(--text-muted);
-  font-size: 14px;
-}
-.spinner {
-  width: 32px; height: 32px;
-  border: 3px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
-}
+/* Loader inicial */
+.init-loading { flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 14px; color: var(--muted); font-size: 14px; }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.empty { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px; }
-.empty-icon { font-size: 40px; margin-bottom: 12px; }
+/* Vista resultado */
+.scroll-view { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(var(--safe-bot) + 20px); }
 
-/* ── Toast ── */
-.toast {
-  position: fixed;
-  bottom: calc(var(--safe-bot) + 20px);
-  left: 50%; transform: translateX(-50%);
-  background: #1e293b;
-  color: var(--text);
-  padding: 10px 18px;
-  border-radius: 20px;
-  font-size: 13px;
-  box-shadow: 0 4px 20px rgba(0,0,0,.5);
-  z-index: 999;
-  opacity: 0;
-  transition: opacity .2s;
-  white-space: nowrap;
+/* KPIs */
+.kpi-row { display: flex; gap: 8px; padding: 12px 12px 4px; overflow-x: auto; }
+.kpi-card { background: var(--card); border-radius: 12px; padding: 10px 14px; flex: 1; min-width: 90px; }
+.kpi-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+.kpi-value { font-size: 18px; font-weight: 800; }
+.kpi-value.green { color: var(--green); }
+.kpi-value.blue  { color: #60a5fa; }
+
+/* Ciclo header */
+.section-label {
+  padding: 14px 14px 6px;
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px;
 }
+
+/* Cards de ciclo */
+.cycle-card { margin: 4px 10px 6px; background: var(--card); border-radius: 14px;
+  border: 1px solid var(--border); overflow: hidden; }
+
+.cycle-header { padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+.cycle-badge { background: var(--accent); color: #fff; font-size: 10px; font-weight: 700;
+  padding: 3px 8px; border-radius: 8px; flex-shrink: 0; }
+.cycle-badge.seca { background: #64748b; }
+.cycle-info { flex: 1; min-width: 0; }
+.cycle-code { font-size: 14px; font-weight: 700; }
+.cycle-sub  { font-size: 11px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cycle-cost { text-align: right; flex-shrink: 0; }
+.cycle-cost-val { font-size: 16px; font-weight: 800; color: var(--green); }
+.cycle-cost-ha  { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+.cycle-pills { padding: 0 14px 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.pill { background: var(--navy-dark); border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--muted); }
+.pill span { color: var(--text); font-weight: 600; }
+
+/* Materiales */
+.mat-section-title { padding: 10px 14px 4px; font-size: 11px; font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.mat-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-top: 1px solid var(--border); }
+.mat-icon { width: 36px; height: 36px; background: var(--navy); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.mat-info { flex: 1; min-width: 0; }
+.mat-name { font-size: 13px; font-weight: 600; line-height: 1.3; }
+.mat-code { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.mat-bar-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-top: 4px; }
+.mat-bar { height: 100%; background: var(--accent); border-radius: 2px; }
+.mat-nums { text-align: right; flex-shrink: 0; }
+.mat-costo { font-size: 15px; font-weight: 800; color: var(--green); }
+.mat-ha    { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+.empty { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 14px; }
+.empty-icon { font-size: 38px; margin-bottom: 10px; }
+
+/* Toast */
+.toast { position: fixed; bottom: calc(var(--safe-bot) + 20px); left: 50%;
+  transform: translateX(-50%); background: var(--card); color: var(--text);
+  padding: 10px 18px; border-radius: 20px; font-size: 13px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5); z-index: 999; opacity: 0;
+  transition: opacity .2s; white-space: nowrap; }
 .toast.show { opacity: 1; }
 
-/* ── Pull to refresh indicator ── */
-.pull-indicator {
-  text-align: center;
-  padding: 10px;
-  font-size: 12px;
-  color: var(--text-muted);
-  display: none;
-}
+.loading-inline { display: flex; align-items: center; justify-content: center;
+  padding: 40px 20px; gap: 12px; color: var(--muted); font-size: 14px; }
 </style>
 </head>
 <body>
 
-<!-- ═══ VISTA LISTA ═══ -->
-<div id="view-list">
+<!-- ══ VISTA: FILTROS ══ -->
+<div id="view-search">
   <div class="app-header">
     <h1>🦐 Consumos por Ciclo</h1>
-    <button class="btn-refresh" onclick="recargar()" title="Recargar">↻</button>
   </div>
 
-  <!-- Filtros cluster -->
-  <div class="filters" id="cluster-filters">
-    <div class="filter-chip active" data-cluster="" onclick="selCluster(this)">Todos</div>
+  <div id="init-loader" class="init-loading">
+    <div class="spinner"></div>
+    Cargando sucursales…
   </div>
 
-  <!-- Buscador -->
-  <div class="search-bar">
-    <input class="search-input" type="search" id="search-input" placeholder="Buscar ciclo, piscina, sucursal…" oninput="renderLista()">
-  </div>
+  <div id="filter-form" style="display:none; flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;">
+    <div class="filter-panel">
 
-  <div class="scroll-view" id="list-scroll">
-    <div class="pull-indicator" id="pull-indicator">↓ Cargando…</div>
-    <div id="kpi-bar" class="kpi-bar" style="display:none">
-      <div class="kpi-card">
-        <div class="kpi-label">Total Consumo</div>
-        <div class="kpi-value green" id="kpi-total">—</div>
+      <div class="filter-group">
+        <label>Sucursal</label>
+        <select class="filter-select" id="sel-sub" onchange="onSubChange()">
+          <option value="">— Todas las sucursales —</option>
+        </select>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Ciclos</div>
-        <div class="kpi-value blue" id="kpi-ciclos">—</div>
+
+      <div class="filter-group">
+        <label>Piscina</label>
+        <select class="filter-select" id="sel-pool" onchange="onPoolChange()" disabled>
+          <option value="">— Todas las piscinas —</option>
+        </select>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">$/Ha Promedio</div>
-        <div class="kpi-value" id="kpi-ha">—</div>
+
+      <div class="filter-group">
+        <label>Ciclo</label>
+        <select class="filter-select" id="sel-ciclo" disabled>
+          <option value="">— Todos los ciclos —</option>
+        </select>
       </div>
-    </div>
-    <div id="list-content">
-      <div class="loading"><div class="spinner"></div>Cargando datos…</div>
+
+      <button class="btn-buscar" id="btn-buscar" onclick="buscar()">Buscar</button>
     </div>
   </div>
 </div>
 
-<!-- ═══ VISTA DETALLE ═══ -->
-<div id="view-detail">
+<!-- ══ VISTA: RESULTADO ══ -->
+<div id="view-result">
   <div class="app-header">
-    <button class="btn-back" id="btn-back" onclick="volverLista()">‹</button>
-    <h1 id="detail-title">Ciclo</h1>
+    <button class="btn-back" id="btn-back" onclick="volverFiltros()">‹</button>
+    <h1 id="result-title">Resultados</h1>
   </div>
-
-  <div class="scroll-view">
-    <div class="detail-kpi-row" id="detail-kpis"></div>
-    <div class="section-title">Insumos consumidos</div>
-    <div class="mat-list" id="detail-mats">
-      <div class="loading"><div class="spinner"></div></div>
-    </div>
+  <div class="scroll-view" id="result-scroll">
+    <div class="loading-inline"><div class="spinner"></div>Cargando…</div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-const _PROXY = 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const PROXY  = 'https://naturisa-proxy.parragajonathan965.workers.dev';
 const API_KEY = 'nat-2024-x9k2p';
 
-// ── Estado ──────────────────────────────────────────────────────────────────
-let _subs      = [];   // { id, name, codigo, cluster }
-let _ciclos    = [];   // filas de D1
-let _consumos  = {};   // cache: idCiclo → [{m,d,q,i,u,o,a,fecha}]
-let _clusterSel = '';
-let _ciclosData = []; // ciclos enriquecidos
+let _subs   = [];
+let _ciclos = [];
+let _consumos = {};
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
 const fmt$ = v => v >= 1000
-  ? '$' + (v/1000).toLocaleString('es-EC', {minimumFractionDigits:1, maximumFractionDigits:1}) + 'k'
-  : '$' + v.toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2});
+  ? '$' + (v/1000).toLocaleString('es-EC',{minimumFractionDigits:1,maximumFractionDigits:1}) + 'k'
+  : '$' + v.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt2 = v => (v||0).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});
 
-const fmt2 = v => v.toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2});
-
-function matIcon(desc) {
-  const d = (desc||'').toLowerCase();
-  if (d.includes('balanceado') || d.includes('alimento')) return '🐟';
-  if (d.includes('oxigeno') || d.includes('oxíge'))      return '💨';
-  if (d.includes('calcio') || d.includes('carbonato'))   return '🪨';
-  if (d.includes('cloro') || d.includes('clor'))         return '🧪';
-  if (d.includes('dolomita'))                            return '⛰️';
-  if (d.includes('probiotico') || d.includes('probiót')) return '🦠';
-  if (d.includes('vitamina'))                            return '💊';
-  if (d.includes('larva') || d.includes('nauplio'))      return '🦐';
-  if (d.includes('diesel') || d.includes('combustible')) return '⛽';
-  return '📦';
+function toast(msg, ms=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
 }
 
-async function apiFetch(path) {
-  const r = await fetch(_PROXY + path, {
-    headers: { 'X-Api-Key': API_KEY }
-  });
+async function get(path) {
+  const r = await fetch(PROXY + path, { headers: {'X-Api-Key': API_KEY} });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
 
-function showToast(msg, ms = 2500) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), ms);
+function matIcon(d) {
+  d = (d||'').toLowerCase();
+  if (d.includes('balanceado')||d.includes('alimento')) return '🐟';
+  if (d.includes('oxigeno')||d.includes('oxíge'))      return '💨';
+  if (d.includes('calcio')||d.includes('carbonato'))   return '🪨';
+  if (d.includes('cloro'))                             return '🧪';
+  if (d.includes('dolomita'))                          return '⛰️';
+  if (d.includes('larva')||d.includes('nauplio'))      return '🦐';
+  if (d.includes('diesel')||d.includes('combustible')) return '⛽';
+  if (d.includes('probiotico')||d.includes('vitamina'))return '💊';
+  return '📦';
 }
 
-// ── Carga inicial ────────────────────────────────────────────────────────────
+// ── Init: cargar sucursales y ciclos ────────────────────────────────────────
 async function init() {
   try {
     const [rSubs, rCiclos] = await Promise.all([
-      apiFetch('/db/sucursales'),
-      apiFetch('/db/ciclos?estado=PRODUCCION'),
+      get('/db/sucursales'),
+      get('/db/ciclos?estado=PRODUCCION'),
     ]);
 
-    _subs = (rSubs.data || rSubs).map(s => ({
-      id: s.id, name: s.nombre, codigo: s.codigo, cluster: s.cluster || null
+    const subById = {};
+    _subs = (rSubs.data||[]).map(s => { subById[s.id] = s; return s; });
+
+    _ciclos = (rCiclos.data||[]).map(c => ({
+      idCiclo:   c.id_ciclo,
+      codigo:    c.codigo_ciclo || String(c.id_ciclo),
+      piscina:   c.nombre_piscina || '',
+      ha:        c.tamano_piscina || 0,
+      diasCiclo: c.dias_ciclo || c.dias_produccion || 0,
+      estado:    c.estado || '',
+      subId:     c.id_sucursal,
+      subName:   (subById[c.id_sucursal]||{}).nombre || c.codigo_sucursal || '',
+      cluster:   (subById[c.id_sucursal]||{}).cluster || null,
     }));
 
-    const subById = Object.fromEntries(_subs.map(s => [String(s.id), s]));
+    // Poblar sucursales (solo las que tienen ciclos activos)
+    const subIds = [...new Set(_ciclos.map(c => c.subId))];
+    const subSel = document.getElementById('sel-sub');
+    _subs
+      .filter(s => subIds.includes(s.id))
+      .sort((a,b) => a.nombre.localeCompare(b.nombre,'es'))
+      .forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.id; o.textContent = s.nombre;
+        subSel.appendChild(o);
+      });
 
-    _ciclos = (rCiclos.data || rCiclos).map(c => {
-      const sub = subById[String(c.id_sucursal)] || {};
-      return {
-        idCiclo:    c.id_ciclo,
-        codigo:     c.codigo_ciclo || String(c.id_ciclo),
-        piscina:    c.nombre_piscina || '',
-        ha:         c.tamano_piscina || 0,
-        estado:     c.estado || '',
-        diasCiclo:  c.dias_ciclo || c.dias_produccion || 0,
-        subId:      c.id_sucursal,
-        subName:    sub.name || c.codigo_sucursal || '',
-        cluster:    sub.cluster || null,
-        costo:      0,
-        loaded:     false,
-      };
-    });
+    document.getElementById('init-loader').style.display = 'none';
+    document.getElementById('filter-form').style.display = 'block';
 
-    // Clusters únicos
-    const clusters = [...new Set(_ciclos.map(c => c.cluster).filter(Boolean))].sort((a,b) => a.localeCompare(b,'es'));
-    const filtersEl = document.getElementById('cluster-filters');
-    clusters.forEach(cl => {
-      const chip = document.createElement('div');
-      chip.className = 'filter-chip';
-      chip.dataset.cluster = cl;
-      chip.textContent = cl;
-      chip.onclick = function() { selCluster(this); };
-      filtersEl.appendChild(chip);
-    });
-
-    renderLista();
   } catch(e) {
-    document.getElementById('list-content').innerHTML =
-      '<div class="empty"><div class="empty-icon">⚠️</div>Error al cargar datos.<br><small>' + e.message + '</small></div>';
+    document.getElementById('init-loader').innerHTML =
+      '<div style="text-align:center;color:#f87171;padding:20px">⚠️ Error al cargar.<br><small>' + e.message + '</small><br><br><button onclick="init()" style="background:#3b82f6;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:14px;cursor:pointer">Reintentar</button></div>';
   }
 }
 
-// ── Filtros ──────────────────────────────────────────────────────────────────
-function selCluster(chip) {
-  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-  chip.classList.add('active');
-  _clusterSel = chip.dataset.cluster;
-  renderLista();
-}
+// ── Cascada de filtros ───────────────────────────────────────────────────────
+function onSubChange() {
+  const subId = parseInt(document.getElementById('sel-sub').value) || null;
+  const selPool = document.getElementById('sel-pool');
+  const selCiclo = document.getElementById('sel-ciclo');
 
-function ciclosFiltrados() {
-  const q = (document.getElementById('search-input').value || '').toLowerCase().trim();
-  return _ciclos.filter(c => {
-    if (_clusterSel && c.cluster !== _clusterSel) return false;
-    if (q) {
-      const hay = (c.codigo + ' ' + c.piscina + ' ' + c.subName).toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
+  selPool.innerHTML = '<option value="">— Todas las piscinas —</option>';
+  selCiclo.innerHTML = '<option value="">— Todos los ciclos —</option>';
+
+  const ciclosFilt = subId ? _ciclos.filter(c => c.subId === subId) : _ciclos;
+  const piscinas = [...new Set(ciclosFilt.map(c => c.piscina).filter(Boolean))].sort((a,b) => a.localeCompare(b,'es',{numeric:true}));
+
+  piscinas.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p; o.textContent = p;
+    selPool.appendChild(o);
   });
+
+  selPool.disabled = false;
+  selCiclo.disabled = true;
 }
 
-// ── Render lista ─────────────────────────────────────────────────────────────
-function renderLista() {
-  const lista = ciclosFiltrados();
-  const cont  = document.getElementById('list-content');
-  const kpiBar = document.getElementById('kpi-bar');
+function onPoolChange() {
+  const subId  = parseInt(document.getElementById('sel-sub').value)  || null;
+  const pool   = document.getElementById('sel-pool').value;
+  const selCiclo = document.getElementById('sel-ciclo');
 
-  if (!lista.length && _ciclos.length === 0) {
-    cont.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando…</div>';
+  selCiclo.innerHTML = '<option value="">— Todos los ciclos —</option>';
+
+  let filt = _ciclos;
+  if (subId) filt = filt.filter(c => c.subId === subId);
+  if (pool)  filt = filt.filter(c => c.piscina === pool);
+
+  filt.sort((a,b) => b.idCiclo - a.idCiclo).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.idCiclo;
+    o.textContent = c.codigo + (c.ha ? ' (' + fmt2(c.ha) + ' Ha)' : '');
+    selCiclo.appendChild(o);
+  });
+
+  selCiclo.disabled = filt.length === 0;
+}
+
+// ── Buscar ───────────────────────────────────────────────────────────────────
+async function buscar() {
+  const subId   = parseInt(document.getElementById('sel-sub').value)   || null;
+  const pool    = document.getElementById('sel-pool').value;
+  const cicloId = document.getElementById('sel-ciclo').value;
+
+  // Filtrar ciclos según selección
+  let lista = _ciclos;
+  if (subId)   lista = lista.filter(c => c.subId === subId);
+  if (pool)    lista = lista.filter(c => c.piscina === pool);
+  if (cicloId) lista = lista.filter(c => String(c.idCiclo) === cicloId);
+
+  if (!lista.length) { toast('Sin ciclos con esos filtros'); return; }
+
+  // Título
+  let titulo = cicloId
+    ? (lista[0]?.codigo || 'Ciclo')
+    : pool ? pool
+    : subId ? (lista[0]?.subName || 'Resultados')
+    : 'Todos los ciclos';
+
+  document.getElementById('result-title').textContent = titulo;
+  document.getElementById('result-scroll').innerHTML = '<div class="loading-inline"><div class="spinner"></div>Cargando consumos…</div>';
+
+  // Cambiar vista
+  document.getElementById('view-search').style.display = 'none';
+  const vr = document.getElementById('view-result');
+  vr.style.display = 'flex';
+  document.getElementById('btn-back').style.display = 'block';
+
+  // Cargar consumos de los ciclos
+  try {
+    await Promise.all(lista.map(async c => {
+      if (_consumos[c.idCiclo]) return;
+      const r = await get('/db/consumo-insumos?idCiclo=' + c.idCiclo);
+      _consumos[c.idCiclo] = r.data || [];
+    }));
+  } catch(e) {
+    document.getElementById('result-scroll').innerHTML =
+      '<div class="empty"><div class="empty-icon">⚠️</div>Error al cargar consumos.<br><small>' + e.message + '</small></div>';
     return;
   }
-  if (!lista.length) {
-    kpiBar.style.display = 'none';
-    cont.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>Sin resultados</div>';
-    return;
-  }
 
-  // KPIs
-  const totalCosto = lista.reduce((s,c) => s + (c.costo||0), 0);
-  const totalHa    = lista.reduce((s,c) => s + (c.ha||0), 0);
-  kpiBar.style.display = 'flex';
-  document.getElementById('kpi-total').textContent  = fmt$(totalCosto);
-  document.getElementById('kpi-ciclos').textContent  = lista.length;
-  document.getElementById('kpi-ha').textContent      = totalHa > 0 ? fmt$(totalCosto / totalHa) : '—';
+  renderResultado(lista);
+}
 
-  // Agrupar por cluster → sucursal
-  const grupos = {};
+// ── Render resultado ─────────────────────────────────────────────────────────
+function renderResultado(lista) {
+  // Agrupar: si hay un solo ciclo mostrar directo sus materiales
+  const unCiclo = lista.length === 1;
+
+  let grandCosto = 0;
+  let grandHa    = 0;
+
+  // Enriquecer ciclos con costo
   lista.forEach(c => {
-    const gk = c.cluster || 'Sin cluster';
-    if (!grupos[gk]) grupos[gk] = {};
-    const sk = c.subName || 'Sin sucursal';
-    if (!grupos[gk][sk]) grupos[gk][sk] = [];
-    grupos[gk][sk].push(c);
+    const rows = _consumos[c.idCiclo] || [];
+    c.costo = rows.reduce((s,r) => s + (r.importe||0), 0);
+    grandCosto += c.costo;
+    grandHa    += c.ha || 0;
   });
 
-  let html = '';
-  Object.keys(grupos).sort().forEach(cluster => {
-    html += '<div class="section-title">' + cluster + '</div>';
-    Object.keys(grupos[cluster]).sort().forEach(sub => {
-      grupos[cluster][sub].sort((a,b) => a.piscina.localeCompare(b.piscina,'es',{numeric:true})).forEach(c => {
-        const diasLabel = c.diasCiclo > 0 ? c.diasCiclo + ' días' : '—';
-        const haDay = c.ha > 0 && c.diasCiclo > 0 ? c.costo / (c.ha * c.diasCiclo) : null;
+  // KPIs globales
+  const haDay = grandHa > 0
+    ? grandCosto / grandHa / (lista.reduce((s,c) => s + (c.diasCiclo||30), 0) / lista.length)
+    : null;
+
+  let html = `
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="kpi-label">Total Consumo</div><div class="kpi-value green">${fmt$(grandCosto)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Ciclos</div><div class="kpi-value blue">${lista.length}</div></div>
+      <div class="kpi-card"><div class="kpi-label">$/Ha</div><div class="kpi-value">${grandHa > 0 && grandCosto > 0 ? fmt$(grandCosto/grandHa) : '—'}</div></div>
+    </div>`;
+
+  lista.sort((a,b) => a.piscina.localeCompare(b.piscina,'es',{numeric:true})).forEach(c => {
+    const rows  = _consumos[c.idCiclo] || [];
+    const dias  = c.diasCiclo || 30;
+    const haDay = c.ha > 0 && dias > 0 ? c.costo / (c.ha * dias) : null;
+
+    html += `
+      <div class="cycle-card">
+        <div class="cycle-header">
+          <div class="cycle-badge${c.estado==='SECA'?' seca':''}">${c.estado||'PROD'}</div>
+          <div class="cycle-info">
+            <div class="cycle-code">${c.codigo}</div>
+            <div class="cycle-sub">${c.subName}</div>
+          </div>
+          <div class="cycle-cost">
+            <div class="cycle-cost-val">${c.costo > 0 ? fmt$(c.costo) : '—'}</div>
+            <div class="cycle-cost-ha">${c.ha > 0 && c.costo > 0 ? fmt$(c.costo/c.ha)+'/Ha' : 'Sin consumo'}</div>
+          </div>
+        </div>
+        <div class="cycle-pills">
+          <div class="pill">🌊 <span>${c.piscina}</span></div>
+          <div class="pill">📐 <span>${fmt2(c.ha)} Ha</span></div>
+          <div class="pill">📅 <span>${dias} días</span></div>
+          ${haDay !== null ? '<div class="pill">💰 <span>$'+fmt2(haDay)+'/Ha/día</span></div>' : ''}
+        </div>`;
+
+    // Materiales
+    if (rows.length) {
+      const mats = {};
+      rows.forEach(r => {
+        const k = r.codigo_material || '(sin código)';
+        if (!mats[k]) mats[k] = { code: r.codigo_material||'', desc: r.descripcion||'', unidad: r.unidad||'', costo: 0, cant: 0 };
+        mats[k].costo += r.importe  || 0;
+        mats[k].cant  += r.cantidad || 0;
+      });
+      const matArr  = Object.values(mats).sort((a,b) => b.costo - a.costo);
+      const maxCosto = matArr[0]?.costo || 1;
+
+      html += '<div class="mat-section-title">Insumos</div>';
+      matArr.forEach(m => {
+        const pct = Math.round((m.costo / maxCosto) * 100);
         html += `
-          <div class="cycle-card" onclick="abrirDetalle('${c.idCiclo}')">
-            <div class="cycle-card-header">
-              <div class="cycle-badge${c.estado==='SECA'?' seca':''}">${c.estado||'ACTIVO'}</div>
-              <div class="cycle-info">
-                <div class="cycle-code">${c.codigo}</div>
-                <div class="cycle-sub">${c.subName}</div>
-              </div>
-              <div class="cycle-costo">
-                <div class="cycle-costo-val">${c.costo > 0 ? fmt$(c.costo) : '—'}</div>
-                <div class="cycle-costo-ha">${c.ha > 0 && c.costo > 0 ? fmt$(c.costo/c.ha)+'/Ha' : c.loaded ? 'Sin consumo' : '...'}</div>
-              </div>
+          <div class="mat-row">
+            <div class="mat-icon">${matIcon(m.desc)}</div>
+            <div class="mat-info">
+              <div class="mat-name">${m.desc||m.code}</div>
+              <div class="mat-code">${m.code} · ${fmt2(m.cant)} ${m.unidad}</div>
+              <div class="mat-bar-wrap"><div class="mat-bar" style="width:${pct}%"></div></div>
             </div>
-            <div class="cycle-meta">
-              <div class="meta-pill">🌊 <span>${c.piscina}</span></div>
-              <div class="meta-pill">📐 <span>${fmt2(c.ha)} Ha</span></div>
-              <div class="meta-pill">📅 <span>${diasLabel}</span></div>
-              ${haDay !== null ? '<div class="meta-pill">💰 <span>$'+fmt2(haDay)+'/Ha/día</span></div>' : ''}
+            <div class="mat-nums">
+              <div class="mat-costo">${fmt$(m.costo)}</div>
+              <div class="mat-ha">${c.ha > 0 ? '$'+fmt2(m.costo/c.ha)+'/Ha' : ''}</div>
             </div>
           </div>`;
       });
-    });
-  });
-
-  cont.innerHTML = html;
-
-  // Cargar consumos en background para los ciclos visibles
-  lista.forEach(c => {
-    if (!c.loaded) cargarConsumoCiclo(c.idCiclo);
-  });
-}
-
-// ── Carga consumo de un ciclo ─────────────────────────────────────────────────
-async function cargarConsumoCiclo(idCiclo) {
-  const ciclo = _ciclos.find(c => c.idCiclo === idCiclo);
-  if (!ciclo || ciclo.loaded) return;
-  ciclo.loaded = true;
-  try {
-    const r = await apiFetch('/db/consumo-insumos?idCiclo=' + idCiclo);
-    const rows = r.data || [];
-    _consumos[idCiclo] = rows;
-    ciclo.costo = rows.reduce((s,r) => s + (r.importe || 0), 0);
-    // Actualizar card si está visible
-    renderLista();
-  } catch(e) {
-    ciclo.loaded = false; // retry allowed
-  }
-}
-
-// ── Detalle ──────────────────────────────────────────────────────────────────
-async function abrirDetalle(idCiclo) {
-  const ciclo = _ciclos.find(c => c.idCiclo === idCiclo);
-  if (!ciclo) return;
-
-  document.getElementById('view-list').style.display = 'none';
-  const vd = document.getElementById('view-detail');
-  vd.style.display = 'flex';
-  document.getElementById('btn-back').style.display = 'block';
-  document.getElementById('detail-title').textContent = ciclo.codigo;
-  document.getElementById('detail-mats').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  document.getElementById('detail-kpis').innerHTML = '';
-
-  // Cargar si no hay datos
-  if (!_consumos[idCiclo]) {
-    try {
-      const r = await apiFetch('/db/consumo-insumos?idCiclo=' + idCiclo);
-      _consumos[idCiclo] = r.data || [];
-      ciclo.costo = (_consumos[idCiclo] || []).reduce((s,r) => s + (r.importe || 0), 0);
-      ciclo.loaded = true;
-    } catch(e) {
-      document.getElementById('detail-mats').innerHTML =
-        '<div class="empty"><div class="empty-icon">⚠️</div>Error al cargar detalle.</div>';
-      return;
+    } else {
+      html += '<div style="padding:10px 14px 12px;font-size:12px;color:var(--muted)">Sin consumos registrados</div>';
     }
-  }
 
-  const rows = _consumos[idCiclo] || [];
-  if (!rows.length) {
-    document.getElementById('detail-mats').innerHTML =
-      '<div class="empty"><div class="empty-icon">📭</div>Sin consumos registrados para este ciclo.</div>';
-    renderDetailKpis(ciclo, rows);
-    return;
-  }
-
-  // Agrupar por material
-  const mats = {};
-  rows.forEach(r => {
-    const k = r.codigo_material || '(sin código)';
-    if (!mats[k]) mats[k] = { code: r.codigo_material||'', desc: r.descripcion||r.codigo_material||'', unidad: r.unidad||'', costo: 0, cant: 0 };
-    mats[k].costo += r.importe || 0;
-    mats[k].cant  += r.cantidad || 0;
+    html += '</div>'; // cycle-card
   });
 
-  const matArr = Object.values(mats).sort((a,b) => b.costo - a.costo);
-  const maxCosto = matArr[0]?.costo || 1;
-
-  let html = '';
-  matArr.forEach(m => {
-    const pct = Math.round((m.costo / maxCosto) * 100);
-    html += `
-      <div class="mat-row">
-        <div class="mat-icon">${matIcon(m.desc)}</div>
-        <div class="mat-info">
-          <div class="mat-name">${m.desc}</div>
-          <div class="mat-code">${m.code} · ${fmt2(m.cant)} ${m.unidad}</div>
-          <div class="mat-bar-wrap"><div class="mat-bar" style="width:${pct}%"></div></div>
-        </div>
-        <div class="mat-nums">
-          <div class="mat-costo">${fmt$(m.costo)}</div>
-          <div class="mat-cant">${ciclo.ha > 0 ? '$'+fmt2(m.costo/ciclo.ha)+'/Ha' : ''}</div>
-        </div>
-      </div>`;
-  });
-
-  document.getElementById('detail-mats').innerHTML = html;
-  renderDetailKpis(ciclo, rows);
+  document.getElementById('result-scroll').innerHTML = html;
 }
 
-function renderDetailKpis(ciclo, rows) {
-  const totalCosto = rows.reduce((s,r) => s + (r.importe||0), 0);
-  const haDay = ciclo.ha > 0 && ciclo.diasCiclo > 0 ? totalCosto / (ciclo.ha * ciclo.diasCiclo) : null;
-  const nMats = new Set(rows.map(r => r.codigo_material)).size;
-  document.getElementById('detail-kpis').innerHTML = `
-    <div class="dkpi"><div class="dkpi-label">Costo Total</div><div class="dkpi-value green">${fmt$(totalCosto)}</div></div>
-    <div class="dkpi"><div class="dkpi-label">$/Ha</div><div class="dkpi-value">${ciclo.ha > 0 && totalCosto > 0 ? fmt$(totalCosto/ciclo.ha) : '—'}</div></div>
-    <div class="dkpi"><div class="dkpi-label">$/Ha/Día</div><div class="dkpi-value ${haDay > 2.67 ? 'red' : ''}">${haDay !== null ? '$'+fmt2(haDay) : '—'}</div></div>
-    <div class="dkpi"><div class="dkpi-label">Ha</div><div class="dkpi-value">${fmt2(ciclo.ha)}</div></div>
-    <div class="dkpi"><div class="dkpi-label">Días</div><div class="dkpi-value">${ciclo.diasCiclo || '—'}</div></div>
-    <div class="dkpi"><div class="dkpi-label">Insumos</div><div class="dkpi-value">${nMats}</div></div>
-  `;
-}
-
-function volverLista() {
-  document.getElementById('view-detail').style.display = 'none';
-  document.getElementById('view-list').style.display = 'flex';
+function volverFiltros() {
+  document.getElementById('view-result').style.display = 'none';
+  document.getElementById('view-search').style.display = 'flex';
   document.getElementById('btn-back').style.display = 'none';
 }
 
-async function recargar() {
-  _ciclos = [];
-  _consumos = {};
-  _clusterSel = '';
-  document.querySelectorAll('.filter-chip').forEach((c,i) => { if (i===0) c.classList.add('active'); else c.classList.remove('active'); });
-  document.getElementById('list-content').innerHTML = '<div class="loading"><div class="spinner"></div>Recargando…</div>';
-  document.getElementById('cluster-filters').querySelectorAll('.filter-chip:not([data-cluster=""])').forEach(c => c.remove());
-  showToast('Actualizando…');
-  await init();
-}
-
-// ── PWA Service Worker ───────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
-// ── Arranque ─────────────────────────────────────────────────────────────────
 init();
 </script>
 </body>
