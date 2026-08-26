@@ -235,7 +235,7 @@ html, body { height: 100%; background: var(--navy-dark); color: var(--text);
         </select>
       </div>
 
-      <button class="btn-buscar" id="btn-buscar" onclick="buscar()">Buscar</button>
+      <button class="btn-buscar" id="btn-buscar" onclick="buscar()">🔍 Buscar</button>
     </div>
   </div>
 </div>
@@ -432,6 +432,12 @@ async function buscar() {
   const pool    = document.getElementById('sel-pool').value;
   const cicloId = document.getElementById('sel-ciclo').value;
 
+  // Requiere al menos sucursal seleccionada para no cargar todo
+  if (!subId && !cicloId) {
+    toast('Selecciona al menos una sucursal');
+    return;
+  }
+
   // Filtrar ciclos según selección
   let lista = _ciclos;
   if (subId)   lista = lista.filter(c => c.subId === subId);
@@ -439,6 +445,12 @@ async function buscar() {
   if (cicloId) lista = lista.filter(c => String(c.idCiclo) === cicloId);
 
   if (!lista.length) { toast('Sin ciclos con esos filtros'); return; }
+
+  // Límite de seguridad: máximo 20 ciclos a la vez
+  if (lista.length > 20) {
+    toast('Demasiados ciclos (' + lista.length + '). Selecciona piscina o ciclo específico.');
+    return;
+  }
 
   // Título
   let titulo = cicloId
@@ -456,13 +468,13 @@ async function buscar() {
   vr.style.display = 'flex';
   document.getElementById('btn-back').style.display = 'block';
 
-  // Cargar consumos de los ciclos
+  // Cargar consumos de los ciclos (secuencial para no saturar)
   try {
-    await Promise.all(lista.map(async c => {
-      if (_consumos[c.idCiclo]) return;
+    for (const c of lista) {
+      if (_consumos[c.idCiclo]) continue;
       const r = await get('/db/consumo-insumos?idCiclo=' + c.idCiclo);
       _consumos[c.idCiclo] = r.data || [];
-    }));
+    }
   } catch(e) {
     document.getElementById('result-scroll').innerHTML =
       '<div class="empty"><div class="empty-icon">⚠️</div>Error al cargar consumos.<br><small>' + e.message + '</small></div>';
