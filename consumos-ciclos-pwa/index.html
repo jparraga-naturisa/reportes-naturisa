@@ -164,10 +164,46 @@ html, body { height: 100%; background: var(--navy-dark); color: var(--text);
 </head>
 <body>
 
+<!-- ══ VISTA: LOGIN ══ -->
+<div id="view-login" style="display:flex;flex-direction:column;height:100%;align-items:center;justify-content:center;padding:32px 24px;">
+  <div style="width:100%;max-width:360px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="font-size:48px;margin-bottom:10px;">🦐</div>
+      <div style="font-size:22px;font-weight:800;color:var(--text);">Consumos por Ciclo</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px;">Naturisa · Inicia sesión para continuar</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Usuario</label>
+        <input id="login-user" type="text" autocomplete="username" placeholder="Usuario AP1"
+          style="width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:13px 14px;font-size:15px;color:var(--text);outline:none;"
+          onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'"
+          onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Contraseña</label>
+        <input id="login-pass" type="password" autocomplete="current-password" placeholder="Contraseña"
+          style="width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:13px 14px;font-size:15px;color:var(--text);outline:none;"
+          onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div id="login-error" style="font-size:13px;color:#f87171;text-align:center;min-height:18px;"></div>
+      <button id="login-btn" onclick="doLogin()"
+        style="background:var(--accent);color:#fff;border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;width:100%;transition:opacity .15s;">
+        Ingresar
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ VISTA: FILTROS ══ -->
-<div id="view-search">
+<div id="view-search" style="display:none;">
   <div class="app-header">
     <h1>🦐 Consumos por Ciclo</h1>
+    <button type="button" onclick="cerrarSesion()" title="Cerrar sesión"
+      style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:4px 6px;">
+      ⎋ Salir
+    </button>
   </div>
 
   <div id="init-loader" class="init-loading">
@@ -218,12 +254,60 @@ html, body { height: 100%; background: var(--navy-dark); color: var(--text);
 <div class="toast" id="toast"></div>
 
 <script>
-const PROXY  = 'https://naturisa-proxy.parragajonathan965.workers.dev';
-const API_KEY = 'nat-2024-x9k2p';
+const PROXY    = 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const API_KEY  = 'nat-2024-x9k2p';
+const AUTH_URL = PROXY + '/bff/web/ap1/security/api/auth';
+const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
 
 let _subs   = [];
 let _ciclos = [];
 let _consumos = {};
+let _natToken = null;
+
+// ── Login ────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const user = document.getElementById('login-user').value.trim();
+  const pass = document.getElementById('login-pass').value.trim();
+  const err  = document.getElementById('login-error');
+  const btn  = document.getElementById('login-btn');
+  if (!user || !pass) { err.textContent = 'Ingresa usuario y contraseña'; return; }
+  btn.textContent = 'Ingresando…'; btn.disabled = true; err.textContent = '';
+  try {
+    const res  = await fetch(AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ userName: user, password: pass, codeApplication: CODE_APP, includeUserInfo: true })
+    });
+    const json = await res.json();
+    if (json.code === 200 && json.data?.token) {
+      _natToken = json.data.token;
+      localStorage.setItem('nat_token', _natToken);
+      localStorage.setItem('nat_user', user);
+      const u = json.data.usuario;
+      localStorage.setItem('nat_name', u ? (u.firstNames + ' ' + u.lastNames).trim() : user);
+      document.getElementById('view-login').style.display   = 'none';
+      document.getElementById('view-search').style.display  = 'flex';
+      init();
+    } else {
+      err.textContent = '⚠ Usuario o contraseña incorrectos';
+    }
+  } catch(e) {
+    err.textContent = '⚠ Error de conexión: ' + e.message;
+  } finally {
+    btn.textContent = 'Ingresar'; btn.disabled = false;
+  }
+}
+
+function checkSession() {
+  const t = localStorage.getItem('nat_token');
+  if (t) {
+    _natToken = t;
+    document.getElementById('view-login').style.display  = 'none';
+    document.getElementById('view-search').style.display = 'flex';
+    return true;
+  }
+  return false;
+}
 
 const fmt$ = v => v >= 1000
   ? '$' + (v/1000).toLocaleString('es-EC',{minimumFractionDigits:1,maximumFractionDigits:1}) + 'k'
@@ -480,6 +564,16 @@ function renderResultado(lista) {
   document.getElementById('result-scroll').innerHTML = html;
 }
 
+function cerrarSesion() {
+  localStorage.removeItem('nat_token');
+  _natToken = null; _subs = []; _ciclos = []; _consumos = {};
+  document.getElementById('view-search').style.display = 'none';
+  document.getElementById('view-result').style.display = 'none';
+  document.getElementById('view-login').style.display  = 'flex';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-error').textContent = '';
+}
+
 function volverFiltros() {
   document.getElementById('view-result').style.display = 'none';
   document.getElementById('view-search').style.display = 'flex';
@@ -490,7 +584,14 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
-init();
+// Arranque: verificar sesión guardada o mostrar login
+if (!checkSession()) {
+  // Pre-fill usuario guardado
+  const u = localStorage.getItem('nat_user');
+  if (u) document.getElementById('login-user').value = u;
+} else {
+  init();
+}
 </script>
 </body>
 </html>
