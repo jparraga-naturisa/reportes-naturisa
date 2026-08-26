@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e3a5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ciclos">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Consumos por Ciclo</title>
+<style>
+:root {
+  --navy: #1e3a5f;
+  --navy-dark: #0f172a;
+  --navy-mid: #1e293b;
+  --accent: #3b82f6;
+  --accent-light: #dbeafe;
+  --green: #065f46;
+  --green-light: #d1fae5;
+  --red: #dc2626;
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --card: #1e293b;
+  --card2: #0f172a;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%;
+  background: var(--navy-dark);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.app-header {
+  background: var(--navy);
+  padding: calc(var(--safe-top) + 14px) 16px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+.app-header h1 {
+  font-size: 17px;
+  font-weight: 700;
+  flex: 1;
+  letter-spacing: -.2px;
+}
+.btn-back {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 2px 4px;
+  display: none;
+}
+.btn-refresh {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+}
+.btn-refresh:active { opacity: .5; }
+
+/* ── Filtros ── */
+.filters {
+  background: var(--navy-mid);
+  padding: 10px 12px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+.filters::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  background: var(--navy-dark);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+.filter-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ── Search bar ── */
+.search-bar {
+  background: var(--navy-mid);
+  padding: 8px 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.search-input {
+  width: 100%;
+  background: var(--navy-dark);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px 8px 34px;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 10px center;
+}
+.search-input::placeholder { color: var(--text-muted); }
+
+/* ── Scroll container ── */
+.scroll-view {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(var(--safe-bot) + 16px);
+}
+
+/* ── KPI bar ── */
+.kpi-bar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.kpi-bar::-webkit-scrollbar { display: none; }
+.kpi-card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 10px 14px;
+  flex: 1;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+.kpi-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.kpi-value { font-size: 18px; font-weight: 800; color: var(--text); }
+.kpi-value.green { color: #34d399; }
+.kpi-value.blue { color: #60a5fa; }
+
+/* ── Lista de ciclos ── */
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  padding: 12px 12px 4px;
+}
+
+.cycle-card {
+  margin: 4px 10px;
+  background: var(--card);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .1s;
+  border: 1px solid var(--border);
+}
+.cycle-card:active { transform: scale(.98); }
+
+.cycle-card-header {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cycle-badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.cycle-badge.seca { background: #64748b; }
+.cycle-info { flex: 1; min-width: 0; }
+.cycle-code { font-size: 14px; font-weight: 700; color: var(--text); }
+.cycle-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cycle-costo {
+  text-align: right;
+  flex-shrink: 0;
+}
+.cycle-costo-val { font-size: 16px; font-weight: 800; color: #34d399; }
+.cycle-costo-ha { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+.cycle-meta {
+  padding: 0 14px 10px;
+  display: flex;
+  gap: 12px;
+}
+.meta-pill {
+  background: var(--navy-dark);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.meta-pill span { color: var(--text); font-weight: 600; }
+
+/* ── Vista Detalle ── */
+#view-detail { display: none; flex-direction: column; height: 100%; }
+#view-list   { display: flex; flex-direction: column; height: 100%; }
+
+.detail-kpi-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.detail-kpi-row::-webkit-scrollbar { display: none; }
+.dkpi {
+  background: var(--card);
+  border-radius: 10px;
+  padding: 8px 12px;
+  flex: 1;
+  min-width: 80px;
+  flex-shrink: 0;
+  text-align: center;
+}
+.dkpi-label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; }
+.dkpi-value { font-size: 15px; font-weight: 800; color: var(--text); margin-top: 2px; }
+.dkpi-value.green { color: #34d399; }
+
+/* ── Tabla de materiales ── */
+.mat-list { padding: 0 10px; }
+
+.mat-row {
+  background: var(--card);
+  border-radius: 12px;
+  margin-bottom: 6px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mat-icon {
+  width: 36px; height: 36px;
+  background: var(--navy);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.mat-info { flex: 1; min-width: 0; }
+.mat-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
+.mat-code { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+.mat-nums { text-align: right; flex-shrink: 0; }
+.mat-costo { font-size: 15px; font-weight: 800; color: #34d399; }
+.mat-cant { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Barra de progreso de insumos ── */
+.mat-bar-wrap {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.mat-bar { height: 100%; background: var(--accent); border-radius: 2px; }
+
+/* ── Loading / Empty ── */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 14px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px; }
+.empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: calc(var(--safe-bot) + 20px);
+  left: 50%; transform: translateX(-50%);
+  background: #1e293b;
+  color: var(--text);
+  padding: 10px 18px;
+  border-radius: 20px;
+  font-size: 13px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  z-index: 999;
+  opacity: 0;
+  transition: opacity .2s;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; }
+
+/* ── Pull to refresh indicator ── */
+.pull-indicator {
+  text-align: center;
+  padding: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  display: none;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ VISTA LISTA ═══ -->
+<div id="view-list">
+  <div class="app-header">
+    <h1>🦐 Consumos por Ciclo</h1>
+    <button class="btn-refresh" onclick="recargar()" title="Recargar">↻</button>
+  </div>
+
+  <!-- Filtros cluster -->
+  <div class="filters" id="cluster-filters">
+    <div class="filter-chip active" data-cluster="" onclick="selCluster(this)">Todos</div>
+  </div>
+
+  <!-- Buscador -->
+  <div class="search-bar">
+    <input class="search-input" type="search" id="search-input" placeholder="Buscar ciclo, piscina, sucursal…" oninput="renderLista()">
+  </div>
+
+  <div class="scroll-view" id="list-scroll">
+    <div class="pull-indicator" id="pull-indicator">↓ Cargando…</div>
+    <div id="kpi-bar" class="kpi-bar" style="display:none">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Consumo</div>
+        <div class="kpi-value green" id="kpi-total">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Ciclos</div>
+        <div class="kpi-value blue" id="kpi-ciclos">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">$/Ha Promedio</div>
+        <div class="kpi-value" id="kpi-ha">—</div>
+      </div>
+    </div>
+    <div id="list-content">
+      <div class="loading"><div class="spinner"></div>Cargando datos…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ VISTA DETALLE ═══ -->
+<div id="view-detail">
+  <div class="app-header">
+    <button class="btn-back" id="btn-back" onclick="volverLista()">‹</button>
+    <h1 id="detail-title">Ciclo</h1>
+  </div>
+
+  <div class="scroll-view">
+    <div class="detail-kpi-row" id="detail-kpis"></div>
+    <div class="section-title">Insumos consumidos</div>
+    <div class="mat-list" id="detail-mats">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const _PROXY = 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const API_KEY = 'nat-2024-x9k2p';
+
+// ── Estado ──────────────────────────────────────────────────────────────────
+let _subs      = [];   // { id, name, codigo, cluster }
+let _ciclos    = [];   // filas de D1
+let _consumos  = {};   // cache: idCiclo → [{m,d,q,i,u,o,a,fecha}]
+let _clusterSel = '';
+let _ciclosData = []; // ciclos enriquecidos
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+const fmt$ = v => v >= 1000
+  ? '$' + (v/1000).toLocaleString('es-EC', {minimumFractionDigits:1, maximumFractionDigits:1}) + 'k'
+  : '$' + v.toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+const fmt2 = v => v.toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+function matIcon(desc) {
+  const d = (desc||'').toLowerCase();
+  if (d.includes('balanceado') || d.includes('alimento')) return '🐟';
+  if (d.includes('oxigeno') || d.includes('oxíge'))      return '💨';
+  if (d.includes('calcio') || d.includes('carbonato'))   return '🪨';
+  if (d.includes('cloro') || d.includes('clor'))         return '🧪';
+  if (d.includes('dolomita'))                            return '⛰️';
+  if (d.includes('probiotico') || d.includes('probiót')) return '🦠';
+  if (d.includes('vitamina'))                            return '💊';
+  if (d.includes('larva') || d.includes('nauplio'))      return '🦐';
+  if (d.includes('diesel') || d.includes('combustible')) return '⛽';
+  return '📦';
+}
+
+async function apiFetch(path) {
+  const r = await fetch(_PROXY + path, {
+    headers: { 'X-Api-Key': API_KEY }
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+function showToast(msg, ms = 2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+
+// ── Carga inicial ────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const [rSubs, rCiclos] = await Promise.all([
+      apiFetch('/db-sucursales'),
+      apiFetch('/db-ciclos?estado=ACTIVO'),
+    ]);
+
+    _subs = (rSubs.data || rSubs).map(s => ({
+      id: s.id, name: s.nombre, codigo: s.codigo, cluster: s.cluster || null
+    }));
+
+    const subById = Object.fromEntries(_subs.map(s => [String(s.id), s]));
+
+    _ciclos = (rCiclos.data || rCiclos).map(c => {
+      const sub = subById[String(c.id_sucursal)] || {};
+      return {
+        idCiclo:    c.id_ciclo,
+        codigo:     c.codigo_ciclo || String(c.id_ciclo),
+        piscina:    c.nombre_piscina || '',
+        ha:         c.tamano_piscina || 0,
+        estado:     c.estado || '',
+        diasCiclo:  c.dias_ciclo || c.dias_produccion || 0,
+        subId:      c.id_sucursal,
+        subName:    sub.name || c.codigo_sucursal || '',
+        cluster:    sub.cluster || null,
+        costo:      0,
+        loaded:     false,
+      };
+    });
+
+    // Clusters únicos
+    const clusters = [...new Set(_ciclos.map(c => c.cluster).filter(Boolean))].sort((a,b) => a.localeCompare(b,'es'));
+    const filtersEl = document.getElementById('cluster-filters');
+    clusters.forEach(cl => {
+      const chip = document.createElement('div');
+      chip.className = 'filter-chip';
+      chip.dataset.cluster = cl;
+      chip.textContent = cl;
+      chip.onclick = function() { selCluster(this); };
+      filtersEl.appendChild(chip);
+    });
+
+    renderLista();
+  } catch(e) {
+    document.getElementById('list-content').innerHTML =
+      '<div class="empty"><div class="empty-icon">⚠️</div>Error al cargar datos.<br><small>' + e.message + '</small></div>';
+  }
+}
+
+// ── Filtros ──────────────────────────────────────────────────────────────────
+function selCluster(chip) {
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  _clusterSel = chip.dataset.cluster;
+  renderLista();
+}
+
+function ciclosFiltrados() {
+  const q = (document.getElementById('search-input').value || '').toLowerCase().trim();
+  return _ciclos.filter(c => {
+    if (_clusterSel && c.cluster !== _clusterSel) return false;
+    if (q) {
+      const hay = (c.codigo + ' ' + c.piscina + ' ' + c.subName).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+// ── Render lista ─────────────────────────────────────────────────────────────
+function renderLista() {
+  const lista = ciclosFiltrados();
+  const cont  = document.getElementById('list-content');
+  const kpiBar = document.getElementById('kpi-bar');
+
+  if (!lista.length && _ciclos.length === 0) {
+    cont.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando…</div>';
+    return;
+  }
+  if (!lista.length) {
+    kpiBar.style.display = 'none';
+    cont.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>Sin resultados</div>';
+    return;
+  }
+
+  // KPIs
+  const totalCosto = lista.reduce((s,c) => s + (c.costo||0), 0);
+  const totalHa    = lista.reduce((s,c) => s + (c.ha||0), 0);
+  kpiBar.style.display = 'flex';
+  document.getElementById('kpi-total').textContent  = fmt$(totalCosto);
+  document.getElementById('kpi-ciclos').textContent  = lista.length;
+  document.getElementById('kpi-ha').textContent      = totalHa > 0 ? fmt$(totalCosto / totalHa) : '—';
+
+  // Agrupar por cluster → sucursal
+  const grupos = {};
+  lista.forEach(c => {
+    const gk = c.cluster || 'Sin cluster';
+    if (!grupos[gk]) grupos[gk] = {};
+    const sk = c.subName || 'Sin sucursal';
+    if (!grupos[gk][sk]) grupos[gk][sk] = [];
+    grupos[gk][sk].push(c);
+  });
+
+  let html = '';
+  Object.keys(grupos).sort().forEach(cluster => {
+    html += '<div class="section-title">' + cluster + '</div>';
+    Object.keys(grupos[cluster]).sort().forEach(sub => {
+      grupos[cluster][sub].sort((a,b) => a.piscina.localeCompare(b.piscina,'es',{numeric:true})).forEach(c => {
+        const diasLabel = c.diasCiclo > 0 ? c.diasCiclo + ' días' : '—';
+        const haDay = c.ha > 0 && c.diasCiclo > 0 ? c.costo / (c.ha * c.diasCiclo) : null;
+        html += `
+          <div class="cycle-card" onclick="abrirDetalle('${c.idCiclo}')">
+            <div class="cycle-card-header">
+              <div class="cycle-badge${c.estado==='SECA'?' seca':''}">${c.estado||'ACTIVO'}</div>
+              <div class="cycle-info">
+                <div class="cycle-code">${c.codigo}</div>
+                <div class="cycle-sub">${c.subName}</div>
+              </div>
+              <div class="cycle-costo">
+                <div class="cycle-costo-val">${c.costo > 0 ? fmt$(c.costo) : '—'}</div>
+                <div class="cycle-costo-ha">${c.ha > 0 && c.costo > 0 ? fmt$(c.costo/c.ha)+'/Ha' : c.loaded ? 'Sin consumo' : '...'}</div>
+              </div>
+            </div>
+            <div class="cycle-meta">
+              <div class="meta-pill">🌊 <span>${c.piscina}</span></div>
+              <div class="meta-pill">📐 <span>${fmt2(c.ha)} Ha</span></div>
+              <div class="meta-pill">📅 <span>${diasLabel}</span></div>
+              ${haDay !== null ? '<div class="meta-pill">💰 <span>$'+fmt2(haDay)+'/Ha/día</span></div>' : ''}
+            </div>
+          </div>`;
+      });
+    });
+  });
+
+  cont.innerHTML = html;
+
+  // Cargar consumos en background para los ciclos visibles
+  lista.forEach(c => {
+    if (!c.loaded) cargarConsumoCiclo(c.idCiclo);
+  });
+}
+
+// ── Carga consumo de un ciclo ─────────────────────────────────────────────────
+async function cargarConsumoCiclo(idCiclo) {
+  const ciclo = _ciclos.find(c => c.idCiclo === idCiclo);
+  if (!ciclo || ciclo.loaded) return;
+  ciclo.loaded = true;
+  try {
+    const r = await apiFetch('/db-consumo-insumos?idCiclo=' + idCiclo);
+    const rows = r.data || [];
+    _consumos[idCiclo] = rows;
+    ciclo.costo = rows.reduce((s,r) => s + (r.importe || 0), 0);
+    // Actualizar card si está visible
+    renderLista();
+  } catch(e) {
+    ciclo.loaded = false; // retry allowed
+  }
+}
+
+// ── Detalle ──────────────────────────────────────────────────────────────────
+async function abrirDetalle(idCiclo) {
+  const ciclo = _ciclos.find(c => c.idCiclo === idCiclo);
+  if (!ciclo) return;
+
+  document.getElementById('view-list').style.display = 'none';
+  const vd = document.getElementById('view-detail');
+  vd.style.display = 'flex';
+  document.getElementById('btn-back').style.display = 'block';
+  document.getElementById('detail-title').textContent = ciclo.codigo;
+  document.getElementById('detail-mats').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  document.getElementById('detail-kpis').innerHTML = '';
+
+  // Cargar si no hay datos
+  if (!_consumos[idCiclo]) {
+    try {
+      const r = await apiFetch('/db-consumo-insumos?idCiclo=' + idCiclo);
+      _consumos[idCiclo] = r.data || [];
+      ciclo.costo = (_consumos[idCiclo] || []).reduce((s,r) => s + (r.importe || 0), 0);
+      ciclo.loaded = true;
+    } catch(e) {
+      document.getElementById('detail-mats').innerHTML =
+        '<div class="empty"><div class="empty-icon">⚠️</div>Error al cargar detalle.</div>';
+      return;
+    }
+  }
+
+  const rows = _consumos[idCiclo] || [];
+  if (!rows.length) {
+    document.getElementById('detail-mats').innerHTML =
+      '<div class="empty"><div class="empty-icon">📭</div>Sin consumos registrados para este ciclo.</div>';
+    renderDetailKpis(ciclo, rows);
+    return;
+  }
+
+  // Agrupar por material
+  const mats = {};
+  rows.forEach(r => {
+    const k = r.codigo_material || '(sin código)';
+    if (!mats[k]) mats[k] = { code: r.codigo_material||'', desc: r.descripcion||r.codigo_material||'', unidad: r.unidad||'', costo: 0, cant: 0 };
+    mats[k].costo += r.importe || 0;
+    mats[k].cant  += r.cantidad || 0;
+  });
+
+  const matArr = Object.values(mats).sort((a,b) => b.costo - a.costo);
+  const maxCosto = matArr[0]?.costo || 1;
+
+  let html = '';
+  matArr.forEach(m => {
+    const pct = Math.round((m.costo / maxCosto) * 100);
+    html += `
+      <div class="mat-row">
+        <div class="mat-icon">${matIcon(m.desc)}</div>
+        <div class="mat-info">
+          <div class="mat-name">${m.desc}</div>
+          <div class="mat-code">${m.code} · ${fmt2(m.cant)} ${m.unidad}</div>
+          <div class="mat-bar-wrap"><div class="mat-bar" style="width:${pct}%"></div></div>
+        </div>
+        <div class="mat-nums">
+          <div class="mat-costo">${fmt$(m.costo)}</div>
+          <div class="mat-cant">${ciclo.ha > 0 ? '$'+fmt2(m.costo/ciclo.ha)+'/Ha' : ''}</div>
+        </div>
+      </div>`;
+  });
+
+  document.getElementById('detail-mats').innerHTML = html;
+  renderDetailKpis(ciclo, rows);
+}
+
+function renderDetailKpis(ciclo, rows) {
+  const totalCosto = rows.reduce((s,r) => s + (r.importe||0), 0);
+  const haDay = ciclo.ha > 0 && ciclo.diasCiclo > 0 ? totalCosto / (ciclo.ha * ciclo.diasCiclo) : null;
+  const nMats = new Set(rows.map(r => r.codigo_material)).size;
+  document.getElementById('detail-kpis').innerHTML = `
+    <div class="dkpi"><div class="dkpi-label">Costo Total</div><div class="dkpi-value green">${fmt$(totalCosto)}</div></div>
+    <div class="dkpi"><div class="dkpi-label">$/Ha</div><div class="dkpi-value">${ciclo.ha > 0 && totalCosto > 0 ? fmt$(totalCosto/ciclo.ha) : '—'}</div></div>
+    <div class="dkpi"><div class="dkpi-label">$/Ha/Día</div><div class="dkpi-value ${haDay > 2.67 ? 'red' : ''}">${haDay !== null ? '$'+fmt2(haDay) : '—'}</div></div>
+    <div class="dkpi"><div class="dkpi-label">Ha</div><div class="dkpi-value">${fmt2(ciclo.ha)}</div></div>
+    <div class="dkpi"><div class="dkpi-label">Días</div><div class="dkpi-value">${ciclo.diasCiclo || '—'}</div></div>
+    <div class="dkpi"><div class="dkpi-label">Insumos</div><div class="dkpi-value">${nMats}</div></div>
+  `;
+}
+
+function volverLista() {
+  document.getElementById('view-detail').style.display = 'none';
+  document.getElementById('view-list').style.display = 'flex';
+  document.getElementById('btn-back').style.display = 'none';
+}
+
+async function recargar() {
+  _ciclos = [];
+  _consumos = {};
+  _clusterSel = '';
+  document.querySelectorAll('.filter-chip').forEach((c,i) => { if (i===0) c.classList.add('active'); else c.classList.remove('active'); });
+  document.getElementById('list-content').innerHTML = '<div class="loading"><div class="spinner"></div>Recargando…</div>';
+  document.getElementById('cluster-filters').querySelectorAll('.filter-chip:not([data-cluster=""])').forEach(c => c.remove());
+  showToast('Actualizando…');
+  await init();
+}
+
+// ── PWA Service Worker ───────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ── Arranque ─────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
