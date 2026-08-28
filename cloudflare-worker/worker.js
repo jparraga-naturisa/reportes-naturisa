@@ -560,6 +560,134 @@ async function handleDbConsumoInsumos(request, url, env) {
   return corsResponse(JSON.stringify({ data: results }), 200, request)
 }
 
+// ── Ha manuales históricas (D1: tabla ha_manual) ─────────────────────────────
+// GET  /db/ha-manual            -> {data:[{camp_code,mes,ha},...]}
+// POST /db/ha-manual/sync       -> upsert masivo, body {filas:[{camp_code,mes,ha},...]}
+// Reemplaza el _HA_SEED/localStorage de la web con D1 como fuente única.
+
+async function handleDbHaManual(request, env) {
+  await env.db.prepare(
+    `CREATE TABLE IF NOT EXISTS ha_manual (camp_code TEXT NOT NULL, mes TEXT NOT NULL, ha REAL NOT NULL, PRIMARY KEY (camp_code, mes))`
+  ).run()
+  if (request.method === 'GET') {
+    const { results } = await env.db.prepare('SELECT camp_code, mes, ha FROM ha_manual ORDER BY mes, camp_code').all()
+    return corsResponse(JSON.stringify({ data: results }), 200, request)
+  }
+  if (request.method === 'POST') {
+    const body = await request.json()
+    const filas = Array.isArray(body?.filas) ? body.filas : []
+    if (!filas.length) return corsResponse('{"error":"body.filas vacio"}', 400, request)
+    const stmt = env.db.prepare(
+      `INSERT INTO ha_manual (camp_code, mes, ha) VALUES (?, ?, ?) ON CONFLICT(camp_code, mes) DO UPDATE SET ha = excluded.ha`
+    )
+    await env.db.batch(filas.map(f => stmt.bind(f.camp_code, f.mes, f.ha)))
+    return corsResponse(JSON.stringify({ ok: true, n: filas.length }), 200, request)
+  }
+  return corsResponse('{"error":"method not allowed"}', 405, request)
+}
+
+// GET /db/tendencias?anio=2026&idSucursal=13
+// Devuelve consumo agrupado por mes con costo, ha, costoHaDia (÷30).
+// Misma lógica que la web (Tendencias tab): Ha manual para meses históricos, Ha de ciclos para resto.
+async function handleDbTendencias(request, url, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const anio       = url.searchParams.get('anio') || String(new Date().getFullYear())
+  const idSucursal = url.searchParams.get('idSucursal')
+
+  // Mes actual en formato "YYYY-MM" (Ecuador = UTC-5)
+  const nowEC   = new Date(Date.now() - 5 * 3600 * 1000)
+  const curMes  = nowEC.toISOString().slice(0, 7)
+
+  // 1. Ciclos para obtener tamano_piscina, nombre_piscina y código (para mapear a HA_SEED)
+  const cicloWhere = idSucursal ? 'WHERE id_sucursal = ?' : ''
+  const cicloBinds = idSucursal ? [idSucursal] : []
+  const { results: cicloRows } = await env.db
+    .prepare(`SELECT id_ciclo, nombre_piscina, tamano_piscina, id_sucursal, codigo_ciclo FROM ciclos ${cicloWhere}`)
+    .bind(...cicloBinds).all()
+
+  // Mapa id_ciclo → { pool, ha, subId, campCode }
+  // campCode = prefijo del codigo_ciclo antes del primer "-" (ej. "A1" de "A1-2026-001")
+  const cicloInfo = {}
+  cicloRows.forEach(c => {
+    if (!c.id_ciclo) return
+    const campCode = (c.codigo_ciclo || '').split('-')[0] || ''
+    cicloInfo[c.id_ciclo] = {
+      pool:     c.nombre_piscina || String(c.id_ciclo),
+      ha:       parseFloat(c.tamano_piscina) || 0,
+      subId:    String(c.id_sucursal),
+      campCode,
+    }
+  })
+
+  // Si filtramos por sucursal, id_ciclo válidos
+  const cicloSubSet = idSucursal
+    ? new Set(cicloRows.filter(c => String(c.id_sucursal) === String(idSucursal)).map(c => c.id_ciclo))
+    : null
+
+  // 2. Consumos del año
+  const { results: consumos } = await env.db
+    .prepare(`SELECT id_ciclo, importe, fecha FROM consumo_insumos WHERE strftime('%Y', fecha) = ? ORDER BY fecha`)
+    .bind(String(anio)).all()
+
+  // 3. Ha histórica de D1 (tabla historial_ha — fuente única para web y app)
+  const haHistWhere = idSucursal ? 'WHERE id_sucursal = ? AND anio = ?' : 'WHERE anio = ?'
+  const haHistBinds = idSucursal ? [idSucursal, parseInt(anio)] : [parseInt(anio)]
+  const { results: haHistRows } = await env.db
+    .prepare(`SELECT id_sucursal, mes, ha FROM historial_ha ${haHistWhere}`)
+    .bind(...haHistBinds).all()
+  // haByMes: para cuando filtramos por sucursal, simple { mes(1-12): ha }
+  // haBySubMes: para todos los campamentos { "subId-mes": ha }
+  const haByMes = {}
+  const haBySubMes = {}
+  haHistRows.forEach(r => {
+    haByMes[r.mes] = r.ha
+    haBySubMes[String(r.id_sucursal) + '-' + r.mes] = r.ha
+  })
+
+  // 4. Agrupar consumos por mes
+  const meses = {}
+  consumos.forEach(r => {
+    const info = cicloInfo[r.id_ciclo]
+    if (!info) return
+    if (cicloSubSet && !cicloSubSet.has(r.id_ciclo)) return
+    const mes = (r.fecha || '').slice(0, 7)   // "YYYY-MM"
+    if (!mes || mes.length < 7) return
+    if (!meses[mes]) meses[mes] = { costo: 0, pools: {}, subIds: new Set() }
+    meses[mes].costo += r.importe || 0
+    meses[mes].pools[info.pool] = { ha: info.ha, subId: info.subId }
+    meses[mes].subIds.add(info.subId)
+  })
+
+  // 5. Calcular Ha y $/Ha/día
+  // Meses históricos: usa historial_ha de D1 (igual que la web usa _getManualHa)
+  // Mes actual+: usa Ha de ciclos activos (dedup por piscina)
+  const data = Object.entries(meses).sort(([a], [b]) => a.localeCompare(b)).map(([mes, v]) => {
+    const mo = parseInt(mes.split('-')[1])
+    let ha
+    if (mes < curMes) {
+      if (idSucursal) {
+        ha = haByMes[mo] || 0
+      } else {
+        // Sin filtro de sucursal: sumar ha histórica de cada sub que aparece en el mes
+        let total = 0
+        v.subIds.forEach(sid => { total += haBySubMes[sid + '-' + mo] || 0 })
+        ha = total
+      }
+      if (!ha) ha = Object.values(v.pools).reduce((s, p) => s + p.ha, 0)
+    } else {
+      ha = Object.values(v.pools).reduce((s, p) => s + p.ha, 0)
+    }
+    return {
+      mes,
+      costo:      v.costo,
+      ha,
+      costoHaDia: ha > 0 ? v.costo / (ha * 30) : 0,
+    }
+  })
+
+  return corsResponse(JSON.stringify({ data }), 200, request)
+}
+
 async function handleDbConsumoInsumosSync(request, env) {
   if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
   const body = await request.json()
@@ -2218,6 +2346,10 @@ if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
 
     if (url.pathname === '/db/consumo-insumos' && env.db) {
       return handleDbConsumoInsumos(request, url, env)
+    }
+
+    if (url.pathname === '/db/tendencias' && env.db) {
+      return handleDbTendencias(request, url, env)
     }
 
     if (url.pathname === '/db/consumo-insumos/sync' && env.db) {

@@ -2537,7 +2537,11 @@ var _manualHa = (function() {
     } catch(e) { return JSON.parse(JSON.stringify(_HA_SEED)); }
 })();
 var _CUR_MES_STR = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0');
-function _getManualHa(camp, mes) { return (mes && mes < _CUR_MES_STR && camp) ? ((_manualHa[camp]||{})[mes]||0) : 0; }
+function _getManualHa(camp, mes) {
+    if (!mes || mes >= _CUR_MES_STR || !camp) return 0;
+    // Usar historial_ha de D1 (fuente única — mismo dato que usa la app)
+    return _historialHaD1[camp + '-' + mes] || 0;
+}
 var _sapKpiRows = [];
 var _sapKpiDias = 30;
 var _sapKpiSelected = null;
@@ -4484,17 +4488,32 @@ function sapOpenManualHaModal() {
 function sapSaveManualHa() {
     var camps = window._mhaCamps || [];
     var meses = window._mhaMeses || [];
+    var filas = [];
     camps.forEach(function(camp) {
         meses.forEach(function(mes) {
             var el = document.getElementById('mha-'+camp.replace(/\W/g,'_')+'-'+mes.replace('-','_'));
             if (!el) return;
             var v = parseFloat(el.value);
             if (!_manualHa[camp]) _manualHa[camp] = {};
-            if (v > 0) { _manualHa[camp][mes] = v; }
-            else { delete _manualHa[camp][mes]; }
+            if (v > 0) {
+                _manualHa[camp][mes] = v;
+                // Buscar id_sucursal para este código de campamento
+                var ciclo = _sapCycles.find(function(c) { return _sapCamp(c) === camp; });
+                var idSub = ciclo ? ciclo._subsidiaryId : null;
+                var parts = mes.split('-');
+                filas.push({ codigoSucursal: camp, idSucursal: idSub, anio: parseInt(parts[0]), mes: parseInt(parts[1]), ha: v });
+            } else { delete _manualHa[camp][mes]; }
         });
     });
     localStorage.setItem('sap-manual-ha', JSON.stringify(_manualHa));
+    // Guardar en D1 como fuente única (app y web leen de aquí)
+    if (filas.length) {
+        fetch(_PROXY + '/db/historial-ha/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Api-Key': _API_KEY },
+            body: JSON.stringify({ filas: filas, overwrite: true })
+        }).catch(function(e) { console.warn('historial-ha/sync:', e); });
+    }
     document.getElementById('manual-ha-modal').style.display = 'none';
     _updateHaManualBtn();
     updateSapResults();
@@ -4899,7 +4918,8 @@ function initSapScreen() {
     Promise.all([
         sapCargarCiclos(true),
         sapCargarPools(),
-        sapCargarExcelDesdeD1()
+        sapCargarExcelDesdeD1(),
+        _cargarHistorialHa()
     ]).then(function() {
         sapPopulateYearMonth();
         sapPopulateClusterSub();
@@ -4908,6 +4928,26 @@ function initSapScreen() {
         sapUpdateStatus();
         updateSapResults();
     });
+}
+
+// Carga historial_ha de D1 — reemplaza _HA_SEED/localStorage como fuente de Ha histórica
+var _historialHaD1 = {};  // camp_code + '-' + anio + '-' + mes(padded) → ha
+function _cargarHistorialHa() {
+    var anio = new Date().getFullYear();
+    return Promise.all([
+        fetch(_PROXY + '/db/historial-ha?anio=' + anio),
+        fetch(_PROXY + '/db/historial-ha?anio=' + (anio - 1))
+    ]).then(function(rs) {
+        return Promise.all(rs.map(function(r) { return r.json(); }));
+    }).then(function(jsons) {
+        _historialHaD1 = {};
+        jsons.forEach(function(json) {
+            (json.data || []).forEach(function(row) {
+                var key = row.codigo_sucursal + '-' + row.anio + '-' + String(row.mes).padStart(2, '0');
+                _historialHaD1[key] = row.ha;
+            });
+        });
+    }).catch(function(e) { console.warn('historial-ha D1:', e); });
 }
 
 (function() {
