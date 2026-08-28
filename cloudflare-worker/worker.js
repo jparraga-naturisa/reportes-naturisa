@@ -593,6 +593,7 @@ async function handleDbTendencias(request, url, env) {
   if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
   const anio       = url.searchParams.get('anio') || String(new Date().getFullYear())
   const idSucursal = url.searchParams.get('idSucursal')
+  const todos      = url.searchParams.get('todos') === '1'  // devuelve datos por sucursal
 
   // Mes actual en formato "YYYY-MM" (Ecuador = UTC-5)
   const nowEC   = new Date(Date.now() - 5 * 3600 * 1000)
@@ -624,10 +625,24 @@ async function handleDbTendencias(request, url, env) {
     ? new Set(cicloRows.filter(c => String(c.id_sucursal) === String(idSucursal)).map(c => c.id_ciclo))
     : null
 
-  // 2. Consumos del año
-  const { results: consumos } = await env.db
-    .prepare(`SELECT id_ciclo, importe, fecha FROM consumo_insumos WHERE strftime('%Y', fecha) = ? ORDER BY fecha`)
+  // 2. Consumos del año — igual que la web: tipo_movimiento 261 menos anulaciones 262
+  const { results: allConsumos } = await env.db
+    .prepare(`SELECT id_ciclo, importe, fecha, tipo_movimiento, orden_control, codigo_material, almacen, cantidad FROM consumo_insumos WHERE strftime('%Y', fecha) = ? ORDER BY fecha`)
     .bind(String(anio)).all()
+
+  const canceladas = {}
+  allConsumos.forEach(r => {
+    if (String(r.tipo_movimiento || '').trim() === '262') {
+      const k = (r.orden_control||'') + '||' + (r.codigo_material||'') + '||' + (r.almacen||'') + '||' + Math.abs(parseFloat(r.cantidad)||0).toFixed(4)
+      canceladas[k] = (canceladas[k] || 0) + 1
+    }
+  })
+  const consumos = allConsumos.filter(r => {
+    if (String(r.tipo_movimiento || '').trim() !== '261') return false
+    const k = (r.orden_control||'') + '||' + (r.codigo_material||'') + '||' + (r.almacen||'') + '||' + Math.abs(parseFloat(r.cantidad)||0).toFixed(4)
+    if (canceladas[k] > 0) { canceladas[k]--; return false }
+    return true
+  })
 
   // 3. Ha histórica de D1 (tabla historial_ha — fuente única para web y app)
   const haHistWhere = idSucursal ? 'WHERE id_sucursal = ? AND anio = ?' : 'WHERE anio = ?'
@@ -644,45 +659,46 @@ async function handleDbTendencias(request, url, env) {
     haBySubMes[String(r.id_sucursal) + '-' + r.mes] = r.ha
   })
 
-  // 4. Agrupar consumos por mes
+  // 4. Agrupar consumos por mes (y por sucursal si todos=1)
   const meses = {}
   consumos.forEach(r => {
     const info = cicloInfo[r.id_ciclo]
     if (!info) return
     if (cicloSubSet && !cicloSubSet.has(r.id_ciclo)) return
-    const mes = (r.fecha || '').slice(0, 7)   // "YYYY-MM"
+    const mes = (r.fecha || '').slice(0, 7)
     if (!mes || mes.length < 7) return
-    if (!meses[mes]) meses[mes] = { costo: 0, pools: {}, subIds: new Set() }
-    meses[mes].costo += r.importe || 0
-    meses[mes].pools[info.pool] = { ha: info.ha, subId: info.subId }
-    meses[mes].subIds.add(info.subId)
+    const key = todos ? info.subId + '|' + mes : mes
+    if (!meses[key]) meses[key] = { mes, subId: info.subId, costo: 0, pools: {}, subIds: new Set() }
+    meses[key].costo += r.importe || 0
+    meses[key].pools[info.pool] = { ha: info.ha, subId: info.subId }
+    meses[key].subIds.add(info.subId)
   })
 
   // 5. Calcular Ha y $/Ha/día
-  // Meses históricos: usa historial_ha de D1 (igual que la web usa _getManualHa)
-  // Mes actual+: usa Ha de ciclos activos (dedup por piscina)
-  const data = Object.entries(meses).sort(([a], [b]) => a.localeCompare(b)).map(([mes, v]) => {
-    const mo = parseInt(mes.split('-')[1])
+  const data = Object.values(meses).sort((a, b) => {
+    const ka = (todos ? a.subId + '|' : '') + a.mes
+    const kb = (todos ? b.subId + '|' : '') + b.mes
+    return ka.localeCompare(kb)
+  }).map(v => {
+    const mo = parseInt(v.mes.split('-')[1])
     let ha
-    if (mes < curMes) {
+    if (v.mes < curMes) {
       if (idSucursal) {
         ha = haByMes[mo] || 0
+      } else if (todos) {
+        ha = haBySubMes[v.subId + '-' + mo] || 0
+        if (!ha) ha = Object.values(v.pools).reduce((s, p) => s + p.ha, 0)
       } else {
-        // Sin filtro de sucursal: sumar ha histórica de cada sub que aparece en el mes
         let total = 0
         v.subIds.forEach(sid => { total += haBySubMes[sid + '-' + mo] || 0 })
-        ha = total
+        ha = total || Object.values(v.pools).reduce((s, p) => s + p.ha, 0)
       }
-      if (!ha) ha = Object.values(v.pools).reduce((s, p) => s + p.ha, 0)
     } else {
       ha = Object.values(v.pools).reduce((s, p) => s + p.ha, 0)
     }
-    return {
-      mes,
-      costo:      v.costo,
-      ha,
-      costoHaDia: ha > 0 ? v.costo / (ha * 30) : 0,
-    }
+    const row = { mes: v.mes, costo: v.costo, ha, costoHaDia: ha > 0 ? v.costo / (ha * 30) : 0 }
+    if (todos) row.id_sucursal = parseInt(v.subId) || v.subId
+    return row
   })
 
   return corsResponse(JSON.stringify({ data }), 200, request)
