@@ -3,3 +3,12 @@ __pycache__/
 *.pyo
 cloudflare-worker/.wrangler/
 .wrangler/
+node_modules/
+dist/
+build/
+.venv/
+*.log
+.claude/scheduled_tasks.lock
+
+# Repositorio propio, gestionado por separado (GitLab/GitHub)
+/ubicame-app/
