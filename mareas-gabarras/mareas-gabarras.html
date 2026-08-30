@@ -93,6 +93,30 @@ table.rutas-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 .loading-inline { padding: 30px; text-align: center; color: var(--muted); }
 .footer-note { font-size: 11.5px; color: var(--ink-muted); padding: 6px 4px 20px; text-align: center; }
+
+.ruta-tiles { display: flex; gap: 10px; padding: 12px 18px 0; }
+.ruta-tile { flex: 1; background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.ruta-tile .rt-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); margin-bottom: 4px; }
+.ruta-tile .rt-value { font-size: 18px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ruta-tile.hi .rt-value { color: var(--primary-light); }
+.ruta-tile.lo .rt-value { color: var(--accent); }
+.ruta-tile .rt-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+.chart-legend { display: flex; gap: 14px; padding: 0 0 8px; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
+.chart-legend .sw { display: inline-flex; align-items: center; gap: 5px; }
+.chart-legend .sw i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+.note-box { background: #f8fafc; border: 1px dashed var(--border); border-radius: 10px; padding: 9px 12px; font-size: 11.5px; color: var(--muted); }
+
+.ruta-sim { padding: 12px 18px 16px; border-top: 1px solid var(--border); }
+.sim-labels { display: flex; justify-content: space-between; align-items: baseline; font-size: 11.5px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+.sim-status { color: var(--muted); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; }
+.sim-status.activo { color: var(--success); }
+.sim-track { position: relative; height: 8px; background: #eef2f7; border-radius: 999px; }
+.sim-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--accent); border-radius: 999px; width: 0%; transition: width 1s linear; }
+.sim-boat { position: absolute; top: 50%; transform: translate(-50%, -50%); left: 0%; font-size: 17px; transition: left 1s linear; }
+.sim-times { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); margin-top: 6px; }
+
 </style>
 </head>
 <body>
@@ -117,17 +141,22 @@ table.rutas-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
     <div class="filters">
         <div class="fg">
-            <label>Fecha del viaje</label>
-            <input type="date" id="f-fecha">
+            <label>Desde</label>
+            <input type="date" id="f-fecha-inicio">
+        </div>
+        <div class="fg">
+            <label>Hasta</label>
+            <input type="date" id="f-fecha-fin">
         </div>
         <button class="btn-apply" id="btn-calcular" onclick="calcularTodo()">🌊 Calcular salidas</button>
         <button class="btn-ghost" onclick="agregarFila()">➕ Agregar destino</button>
     </div>
+
 </header>
 
 <div class="main">
 
-    <div class="rutas-card">
+  <div class="rutas-card">
         <div class="section-title">
             <span>Destinos del día</span>
             <span class="section-hint" style="font-weight:500;color:var(--muted);font-size:12.5px;">Un destino por gabarra/ruta — todas se calculan juntas</span>
@@ -136,6 +165,7 @@ table.rutas-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
             <table class="rutas-tbl">
                 <thead>
                     <tr>
+                        <th>Origen (muelle)</th>
                         <th>Destino (sucursal costera)</th>
                         <th>Duración estimada del viaje</th>
                         <th>Criterio de marea</th>
@@ -158,17 +188,37 @@ table.rutas-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 <script>
 const WORKER_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev';
 
-// Sucursales con cobertura de marea (acceso directo a estero/mar abierto)
-const SUCURSALES_MAREA = [
-    { id: 2,  nombre: 'Pesjoya' },
-    { id: 12, nombre: 'Rio Nilo' },
-    { id: 15, nombre: 'Inducam' },
-    { id: 17, nombre: 'Golfomar' },
-    { id: 19, nombre: 'Bonanza' },
-    { id: 20, nombre: 'Roblemar' },
-];
-
 let _filaSeq = 0;
+let _chartsActivos = [];
+let _muelles = [];
+let _tiempos = [];
+
+async function cargarMuellesYTiempos() {
+    try {
+        const [rMuelles, rTiempos] = await Promise.all([
+            fetch(`${WORKER_URL}/db/muelles`),
+            fetch(`${WORKER_URL}/db/tiempo-recorrido-muelles`),
+        ]);
+        _muelles = (await rMuelles.json()).data || [];
+        _tiempos = (await rTiempos.json()).data || [];
+    } catch (e) {
+        _muelles = [];
+        _tiempos = [];
+    }
+}
+
+function buscarTiempo(origen, destino) {
+    if (!origen || !destino || origen === destino) return null;
+    return _tiempos.find(t =>
+        (t.origen === origen && t.destino === destino) ||
+        (t.origen === destino && t.destino === origen)
+    ) || null;
+}
+
+function optsMuelles() {
+    if (!_muelles.length) return '<option value="">—</option>';
+    return _muelles.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('');
+}
 
 function hoyISO() {
     const d = new Date();
@@ -177,11 +227,20 @@ function hoyISO() {
 }
 
 function initFecha() {
-    document.getElementById('f-fecha').value = hoyISO();
+    const hoy = hoyISO();
+    document.getElementById('f-fecha-inicio').value = hoy;
+    document.getElementById('f-fecha-fin').value = hoy;
 }
 
-function optsSucursales() {
-    return SUCURSALES_MAREA.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+function rangoFechas(inicioISO, finISO) {
+    const fechas = [];
+    let d = new Date(inicioISO + 'T00:00:00');
+    const fin = new Date(finISO + 'T00:00:00');
+    while (d <= fin) {
+        fechas.push(d.toISOString().slice(0, 10));
+        d.setDate(d.getDate() + 1);
+    }
+    return fechas;
 }
 
 function agregarFila() {
@@ -190,8 +249,11 @@ function agregarFila() {
     const tr = document.createElement('tr');
     tr.id = id;
     tr.innerHTML = `
-        <td><select class="f-destino">${optsSucursales()}</select></td>
-        <td><input type="number" class="f-duracion" value="2" min="0.5" max="24" step="0.5"> h</td>
+        <td><select class="f-origen" onchange="actualizarDuracion('${id}')">${optsMuelles()}</select></td>
+        <td><select class="f-destino" onchange="actualizarDuracion('${id}')">${optsMuelles()}</select></td>
+        <td><input type="number" class="f-duracion" value="2" min="0.1" max="24" step="0.1"> h
+            <div class="f-duracion-hint" style="font-size:10.5px;color:var(--muted);margin-top:2px;"></div>
+        </td>
         <td>
             <select class="f-criterio" onchange="toggleUmbral('${id}')">
                 <option value="alta">Marea alta más cercana</option>
@@ -202,6 +264,24 @@ function agregarFila() {
         <td><button class="btn-icon" onclick="eliminarFila('${id}')" title="Quitar">✕</button></td>
     `;
     tbody.appendChild(tr);
+    actualizarDuracion(id);
+}
+
+// Autocompleta la duración con el tiempo real de recorrido (marea a favor)
+// entre el muelle de origen y el destino, si existe en la tabla tiempo_recorrido_muelles.
+function actualizarDuracion(id) {
+    const tr = document.getElementById(id);
+    if (!tr) return;
+    const origen = tr.querySelector('.f-origen').value;
+    const destinoNombre = tr.querySelector('.f-destino').value;
+    const hint = tr.querySelector('.f-duracion-hint');
+    const t = buscarTiempo(origen, destinoNombre);
+    if (t && t.tiempo_favor_h) {
+        tr.querySelector('.f-duracion').value = t.tiempo_favor_h.toFixed(1);
+        hint.textContent = `Real: ${t.tiempo_favor_h.toFixed(1)}h favor / ${t.tiempo_contra_h.toFixed(1)}h contra`;
+    } else {
+        hint.textContent = origen === destinoNombre ? '' : 'Sin dato de tiempo real, ajusta manualmente';
+    }
 }
 
 function toggleUmbral(id) {
@@ -218,12 +298,10 @@ function eliminarFila(id) {
 function leerFilas() {
     const filas = [];
     document.querySelectorAll('#rutas-tbody tr').forEach(tr => {
-        const destinoId = parseInt(tr.querySelector('.f-destino').value, 10);
-        const destinoNombre = SUCURSALES_MAREA.find(s => s.id === destinoId)?.nombre || '?';
         filas.push({
             id: tr.id,
-            destinoId,
-            destinoNombre,
+            origen: tr.querySelector('.f-origen').value,
+            destinoNombre: tr.querySelector('.f-destino').value,
             duracionH: parseFloat(tr.querySelector('.f-duracion').value) || 0,
             criterio: tr.querySelector('.f-criterio').value,
             umbral: parseFloat(tr.querySelector('.f-umbral').value) || 0,
@@ -246,18 +324,105 @@ function fmtFechaHora(d) {
     return `${dias[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} · ${hh}:${mm}`;
 }
 
-async function fetchMarea(idSucursal, fechas) {
-    // Trae la serie horaria de marea para el/los días indicados
+// Algunos muelles coinciden (o quedan muy cerca) de una sucursal que ya tenía marea
+// propia; si el punto exacto del muelle no tiene cobertura en Open-Meteo, se usa esta
+// como respaldo en vez de dejar el dato en null.
+const MUELLE_SUCURSAL_FALLBACK = {
+    'Pesjoya': 2, 'Rio Nilo': 12, 'Inducam': 15, 'Golfomar': 17, 'Bonanza': 19, 'Roblemar': 20,
+};
+
+async function fetchSerieCruda(path, params, fechas) {
     const todas = [];
     for (const fecha of fechas) {
-        const resp = await fetch(`${WORKER_URL}/db/marea?idSucursal=${idSucursal}&fecha=${fecha}`);
+        const resp = await fetch(`${WORKER_URL}${path}?${params}&fecha=${fecha}`);
         const json = await resp.json();
         todas.push(...(json.data || []));
     }
-    return todas.map(r => ({
+    return todas;
+}
+
+// Detecta máximos/mínimos locales de altura_marea_m (igual que el cálculo del
+// servidor) y marca tipo_pico — necesario porque tras fusionar muelle+respaldo
+// los picos ya no coinciden necesariamente con los que trae cada tabla por separado.
+function marcarPicos(serieOrdenada) {
+    for (let i = 1; i < serieOrdenada.length - 1; i++) {
+        const prev = serieOrdenada[i - 1].altura_marea_m;
+        const cur = serieOrdenada[i].altura_marea_m;
+        const next = serieOrdenada[i + 1].altura_marea_m;
+        if (prev == null || cur == null || next == null) continue;
+        if (cur > prev && cur > next) serieOrdenada[i].tipo_pico = 'ALTA';
+        else if (cur < prev && cur < next) serieOrdenada[i].tipo_pico = 'BAJA';
+        else serieOrdenada[i].tipo_pico = null;
+    }
+    return serieOrdenada;
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Muelles ordenados por cercanía (km) a uno dado, usando sus coordenadas reales (_muelles).
+function muellesPorCercania(muelle) {
+    const propio = _muelles.find(m => m.nombre === muelle);
+    if (!propio) return [];
+    return _muelles
+        .filter(m => m.nombre !== muelle)
+        .map(m => ({ nombre: m.nombre, km: haversineKm(propio.latitud, propio.longitud, m.latitud, m.longitud) }))
+        .sort((a, b) => a.km - b.km);
+}
+
+// Serie de un muelle fusionando su propia marea con la de su sucursal equivalente
+// (MUELLE_SUCURSAL_FALLBACK) en las horas sin dato propio. Sin respaldo por cercanía.
+async function fetchMareaMuelleBase(muelle, fechas) {
+    const propia = await fetchSerieCruda('/db/marea-muelle', `muelle=${encodeURIComponent(muelle)}`, fechas);
+    const idFallback = MUELLE_SUCURSAL_FALLBACK[muelle];
+    const respaldo = idFallback
+        ? await fetchSerieCruda('/db/marea', `idSucursal=${idFallback}`, fechas)
+        : [];
+    const respaldoPorClave = new Map(respaldo.map(r => [r.fecha + ' ' + r.hora, r]));
+
+    return propia.map(r => {
+        if (r.altura_marea_m !== null) return r;
+        const r2 = respaldoPorClave.get(r.fecha + ' ' + r.hora);
+        return r2 ? { ...r, altura_marea_m: r2.altura_marea_m, altura_ola_m: r2.altura_ola_m } : r;
+    });
+}
+
+// Trae la serie horaria de marea de un muelle. Si ni el muelle ni su sucursal
+// equivalente tienen dato (ej. Cargill, Brisas — fuera de la cobertura de
+// Open-Meteo), se usa la marea del muelle con datos más cercano por coordenadas.
+async function fetchMareaMuelle(muelle, fechas) {
+    let fusion = await fetchMareaMuelleBase(muelle, fechas);
+    let fuenteAlterna = null;
+
+    if (!fusion.some(r => r.altura_marea_m !== null)) {
+        for (const candidato of muellesPorCercania(muelle)) {
+            const serieVecino = await fetchMareaMuelleBase(candidato.nombre, fechas);
+            if (serieVecino.some(r => r.altura_marea_m !== null)) {
+                const porClave = new Map(serieVecino.map(r => [r.fecha + ' ' + r.hora, r]));
+                fusion = fusion.map(r => {
+                    const r2 = porClave.get(r.fecha + ' ' + r.hora);
+                    return r2 ? { ...r, altura_marea_m: r2.altura_marea_m, altura_ola_m: r2.altura_ola_m } : r;
+                });
+                fuenteAlterna = candidato.nombre;
+                break;
+            }
+        }
+    }
+
+    const serie = fusion.map(r => ({
         ...r,
         dt: new Date(r.fecha + 'T' + r.hora + ':00'),
     })).sort((a, b) => a.dt - b.dt);
+
+    const resultado = marcarPicos(serie);
+    resultado.fuenteAlterna = fuenteAlterna;
+    return resultado;
 }
 
 function diaSiguiente(fechaISO) {
@@ -290,9 +455,24 @@ function picosAlta(serie) {
     return serie.filter(p => p.tipo_pico === 'ALTA');
 }
 
+function picosBaja(serie) {
+    return serie.filter(p => p.tipo_pico === 'BAJA');
+}
+
+// Próximo pico (alta o baja) a partir de "ahora" — para los tiles de la tarjeta.
+function proximoPico(picos, ahora) {
+    return picos.find(p => p.dt >= ahora) || null;
+}
+
 async function calcularRuta(fila, fechaViaje) {
     const fechas = [fechaViaje, diaSiguiente(fechaViaje)];
-    const serie = await fetchMarea(fila.destinoId, fechas);
+    const serie = await fetchMareaMuelle(fila.destinoNombre, fechas);
+
+    // La marea puede variar bastante entre el muelle de origen y el destino —
+    // se trae también la serie del origen (mismo muelle → misma serie, sin refetch).
+    const serieOrigen = fila.origen === fila.destinoNombre
+        ? serie
+        : await fetchMareaMuelle(fila.origen, fechas);
 
     let candidatos = [];
     if (fila.criterio === 'alta') {
@@ -316,6 +496,9 @@ async function calcularRuta(fila, fechaViaje) {
     const finDia = new Date(fechaViaje + 'T23:59:59');
     candidatos = candidatos.filter(c => c.arriboDt <= finDia);
 
+    const SALIDA_HORA_MIN = 6;
+    const SALIDA_HORA_MAX = 18;
+
     const resultados = candidatos.map(c => {
         const salidaDt = new Date(c.arriboDt.getTime() - fila.duracionH * 3600000);
         return {
@@ -323,19 +506,96 @@ async function calcularRuta(fila, fechaViaje) {
             salidaDt,
             cruzaDiaAnterior: salidaDt.toISOString().slice(0, 10) < fechaViaje,
         };
-    }).sort((a, b) => a.salidaDt - b.salidaDt);
+    })
+    // Solo se sugieren viajes cuya salida Y llegada caigan dentro del horario de operación (06:00–18:00)
+    .filter(r =>
+        r.salidaDt.getHours() >= SALIDA_HORA_MIN && r.salidaDt.getHours() < SALIDA_HORA_MAX &&
+        r.arriboDt.getHours() >= SALIDA_HORA_MIN && r.arriboDt.getHours() < SALIDA_HORA_MAX
+    )
+    .sort((a, b) => a.salidaDt - b.salidaDt);
 
-    return { fila, serie, resultados };
+    return { fila, serie, serieOrigen, resultados };
 }
 
-function renderChart(canvasId, serie, resultados) {
+function hhmm(dt) {
+    return String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+}
+
+// Solo el horario de operación (06:00–18:00) del día indicado (serieCompleta trae
+// también el día siguiente, para no perder ventanas que cruzan medianoche).
+function filtrarHorarioOperacion(serieCompleta, fecha) {
+    return serieCompleta.filter(p => p.fecha === fecha && p.hora >= '06:00' && p.hora <= '18:00');
+}
+
+function fmtFechaCorta(fechaISO) {
+    const d = new Date(fechaISO + 'T00:00:00');
+    return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+function fechaLocalISO(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// Dibuja sobre el gráfico la línea de "ahora" y, si el viaje recomendado está en
+// curso, el bote 🚤 avanzando sobre la propia curva de marea (interpolando altura).
+function crearPluginAhora(fechaViaje, resultadoRecomendado) {
+    return {
+        id: 'ahoraSim',
+        afterDatasetsDraw(chart) {
+            const ahora = new Date();
+            if (fechaLocalISO(ahora) !== fechaViaje) return;
+            const hDec = ahora.getHours() + ahora.getMinutes() / 60;
+            if (hDec < 6 || hDec > 18) return;
+
+            const { ctx, chartArea } = chart;
+            const xFor = h => chartArea.left + ((h - 6) / 12) * (chartArea.right - chartArea.left);
+            const x = xFor(hDec);
+
+            ctx.save();
+            ctx.strokeStyle = 'rgba(137,135,129,0.7)';
+            ctx.setLineDash([4, 4]);
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(x, chartArea.top);
+            ctx.lineTo(x, chartArea.bottom);
+            ctx.stroke();
+            ctx.font = '10px sans-serif';
+            ctx.fillStyle = '#6e6e73';
+            ctx.textAlign = 'center';
+            ctx.fillText('ahora', x, chartArea.top - 3);
+            ctx.restore();
+
+            if (!resultadoRecomendado) return;
+            const salidaH = resultadoRecomendado.salidaDt.getHours() + resultadoRecomendado.salidaDt.getMinutes() / 60;
+            const llegadaH = resultadoRecomendado.arriboDt.getHours() + resultadoRecomendado.arriboDt.getMinutes() / 60;
+            if (hDec < salidaH || hDec > llegadaH || llegadaH <= salidaH) return;
+
+            const ds = chart.data.datasets[0].data;
+            const idxFloat = Math.min(Math.max(hDec - 6, 0), ds.length - 1);
+            const i0 = Math.floor(idxFloat);
+            const i1 = Math.min(i0 + 1, ds.length - 1);
+            const frac = idxFloat - i0;
+            if (ds[i0] == null || ds[i1] == null) return;
+            const y = ds[i0] + (ds[i1] - ds[i0]) * frac;
+            const yPixel = chart.scales.y.getPixelForValue(y);
+
+            ctx.save();
+            ctx.font = '18px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🚤', x, yPixel - 10);
+            ctx.restore();
+        },
+    };
+}
+
+function renderChart(canvasId, serieCompleta, resultados, serieOrigen) {
+    const fechaViaje = serieCompleta[0]?.fecha;
+    const serie = filtrarHorarioOperacion(serieCompleta, fechaViaje);
+
     const labels = serie.map(p => p.hora);
     const data = serie.map(p => p.altura_marea_m);
-    const salidaLabels = new Set(resultados.map(r => {
-        const h = String(r.salidaDt.getHours()).padStart(2, '0') + ':00';
-        return h;
-    }));
-    const arriboLabels = new Set(resultados.map(r => r.arriboDt.toISOString().slice(11, 16)));
+    const arriboLabels = new Set(resultados.map(r => hhmm(r.arriboDt)));
 
     const pointColors = serie.map(p => {
         if (arriboLabels.has(p.hora)) return '#10b981';
@@ -343,22 +603,38 @@ function renderChart(canvasId, serie, resultados) {
     });
     const pointRadius = serie.map(p => arriboLabels.has(p.hora) ? 5 : 2);
 
-    new Chart(document.getElementById(canvasId), {
+    const datasets = [{
+        label: 'Marea destino (m)',
+        data,
+        borderColor: '#7c3aed',
+        backgroundColor: 'rgba(124,58,237,0.08)',
+        fill: true,
+        tension: 0.35,
+        pointBackgroundColor: pointColors,
+        pointRadius,
+        borderWidth: 2,
+    }];
+
+    if (serieOrigen && serieOrigen !== serieCompleta && serieOrigen.some(p => p.altura_marea_m !== null)) {
+        const porHora = new Map(
+            serieOrigen.filter(p => p.fecha === fechaViaje).map(p => [p.hora, p.altura_marea_m])
+        );
+        datasets.push({
+            label: 'Marea origen (m)',
+            data: labels.map(h => porHora.has(h) ? porHora.get(h) : null),
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245,158,11,0.08)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+            borderWidth: 2,
+            spanGaps: true,
+        });
+    }
+
+    const chart = new Chart(document.getElementById(canvasId), {
         type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Altura de marea (m)',
-                data,
-                borderColor: '#00b4d8',
-                backgroundColor: 'rgba(0,180,216,0.08)',
-                fill: true,
-                tension: 0.35,
-                pointBackgroundColor: pointColors,
-                pointRadius,
-                borderWidth: 2,
-            }],
-        },
+        data: { labels, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -368,12 +644,138 @@ function renderChart(canvasId, serie, resultados) {
                 x: { ticks: { maxTicksLimit: 12 } },
             },
         },
+        plugins: [crearPluginAhora(fechaViaje, resultados[0])],
     });
+    _chartsActivos.push(chart);
+    return chart;
 }
+
+// Igual que renderChart, pero concatenando el horario 06:00–18:00 de cada día
+// del rango seleccionado — para que el rango de fechas también muestre la curva
+// de marea (destino y origen), no solo la tabla de horas sugeridas.
+function renderChartRango(canvasId, fechas, porFecha) {
+    const labels = [];
+    const data = [];
+    const pointColors = [];
+    const pointRadius = [];
+    const origenData = [];
+    let hayOrigen = false;
+
+    porFecha.forEach((calc, i) => {
+        const fecha = fechas[i];
+        const serie = filtrarHorarioOperacion(calc.serie, fecha);
+        const arriboLabels = new Set(calc.resultados.map(r => hhmm(r.arriboDt)));
+        const corto = fmtFechaCorta(fecha);
+
+        serie.forEach(p => {
+            labels.push(`${corto} ${p.hora}`);
+            data.push(p.altura_marea_m);
+            const esArribo = arriboLabels.has(p.hora);
+            pointColors.push(esArribo ? '#10b981' : 'rgba(0,180,216,0.9)');
+            pointRadius.push(esArribo ? 5 : 2);
+        });
+
+        if (calc.serieOrigen && calc.serieOrigen !== calc.serie && calc.serieOrigen.some(p => p.altura_marea_m !== null)) {
+            hayOrigen = true;
+            const porHora = new Map(filtrarHorarioOperacion(calc.serieOrigen, fecha).map(p => [p.hora, p.altura_marea_m]));
+            serie.forEach(p => origenData.push(porHora.has(p.hora) ? porHora.get(p.hora) : null));
+        } else {
+            serie.forEach(() => origenData.push(null));
+        }
+    });
+
+    const datasets = [{
+        label: 'Marea destino (m)',
+        data,
+        borderColor: '#7c3aed',
+        backgroundColor: 'rgba(124,58,237,0.06)',
+        fill: true,
+        tension: 0.25,
+        pointBackgroundColor: pointColors,
+        pointRadius,
+        borderWidth: 2,
+    }];
+
+    if (hayOrigen) {
+        datasets.push({
+            label: 'Marea origen (m)',
+            data: origenData,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245,158,11,0.06)',
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0,
+            borderWidth: 2,
+            spanGaps: true,
+        });
+    }
+
+    const chart = new Chart(document.getElementById(canvasId), {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { title: { display: true, text: 'metros' } },
+                x: { ticks: { maxTicksLimit: fechas.length * 2 } },
+            },
+        },
+    });
+    _chartsActivos.push(chart);
+    return chart;
+}
+
+// Simulación en vivo del recorrido (según la salida sugerida real): un bote que avanza
+// de origen a destino a medida que pasa la hora, con % de avance y estado actual.
+function renderSimulacion(resultadoRecomendado, fila) {
+    if (!resultadoRecomendado) return '';
+    return `
+        <div class="ruta-sim" data-salida="${resultadoRecomendado.salidaDt.getTime()}" data-llegada="${resultadoRecomendado.arriboDt.getTime()}">
+            <div class="sim-labels">
+                <span>⚓ ${fila.origen || '—'}</span>
+                <span class="sim-status">—</span>
+                <span>${fila.destinoNombre} 🏁</span>
+            </div>
+            <div class="sim-track"><div class="sim-fill"></div><div class="sim-boat">🚤</div></div>
+            <div class="sim-times"><span>Salida ${fmtFechaHora(resultadoRecomendado.salidaDt)}</span><span>Llegada ${fmtFechaHora(resultadoRecomendado.arriboDt)}</span></div>
+        </div>
+    `;
+}
+
+function actualizarSimulaciones() {
+    const ahora = Date.now();
+    document.querySelectorAll('.ruta-sim').forEach(el => {
+        const salida = parseInt(el.dataset.salida, 10);
+        const llegada = parseInt(el.dataset.llegada, 10);
+        let pct, estado, activo = false;
+        if (ahora < salida) {
+            pct = 0;
+            const h = (salida - ahora) / 3600000;
+            estado = h < 1 ? `Sale en ${Math.round(h * 60)} min` : `Sale en ${h.toFixed(1)} h`;
+        } else if (ahora >= llegada) {
+            pct = 100;
+            estado = '✓ Llegó';
+        } else {
+            pct = ((ahora - salida) / (llegada - salida)) * 100;
+            estado = `En tránsito · ${Math.round(pct)}%`;
+            activo = true;
+        }
+        el.querySelector('.sim-fill').style.width = pct + '%';
+        el.querySelector('.sim-boat').style.left = pct + '%';
+        const statusEl = el.querySelector('.sim-status');
+        statusEl.textContent = estado;
+        statusEl.classList.toggle('activo', activo);
+    });
+    // Re-dibuja el "ahora" y el bote sobre la curva de marea de cada gráfico activo.
+    _chartsActivos.forEach(c => c.update('none'));
+}
+setInterval(actualizarSimulaciones, 10000);
 
 function renderVentanas(resultados, fila) {
     if (!resultados.length) {
-        return `<div class="no-ventanas">No se encontraron ventanas de marea ${fila.criterio === 'alta' ? 'alta' : `≥ ${fila.umbral} m`} para este día en ${fila.destinoNombre}.</div>`;
+        return `<div class="no-ventanas">No se encontraron ventanas de marea ${fila.criterio === 'alta' ? 'alta' : `≥ ${fila.umbral} m`} para este día en ${fila.destinoNombre} con salida y llegada entre 06:00 y 18:00.</div>`;
     }
     return resultados.map((r, i) => {
         const esRecomendada = i === 0;
@@ -394,8 +796,43 @@ function renderVentanas(resultados, fila) {
     }).join('');
 }
 
+function renderResumenRango(fechas, matrix) {
+    const cont = document.createElement('div');
+    cont.className = 'rutas-card';
+    const cols = matrix.map(m => `${m.fila.origen || '—'} → ${m.fila.destinoNombre}`);
+    const filasHtml = fechas.map((fecha, fi) => {
+        const celdas = matrix.map(m => {
+            const r = m.porFecha[fi].resultados[0];
+            if (!r) return `<td style="color:var(--muted);text-align:center;">—</td>`;
+            const warn = r.cruzaDiaAnterior ? ' ⚠' : '';
+            return `<td>
+                <div style="font-weight:800;color:var(--primary);font-variant-numeric:tabular-nums;">${String(r.salidaDt.getHours()).padStart(2,'0')}:${String(r.salidaDt.getMinutes()).padStart(2,'0')}${warn}</div>
+                <div style="font-size:11px;color:var(--muted);">llega ${String(r.arriboDt.getHours()).padStart(2,'0')}:${String(r.arriboDt.getMinutes()).padStart(2,'0')} · ${r.arriboAltura.toFixed(2)} m</div>
+            </td>`;
+        }).join('');
+        const d = new Date(fecha + 'T00:00:00');
+        const dias = ['dom','lun','mar','mié','jue','vie','sáb'];
+        return `<tr><td><strong>${dias[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}</strong></td>${celdas}</tr>`;
+    }).join('');
+
+    cont.innerHTML = `
+        <div class="section-title">
+            <span>Horas de salida sugeridas</span>
+            <span class="section-hint" style="font-weight:500;color:var(--muted);font-size:12.5px;">⚠ = la salida cae el día anterior a la fecha mostrada</span>
+        </div>
+        <div class="rutas-tbl-wrap">
+            <table class="rutas-tbl">
+                <thead><tr><th>Fecha</th>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+                <tbody>${filasHtml}</tbody>
+            </table>
+        </div>
+    `;
+    return cont;
+}
+
 async function calcularTodo() {
-    const fechaViaje = document.getElementById('f-fecha').value;
+    const fechaInicio = document.getElementById('f-fecha-inicio').value;
+    const fechaFin = document.getElementById('f-fecha-fin').value;
     const filas = leerFilas();
     const wrap = document.getElementById('resultados-wrap');
 
@@ -403,46 +840,126 @@ async function calcularTodo() {
         wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">🌊</div>Agrega al menos un destino para calcular la hora de salida.</div>`;
         return;
     }
-    if (!fechaViaje) {
-        alert('Selecciona la fecha del viaje.');
+    if (!fechaInicio || !fechaFin) {
+        alert('Selecciona el rango de fechas del viaje.');
+        return;
+    }
+    if (fechaFin < fechaInicio) {
+        alert('La fecha "Hasta" debe ser igual o posterior a "Desde".');
         return;
     }
 
+    const fechas = rangoFechas(fechaInicio, fechaFin);
     wrap.innerHTML = `<div class="loading-inline">Calculando mareas y horas de salida…</div>`;
 
+    _chartsActivos.forEach(c => c.destroy());
+    _chartsActivos = [];
+
     try {
-        const calculos = await Promise.all(filas.map(f => calcularRuta(f, fechaViaje)));
+        if (fechas.length === 1) {
+            const calculos = await Promise.all(filas.map(f => calcularRuta(f, fechas[0])));
 
-        wrap.innerHTML = `<div class="resultados"></div>`;
-        const cont = wrap.querySelector('.resultados');
+            wrap.innerHTML = `<div class="resultados"></div>`;
+            const cont = wrap.querySelector('.resultados');
 
-        calculos.forEach((calc, idx) => {
-            const canvasId = `chart-${idx}`;
-            const card = document.createElement('div');
-            card.className = 'ruta-result';
-            card.innerHTML = `
-                <div class="ruta-result-head">
-                    <div>
-                        <div class="ruta-result-title">📍 ${calc.fila.destinoNombre}</div>
-                        <div class="ruta-result-sub">Viaje de ${calc.fila.duracionH} h · criterio: ${calc.fila.criterio === 'alta' ? 'marea alta más cercana' : `umbral ≥ ${calc.fila.umbral} m`}</div>
+            calculos.forEach((calc, idx) => {
+                const canvasId = `chart-${idx}`;
+                const card = document.createElement('div');
+                card.className = 'ruta-result';
+
+                const ahora = new Date();
+                const proxAlta = proximoPico(picosAlta(calc.serie), ahora);
+                const proxBaja = proximoPico(picosBaja(calc.serie), ahora);
+                const tileAlta = proxAlta
+                    ? `<div class="rt-value">${fmtFechaHora(proxAlta.dt)}</div><div class="rt-sub">${proxAlta.altura_marea_m.toFixed(2)} m</div>`
+                    : `<div class="rt-value">—</div><div class="rt-sub">sin dato</div>`;
+                const tileBaja = proxBaja
+                    ? `<div class="rt-value">${fmtFechaHora(proxBaja.dt)}</div><div class="rt-sub">${proxBaja.altura_marea_m.toFixed(2)} m</div>`
+                    : `<div class="rt-value">—</div><div class="rt-sub">sin dato</div>`;
+
+                card.innerHTML = `
+                    <div class="ruta-result-head">
+                        <div>
+                            <div class="ruta-result-title">📍 ${calc.fila.origen || '—'} → ${calc.fila.destinoNombre}</div>
+                            <div class="ruta-result-sub">Viaje de ${calc.fila.duracionH} h · criterio: ${calc.fila.criterio === 'alta' ? 'marea alta más cercana' : `umbral ≥ ${calc.fila.umbral} m`}</div>
+                        </div>
                     </div>
-                </div>
-                <div class="ruta-result-body">
-                    <div class="ruta-chart-box"><canvas id="${canvasId}"></canvas></div>
-                    <div class="ventanas-list">${renderVentanas(calc.resultados, calc.fila)}</div>
-                </div>
-            `;
-            cont.appendChild(card);
-        });
+                    <div class="ruta-tiles">
+                        <div class="ruta-tile hi"><div class="rt-label">Próx. marea alta</div>${tileAlta}</div>
+                        <div class="ruta-tile lo"><div class="rt-label">Próx. marea baja</div>${tileBaja}</div>
+                    </div>
+                    <div class="ruta-result-body">
+                        <div class="ruta-chart-box">
+                            <div class="chart-legend">
+                                <span class="sw"><i style="background:#7c3aed;"></i>Marea destino (${calc.fila.destinoNombre})${calc.serie.fuenteAlterna ? ` · usa ${calc.serie.fuenteAlterna}` : ''}</span>
+                                ${calc.serieOrigen !== calc.serie
+                                    ? (calc.serieOrigen.some(p => p.altura_marea_m !== null)
+                                        ? `<span class="sw"><i style="background:#f59e0b;"></i>Marea origen (${calc.fila.origen})${calc.serieOrigen.fuenteAlterna ? ` · usa ${calc.serieOrigen.fuenteAlterna}` : ''}</span>`
+                                        : `<span class="sw" style="color:var(--muted);">Origen (${calc.fila.origen}) sin cobertura de marea</span>`)
+                                    : ''}
+                                <span class="sw"><i style="background:#10b981;"></i>Hora de llegada</span>
+                            </div>
+                            <canvas id="${canvasId}"></canvas>
+                        </div>
+                        <div class="ventanas-list">
+                            ${renderVentanas(calc.resultados, calc.fila)}
+                            <div class="note-box" style="margin:2px 0 0;">Datos reales de marea (Naturisa, tabla <code>marea</code>/<code>marea_muelle</code>). Cuando un punto no tiene cobertura de Open-Meteo, se usa la marea del muelle con datos más cercano por coordenadas. La salida marcada "Más próxima" es la sugerida para llegar justo con la ventana de marea, dentro del horario 06:00–18:00.</div>
+                        </div>
+                    </div>
+                    ${renderSimulacion(calc.resultados[0], calc.fila)}
+                `;
+                cont.appendChild(card);
+            });
 
-        calculos.forEach((calc, idx) => renderChart(`chart-${idx}`, calc.serie, calc.resultados));
+            calculos.forEach((calc, idx) => renderChart(`chart-${idx}`, calc.serie, calc.resultados, calc.serieOrigen));
+            actualizarSimulaciones();
+        } else {
+            const matrix = await Promise.all(filas.map(async f => ({
+                fila: f,
+                porFecha: await Promise.all(fechas.map(fecha => calcularRuta(f, fecha))),
+            })));
+
+            wrap.innerHTML = '';
+            wrap.appendChild(renderResumenRango(fechas, matrix));
+
+            const graficos = document.createElement('div');
+            graficos.className = 'resultados';
+            graficos.style.marginTop = '14px';
+            matrix.forEach((m, idx) => {
+                const canvasId = `chart-rango-${idx}`;
+                const primerCalc = m.porFecha[0];
+                const hayOrigen = primerCalc.serieOrigen !== primerCalc.serie &&
+                    m.porFecha.some(c => c.serieOrigen.some(p => p.altura_marea_m !== null));
+                const card = document.createElement('div');
+                card.className = 'ruta-result';
+                card.innerHTML = `
+                    <div class="ruta-result-head">
+                        <div>
+                            <div class="ruta-result-title">📍 ${m.fila.origen || '—'} → ${m.fila.destinoNombre}</div>
+                            <div class="ruta-result-sub">Marea del ${fechas[0]} al ${fechas[fechas.length - 1]} · horario 06:00–18:00</div>
+                        </div>
+                    </div>
+                    <div class="ruta-chart-box">
+                        <div class="chart-legend">
+                            <span class="sw"><i style="background:#7c3aed;"></i>Marea destino (${m.fila.destinoNombre})</span>
+                            ${hayOrigen ? `<span class="sw"><i style="background:#f59e0b;"></i>Marea origen (${m.fila.origen})</span>` : ''}
+                            <span class="sw"><i style="background:#10b981;"></i>Hora de llegada</span>
+                        </div>
+                        <canvas id="${canvasId}"></canvas>
+                    </div>
+                `;
+                graficos.appendChild(card);
+            });
+            wrap.appendChild(graficos);
+            matrix.forEach((m, idx) => renderChartRango(`chart-rango-${idx}`, fechas, m.porFecha));
+        }
     } catch (e) {
         wrap.innerHTML = `<div class="empty-state">⚠ Error calculando mareas: ${e.message}</div>`;
     }
 }
 
 initFecha();
-agregarFila();
+cargarMuellesYTiempos().then(agregarFila);
 </script>
 
 </body>
