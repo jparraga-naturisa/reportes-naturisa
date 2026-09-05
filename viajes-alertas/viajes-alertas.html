@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alertas de Viajes — Naturisa</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--primary:#0f4c8a;--accent:#1a73c4;--muted:#64748b;--border:#e2e8f0;--bg:#f8fafc;--card:#fff}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#1e293b;font-size:14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.header{background:var(--primary);color:white;padding:0 24px;height:46px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+.header h1{font-size:17px;font-weight:700;letter-spacing:0.2px}
+.header-sep{flex:1}
+.header-sub{font-size:12px;opacity:0.8}
+
+.filters{background:white;border-bottom:1px solid var(--border);padding:12px 24px;display:flex;flex-wrap:nowrap;gap:10px;align-items:flex-end;overflow-x:auto}
+.filter-group{display:flex;flex-direction:column;gap:3px;flex-shrink:0}
+.filter-group label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px}
+.filter-group select,.filter-group input{height:34px;border:1.5px solid var(--border);border-radius:8px;padding:0 10px;font-size:13px;background:white;cursor:pointer;outline:none}
+.filter-group input[type=number]{width:90px;cursor:text}
+.range-box{display:flex;align-items:center;gap:6px;height:34px;border:1.5px solid var(--border);border-radius:8px;padding:0 10px;background:white}
+.range-box input[type=number]{width:50px;height:auto;border:none;padding:0;text-align:center}
+.range-box input[type=number]:focus{outline:none}
+.range-box span{color:var(--muted);font-size:12px}
+.filter-group select:focus,.filter-group input:focus{border-color:var(--accent)}
+.file-label{height:34px;padding:0 16px;background:var(--primary);color:white;border-radius:8px;font-size:13px;font-weight:700;display:flex;align-items:center;cursor:pointer;white-space:nowrap}
+.file-label:hover{background:var(--accent)}
+.btn-cargar{height:34px;padding:0 20px;background:var(--primary);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn-cargar:hover{background:var(--accent)}
+.btn-cargar:disabled{background:#94a3b8;cursor:not-allowed}
+.btn-export{height:34px;padding:0 16px;background:#16a34a;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-export:hover{background:#15803d}
+#status-bar{font-size:12px;color:rgba(255,255,255,0.85);align-self:center}
+
+main{padding:20px 24px;max-width:1600px}
+
+.kpi-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.kpi{background:white;border:1px solid var(--border);border-radius:10px;padding:14px 18px;min-width:150px;flex:1}
+.kpi-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+.kpi-value{font-size:24px;font-weight:800;color:var(--primary)}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.kpi.green .kpi-value{color:#16a34a}
+.kpi.red .kpi-value{color:#dc2626}
+.kpi.amber .kpi-value{color:#d97706}
+
+.rank-num{font-weight:800;color:var(--muted);text-align:center}
+.chart-wrap{position:relative;height:260px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+
+.section{background:white;border:1px solid var(--border);border-radius:10px;margin-bottom:16px;overflow:hidden}
+.section-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.section-title{font-weight:700;font-size:15px;color:var(--primary)}
+.section-hint{font-size:11px;color:var(--muted);margin-left:auto}
+.section-body{padding:16px 18px}
+
+.tbl-fixed table{border-collapse:collapse;font-size:11px}
+.tbl-fixed th{background:#f8fafc;padding:5px 6px;border-bottom:2px solid var(--border);text-align:left;white-space:nowrap;font-weight:700;color:#475569;overflow:hidden;text-overflow:ellipsis}
+.tbl-fixed td{padding:4px 6px;border-bottom:1px solid #f1f5f9;vertical-align:middle;white-space:nowrap;background:white;overflow:hidden;text-overflow:ellipsis}
+.tbl-fixed tbody tr:hover td{background:#f0f7ff}
+.tbl-body-scroll{max-height:480px;overflow-y:auto}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
+.badge-crit{background:#fee2e2;color:#991b1b}
+.badge-warn{background:#fef9c3;color:#854d0e}
+.badge-info{background:#e0f2fe;color:#0369a1}
+
+.views{display:flex;gap:0;height:100%}
+.view-btn{padding:0 16px;height:100%;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:rgba(255,255,255,0.65);border-bottom:3px solid transparent;transition:color .15s,border-color .15s}
+.view-btn.active{color:white;border-bottom-color:#8ecbff}
+.view-btn:hover:not(.active){color:rgba(255,255,255,0.9)}
+.view-panel{display:none}
+.view-panel.active{display:block}
+
+.search-bar{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center}
+.search-bar input{flex:1;max-width:340px;height:34px;border:1.5px solid var(--border);border-radius:8px;padding:0 10px;font-size:13px;outline:none}
+.search-bar input:focus{border-color:var(--accent)}
+.search-bar .count{font-size:12px;color:var(--muted)}
+
+.empty-state{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #e2e8f0;border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
+#status-bar .spinner{border-color:rgba(255,255,255,0.35);border-top-color:#fff}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🚛 Alertas de Viajes</h1>
+  <div class="views" id="views">
+    <button class="view-btn active" onclick="setView('dashboard')">📊 Dashboard</button>
+    <button class="view-btn" onclick="setView('alertas')">🚨 Alertas</button>
+    <button class="view-btn" onclick="setView('datos')">📋 Base de Datos</button>
+  </div>
+  <div class="header-sep"></div>
+  <div id="status-bar" style="display:none"></div>
+  <label class="file-label" for="file-input">📂 Elegir archivo</label>
+  <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none" onchange="onFileChosen(this)">
+  <div class="header-sub">Naturisa</div>
+</div>
+
+<main>
+  <div class="view-panel" id="view-datos">
+    <div class="filters">
+      <div class="filter-group">
+        <label>Sucursal</label>
+        <select id="f-sucursal" title="Sucursal" onchange="renderDatos()"><option value="">Todas</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Creado por</label>
+        <select id="f-creadopor" title="Creado por" onchange="renderDatos()"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Placa</label>
+        <select id="f-placa" title="Placa" onchange="renderDatos()"><option value="">Todas</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Transportista</label>
+        <select id="f-transportista" title="Transportista" onchange="renderDatos()"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Desde</label>
+        <input type="date" id="f-fecha-desde" title="Fecha desde" onchange="renderDatos()">
+      </div>
+      <div class="filter-group">
+        <label>Hasta</label>
+        <input type="date" id="f-fecha-hasta" title="Fecha hasta" onchange="renderDatos()">
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-body" id="tbl-datos"></div>
+    </div>
+  </div>
+
+  <div class="view-panel" id="view-alertas">
+    <div class="filters">
+      <div class="filter-group">
+        <label>Campamento</label>
+        <select id="f-alertas-sucursal" title="Campamento" onchange="onFiltroChange('alertas')"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Mes</label>
+        <select id="f-alertas-mes" title="Mes" onchange="onFiltroChange('alertas')"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Creado por</label>
+        <select id="f-alertas-creadopor" title="Creado por" onchange="onFiltroChange('alertas')"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Diferencia (min)</label>
+        <div class="range-box">
+          <input type="number" id="f-diff-desde" min="0" placeholder="0" onchange="onFiltroChange('alertas')">
+          <span>—</span>
+          <input type="number" id="f-diff-hasta" min="0" placeholder="60" onchange="onFiltroChange('alertas')">
+        </div>
+      </div>
+      <div class="filter-group">
+        <label>Diferencia de sacos</label>
+        <div class="range-box">
+          <input type="number" id="f-sacos-desde" placeholder="min" onchange="onFiltroChange('alertas')">
+          <span>—</span>
+          <input type="number" id="f-sacos-hasta" placeholder="max" onchange="onFiltroChange('alertas')">
+        </div>
+      </div>
+      <button class="btn-export" id="btn-export" onclick="exportarExcel()" disabled>⬇️ Exportar alertas</button>
+    </div>
+
+    <div class="kpi-row" id="kpi-row" style="display:none">
+      <div class="kpi"><div class="kpi-label">Viajes totales realizados</div><div class="kpi-value" id="kpi-total">0</div></div>
+      <div class="kpi amber"><div class="kpi-label">Viajes en alerta (rango elegido)</div><div class="kpi-value" id="kpi-viajes-alerta">0</div></div>
+      <div class="kpi red"><div class="kpi-label">Total de alertas</div><div class="kpi-value" id="kpi-mismo">0</div></div>
+    </div>
+
+    <div class="section" id="results-section">
+      <div class="section-header">
+        <div class="section-title">Viajes muy seguidos — misma placa, mismo chofer</div>
+        <div class="section-hint">Posible turnaround irreal o error de digitación</div>
+      </div>
+      <div class="section-body" id="tbl-mismo"></div>
+    </div>
+  </div>
+
+  <div class="view-panel active" id="view-dashboard">
+    <div class="filters">
+      <div class="filter-group">
+        <label>Campamento</label>
+        <select id="f-dash-sucursal" title="Campamento" onchange="onFiltroChange('dashboard')"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Mes</label>
+        <select id="f-dash-mes" title="Mes" onchange="onFiltroChange('dashboard')"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Creado por</label>
+        <select id="f-dash-creadopor" title="Creado por" onchange="onFiltroChange('dashboard')"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Diferencia (min)</label>
+        <div class="range-box">
+          <input type="number" id="f-dash-diff-desde" min="0" placeholder="0" onchange="onFiltroChange('dashboard')">
+          <span>—</span>
+          <input type="number" id="f-dash-diff-hasta" min="0" placeholder="60" onchange="onFiltroChange('dashboard')">
+        </div>
+      </div>
+      <div class="filter-group">
+        <label>Diferencia de sacos</label>
+        <div class="range-box">
+          <input type="number" id="f-dash-sacos-desde" placeholder="min" onchange="onFiltroChange('dashboard')">
+          <span>—</span>
+          <input type="number" id="f-dash-sacos-hasta" placeholder="max" onchange="onFiltroChange('dashboard')">
+        </div>
+      </div>
+      <button class="btn-export" id="btn-reporte-gerencia" onclick="exportarReporteGerencia()" disabled>📄 Reporte Gerencia (0-10min, 0-30 sacos)</button>
+    </div>
+
+    <div class="kpi-row" id="dash-kpi-row" style="display:none">
+      <div class="kpi"><div class="kpi-label">Viajes totales realizados</div><div class="kpi-value" id="dash-kpi-total">0</div></div>
+      <div class="kpi amber"><div class="kpi-label">Viajes en alerta (rango elegido)</div><div class="kpi-value" id="dash-kpi-viajes-alerta">0</div></div>
+      <div class="kpi red"><div class="kpi-label">Total de alertas</div><div class="kpi-value" id="dash-kpi-mismo">0</div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Alertas por mes</div>
+        <div class="section-hint">Ignora el filtro de Mes para mostrar la tendencia completa</div>
+      </div>
+      <div class="section-body">
+        <div class="chart-wrap"><canvas id="chart-mes"></canvas></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Top 10 Usuarios (Creado por) con más alertas</div>
+      </div>
+      <div class="section-body" id="tbl-top-usuarios"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Top 10 Placas con más alertas</div>
+        </div>
+        <div class="section-body" id="tbl-top-placas"></div>
+      </div>
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Top 10 Choferes con más alertas</div>
+        </div>
+        <div class="section-body" id="tbl-top-choferes"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+let VIAJES = [];
+let VIAJES_FILTRADOS_ALERTAS = [];
+let ALERTAS = { mismo: [], distinto: [], chofer2: [] };
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const hoy = new Date();
+  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const fmt = d => d.toISOString().slice(0,10);
+  document.getElementById('f-fecha-desde').value = fmt(inicioMes);
+  document.getElementById('f-fecha-hasta').value = fmt(hoy);
+
+  const guardado = await cargarViajesGuardados();
+  if(guardado){
+    VIAJES = guardado.viajes;
+    VIAJES.forEach(v => {
+      if(!v.mes && v.dt) v.mes = `${v.dt.getFullYear()}-${String(v.dt.getMonth()+1).padStart(2,'0')}`;
+    });
+    poblarFiltrosDatos();
+    document.getElementById('status-bar').textContent = `${guardado.fileName} — ${VIAJES.length} viajes (guardado ${fmtDt(new Date(guardado.savedAt))})`;
+    renderDatos();
+    calcularAlertas();
+    calcularDashboard();
+  }
+});
+
+// --- Persistencia en IndexedDB ---
+const DB_NAME = 'viajes-alertas';
+const STORE = 'datos';
+
+function abrirDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function guardarViajesEnDB(viajes, fileName){
+  try{
+    const db = await abrirDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put({ viajes, fileName, savedAt: Date.now() }, 'ultimo');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  }catch(err){ console.error('No se pudo guardar en IndexedDB:', err); }
+}
+
+async function cargarViajesGuardados(){
+  try{
+    const db = await abrirDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).get('ultimo');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }catch(err){ console.error('No se pudo leer IndexedDB:', err); return null; }
+}
+
+function onFileChosen(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('status-bar');
+  statusEl.innerHTML = '<span class="spinner"></span>Leyendo archivo...';
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+      const sheetName = wb.SheetNames.includes('VIAJES') ? 'VIAJES' : wb.SheetNames[0];
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {defval:null});
+      cargarViajes(rows);
+      statusEl.textContent = `${file.name} — ${VIAJES.length} viajes de la hoja "${sheetName}"`;
+      renderDatos();
+      calcularAlertas();
+      calcularDashboard();
+      guardarViajesEnDB(VIAJES, file.name);
+    }catch(err){
+      statusEl.textContent = 'Error leyendo el archivo: ' + err.message;
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function excelDateTimeToJs(fecha, hora){
+  let base = fecha instanceof Date ? new Date(fecha.getTime()) : null;
+  if(!base) return null;
+  if(hora instanceof Date){
+    base.setHours(hora.getHours(), hora.getMinutes(), hora.getSeconds(), 0);
+  } else if(typeof hora === 'number'){
+    const totalSec = Math.round(hora * 86400);
+    base.setHours(0,0,0,0);
+    base = new Date(base.getTime() + totalSec*1000);
+  }
+  return base;
+}
+
+function sucursalDeSitio(sitio){
+  if(!sitio) return '';
+  const m = sitio.toString().trim().match(/^(?:BF|BM|BA|TF)\s+(.+)$/i);
+  return m ? m[1].trim() : sitio.toString().trim();
+}
+
+function cargarViajes(rows){
+  VIAJES = rows.map(r => {
+    const dt = excelDateTimeToJs(r['Fecha'], r['Hora']);
+    return {
+      viaje: r['Viaje'],
+      placa: (r['Transporte']||'').toString().trim(),
+      chofer: (r['Transportista']||'').toString().trim(),
+      origen: r['Origen'],
+      destino: r['Destino'],
+      sucursal: sucursalDeSitio(r['Origen']) || sucursalDeSitio(r['Destino']),
+      sacos: parseFloat(r['Sacos']) || 0,
+      capacidad: parseFloat(r['Capacidad Sacos']) || 0,
+      kg: r['Kg'],
+      estado: r['Estado'],
+      creadoPor: (r['Creado por']||'').toString().trim(),
+      dt: dt,
+      mes: dt ? `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}` : ''
+    };
+  }).filter(v => v.dt && v.placa && v.chofer);
+
+  poblarFiltrosDatos();
+}
+
+function poblarSelect(id, valores, etiquetaFn){
+  const sel = document.getElementById(id);
+  const actual = sel.value;
+  const primera = sel.options[0];
+  sel.innerHTML = '';
+  sel.appendChild(primera);
+  valores.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = etiquetaFn ? etiquetaFn(v) : v;
+    sel.appendChild(opt);
+  });
+  if(valores.includes(actual)) sel.value = actual;
+}
+
+const NOMBRES_MES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function fmtMes(mes){
+  const [anio, m] = mes.split('-');
+  return `${NOMBRES_MES[parseInt(m,10)-1]} ${anio}`;
+}
+
+function poblarFiltrosDatos(){
+  const sucursales = [...new Set(VIAJES.map(v=>v.sucursal))].filter(Boolean).sort();
+  poblarSelect('f-sucursal', sucursales);
+  poblarSelect('f-alertas-sucursal', sucursales);
+  poblarSelect('f-dash-sucursal', sucursales);
+  const creadoPor = [...new Set(VIAJES.map(v=>v.creadoPor))].filter(Boolean).sort();
+  poblarSelect('f-creadopor', creadoPor);
+  poblarSelect('f-alertas-creadopor', creadoPor);
+  poblarSelect('f-dash-creadopor', creadoPor);
+  poblarSelect('f-placa', [...new Set(VIAJES.map(v=>v.placa))].filter(Boolean).sort());
+  poblarSelect('f-transportista', [...new Set(VIAJES.map(v=>v.chofer))].filter(Boolean).sort());
+  const meses = [...new Set(VIAJES.map(v=>v.mes))].filter(Boolean).sort();
+  poblarSelect('f-alertas-mes', meses, fmtMes);
+  poblarSelect('f-dash-mes', meses, fmtMes);
+}
+
+const UMBRAL_MISMO_CHOFER = 30;
+
+// Lógica pura: dado un conjunto de filtros, devuelve {viajesFiltrados, alertas}.
+// La usan tanto la pantalla de Alertas como el Dashboard, cada una con sus propios inputs.
+function computarAlertas({sucursal, mes, creadoPor, diffDesde, diffHasta, sacosDesde, sacosHasta}){
+  const thMismo = UMBRAL_MISMO_CHOFER;
+  const dentroDelRango = diffMin =>
+    (isNaN(diffDesde) || diffMin >= diffDesde) && (isNaN(diffHasta) || diffMin <= diffHasta);
+  const dentroDelRangoSacos = diffSacos =>
+    (isNaN(sacosDesde) || diffSacos >= sacosDesde) && (isNaN(sacosHasta) || diffSacos <= sacosHasta);
+  const viajesFiltrados = VIAJES.filter(v =>
+    (!sucursal || v.sucursal === sucursal) &&
+    (!mes || v.mes === mes)
+  );
+
+  const alertas = [];
+  const porPlaca = {};
+  viajesFiltrados.forEach(v => { (porPlaca[v.placa] = porPlaca[v.placa] || []).push(v); });
+  Object.values(porPlaca).forEach(lista => {
+    lista.sort((a,b) => a.dt - b.dt);
+    for(let i=1;i<lista.length;i++){
+      const a = lista[i-1], b = lista[i];
+      const diffMin = (b.dt - a.dt) / 60000;
+      if(diffMin < 0) continue;
+      if(a.chofer === b.chofer && diffMin < thMismo && dentroDelRango(diffMin)){
+        const totalSacos = (a.sacos||0) + (b.sacos||0);
+        const capacidad = a.capacidad || b.capacidad || 0;
+        const diffSacos = totalSacos - capacidad;
+        const cumpleCreadoPor = !creadoPor || a.creadoPor === creadoPor || b.creadoPor === creadoPor;
+        if(dentroDelRangoSacos(diffSacos) && cumpleCreadoPor){
+          alertas.push({placa:a.placa, chofer:a.chofer, sucursal:a.sucursal, viajeA:a.viaje, dtA:a.dt, sacosA:a.sacos, creadoPorA:a.creadoPor, viajeB:b.viaje, dtB:b.dt, sacosB:b.sacos, creadoPorB:b.creadoPor, diffMin, totalSacos, capacidad, diffSacos});
+        }
+      }
+    }
+  });
+
+  return { viajesFiltrados, alertas };
+}
+
+function leerFiltrosAlertas(ids){
+  return {
+    sucursal: document.getElementById(ids.sucursal).value,
+    mes: document.getElementById(ids.mes).value,
+    creadoPor: document.getElementById(ids.creadoPor).value,
+    diffDesde: parseFloat(document.getElementById(ids.diffDesde).value),
+    diffHasta: parseFloat(document.getElementById(ids.diffHasta).value),
+    sacosDesde: parseFloat(document.getElementById(ids.sacosDesde).value),
+    sacosHasta: parseFloat(document.getElementById(ids.sacosHasta).value),
+  };
+}
+
+const IDS_FILTROS_ALERTAS = {
+  sucursal:'f-alertas-sucursal', mes:'f-alertas-mes', creadoPor:'f-alertas-creadopor',
+  diffDesde:'f-diff-desde', diffHasta:'f-diff-hasta', sacosDesde:'f-sacos-desde', sacosHasta:'f-sacos-hasta'
+};
+const IDS_FILTROS_DASHBOARD = {
+  sucursal:'f-dash-sucursal', mes:'f-dash-mes', creadoPor:'f-dash-creadopor',
+  diffDesde:'f-dash-diff-desde', diffHasta:'f-dash-diff-hasta', sacosDesde:'f-dash-sacos-desde', sacosHasta:'f-dash-sacos-hasta'
+};
+
+function copiarFiltros(idsOrigen, idsDestino){
+  Object.keys(idsOrigen).forEach(clave => {
+    document.getElementById(idsDestino[clave]).value = document.getElementById(idsOrigen[clave]).value;
+  });
+}
+
+function onFiltroChange(origen){
+  if(origen === 'alertas'){
+    copiarFiltros(IDS_FILTROS_ALERTAS, IDS_FILTROS_DASHBOARD);
+  } else {
+    copiarFiltros(IDS_FILTROS_DASHBOARD, IDS_FILTROS_ALERTAS);
+  }
+  calcularAlertas();
+  calcularDashboard();
+}
+
+function calcularAlertas(){
+  const { viajesFiltrados, alertas } = computarAlertas(leerFiltrosAlertas(IDS_FILTROS_ALERTAS));
+  VIAJES_FILTRADOS_ALERTAS = viajesFiltrados;
+  ALERTAS = { mismo: alertas };
+  renderResultados();
+}
+
+function calcularDashboard(){
+  const { viajesFiltrados, alertas } = computarAlertas(leerFiltrosAlertas(IDS_FILTROS_DASHBOARD));
+  renderDashboard(viajesFiltrados, alertas);
+}
+
+function agregarConteo(mapa, nombre, sucursal){
+  if(!mapa[nombre]) mapa[nombre] = { total: 0, porSucursal: {} };
+  mapa[nombre].total++;
+  if(sucursal) mapa[nombre].porSucursal[sucursal] = (mapa[nombre].porSucursal[sucursal]||0) + 1;
+}
+
+function sucursalDominante(porSucursal){
+  const entradas = Object.entries(porSucursal);
+  if(!entradas.length) return '';
+  entradas.sort((a,b) => b[1]-a[1]);
+  return entradas.length > 1 ? `${entradas[0][0]} +${entradas.length-1}` : entradas[0][0];
+}
+
+function topN(conteo, n){
+  return Object.entries(conteo).sort((a,b) => b[1].total-a[1].total).slice(0, n);
+}
+
+function tablaTop(filas){
+  if(!filas.length) return '<div class="empty-state">Sin datos.</div>';
+  const max = filas[0][1].total;
+  const filasHtml = filas.map(([nombre, info], i) => {
+    const pct = max ? Math.round(info.total/max*100) : 0;
+    const sucursal = sucursalDominante(info.porSucursal);
+    return `<tr><td class="rank-num">${i+1}</td><td>${nombre}</td><td style="color:var(--muted);font-size:11px">${sucursal}</td><td>
+      <div style="background:#e0f2fe;border-radius:4px;overflow:hidden;height:16px;position:relative">
+        <div style="background:var(--accent);width:${pct}%;height:100%"></div>
+      </div>
+    </td><td style="text-align:right;font-weight:700">${info.total}</td></tr>`;
+  }).join('');
+  return tablaFija(['#','Nombre','Campamento','','Alertas'], [40,190,120,140,70], filasHtml);
+}
+
+function renderDashboard(viajesFiltrados, alertas){
+  document.getElementById('dash-kpi-row').style.display = 'flex';
+  document.getElementById('btn-reporte-gerencia').disabled = false;
+
+  const viajesEnAlerta = new Set();
+  alertas.forEach(a => { viajesEnAlerta.add(a.viajeA); viajesEnAlerta.add(a.viajeB); });
+
+  document.getElementById('dash-kpi-total').textContent = viajesFiltrados.length;
+  document.getElementById('dash-kpi-viajes-alerta').textContent = viajesEnAlerta.size;
+  document.getElementById('dash-kpi-mismo').textContent = alertas.length;
+
+  const porPlaca = {}, porChofer = {}, porUsuario = {};
+  alertas.forEach(a => {
+    agregarConteo(porPlaca, a.placa, a.sucursal);
+    agregarConteo(porChofer, a.chofer, a.sucursal);
+    [a.creadoPorA, a.creadoPorB].forEach(u => { if(u) agregarConteo(porUsuario, u, a.sucursal); });
+  });
+
+  document.getElementById('tbl-top-placas').innerHTML = tablaTop(topN(porPlaca, 10));
+  document.getElementById('tbl-top-choferes').innerHTML = tablaTop(topN(porChofer, 10));
+  document.getElementById('tbl-top-usuarios').innerHTML = tablaTop(topN(porUsuario, 10));
+
+  renderGraficoMensual();
+}
+
+let CHART_MES = null;
+function renderGraficoMensual(){
+  // Usa los mismos filtros del Dashboard, pero ignorando "Mes", para mostrar la tendencia completa.
+  const filtros = leerFiltrosAlertas(IDS_FILTROS_DASHBOARD);
+  filtros.mes = '';
+  const { alertas } = computarAlertas(filtros);
+
+  const conteoPorMes = {};
+  alertas.forEach(a => {
+    if(!a.dtA) return;
+    const mes = `${a.dtA.getFullYear()}-${String(a.dtA.getMonth()+1).padStart(2,'0')}`;
+    conteoPorMes[mes] = (conteoPorMes[mes]||0) + 1;
+  });
+  const meses = Object.keys(conteoPorMes).sort();
+  const valores = meses.map(m => conteoPorMes[m]);
+  const etiquetas = meses.map(fmtMes);
+
+  const ctx = document.getElementById('chart-mes').getContext('2d');
+  if(CHART_MES) CHART_MES.destroy();
+  CHART_MES = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: etiquetas,
+      datasets: [{ label: 'Alertas', data: valores, backgroundColor: '#1a73c4', borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+function fmtDt(d){
+  if(!d) return '';
+  const p = n => String(n).padStart(2,'0');
+  return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function renderResultados(){
+  document.getElementById('kpi-row').style.display = 'flex';
+  document.getElementById('btn-export').disabled = false;
+
+  const viajesEnAlerta = new Set();
+  ALERTAS.mismo.forEach(a => { viajesEnAlerta.add(a.viajeA); viajesEnAlerta.add(a.viajeB); });
+
+  document.getElementById('kpi-total').textContent = VIAJES_FILTRADOS_ALERTAS.length;
+  document.getElementById('kpi-viajes-alerta').textContent = viajesEnAlerta.size;
+  document.getElementById('kpi-mismo').textContent = ALERTAS.mismo.length;
+
+  document.getElementById('tbl-mismo').innerHTML = tablaMismo(ALERTAS.mismo);
+}
+
+// Encabezado fijo real: dos tablas separadas (una para el título, otra para el cuerpo
+// que hace scroll), así el título nunca puede quedar tapado ni una fila dibujarse encima.
+function tablaFija(headers, widths, filasHtml){
+  const totalWidth = widths.reduce((a,b)=>a+b, 0);
+  const colgroup = '<colgroup>' + widths.map(w => `<col style="width:${(w/totalWidth*100).toFixed(3)}%">`).join('') + '</colgroup>';
+  const theadHtml = `<table style="table-layout:fixed;width:100%">${colgroup}<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead></table>`;
+  const bodyHtml = `<div class="tbl-body-scroll"><table style="table-layout:fixed;width:100%">${colgroup}<tbody>${filasHtml}</tbody></table></div>`;
+  return `<div class="tbl-fixed"><div style="overflow-x:auto"><div style="min-width:${totalWidth}px">${theadHtml}${bodyHtml}</div></div></div>`;
+}
+
+function excedeBadge(excede){
+  return excede ? '<span class="badge badge-crit">SÍ</span>' : '<span class="badge badge-info">No</span>';
+}
+
+function tablaMismo(list){
+  if(!list.length) return '<div class="empty-state">Sin alertas.</div>';
+  list = list.slice().sort((a,b)=>a.diffMin-b.diffMin);
+  const filas = list.map(a =>
+    `<tr><td>${a.placa}</td><td>${a.chofer}</td><td>${a.viajeA}</td><td>${fmtDt(a.dtA)}</td><td>${a.sacosA}</td><td>${a.creadoPorA||''}</td><td>${a.viajeB}</td><td>${fmtDt(a.dtB)}</td><td>${a.sacosB}</td><td>${a.creadoPorB||''}</td><td>${a.diffMin.toFixed(0)} min</td><td>${a.capacidad||''}</td><td>${a.totalSacos}</td><td>${a.diffSacos}</td><td>${excedeBadge(a.diffSacos>0)}</td></tr>`
+  ).join('');
+  return tablaFija(
+    ['Placa','Chofer','Viaje 1','Fecha/Hora 1','Sacos 1','Creado por 1','Viaje 2','Fecha/Hora 2','Sacos 2','Creado por 2','Diferencia (min)','Capacidad','Total Sacos','Diferencia','¿Excede?'],
+    [80,140,65,110,50,90,65,110,50,90,80,65,65,65,65],
+    filas
+  );
+}
+
+function setView(name){
+  document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.view-panel').forEach(p=>p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('view-'+name).classList.add('active');
+}
+
+const DATOS_LIMIT = 2000;
+function renderDatos(){
+  const fSucursal = document.getElementById('f-sucursal').value;
+  const fCreadoPor = document.getElementById('f-creadopor').value;
+  const fPlaca = document.getElementById('f-placa').value;
+  const fTransportista = document.getElementById('f-transportista').value;
+  const fDesde = document.getElementById('f-fecha-desde').value;
+  const fHasta = document.getElementById('f-fecha-hasta').value;
+  const desde = fDesde ? new Date(fDesde + 'T00:00:00') : null;
+  const hasta = fHasta ? new Date(fHasta + 'T23:59:59') : null;
+
+  let lista = VIAJES.filter(v =>
+    (!fSucursal || v.sucursal === fSucursal) &&
+    (!fCreadoPor || v.creadoPor === fCreadoPor) &&
+    (!fPlaca || v.placa === fPlaca) &&
+    (!fTransportista || v.chofer === fTransportista) &&
+    (!desde || v.dt >= desde) &&
+    (!hasta || v.dt <= hasta)
+  );
+  lista = lista.slice().sort((a,b) => b.dt - a.dt);
+
+  const filas = lista.slice(0, DATOS_LIMIT);
+  const filasHtml = filas.map(v => {
+    const p = n => String(n).padStart(2,'0');
+    const fecha = `${p(v.dt.getDate())}/${p(v.dt.getMonth()+1)}/${v.dt.getFullYear()}`;
+    const hora = `${p(v.dt.getHours())}:${p(v.dt.getMinutes())}`;
+    return `<tr><td>${fecha}</td><td>${hora}</td><td>${v.viaje}</td><td>${v.sucursal||''}</td><td>${v.placa}</td><td>${v.chofer}</td><td>${v.origen||''}</td><td>${v.destino||''}</td><td>${v.sacos||''}</td><td>${v.kg||''}</td><td>${v.estado||''}</td><td>${v.creadoPor||''}</td></tr>`;
+  }).join('');
+  document.getElementById('tbl-datos').innerHTML = filasHtml
+    ? tablaFija(
+        ['Fecha','Hora','Viaje','Sucursal','Placa','Chofer','Origen','Destino','Sacos','Kg','Estado','Creado por'],
+        [75,50,65,90,70,150,110,110,55,65,85,80],
+        filasHtml
+      )
+    : '<div class="empty-state">Sin viajes para los filtros seleccionados.</div>';
+}
+
+function exportarExcel(){
+  const wb = XLSX.utils.book_new();
+  const mismoRows = ALERTAS.mismo.map(a => ({Placa:a.placa, Chofer:a.chofer, 'Viaje 1':a.viajeA, 'Fecha/Hora 1':fmtDt(a.dtA), 'Sacos 1':a.sacosA, 'Creado por 1':a.creadoPorA, 'Viaje 2':a.viajeB, 'Fecha/Hora 2':fmtDt(a.dtB), 'Sacos 2':a.sacosB, 'Creado por 2':a.creadoPorB, 'Diferencia (min)':Math.round(a.diffMin), Capacidad:a.capacidad, 'Total Sacos':a.totalSacos, Diferencia:a.diffSacos, '¿Excede Capacidad?': a.diffSacos>0 ? 'SI' : 'NO'}));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mismoRows), 'Mismo chofer');
+  XLSX.writeFile(wb, 'alertas_viajes.xlsx');
+}
+
+const COLOR_PRIMARIO = 'FF0F4C8A';
+const COLOR_MUTED = 'FF64748B';
+const COLOR_BLANCO = 'FFFFFFFF';
+const COLOR_FILA_PAR = 'FFF8FAFC';
+
+function agregarHojaTabla(wb, nombre, headers, filas, widths){
+  const ws = wb.addWorksheet(nombre);
+  ws.columns = headers.map((h, i) => ({ header: h, key: 'c'+i, width: widths[i] || 18 }));
+  filas.forEach((fila, i) => {
+    const row = ws.addRow(fila);
+    if(i % 2 === 1) row.eachCell(cell => { cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:COLOR_FILA_PAR} }; });
+  });
+  const headerRow = ws.getRow(1);
+  headerRow.height = 20;
+  headerRow.eachCell(cell => {
+    cell.font = { bold: true, color: { argb: COLOR_BLANCO } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_PRIMARIO } };
+    cell.alignment = { vertical: 'middle' };
+  });
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: headers.length } };
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+  return ws;
+}
+
+async function exportarReporteGerencia(){
+  // Rango fijo pedido por gerencia: 0-10 min de diferencia y 0-30 sacos de diferencia sobre la capacidad.
+  // Se calcula sobre TODOS los campamentos, meses y usuarios (ignora los filtros de pantalla).
+  const { alertas } = computarAlertas({
+    sucursal: '', mes: '', creadoPor: '',
+    diffDesde: 0, diffHasta: 10, sacosDesde: 0, sacosHasta: 30
+  });
+
+  const viajesEnAlerta = new Set();
+  alertas.forEach(a => { viajesEnAlerta.add(a.viajeA); viajesEnAlerta.add(a.viajeB); });
+
+  const resumen = {};
+  alertas.forEach(a => {
+    const mes = a.dtA ? `${a.dtA.getFullYear()}-${String(a.dtA.getMonth()+1).padStart(2,'0')}` : '';
+    const campamento = a.sucursal || '(Sin campamento)';
+    [a.creadoPorA, a.creadoPorB].forEach(u => {
+      if(!u) return;
+      const key = `${campamento}|${mes}|${u}`;
+      if(!resumen[key]) resumen[key] = { campamento, mes, usuario:u, total:0 };
+      resumen[key].total++;
+    });
+  });
+  const resumenList = Object.values(resumen).sort((a,b) =>
+    a.campamento.localeCompare(b.campamento) || a.mes.localeCompare(b.mes) || b.total - a.total
+  );
+  const resumenRows = resumenList.map(r => [r.campamento, r.mes ? fmtMes(r.mes) : '', r.usuario, r.total]);
+
+  const porCampamento = {};
+  alertas.forEach(a => { const c = a.sucursal || '(Sin campamento)'; porCampamento[c] = (porCampamento[c]||0) + 1; });
+  const campamentoList = Object.entries(porCampamento).sort((a,b) => b[1]-a[1]);
+  const campamentoRows = campamentoList.map(([campamento, total]) => [campamento, total]);
+
+  const porMes = {};
+  alertas.forEach(a => { if(!a.dtA) return; const m = `${a.dtA.getFullYear()}-${String(a.dtA.getMonth()+1).padStart(2,'0')}`; porMes[m] = (porMes[m]||0) + 1; });
+  const mesRows = Object.keys(porMes).sort().map(mes => [fmtMes(mes), porMes[mes]]);
+
+  const detalleRows = alertas.map(a => [
+    a.sucursal || '(Sin campamento)', a.placa, a.chofer,
+    a.viajeA, fmtDt(a.dtA), a.sacosA, a.creadoPorA,
+    a.viajeB, fmtDt(a.dtB), a.sacosB, a.creadoPorB,
+    Math.round(a.diffMin), a.capacidad, a.totalSacos, a.diffSacos
+  ]);
+
+  const topCampamento = campamentoList[0];
+  const topUsuario = resumenList.slice().sort((a,b)=>b.total-a.total)[0];
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Naturisa';
+  wb.created = new Date();
+
+  // --- Hoja de portada / resumen ejecutivo ---
+  const wsResumen = wb.addWorksheet('Resumen Ejecutivo');
+  wsResumen.columns = [{ width: 34 }, { width: 50 }];
+  wsResumen.mergeCells('A1:B1');
+  wsResumen.getCell('A1').value = 'REPORTE DE ALERTAS DE VIAJES — GERENCIA';
+  wsResumen.getCell('A1').font = { bold: true, size: 16, color: { argb: COLOR_PRIMARIO } };
+  wsResumen.mergeCells('A2:B2');
+  wsResumen.getCell('A2').value = 'Criterio: viajes de la misma placa y chofer con diferencia de tiempo entre 0 y 10 min, y exceso de 0 a 30 sacos sobre la capacidad autorizada.';
+  wsResumen.getCell('A2').font = { italic: true, size: 10, color: { argb: COLOR_MUTED } };
+  wsResumen.getCell('A2').alignment = { wrapText: true };
+  wsResumen.getRow(2).height = 28;
+  wsResumen.addRow([]);
+
+  const agregarKpi = (label, valor) => {
+    const row = wsResumen.addRow([label, valor]);
+    row.getCell(1).font = { bold: true, size: 10, color: { argb: COLOR_MUTED } };
+    row.getCell(2).font = { bold: true, size: 18, color: { argb: COLOR_PRIMARIO } };
+    row.getCell(2).alignment = { horizontal: 'left' };
+  };
+  agregarKpi('Total de alertas detectadas', alertas.length);
+  agregarKpi('Viajes involucrados en alertas', viajesEnAlerta.size);
+  agregarKpi('Campamentos con alertas', campamentoList.length);
+  agregarKpi('Meses cubiertos', mesRows.length);
+  wsResumen.addRow([]);
+
+  const agregarDato = (label, valor) => {
+    const row = wsResumen.addRow([label, valor]);
+    row.getCell(1).font = { bold: true, size: 10, color: { argb: COLOR_MUTED } };
+    row.getCell(2).font = { size: 11 };
+  };
+  agregarDato('Campamento con más alertas', topCampamento ? `${topCampamento[0]} (${topCampamento[1]})` : '—');
+  agregarDato('Usuario con más alertas', topUsuario ? `${topUsuario.usuario} (${topUsuario.total})` : '—');
+  wsResumen.addRow([]);
+  agregarDato('Generado', fmtDt(new Date()));
+
+  agregarHojaTabla(wb, 'Por Campamento', ['Campamento','Total Alertas'], campamentoRows, [28, 16]);
+  agregarHojaTabla(wb, 'Por Mes', ['Mes','Total Alertas'], mesRows, [16, 16]);
+  agregarHojaTabla(wb, 'Campamento-Mes-Usuario', ['Campamento','Mes','Usuario Creador','Total Alertas'], resumenRows, [22, 16, 22, 16]);
+  agregarHojaTabla(wb, 'Detalle', [
+    'Campamento','Placa','Chofer','Viaje 1','Fecha/Hora 1','Sacos 1','Creado por 1',
+    'Viaje 2','Fecha/Hora 2','Sacos 2','Creado por 2','Diferencia (min)','Capacidad','Total Sacos','Diferencia Sacos'
+  ], detalleRows, [16, 12, 22, 10, 16, 8, 14, 10, 16, 8, 14, 14, 10, 12, 14]);
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'reporte_gerencia_alertas.xlsx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
