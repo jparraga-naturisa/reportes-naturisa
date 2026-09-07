@@ -10,6 +10,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3005',
   'http://localhost:3006',
   'http://localhost:3007',
+  'http://localhost:3008',
+  'http://localhost:3009',
 ]
 
 function getCors(origin) {
@@ -2257,9 +2259,309 @@ async function handleCambiosD1(request, url, env) {
   return corsResponse('{"error":"ruta no encontrada"}', 404, request)
 }
 
+// â”€â”€ Activos Fijos â€“ D1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+async function handleActivosFijos(request, url, env) {
+  const path = url.pathname
+  const now = new Date().toISOString()
+
+  // â”€â”€ /d1/activos-fijos â”€â”€ listado con filtros
+  if (path === '/d1/activos-fijos') {
+    if (request.method === 'GET') {
+      const finca = url.searchParams.get('finca')
+      const clase = url.searchParams.get('clase')
+      const descripcion = url.searchParams.get('descripcion')
+      const q     = url.searchParams.get('q')
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '500', 10), 2000)
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10)
+      const wheres = []
+      const binds = []
+      if (finca) { wheres.push('finca = ?'); binds.push(finca) }
+      if (clase) { wheres.push('clase = ?'); binds.push(clase) }
+      if (descripcion) { wheres.push('descripcion = ?'); binds.push(descripcion) }
+      if (q) {
+        wheres.push('(CAST(activo AS TEXT) LIKE ? OR descripcion LIKE ? OR serie LIKE ? OR emplazamiento LIKE ?)')
+        const like = `%${q}%`
+        binds.push(like, like, like, like)
+      }
+      let sql = 'SELECT * FROM activos_fijos'
+      if (wheres.length) sql += ' WHERE ' + wheres.join(' AND ')
+      sql += ' ORDER BY activo LIMIT ? OFFSET ?'
+      binds.push(limit, offset)
+      const { results } = await env.db.prepare(sql).bind(...binds).all()
+      return corsResponse(JSON.stringify(results || []), 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  // â”€â”€ /d1/activos-fijos/resumen â”€â”€ agregados para KPIs y árbol de fincas
+  if (path === '/d1/activos-fijos/resumen') {
+    if (request.method === 'GET') {
+      const finca = url.searchParams.get('finca')
+      const clase = url.searchParams.get('clase')
+      const wheres = []
+      const binds = []
+      if (finca) { wheres.push('finca = ?'); binds.push(finca) }
+      if (clase) { wheres.push('clase = ?'); binds.push(clase) }
+      const fWhere = wheres.length ? ' WHERE ' + wheres.join(' AND ') : ''
+      const total = await env.db.prepare(`SELECT COUNT(*) AS n FROM activos_fijos${fWhere}`).bind(...binds).first()
+      // el árbol de fincas siempre es global (no se filtra), para poder navegar entre fincas
+      const { results: porFinca } = await env.db.prepare(
+        'SELECT finca, COUNT(*) AS n FROM activos_fijos GROUP BY finca ORDER BY n DESC'
+      ).all()
+      // porClase se acota solo por finca (nunca por clase, ese es justamente el filtro que se está eligiendo)
+      const cWheres = finca ? ' WHERE finca = ?' : ''
+      const cBinds = finca ? [finca] : []
+      const { results: porClase } = await env.db.prepare(
+        `SELECT clase, COUNT(*) AS n FROM activos_fijos${cWheres} GROUP BY clase ORDER BY n DESC`
+      ).bind(...cBinds).all()
+      const { results: porEstado } = await env.db.prepare(
+        `SELECT estado, COUNT(*) AS n FROM activos_fijos${fWhere} GROUP BY estado`
+      ).bind(...binds).all()
+      // porDescripcion solo tiene sentido cuando ya se eligió una clase (y opcionalmente una finca)
+      let porDescripcion = []
+      if (clase) {
+        const r = await env.db.prepare(
+          `SELECT descripcion, COUNT(*) AS n FROM activos_fijos${fWhere} GROUP BY descripcion ORDER BY n DESC`
+        ).bind(...binds).all()
+        porDescripcion = r.results || []
+      }
+      return corsResponse(JSON.stringify({
+        total: total ? total.n : 0, porFinca: porFinca || [], porClase: porClase || [],
+        porEstado: porEstado || [], porDescripcion
+      }), 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  // â”€â”€ /d1/activos-fijos/detalle?activo=NNN â”€â”€ ficha + historial
+  if (path === '/d1/activos-fijos/detalle') {
+    if (request.method === 'GET') {
+      const activo = url.searchParams.get('activo')
+      if (!activo) return corsResponse('{"error":"falta parametro activo"}', 400, request)
+      const ficha = await env.db.prepare('SELECT * FROM activos_fijos WHERE activo = ?').bind(activo).first()
+      if (!ficha) return corsResponse('{"error":"activo no encontrado"}', 404, request)
+      const { results: movimientos } = await env.db.prepare(
+        'SELECT * FROM activos_movimientos WHERE activo = ? ORDER BY fecha DESC LIMIT 50'
+      ).bind(activo).all()
+      const { results: ordenes } = await env.db.prepare(
+        'SELECT * FROM activos_ordenes WHERE activo = ? ORDER BY fecha_apertura DESC LIMIT 50'
+      ).bind(activo).all()
+      return corsResponse(JSON.stringify({ ficha, movimientos: movimientos || [], ordenes: ordenes || [] }), 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  // â”€â”€ /d1/activos-fijos/import â”€â”€ carga masiva desde el Excel de SAP (upsert por "activo")
+  if (path === '/d1/activos-fijos/import') {
+    if (request.method === 'POST') {
+      const rows = await request.json()
+      if (!Array.isArray(rows)) return corsResponse('{"error":"se esperaba array"}', 400, request)
+      if (!rows.length) return corsResponse('{"ok":true,"importados":0}', 200, request)
+      const stmts = rows.filter(r => r && r.activo != null).map(r =>
+        env.db.prepare(
+          `INSERT INTO activos_fijos (activo, clase, clase_codigo, descripcion, denominacion, finca, emplazamiento, marca, serie, fecha_capitalizacion, fecha_baja, estado, actualizado_en)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(activo) DO UPDATE SET
+             clase=excluded.clase, clase_codigo=excluded.clase_codigo, descripcion=excluded.descripcion,
+             denominacion=excluded.denominacion, finca=excluded.finca,
+             emplazamiento=excluded.emplazamiento, marca=excluded.marca, serie=excluded.serie,
+             fecha_capitalizacion=excluded.fecha_capitalizacion, fecha_baja=excluded.fecha_baja,
+             estado=CASE WHEN excluded.fecha_baja IS NOT NULL THEN 'baja' ELSE activos_fijos.estado END,
+             actualizado_en=excluded.actualizado_en`
+        ).bind(
+          r.activo, r.clase || null, r.clase_codigo || null, r.descripcion || null, r.denominacion || null, r.finca || null,
+          r.emplazamiento || null, r.marca || null, r.serie || null,
+          r.fecha_capitalizacion || null, r.fecha_baja || null, r.fecha_baja ? 'baja' : 'operativo', now
+        )
+      )
+      // D1 batch admite hasta ~1000 sentencias; el cliente ya manda en trozos de 300-500
+      await env.db.batch(stmts)
+      return corsResponse(JSON.stringify({ ok: true, importados: stmts.length }), 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  // â”€â”€ /d1/activos-fijos/editar â”€â”€ edición manual de la ficha (custodio, ubicación, marca, serie, estado, horómetro, fecha de baja)
+  if (path === '/d1/activos-fijos/editar') {
+    if (request.method === 'POST') {
+      const b = await request.json()
+      if (!b || b.activo == null) return corsResponse('{"error":"falta activo"}', 400, request)
+      const EDITABLES = ['marca', 'serie', 'custodio_actual', 'ubicacion_actual', 'estado', 'horometro_actual', 'fecha_baja', 'descripcion', 'denominacion']
+      const sets = []
+      const binds = []
+      for (const campo of EDITABLES) {
+        if (Object.prototype.hasOwnProperty.call(b, campo)) {
+          sets.push(`${campo} = ?`)
+          binds.push(b[campo] === '' ? null : b[campo])
+        }
+      }
+      if (!sets.length) return corsResponse('{"error":"nada que actualizar"}', 400, request)
+      sets.push('actualizado_en = ?')
+      binds.push(now, b.activo)
+      await env.db.prepare(`UPDATE activos_fijos SET ${sets.join(', ')} WHERE activo = ?`).bind(...binds).run()
+      return corsResponse('{"ok":true}', 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  // â”€â”€ /d1/activos-fijos/ordenes â”€â”€ listado global de órdenes (para la pestaña Mantenimiento)
+  if (path === '/d1/activos-fijos/ordenes') {
+    if (request.method === 'GET') {
+      const estado = url.searchParams.get('estado')
+      let sql = `SELECT o.*, a.descripcion, a.emplazamiento, a.finca
+                 FROM activos_ordenes o JOIN activos_fijos a ON a.activo = o.activo`
+      const binds = []
+      if (estado) { sql += ' WHERE o.estado = ?'; binds.push(estado) }
+      sql += ' ORDER BY o.fecha_apertura DESC LIMIT 200'
+      const { results } = await env.db.prepare(sql).bind(...binds).all()
+      return corsResponse(JSON.stringify(results || []), 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  // â”€â”€ /d1/activos-fijos/movimientos â”€â”€ listado global de transferencias (para la pestaña Movimientos)
+  if (path === '/d1/activos-fijos/movimientos') {
+    if (request.method === 'GET') {
+      const { results } = await env.db.prepare(
+        `SELECT m.*, a.descripcion, a.finca
+         FROM activos_movimientos m JOIN activos_fijos a ON a.activo = m.activo
+         ORDER BY m.fecha DESC LIMIT 200`
+      ).all()
+      return corsResponse(JSON.stringify(results || []), 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  // â”€â”€ /d1/activos-fijos/movimiento â”€â”€ registra transferencia y actualiza la ficha
+  if (path === '/d1/activos-fijos/movimiento') {
+    if (request.method === 'POST') {
+      const m = await request.json()
+      if (!m || m.activo == null) return corsResponse('{"error":"falta activo"}', 400, request)
+      const fecha = m.fecha || now
+      await env.db.batch([
+        env.db.prepare(
+          `INSERT INTO activos_movimientos
+           (activo, ubicacion_origen, ubicacion_destino, custodio_origen, custodio_destino, horometro, observaciones, usuario, fecha)
+           VALUES (?,?,?,?,?,?,?,?,?)`
+        ).bind(m.activo, m.ubicacion_origen || null, m.ubicacion_destino || null, m.custodio_origen || null,
+               m.custodio_destino || null, m.horometro ?? null, m.observaciones || null, m.usuario || null, fecha),
+        env.db.prepare(
+          `UPDATE activos_fijos SET ubicacion_actual = ?, custodio_actual = ?,
+             horometro_actual = COALESCE(?, horometro_actual), actualizado_en = ? WHERE activo = ?`
+        ).bind(m.ubicacion_destino || null, m.custodio_destino || null, m.horometro ?? null, now, m.activo)
+      ])
+      return corsResponse('{"ok":true}', 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  // â”€â”€ /d1/activos-fijos/orden â”€â”€ abre o cierra una orden de mantenimiento
+  if (path === '/d1/activos-fijos/orden') {
+    if (request.method === 'POST') {
+      const o = await request.json()
+      if (!o || o.activo == null) return corsResponse('{"error":"falta activo"}', 400, request)
+      if (o.id) {
+        // cierre de orden existente
+        await env.db.batch([
+          env.db.prepare(
+            `UPDATE activos_ordenes SET estado='CERRADA', horometro_cierre=?, costo=?, fecha_cierre=? WHERE id=?`
+          ).bind(o.horometro_cierre ?? null, o.costo ?? 0, o.fecha_cierre || now, o.id),
+          env.db.prepare(
+            `UPDATE activos_fijos SET estado='operativo', horometro_actual = COALESCE(?, horometro_actual), actualizado_en=? WHERE activo=?`
+          ).bind(o.horometro_cierre ?? null, now, o.activo)
+        ])
+        return corsResponse('{"ok":true,"accion":"cerrada"}', 200, request)
+      }
+      // apertura de orden nueva
+      const estadoActivo = o.tipo === 'preventivo' ? 'taller' : 'espera_repuesto'
+      const res = await env.db.batch([
+        env.db.prepare(
+          `INSERT INTO activos_ordenes (activo, tipo, descripcion, horometro_apertura, estado, tecnico, fecha_apertura)
+           VALUES (?,?,?,?, 'ABIERTA', ?, ?)`
+        ).bind(o.activo, o.tipo || 'correctivo', o.descripcion || null, o.horometro_apertura ?? null, o.tecnico || null, o.fecha_apertura || now),
+        env.db.prepare(`UPDATE activos_fijos SET estado=?, actualizado_en=? WHERE activo=?`).bind(o.estado || estadoActivo, now, o.activo)
+      ])
+      return corsResponse(JSON.stringify({ ok: true, accion: 'abierta', id: res[0]?.meta?.last_row_id }), 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+
+  return corsResponse('{"error":"ruta no encontrada"}', 404, request)
+}
+
 // â”€â”€ Handler principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// ── Email handler – Control de Cambios ────────────────────────────────────
+// Formato esperado en el cuerpo del correo:
+//   AREA: Bodega
+//   MODULO: Inventario
+//   SUCURSAL: A1
+//   SOLICITANTE: Juan Pérez
+//   CAUSA: texto opcional
+// El asunto del correo se usa como descripción del cambio.
+
+async function handleEmailCambio(message, env) {
+  // Leer el cuerpo del email como texto plano
+  const raw = await new Response(message.raw).text().catch(() => '')
+
+  // Extraer la parte del cuerpo (después de las cabeceras MIME)
+  const bodyMatch = raw.match(/\r?\n\r?\n([\s\S]+)/)
+  const body = bodyMatch ? bodyMatch[1] : raw
+
+  function campo(nombre) {
+    const m = body.match(new RegExp(`^${nombre}\\s*:\\s*(.+)`, 'mi'))
+    return m ? m[1].trim() : ''
+  }
+
+  const area        = campo('AREA') || campo('ÁREA')
+  const modulo      = campo('MODULO') || campo('MÓDULO')
+  const sucursal    = campo('SUCURSAL')
+  const solicitante = campo('SOLICITANTE') || message.from || ''
+  const causa       = campo('CAUSA')
+
+  // El asunto es la descripción
+  const descripcion = (message.headers?.get('subject') || '').replace(/^(Re|Fwd):\s*/i, '').trim()
+
+  if (!area || !descripcion) {
+    // Email inválido — reenviar a bandeja de rechazo sin crashear
+    await message.forward('jparraga@naturisa.com.ec')
+    return
+  }
+
+  // Obtener el próximo id
+  const lastRow = await env.db.prepare('SELECT MAX(id) as maxId FROM cambios_registros').first()
+  const nextId  = ((lastRow?.maxId) || 0) + 1
+
+  const fecha = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' })
+
+  await env.db.prepare(
+    `INSERT INTO cambios_registros
+     (id,fechaReporte,sucursal,area,modulo,descripcion,extras,causa,prioridad,solicitante,estado,fechaResolucion,creadoEn,departamentos,deptDone,deptDoneDates)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+  ).bind(
+    nextId, fecha, sucursal, area, modulo, descripcion,
+    '{}', causa, 'Media', solicitante,
+    'Abierto', null, new Date().toISOString(),
+    '[]', '{}', '{}'
+  ).run()
+
+  // Confirmar al remitente
+  await message.reply(
+    `Tu solicitud fue registrada con el #${nextId}.\n\nDetalle:\n- Área: ${area}\n- Módulo: ${modulo}\n- Sucursal: ${sucursal}\n- Descripción: ${descripcion}\n\nGracias.`
+  ).catch(() => {})
+}
+
 export default {
+  async email(message, env, ctx) {
+    const to = message.to || ''
+    if (to.startsWith('cambios@')) {
+      ctx.waitUntil(handleEmailCambio(message, env).catch(e => console.error('email cambio error:', e)))
+    } else {
+      await message.forward('jparraga@naturisa.com.ec')
+    }
+  },
+
   async scheduled(event, env, ctx) {
     // Cron liviano cada 6h: "0 */6 * * *". Cron pesado diario: "0 7 * * *" (2am Ecuador).
     if (event.cron === '0 7 * * *') {
@@ -2483,6 +2785,11 @@ if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
     // â”€â”€ Control de Cambios â€“ D1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (url.pathname.startsWith('/d1/cambios') && env.db) {
       return handleCambiosD1(request, url, env)
+    }
+
+    // â”€â”€ Activos Fijos â€“ D1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if (url.pathname.startsWith('/d1/activos-fijos') && env.db) {
+      return handleActivosFijos(request, url, env)
     }
 
     if (url.pathname.startsWith('/kv/')) {
