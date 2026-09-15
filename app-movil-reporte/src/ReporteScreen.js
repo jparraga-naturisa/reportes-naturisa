@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
 import AlertaSucursalBox from './AlertaSucursalBox';
@@ -18,6 +18,7 @@ const TITULOS = {
 export default function ReporteScreen({ tipo, sucursales, token, onCambiarReporte, onCerrarSesion }) {
   const [resultados, setResultados] = useState({});
   const [refreshKey, setRefreshKey] = useState(0);
+  const [refrescandoManual, setRefrescandoManual] = useState(false);
 
   const todasCargadas = sucursales.every((s) => s.id in resultados);
   const ningunaConAlertas = todasCargadas && Object.values(resultados).every((tiene) => !tiene);
@@ -25,6 +26,12 @@ export default function ReporteScreen({ tipo, sucursales, token, onCambiarReport
   function actualizar() {
     setResultados({});
     setRefreshKey((k) => k + 1);
+  }
+
+  function onRefrescarManual() {
+    setRefrescandoManual(true);
+    actualizar();
+    setTimeout(() => setRefrescandoManual(false), 700);
   }
 
   return (
@@ -40,7 +47,10 @@ export default function ReporteScreen({ tipo, sucursales, token, onCambiarReport
       ) : tipo === 'liquidacion' ? (
         <LiquidacionListado key={refreshKey} sucursales={sucursales} token={token} onSesionExpirada={onCerrarSesion} />
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          refreshControl={<RefreshControl refreshing={refrescandoManual} onRefresh={onRefrescarManual} tintColor={COLORES.acento} />}
+        >
           {ningunaConAlertas && (
             <View style={styles.sinAlertas}>
               <Text style={styles.sinAlertasTexto}>Todas las piscinas con movimiento normal.</Text>

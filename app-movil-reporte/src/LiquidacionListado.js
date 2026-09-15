@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { compartirWhatsappTexto } from './compartirWhatsapp';
 import { LIQUIDACION_URL } from './config';
@@ -8,13 +8,13 @@ import { COLORES } from './theme';
 export default function LiquidacionListado({ sucursales, token, onSesionExpirada }) {
   const [alertas, setAlertas] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [refrescando, setRefrescando] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    let activo = true;
-    setCargando(true);
+  const cargar = useCallback((mostrarSpinnerGrande) => {
+    if (mostrarSpinnerGrande) setCargando(true);
     setError('');
-    fetch(LIQUIDACION_URL, {
+    return fetch(LIQUIDACION_URL, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
       .then((res) => {
@@ -25,11 +25,17 @@ export default function LiquidacionListado({ sucursales, token, onSesionExpirada
         if (!res.ok) throw new Error(`Error del servidor (${res.status})`);
         return res.json();
       })
-      .then((json) => { if (activo && json) setAlertas(json.alertas || []); })
-      .catch((e) => { if (activo) setError(e.message || 'No se pudo cargar la liquidación'); })
-      .finally(() => { if (activo) setCargando(false); });
-    return () => { activo = false; };
-  }, [token]);
+      .then((json) => { if (json) setAlertas(json.alertas || []); })
+      .catch((e) => setError(e.message || 'No se pudo cargar la liquidación'))
+      .finally(() => { setCargando(false); setRefrescando(false); });
+  }, [token, onSesionExpirada]);
+
+  useEffect(() => { cargar(true); }, [cargar]);
+
+  function onRefrescar() {
+    setRefrescando(true);
+    cargar(false);
+  }
 
   function nombreSucursal(codigo) {
     return sucursales.find((s) => s.codigo === codigo)?.nombre || codigo;
@@ -54,7 +60,10 @@ export default function LiquidacionListado({ sucursales, token, onSesionExpirada
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll}>
+    <ScrollView
+      contentContainerStyle={styles.scroll}
+      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={onRefrescar} tintColor={COLORES.acento} />}
+    >
       <Text style={styles.titulo}>Lotes liquidados con cosecha aún activa</Text>
 
       {error ? (

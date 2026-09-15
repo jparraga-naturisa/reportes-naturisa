@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, ActivityIndicator, Text } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, Text, BackHandler } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import LoginScreen from './src/LoginScreen';
@@ -38,6 +38,18 @@ export default function App() {
     setReporteTipo(null);
     setSucursales(null);
   }
+
+  useEffect(() => {
+    const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (reporteTipo) {
+        cambiarReporte();
+        return true;
+      }
+      // En el menu de reportes (pantalla raiz) se deja el comportamiento normal (salir/minimizar).
+      return false;
+    });
+    return () => suscripcion.remove();
+  }, [reporteTipo]);
 
   let pantalla;
   if (!token) {

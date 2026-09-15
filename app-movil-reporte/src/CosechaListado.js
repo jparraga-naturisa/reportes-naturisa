@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { compartirWhatsappTexto } from './compartirWhatsapp';
 import { COSECHA_URL } from './config';
@@ -14,15 +14,15 @@ function fechaCorta(fechaISO) {
 export default function CosechaListado({ sucursales, token, onSesionExpirada }) {
   const [alertas, setAlertas] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [refrescando, setRefrescando] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    let activo = true;
-    setCargando(true);
+  const cargar = useCallback((mostrarSpinnerGrande) => {
+    if (mostrarSpinnerGrande) setCargando(true);
     setError('');
     const params = new URLSearchParams();
     sucursales.forEach((s) => params.append('subsidiaryId', s.id));
-    fetch(`${COSECHA_URL}?${params}`, {
+    return fetch(`${COSECHA_URL}?${params}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
       .then((res) => {
@@ -33,11 +33,17 @@ export default function CosechaListado({ sucursales, token, onSesionExpirada }) 
         if (!res.ok) throw new Error(`Error del servidor (${res.status})`);
         return res.json();
       })
-      .then((json) => { if (activo && json) setAlertas(json.alertas || []); })
-      .catch((e) => { if (activo) setError(e.message || 'No se pudo cargar las cosechas'); })
-      .finally(() => { if (activo) setCargando(false); });
-    return () => { activo = false; };
-  }, [sucursales, token]);
+      .then((json) => { if (json) setAlertas(json.alertas || []); })
+      .catch((e) => setError(e.message || 'No se pudo cargar las cosechas'))
+      .finally(() => { setCargando(false); setRefrescando(false); });
+  }, [sucursales, token, onSesionExpirada]);
+
+  useEffect(() => { cargar(true); }, [cargar]);
+
+  function onRefrescar() {
+    setRefrescando(true);
+    cargar(false);
+  }
 
   async function compartirFila(alerta) {
     const mensaje = `${alerta.subsidiary}: el ciclo ${alerta.cycleCode}, ¿cuándo se realizará la cosecha final?`;
@@ -57,7 +63,10 @@ export default function CosechaListado({ sucursales, token, onSesionExpirada }) 
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll}>
+    <ScrollView
+      contentContainerStyle={styles.scroll}
+      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={onRefrescar} tintColor={COLORES.acento} />}
+    >
       <Text style={styles.titulo}>Piscinas con cosecha prefinal sin cosecha final</Text>
 
       {error ? (
