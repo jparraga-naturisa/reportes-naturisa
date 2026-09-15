@@ -2,6 +2,8 @@ export const LOGIN_URL = 'https://gateway.naturisa.com.ec/bff/web/ap1/security/a
 export const REPORTE_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev/db/reporte-diario';
 export const SUCURSALES_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev/db/sucursales';
 export const COSECHA_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev/db/alertas-cosecha';
+export const SIEMBRA_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev/db/alertas-siembra';
+export const LIQUIDACION_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev/db/alertas-liquidacion';
 export const CODE_APPLICATION = '55ab9cb4-c887-4f42-98ec-b90470be6613';
 
 export const COLUMNAS_ORDEN = ['Ingreso a Muro', 'Saldo Muro', 'Cargado Tolva', 'Sobrante Tolva', 'Saldo Tolva'];

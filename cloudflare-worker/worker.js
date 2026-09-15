@@ -2,6 +2,7 @@
 
 const ALLOWED_ORIGINS = [
   'https://jparraga-naturisa.github.io',
+  'null', // file:// protocol
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
@@ -12,10 +13,11 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3007',
   'http://localhost:3008',
   'http://localhost:3009',
+  'http://localhost:9100',
 ]
 
 function getCors(origin) {
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  const allowed = (!origin || origin === 'null' || ALLOWED_ORIGINS.includes(origin)) ? '*' : ALLOWED_ORIGINS[0]
   return {
     'Access-Control-Allow-Origin':  allowed,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -246,7 +248,109 @@ async function handleDbAlertasCosecha(request, url) {
   return corsResponse(JSON.stringify({ alertas, total: alertas.length }), 200, request)
 }
 
-// â”€â”€ Tablas propias en D1 (compartidas entre todos los dashboards) â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Alerta de siembra de larva (app movil) ──────────────────────────────────
+// Un lote de larva tiene una hora de despacho; a partir de ahi hay un margen
+// de 12 horas para sembrarlo. Este endpoint busca lotes en estado DISPONIBLE
+// (aun no sembrados) y devuelve cuantas horas pasaron desde el despacho.
+// GET /db/alertas-siembra?subsidiaryId=<id>
+
+const LOTS_PATH = '/bff/web/ap1/backoffice/api/lots'
+
+async function handleDbAlertasSiembra(request, url) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const subsidiaryIds = url.searchParams.getAll('subsidiaryId')
+  const idsAUsar = subsidiaryIds.length ? subsidiaryIds : REPORTE_SUBSIDIARY_IDS
+
+  const sp = new URLSearchParams()
+  for (const id of idsAUsar) sp.append('subsidiaryIds', id)
+  sp.set('includeCodes', 'true')
+  sp.set('orderBy', 'dispatchDate')
+  sp.set('status', 'DISPONIBLE')
+
+  const res = await fetch(GATEWAY + LOTS_PATH + '?' + sp, { method: 'GET', headers: request.headers })
+  if (!res.ok) return corsResponse(JSON.stringify({ error: 'gateway respondio ' + res.status }), res.status, request)
+  const json = await res.json()
+  const registros = json.data?.data || []
+
+  // dispatchDate viene sin offset (hora local Ecuador tal cual la ve el usuario en AP1).
+  // Se compara contra "ahora" tambien en hora Ecuador, ambos parseados con el mismo
+  // truco (forzando 'Z') para que la resta de horas de calendario sea correcta.
+  const ecuadorAhoraMs = Date.now() - 5 * 60 * 60 * 1000
+  const alertas = registros
+    .map(r => ({
+      lotCode: r.lotCode, cycleCode: r.cycleCode, subsidiaryId: r.destinationSubsidiaryId,
+      dispatchDate: r.dispatchDate,
+      horasTranscurridas: Math.floor((ecuadorAhoraMs - Date.parse(r.dispatchDate + 'Z')) / 3600000),
+    }))
+    .sort((a, b) => b.horasTranscurridas - a.horasTranscurridas)
+
+  return corsResponse(JSON.stringify({ alertas, total: alertas.length }), 200, request)
+}
+
+// ── Alerta de liquidacion con cosecha aun activa (app movil) ────────────────
+// Si en las guias de un lote que sigue en estado COSECHANDO ya aparece una
+// guia con evento "Liquidado", es una alerta: se liquido antes de terminar
+// de cosechar. Devuelve cuantas horas pasaron desde esa ultima liquidacion.
+// GET /db/alertas-liquidacion (trae siempre todas las sucursales, ver nota abajo)
+
+const CYCLE_HARVESTS_PATH = '/bff/web/ap1/backoffice/api/cycle_harvests'
+const CYCLE_HARVEST_GUIDES_PATH = '/bff/web/ap1/backoffice/api/cycle_harvest_guides'
+const CONCURRENCIA_LIQUIDACION = 8
+
+async function handleDbAlertasLiquidacion(request, url) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+
+  // El filtro subsidiaryIds de AP1 no funciona en este endpoint (siempre trae
+  // todo), asi que se pide una sola vez y el codigo de sucursal se saca del
+  // prefijo del propio lotCode (igual formato que cycleCode: "RN-0014-0040-02").
+  const sp = new URLSearchParams()
+  sp.set('subsidiaryIds', REPORTE_SUBSIDIARY_IDS[0])
+  sp.set('status', 'COSECHANDO')
+  sp.set('orderBy', 'idCycleHarvest')
+  const resCosechando = await fetch(GATEWAY + CYCLE_HARVESTS_PATH + '?' + sp, { method: 'GET', headers: request.headers })
+  if (!resCosechando.ok) return corsResponse(JSON.stringify({ error: 'gateway respondio ' + resCosechando.status }), resCosechando.status, request)
+  const jsonCosechando = await resCosechando.json()
+  const vistos = new Set()
+  const cosechando = []
+  for (const r of (jsonCosechando.data || [])) {
+    if (vistos.has(r.idCycleHarvest)) continue
+    vistos.add(r.idCycleHarvest)
+    cosechando.push({ idCycleHarvest: r.idCycleHarvest, lotCode: r.lotCode, subsidiaryCode: (r.lotCode || '').split('-')[0] })
+  }
+
+  // Para cada ciclo cosechando, revisar sus guias y buscar la ultima "Liquidado".
+  const ecuadorAhoraMs = Date.now() - 5 * 60 * 60 * 1000
+  const alertas = []
+  for (let i = 0; i < cosechando.length; i += CONCURRENCIA_LIQUIDACION) {
+    const lote = cosechando.slice(i, i + CONCURRENCIA_LIQUIDACION)
+    const resultados = await Promise.all(lote.map(c => {
+      const sp = new URLSearchParams()
+      sp.set('cycleHarvestId', c.idCycleHarvest)
+      for (const st of ['ACTIVO', 'PENDIENTE', 'LIQUIDADA', 'LIQUIDADO']) sp.append('status', st)
+      sp.set('includeCatalogueEventType', 'true')
+      sp.set('orderBy', 'date asc')
+      sp.set('pageSize', '1000')
+      return fetch(GATEWAY + CYCLE_HARVEST_GUIDES_PATH + '?' + sp, { method: 'GET', headers: request.headers })
+        .then(r => r.ok ? r.json() : null).catch(() => null)
+        .then(json => ({ c, json }))
+    }))
+    for (const { c, json } of resultados) {
+      const guias = json?.data?.data || []
+      const liquidadas = guias.filter(g => g.catalogueEventTypeValue === 'Liquidado')
+      if (!liquidadas.length) continue
+      const ultima = liquidadas.reduce((a, b) => (a.date > b.date ? a : b))
+      alertas.push({
+        lotCode: c.lotCode, subsidiaryCode: c.subsidiaryCode, fechaLiquidacion: ultima.date,
+        horasTranscurridas: Math.floor((ecuadorAhoraMs - Date.parse(ultima.date + 'Z')) / 3600000),
+      })
+    }
+  }
+
+  alertas.sort((a, b) => b.horasTranscurridas - a.horasTranscurridas)
+  return corsResponse(JSON.stringify({ alertas, total: alertas.length }), 200, request)
+}
+
+// ── Tablas propias en D1 (compartidas entre todos los dashboards) ─────────
 // Todas las columnas y claves JSON de estos endpoints estan en espanol.
 //
 // GET  /db/sucursales        -> lista todas las sucursales {id, codigo, nombre}
@@ -2166,6 +2270,68 @@ function recordToRow(rec) {
   return row
 }
 
+async function sendCambioEmail(env, { record, solicitanteEmail, destinatarios }) {
+  if (!env.RESEND_API_KEY) return
+  // Sin dominio verificado en Resend, solo se puede enviar al correo de la cuenta
+  const to = ['parragajonathan965@gmail.com']
+
+  const moduloLabel = {
+    consumo:'Consumo', planificacion:'Planificación', peso:'Peso',
+    cosecha:'Cosecha', siembras:'Siembras y Transferencias',
+    sobrevivencia:'Sobrevivencia', poblaciones:'Poblaciones'
+  }[record.modulo] || record.modulo || '–'
+
+  // Extraer primera línea del detalle como título de acción
+  const detalleLines = (record.detalle || '').split('\n').filter(Boolean)
+  const accionLine   = detalleLines[0] || ''
+  const detalleResto = detalleLines.slice(1).join('\n')
+
+  const esProduccion = record.area === 'Producción'
+  const subjectLabel = esProduccion
+    ? `[${record.area} - ${moduloLabel}] ${record.sucursal || ''} ${record.piscina ? '· ' + record.piscina : ''}`
+    : `[Corrección #${record.id}] ${record.descripcion || record.area}`
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+      <div style="background:#1a3a5c;padding:18px 24px;border-radius:8px 8px 0 0">
+        <div style="color:#94a3b8;font-size:12px;margin-bottom:4px">Solicitud #${record.id} · ${record.fechaReporte}</div>
+        <h2 style="color:#fff;margin:0;font-size:17px">${record.area} — ${moduloLabel}</h2>
+        ${record.sucursal ? `<div style="color:#cbd5e1;font-size:13px;margin-top:4px">${record.sucursal}${record.piscina ? ' · ' + record.piscina : ''}</div>` : ''}
+      </div>
+      <div style="background:#f8fafc;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e2e8f0">
+        <p style="margin:0 0 16px;font-size:14px">Buen día estimados, por favor su ayuda con la siguiente corrección:</p>
+
+        ${accionLine ? `<div style="background:#e8f4ff;border-left:4px solid #1a3a5c;padding:10px 14px;margin-bottom:14px;border-radius:0 6px 6px 0;font-size:14px;font-weight:600">${accionLine}</div>` : ''}
+
+        ${detalleResto ? `<div style="background:#fff8e1;border-left:4px solid #f59e0b;padding:12px 14px;margin-bottom:16px;border-radius:0 6px 6px 0;font-size:13px;white-space:pre-wrap;line-height:1.6">${detalleResto}</div>` : ''}
+
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#64748b">
+          <tr><td style="padding:5px 0;width:130px">Área</td><td style="padding:5px 0;color:#1e293b">${record.area || '–'}</td></tr>
+          <tr><td style="padding:5px 0">Módulo</td><td style="padding:5px 0;color:#1e293b">${moduloLabel}</td></tr>
+          <tr><td style="padding:5px 0">Sucursal</td><td style="padding:5px 0;color:#1e293b">${record.sucursal || '–'}</td></tr>
+          ${record.piscina ? `<tr><td style="padding:5px 0">Piscina</td><td style="padding:5px 0;color:#1e293b">${record.piscina}</td></tr>` : ''}
+          <tr><td style="padding:5px 0">Solicitante</td><td style="padding:5px 0;font-weight:600;color:#1e293b">${record.solicitante || '–'}</td></tr>
+          ${!esProduccion && record.descripcion ? `<tr><td style="padding:5px 0">Descripción</td><td style="padding:5px 0;color:#1e293b">${record.descripcion}</td></tr>` : ''}
+          ${record.causa ? `<tr><td style="padding:5px 0">Causa</td><td style="padding:5px 0;color:#1e293b">${record.causa}</td></tr>` : ''}
+        </table>
+        <p style="margin:16px 0 0;font-size:12px;color:#94a3b8">Generado automáticamente por Control de Cambios Naturisa.</p>
+      </div>
+    </div>`
+
+  const resendRes = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: 'Control de Cambios Naturisa <onboarding@resend.dev>',
+      to,
+      subject: subjectLabel,
+      html
+    })
+  })
+  const resendJson = await resendRes.json().catch(() => ({}))
+  console.log('[email] status:', resendRes.status, 'to:', to, 'body:', JSON.stringify(resendJson))
+}
+
 async function handleCambiosD1(request, url, env) {
   const path = url.pathname
 
@@ -2194,8 +2360,8 @@ async function handleCambiosD1(request, url, env) {
       const users = await request.json()
       if (!Array.isArray(users)) return corsResponse('{"error":"se esperaba array"}', 400, request)
       const stmts = users.map(u =>
-        env.db.prepare('INSERT OR REPLACE INTO cambios_usuarios (id,username,password,role) VALUES (?,?,?,?)')
-          .bind(u.id, u.username, u.password, u.role || 'user')
+        env.db.prepare('INSERT OR REPLACE INTO cambios_usuarios (id,username,password,role,email) VALUES (?,?,?,?,?)')
+          .bind(u.id, u.username, u.password, u.role || 'user', u.email || null)
       )
       // Eliminar los que ya no estÃ¡n
       const ids = users.map(u => u.id).filter(Boolean)
@@ -2253,13 +2419,67 @@ async function handleCambiosD1(request, url, env) {
       await env.db.batch(stmts)
       return corsResponse('{"ok":true}', 200, request)
     }
-    return corsResponse('{"error":"method not allowed"}', 405, request)
+    return corsResponse('{“error”:”method not allowed”}', 405, request)
   }
 
-  return corsResponse('{"error":"ruta no encontrada"}', 404, request)
+  // ── /d1/cambios/email – enviar notificación de nuevo registro ────────────
+  if (path === '/d1/cambios/email' && request.method === 'POST') {
+    const { recordId, solicitanteEmail } = await request.json()
+    const row = await env.db.prepare('SELECT * FROM cambios_registros WHERE id=?').bind(recordId).first()
+    if (!row) return corsResponse('{“error”:”registro no encontrado”}', 404, request)
+    const record = rowToRecord(row)
+    const { results: notifs } = await env.db.prepare('SELECT email FROM cambios_notificaciones WHERE activo=1').all()
+    const destinatarios = notifs.map(n => n.email).filter(Boolean)
+    await sendCambioEmail(env, { record, solicitanteEmail, destinatarios })
+    return corsResponse('{“ok”:true}', 200, request)
+  }
+
+  // ── /d1/cambios-notificaciones ────────────────────────────────────────────
+  if (path === '/d1/cambios-notificaciones') {
+    if (request.method === 'GET') {
+      const { results } = await env.db.prepare('SELECT * FROM cambios_notificaciones ORDER BY id').all()
+      return corsResponse(JSON.stringify(results || []), 200, request)
+    }
+    if (request.method === 'POST') {
+      const { nombre, email, activo } = await request.json()
+      await env.db.prepare('INSERT OR REPLACE INTO cambios_notificaciones (nombre,email,activo) VALUES (?,?,?)').bind(nombre, email, activo ?? 1).run()
+      return corsResponse('{“ok”:true}', 200, request)
+    }
+    if (request.method === 'DELETE') {
+      const { id } = await request.json()
+      await env.db.prepare('DELETE FROM cambios_notificaciones WHERE id=?').bind(id).run()
+      return corsResponse('{“ok”:true}', 200, request)
+    }
+    return corsResponse('{“error”:”method not allowed”}', 405, request)
+  }
+
+  // ── /d1/cambios-emails (mapeo usuario AP1 → correo) ──────────────────────
+  if (path === '/d1/cambios-emails') {
+    if (request.method === 'GET') {
+      const soloVinculados = url.searchParams.get('vinculados') === '1'
+      const sql = soloVinculados
+        ? 'SELECT username, email, vinculado FROM cambios_emails WHERE vinculado=1 ORDER BY username'
+        : 'SELECT username, email, vinculado FROM cambios_emails ORDER BY username'
+      const { results } = await env.db.prepare(sql).all()
+      return corsResponse(JSON.stringify({emails: results || []}), 200, request)
+    }
+    if (request.method === 'POST') {
+      const { username, email, vinculado } = await request.json()
+      await env.db.prepare('INSERT OR REPLACE INTO cambios_emails (username,email,vinculado) VALUES (?,?,?)').bind(username, email, vinculado ? 1 : 0).run()
+      return corsResponse('{“ok”:true}', 200, request)
+    }
+    if (request.method === 'DELETE') {
+      const { username } = await request.json()
+      await env.db.prepare('DELETE FROM cambios_emails WHERE username=?').bind(username).run()
+      return corsResponse('{“ok”:true}', 200, request)
+    }
+    return corsResponse('{“error”:”method not allowed”}', 405, request)
+  }
+
+  return corsResponse('{“error”:”ruta no encontrada”}', 404, request)
 }
 
-// â”€â”€ Activos Fijos â€“ D1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Activos Fijos – D1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function handleActivosFijos(request, url, env) {
   const path = url.pathname
@@ -2616,6 +2836,14 @@ if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
 
     if (url.pathname === '/db/alertas-cosecha') {
       return handleDbAlertasCosecha(request, url)
+    }
+
+    if (url.pathname === '/db/alertas-siembra') {
+      return handleDbAlertasSiembra(request, url)
+    }
+
+    if (url.pathname === '/db/alertas-liquidacion') {
+      return handleDbAlertasLiquidacion(request, url)
     }
 
     if (url.pathname === '/db/sucursales' && env.db) {

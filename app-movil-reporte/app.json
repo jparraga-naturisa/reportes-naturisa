@@ -22,7 +22,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-mail-composer"
+      "expo-mail-composer",
+      "expo-font"
     ],
     "extra": {
       "eas": {

@@ -1,13 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
+import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome6 } from '@expo/vector-icons';
 import { compartirWhatsapp } from './compartirWhatsapp';
 import { REPORTE_URL, COLUMNAS_ORDEN } from './config';
+import { COLORES } from './theme';
 
 function hoyEcuador() {
   const d = new Date(Date.now() - 5 * 60 * 60 * 1000);
   return d.toISOString().slice(0, 10);
 }
+
+const GRADIENTE_NORMAL = ['#1E293B', '#0F172A'];
+const GRADIENTE_ALERTA = ['#0E4C5C', '#0A2E3A'];
 
 export default function AlertaSucursalBox({ sucursal, token, onSesionExpirada, onResultado }) {
   const [datos, setDatos] = useState(null);
@@ -68,7 +74,7 @@ export default function AlertaSucursalBox({ sucursal, token, onSesionExpirada, o
   if (cargando) {
     return (
       <View style={styles.cajaCargando}>
-        <ActivityIndicator color="#4F6D8C" />
+        <ActivityIndicator color={COLORES.acento} />
       </View>
     );
   }
@@ -79,73 +85,81 @@ export default function AlertaSucursalBox({ sucursal, token, onSesionExpirada, o
 
   return (
     <View style={styles.caja}>
-      <View ref={capturaRef} collapsable={false} style={styles.capturaBox}>
-        <View style={[styles.encabezado, hayAlertas && styles.encabezadoAlerta]}>
-          <Text style={styles.encabezadoTitulo}>{sucursal.nombre.toUpperCase()}</Text>
-          <Text style={styles.encabezadoSub}>
-            {`${datos?.fecha || ''}  ·  ${hayAlertas ? `${alertas.length} en alerta` : ''}`}
-          </Text>
-        </View>
+      <View style={styles.capturaWrapper}>
+        <View ref={capturaRef} collapsable={false} style={styles.capturaBox}>
+          <LinearGradient colors={hayAlertas ? GRADIENTE_ALERTA : GRADIENTE_NORMAL} style={styles.encabezado}>
+            <Text style={styles.encabezadoTitulo}>{sucursal.nombre.toUpperCase()}</Text>
+            <Text style={styles.encabezadoSub}>
+              {`${datos?.fecha || ''}  ·  ${hayAlertas ? `${alertas.length} en alerta` : ''}`}
+            </Text>
+          </LinearGradient>
 
-        {error ? (
-          <Text style={styles.error}>{error}</Text>
-        ) : (
-          <View style={styles.tabla}>
-            <View style={[styles.fila, styles.filaHeader]}>
-              <Text style={[styles.celda, styles.celdaHeaderTexto, styles.colPsc]}>PSC</Text>
-              {COLUMNAS_ORDEN.map((col) => (
-                <Text key={col} style={[styles.celda, styles.celdaHeaderTexto]}>{col}</Text>
-              ))}
-            </View>
-            {alertas.map((fila, i) => (
-              <View key={fila.PSC + i} style={[styles.fila, i % 2 === 0 ? styles.filaPar : styles.filaImpar]}>
-                <Text style={[styles.celda, styles.colPsc, styles.celdaPsc]}>{fila.PSC}</Text>
+          {error ? (
+            <Text style={styles.error}>{error}</Text>
+          ) : (
+            <View style={styles.tabla}>
+              <View style={[styles.fila, styles.filaHeader]}>
+                <Text style={[styles.celda, styles.celdaHeaderTexto, styles.colPsc]}>PSC</Text>
                 {COLUMNAS_ORDEN.map((col) => (
-                  <Text key={col} style={[styles.celda, col === 'Saldo Tolva' && styles.celdaDestacada]}>
-                    {fila[col] ?? 0}
-                  </Text>
+                  <Text key={col} style={[styles.celda, styles.celdaHeaderTexto]}>{col}</Text>
                 ))}
               </View>
-            ))}
-          </View>
-        )}
-      </View>
+              {alertas.map((fila, i) => (
+                <View key={fila.PSC + i} style={[styles.fila, i % 2 === 0 && styles.filaPar]}>
+                  <Text style={[styles.celda, styles.colPsc, styles.celdaPsc]}>{fila.PSC}</Text>
+                  {COLUMNAS_ORDEN.map((col) => (
+                    <Text key={col} style={[styles.celda, col === 'Saldo Tolva' && styles.celdaDestacada]}>
+                      {fila[col] ?? 0}
+                    </Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
 
-      <TouchableOpacity
-        style={[styles.botonWhatsapp, compartiendo && styles.botonDeshabilitado]}
-        onPress={compartirPorWhatsApp}
-        disabled={compartiendo}
-      >
-        {compartiendo
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.botonWhatsappTexto}>Compartir por WhatsApp</Text>}
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.iconoWhatsapp, compartiendo && styles.botonDeshabilitado]}
+          onPress={compartirPorWhatsApp}
+          disabled={compartiendo}
+          activeOpacity={0.8}
+        >
+          {compartiendo
+            ? <ActivityIndicator size="small" color="#fff" />
+            : <FontAwesome6 name="whatsapp" iconStyle="brand" size={18} color="#fff" />}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  caja: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 16, overflow: 'hidden' },
-  cajaCargando: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 16, padding: 16, alignItems: 'center' },
-  capturaBox: { backgroundColor: '#fff' },
-  encabezado: { backgroundColor: '#4F6D8C', padding: 14 },
-  encabezadoAlerta: { backgroundColor: '#2F4B66' },
+  caja: {
+    borderRadius: 14, marginBottom: 16, overflow: 'hidden',
+    borderWidth: 1, borderColor: COLORES.tarjetaBorde,
+  },
+  cajaCargando: {
+    backgroundColor: COLORES.tarjeta, borderRadius: 14, marginBottom: 16, padding: 16, alignItems: 'center',
+    borderWidth: 1, borderColor: COLORES.tarjetaBorde,
+  },
+  capturaWrapper: { position: 'relative' },
+  capturaBox: { backgroundColor: '#0F172A' },
+  encabezado: { padding: 14, paddingRight: 44 },
   encabezadoTitulo: { color: '#fff', fontWeight: 'bold', fontSize: 13, textAlign: 'center', letterSpacing: 1 },
-  encabezadoSub: { color: '#D0D8E4', fontSize: 12, textAlign: 'center', marginTop: 4 },
-  error: { color: '#3D5A75', padding: 16, textAlign: 'center' },
+  encabezadoSub: { color: COLORES.acento, fontSize: 12, textAlign: 'center', marginTop: 4 },
+  error: { color: COLORES.destacado, padding: 16, textAlign: 'center' },
   tabla: { paddingBottom: 8 },
   fila: { flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 6 },
-  filaHeader: { backgroundColor: '#6E96B8' },
-  filaPar: { backgroundColor: '#F2F2F2' },
-  filaImpar: { backgroundColor: '#fff' },
-  celda: { flex: 1, fontSize: 11, textAlign: 'center', color: '#222' },
-  celdaHeaderTexto: { color: '#fff', fontWeight: 'bold', fontSize: 10 },
+  filaHeader: { backgroundColor: 'rgba(59,130,246,0.18)' },
+  filaPar: { backgroundColor: 'rgba(255,255,255,0.03)' },
+  celda: { flex: 1, fontSize: 11, textAlign: 'center', color: COLORES.texto },
+  celdaHeaderTexto: { color: COLORES.acento, fontWeight: 'bold', fontSize: 10 },
   colPsc: { flex: 1.3, textAlign: 'left' },
   celdaPsc: { fontWeight: '600' },
-  celdaDestacada: { fontWeight: 'bold', color: '#3D5A75' },
-  botonWhatsapp: {
-    backgroundColor: '#4E9B6F', paddingVertical: 12, justifyContent: 'center', alignItems: 'center',
+  celdaDestacada: { fontWeight: 'bold', color: COLORES.destacado },
+  iconoWhatsapp: {
+    position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 15,
+    backgroundColor: '#25D366', justifyContent: 'center', alignItems: 'center',
   },
-  botonWhatsappTexto: { color: '#fff', fontWeight: 'bold' },
   botonDeshabilitado: { opacity: 0.6 },
 });

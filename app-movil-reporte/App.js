@@ -1,57 +1,88 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, Text } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import LoginScreen from './src/LoginScreen';
-import SucursalPicker from './src/SucursalPicker';
+import MenuReportes from './src/MenuReportes';
 import ReporteScreen from './src/ReporteScreen';
-import GestionCorreos from './src/GestionCorreos';
+import { obtenerSucursales } from './src/sucursalesApi';
+import { COLORES, GRADIENTE_FONDO } from './src/theme';
 
 export default function App() {
   const [token, setToken] = useState(null);
-  const [sucursalesElegidas, setSucursalesElegidas] = useState(null);
-  const [editandoCorreos, setEditandoCorreos] = useState(false);
+  const [reporteTipo, setReporteTipo] = useState(null);
+  const [sucursales, setSucursales] = useState(null);
+  const [cargandoTodas, setCargandoTodas] = useState(false);
+  const [errorCarga, setErrorCarga] = useState('');
+
+  useEffect(() => {
+    if (!reporteTipo || sucursales) return;
+    let activo = true;
+    setCargandoTodas(true);
+    setErrorCarga('');
+    obtenerSucursales()
+      .then((lista) => { if (activo) setSucursales(lista); })
+      .catch(() => { if (activo) setErrorCarga('No se pudo cargar la lista de sucursales'); })
+      .finally(() => { if (activo) setCargandoTodas(false); });
+    return () => { activo = false; };
+  }, [reporteTipo, sucursales]);
 
   function cerrarSesion() {
     setToken(null);
-    setSucursalesElegidas(null);
-    setEditandoCorreos(false);
+    setReporteTipo(null);
+    setSucursales(null);
+  }
+
+  function cambiarReporte() {
+    setReporteTipo(null);
+    setSucursales(null);
   }
 
   let pantalla;
   if (!token) {
     pantalla = <LoginScreen onLogin={setToken} />;
-  } else if (editandoCorreos) {
-    pantalla = <GestionCorreos onVolver={() => setEditandoCorreos(false)} />;
-  } else if (!sucursalesElegidas) {
+  } else if (!reporteTipo) {
+    pantalla = <MenuReportes onSeleccionar={setReporteTipo} onCerrarSesion={cerrarSesion} />;
+  } else if (cargandoTodas || (!sucursales && !errorCarga)) {
     pantalla = (
-      <SucursalPicker
-        onEjecutar={setSucursalesElegidas}
-        onCerrarSesion={cerrarSesion}
-        onEditarCorreos={() => setEditandoCorreos(true)}
-      />
+      <View style={styles.centro}>
+        <ActivityIndicator size="large" color={COLORES.acento} />
+      </View>
+    );
+  } else if (errorCarga) {
+    pantalla = (
+      <View style={styles.centro}>
+        <Text style={styles.errorTexto}>{errorCarga}</Text>
+      </View>
     );
   } else {
     pantalla = (
       <ReporteScreen
-        sucursales={sucursalesElegidas}
+        tipo={reporteTipo}
+        sucursales={sucursales}
         token={token}
-        onVolver={() => setSucursalesElegidas(null)}
+        onCambiarReporte={cambiarReporte}
         onCerrarSesion={cerrarSesion}
       />
     );
   }
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        {pantalla}
-        <StatusBar style="auto" />
-      </SafeAreaView>
-    </SafeAreaProvider>
+    <LinearGradient colors={GRADIENTE_FONDO} style={styles.gradiente}>
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          {pantalla}
+          <StatusBar style="light" />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F6F8' },
+  gradiente: { flex: 1 },
+  container: { flex: 1, backgroundColor: 'transparent' },
+  centro: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorTexto: { color: COLORES.destacado, textAlign: 'center', paddingHorizontal: 24 },
 });

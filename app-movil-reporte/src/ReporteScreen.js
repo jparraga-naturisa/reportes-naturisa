@@ -1,78 +1,74 @@
 import { useState } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome6 } from '@expo/vector-icons';
 import AlertaSucursalBox from './AlertaSucursalBox';
-import AlertaCosechaBox from './AlertaCosechaBox';
+import CosechaListado from './CosechaListado';
+import SiembraListado from './SiembraListado';
+import LiquidacionListado from './LiquidacionListado';
+import { COLORES, GRADIENTE_BOTON } from './theme';
 
-export default function ReporteScreen({ sucursales, token, onVolver, onCerrarSesion }) {
-  const [pestana, setPestana] = useState('alimentacion');
-  const [resultadosTolva, setResultadosTolva] = useState({});
-  const [resultadosCosecha, setResultadosCosecha] = useState({});
+const TITULOS = {
+  alimentacion: 'Alimentación en Tolva',
+  cosecha: 'Cosecha Prefinales',
+  siembra: 'Siembra de Larva',
+  liquidacion: 'Liquidación de Cosechas',
+};
 
-  const todasCargadasTolva = sucursales.every((s) => s.id in resultadosTolva);
-  const ningunaConAlertasTolva = todasCargadasTolva && Object.values(resultadosTolva).every((tiene) => !tiene);
+export default function ReporteScreen({ tipo, sucursales, token, onCambiarReporte, onCerrarSesion }) {
+  const [resultados, setResultados] = useState({});
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const todasCargadasCosecha = sucursales.every((s) => s.id in resultadosCosecha);
-  const ningunaConAlertasCosecha = todasCargadasCosecha && Object.values(resultadosCosecha).every((tiene) => !tiene);
+  const todasCargadas = sucursales.every((s) => s.id in resultados);
+  const ningunaConAlertas = todasCargadas && Object.values(resultados).every((tiene) => !tiene);
+
+  function actualizar() {
+    setResultados({});
+    setRefreshKey((k) => k + 1);
+  }
 
   return (
     <View style={styles.container}>
-      <View style={styles.pestanas}>
-        <TouchableOpacity
-          style={[styles.pestana, pestana === 'alimentacion' && styles.pestanaActiva]}
-          onPress={() => setPestana('alimentacion')}
-        >
-          <Text style={[styles.pestanaTexto, pestana === 'alimentacion' && styles.pestanaTextoActivo]}>Alimentación</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.pestana, pestana === 'cosecha' && styles.pestanaActiva]}
-          onPress={() => setPestana('cosecha')}
-        >
-          <Text style={[styles.pestanaTexto, pestana === 'cosecha' && styles.pestanaTextoActivo]}>Cosechas</Text>
-        </TouchableOpacity>
+      <View style={styles.encabezado}>
+        <Text style={styles.encabezadoTitulo}>{TITULOS[tipo] || ''}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={pestana === 'alimentacion' ? styles.visible : styles.oculto}>
-          {ningunaConAlertasTolva && (
+      {tipo === 'cosecha' ? (
+        <CosechaListado key={refreshKey} sucursales={sucursales} token={token} onSesionExpirada={onCerrarSesion} />
+      ) : tipo === 'siembra' ? (
+        <SiembraListado key={refreshKey} sucursales={sucursales} token={token} onSesionExpirada={onCerrarSesion} />
+      ) : tipo === 'liquidacion' ? (
+        <LiquidacionListado key={refreshKey} sucursales={sucursales} token={token} onSesionExpirada={onCerrarSesion} />
+      ) : (
+        <ScrollView contentContainerStyle={styles.scroll}>
+          {ningunaConAlertas && (
             <View style={styles.sinAlertas}>
               <Text style={styles.sinAlertasTexto}>Todas las piscinas con movimiento normal.</Text>
             </View>
           )}
           {sucursales.map((sucursal) => (
             <AlertaSucursalBox
-              key={sucursal.id}
+              key={`${sucursal.id}-${refreshKey}`}
               sucursal={sucursal}
               token={token}
               onSesionExpirada={onCerrarSesion}
-              onResultado={(tieneAlertas) => setResultadosTolva((prev) => ({ ...prev, [sucursal.id]: tieneAlertas }))}
+              onResultado={(tieneAlertas) => setResultados((prev) => ({ ...prev, [sucursal.id]: tieneAlertas }))}
             />
           ))}
-        </View>
-
-        <View style={pestana === 'cosecha' ? styles.visible : styles.oculto}>
-          {ningunaConAlertasCosecha && (
-            <View style={styles.sinAlertas}>
-              <Text style={styles.sinAlertasTexto}>Sin cosechas Pre-Final pendientes de Final.</Text>
-            </View>
-          )}
-          {sucursales.map((sucursal) => (
-            <AlertaCosechaBox
-              key={sucursal.id}
-              sucursal={sucursal}
-              token={token}
-              onSesionExpirada={onCerrarSesion}
-              onResultado={(tieneAlertas) => setResultadosCosecha((prev) => ({ ...prev, [sucursal.id]: tieneAlertas }))}
-            />
-          ))}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
 
       <View style={styles.piePagina}>
-        <TouchableOpacity style={styles.botonSecundario} onPress={onCerrarSesion}>
-          <Text style={styles.botonSecundarioTexto}>Cerrar sesión</Text>
+        <TouchableOpacity style={styles.botonMitad} onPress={actualizar} activeOpacity={0.85}>
+          <LinearGradient colors={GRADIENTE_BOTON} style={styles.botonRegresar}>
+            <FontAwesome6 name="rotate-right" size={14} color="#fff" />
+            <Text style={styles.botonRegresarTexto}>Actualizar</Text>
+          </LinearGradient>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.botonVolver} onPress={onVolver}>
-          <Text style={styles.botonVolverTexto}>Cambiar sucursales</Text>
+        <TouchableOpacity style={styles.botonMitad} onPress={onCambiarReporte} activeOpacity={0.85}>
+          <LinearGradient colors={GRADIENTE_BOTON} style={styles.botonRegresar}>
+            <Text style={styles.botonRegresarTexto}>‹ Regresar</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -80,20 +76,22 @@ export default function ReporteScreen({ sucursales, token, onVolver, onCerrarSes
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F6F8' },
-  pestanas: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
-  pestana: { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
-  pestanaActiva: { borderBottomColor: '#4F6D8C' },
-  pestanaTexto: { color: '#888', fontWeight: '600', fontSize: 13 },
-  pestanaTextoActivo: { color: '#4F6D8C' },
+  container: { flex: 1 },
+  encabezado: {
+    alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: COLORES.tarjetaBorde,
+  },
+  encabezadoTitulo: { fontSize: 15, fontWeight: 'bold', color: COLORES.texto },
   scroll: { padding: 12, paddingBottom: 24 },
-  visible: { display: 'flex' },
-  oculto: { display: 'none' },
-  sinAlertas: { backgroundColor: '#fff', borderRadius: 10, padding: 24, marginBottom: 16, alignItems: 'center' },
-  sinAlertasTexto: { color: '#4F6D8C', fontSize: 14, fontWeight: '600', textAlign: 'center' },
-  piePagina: { flexDirection: 'row', gap: 10, padding: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E0E0E0' },
-  botonSecundario: { paddingVertical: 14, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: '#D0D8E4' },
-  botonSecundarioTexto: { color: '#555' },
-  botonVolver: { flex: 1, backgroundColor: '#4F6D8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  botonVolverTexto: { color: '#fff', fontWeight: 'bold' },
+  sinAlertas: {
+    backgroundColor: COLORES.tarjeta, borderRadius: 12, padding: 24, marginBottom: 16, alignItems: 'center',
+    borderWidth: 1, borderColor: COLORES.tarjetaBorde,
+  },
+  sinAlertasTexto: { color: COLORES.acento, fontSize: 14, fontWeight: '600', textAlign: 'center' },
+  piePagina: { flexDirection: 'row', gap: 10, padding: 12, borderTopWidth: 1, borderTopColor: COLORES.tarjetaBorde },
+  botonMitad: { flex: 1 },
+  botonRegresar: {
+    flexDirection: 'row', gap: 8, borderRadius: 10, paddingVertical: 14, alignItems: 'center', justifyContent: 'center',
+  },
+  botonRegresarTexto: { color: '#fff', fontWeight: 'bold' },
 });
