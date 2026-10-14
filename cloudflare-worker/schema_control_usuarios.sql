@@ -24,7 +24,11 @@ CREATE TABLE IF NOT EXISTS usuarios_solicitudes (
   aprobado_por         TEXT,                             -- quien aprobo (resuelto_por se pisa al marcar EJECUTADA)
   aprobado_nombre      TEXT,
   aprobado_en          TEXT,
-  creado_usuario       TEXT                              -- usuario AP1 creado (alta ejecutada); la fecha es resuelto_en
+  creado_usuario       TEXT,                             -- usuario AP1 creado (alta ejecutada); la fecha es resuelto_en
+  datamaestra_por      TEXT,                             -- transportista: quien confirmo que lo creo en Data Maestra
+  datamaestra_nombre   TEXT,
+  datamaestra_en       TEXT,
+  correo_dm_estado     TEXT                              -- resultado del aviso por correo a Data Maestra
 );
 
 CREATE INDEX IF NOT EXISTS idx_us_estado ON usuarios_solicitudes(estado);
@@ -41,3 +45,11 @@ CREATE TABLE IF NOT EXISTS usuarios_admins (
 -- Primer admin solo si la tabla esta vacia
 INSERT INTO usuarios_admins (username, agregado_por, creado_en)
   SELECT 'jparraga', 'sistema', datetime('now') WHERE NOT EXISTS (SELECT 1 FROM usuarios_admins);
+
+-- Configuracion de la pantalla (clave/valor). Ej.: correos_datamaestra = ["persona@naturisa.com.ec"]
+CREATE TABLE IF NOT EXISTS usuarios_config (
+  clave            TEXT PRIMARY KEY,
+  valor            TEXT,
+  actualizado_por  TEXT,
+  actualizado_en   TEXT
+);

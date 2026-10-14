@@ -3234,6 +3234,8 @@ const PORTAL_BASE = GATEWAY + '/bff/web/portal/backoffice/api'
 // Solo se usan cargo, centro de costo, area, fecha de ingreso; el registro trae datos sensibles
 // (sueldo, cargas familiares) que nunca salen del worker.
 const RRHH_BASE = GATEWAY + '/bff/web/rrhh/backoffice/api'
+// Data Maestra → Logística → Transportistas (freight_transporter, filtra por identification)
+const DM_LOGISTICA_BASE = GATEWAY + '/bff/web/datamaestra/backoffice/api/logistic'
 const _MINUSCULAS = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e', 'o', 'a', 'en', 'por', 'para', 'con'])
 function tituloEs(txt) {
   return String(txt || '').toLowerCase().split(/\s+/).filter(Boolean)
@@ -3254,6 +3256,8 @@ async function asegurarTablasUsuarios(env) {
       user_identificacion TEXT, datos TEXT, motivo TEXT, solicitante TEXT NOT NULL, solicitante_nombre TEXT,
       creado_en TEXT NOT NULL, resuelto_por TEXT, resuelto_en TEXT, comentario_admin TEXT)`),
     env.db.prepare(`CREATE TABLE IF NOT EXISTS usuarios_admins (username TEXT PRIMARY KEY, agregado_por TEXT, creado_en TEXT)`),
+    // Configuracion de la pantalla (ej. correos que reciben el aviso de transportistas para Data Maestra)
+    env.db.prepare(`CREATE TABLE IF NOT EXISTS usuarios_config (clave TEXT PRIMARY KEY, valor TEXT, actualizado_por TEXT, actualizado_en TEXT)`),
     // Primer admin solo si la tabla esta vacia (si no, quitarlo seria imposible: volveria en cada arranque)
     env.db.prepare(`INSERT INTO usuarios_admins (username, agregado_por, creado_en)
       SELECT 'jparraga', 'sistema', datetime('now') WHERE NOT EXISTS (SELECT 1 FROM usuarios_admins)`)
@@ -3261,7 +3265,7 @@ async function asegurarTablasUsuarios(env) {
   // Columnas agregadas despues de crear la tabla: quien aprobo (resuelto_por se pisa al marcar EJECUTADA)
   const { results: cols } = await env.db.prepare('PRAGMA table_info(usuarios_solicitudes)').all()
   const tiene = new Set(cols.map(c => c.name))
-  for (const c of ['aprobado_por', 'aprobado_nombre', 'aprobado_en', 'creado_usuario']) {
+  for (const c of ['aprobado_por', 'aprobado_nombre', 'aprobado_en', 'creado_usuario', 'datamaestra_por', 'datamaestra_nombre', 'datamaestra_en', 'correo_dm_estado']) {
     if (!tiene.has(c)) await env.db.prepare(`ALTER TABLE usuarios_solicitudes ADD COLUMN ${c} TEXT`).run()
   }
   _usrTablas = true
@@ -3381,6 +3385,47 @@ async function catalogoUsuarios(env, forzar) {
   return _catUsr
 }
 
+// Una solicitud "lleva transportista" si da el rol TRANSPORTISTA de AP1 Balanceado (alta o edicion que lo agrega).
+// Esas personas tambien se deben crear en Data Maestra como transportistas.
+function requiereDataMaestra(sol) {
+  let d = {}
+  try { d = JSON.parse(sol.datos || '{}') } catch {}
+  const esT = n => /(^|·\s*)TRANSPORTISTA$/i.test(String(n || '').trim())
+  if (sol.tipo === 'ALTA') return (d.rolesNombres || []).some(esT) || /^TRANSPORTISTA$/i.test(d.rol || '')
+  if (sol.tipo === 'CAMBIO') return (d.rolesAgregarNombres || []).some(esT) || (d.rolesAgregar || []).some(esT) || /^TRANSPORTISTA$/i.test(d.rol || '')
+  return false
+}
+
+async function leerConfigUsuarios(env, clave, defecto) {
+  const r = await env.db.prepare('SELECT valor FROM usuarios_config WHERE clave = ?').bind(clave).first()
+  if (!r) return defecto
+  try { return JSON.parse(r.valor) } catch { return defecto }
+}
+
+// Aviso por correo "transportista creado: registrar en Data Maestra". Usa el buzon de Office 365
+// (secrets CORREO_EMPRESA_USER / CORREO_EMPRESA_PASS); mientras no esten configurados queda pendiente.
+async function avisarDataMaestra(env, sol, quien) {
+  const correos = (await leerConfigUsuarios(env, 'correos_datamaestra', [])).filter(Boolean)
+  if (!correos.length) return 'sin destinatarios'
+  if (!env.CORREO_EMPRESA_USER || !env.CORREO_EMPRESA_PASS) return 'pendiente: sin canal de correo configurado'
+  let d = {}
+  try { d = JSON.parse(sol.datos || '{}') } catch {}
+  const nombre = sol.tipo === 'ALTA' ? `${d.nombres || ''} ${d.apellidos || ''}`.trim() : sol.user_nombre
+  const fila = (k, v) => v ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">${k}</td><td style="padding:4px 0"><b>${String(v).replace(/</g, '&lt;')}</b></td></tr>` : ''
+  const html = `<div style="font-family:Segoe UI,Arial,sans-serif;color:#1f2f44">
+    <h2 style="color:#1b3c5e;margin:0 0 6px">Nuevo transportista: registrar en Data Maestra</h2>
+    <p style="margin:0 0 14px">Se creó en AP1 un usuario con rol <b>TRANSPORTISTA</b> (solicitud #${sol.id}). Regístralo también en <b>Data Maestra</b> como transportista.</p>
+    <table style="font-size:14px">${fila('Nombre', nombre)}${fila('Identificación', sol.user_identificacion)}${fila('Teléfono', d.telefono)}${fila('Correo', d.email)}
+    ${fila('Usuario AP1', sol.creado_usuario)}${fila('Sucursales', (d.sucursalesNombres || d.sucursalesAgregarNombres || [sol.subsidiary_nombre]).join(', '))}${fila('Ejecutado por', quien)}</table>
+    <p style="margin:16px 0 0;font-size:12px;color:#94a3b8">Aviso automático de Control de Usuarios Naturisa.</p></div>`
+  try {
+    await invEnviarCorreoSmtp(env, correos, `Transportista nuevo para Data Maestra: ${nombre}`, html)
+    return 'enviado a ' + correos.join(', ')
+  } catch (e) {
+    return 'error: ' + String(e.message || e).slice(0, 200)
+  }
+}
+
 async function idsUsuariosDeSucursal(env, sid) {
   const filas = await secGet(env, `user_subsidiaries?subsidiaryId=${sid}&pageSize=100000`)
   return new Set(filas.filter(x => x.subsidiaryId === sid && x.status === 'ACTIVO').map(x => x.userId))
@@ -3443,10 +3488,14 @@ async function handleUsuariosD1(request, url, env) {
       if (!/^\d{10,13}$/.test(ced)) return json({ error: 'Ingresa una cédula de 10 dígitos (o 13 si es RUC)' }, 400)
       const cat = await catalogoUsuarios(env)
       // Los filtros por identification de RRHH y Seguridad si filtran; igual se compara exacto por si cambian
-      const [emps, usrs] = await Promise.all([
+      const [emps, usrs, dmTransp] = await Promise.all([
         secGet(env, `employees?identification=${ced}&pageSize=50`, RRHH_BASE).catch(() => null),
-        secGet(env, `users?identification=${ced}&pageSize=50`)
+        secGet(env, `users?identification=${ced}&pageSize=50`),
+        secGet(env, `freight_transporter?identification=${ced}&pageSize=20`, DM_LOGISTICA_BASE).catch(() => null)
       ])
+      // Registro en Data Maestra como transportista (prefiere el ACTIVO si hay varios)
+      const dmRegs = (dmTransp || []).filter(t => String(t.identification || '').trim() === ced)
+      const dm = dmRegs.find(t => t.status === 'ACTIVO') || dmRegs[0] || null
       const registros = (emps || [])
         .filter(e => String(e.identification || '').trim() === ced)
         .sort((a, b) => String(b.hireDate || '').localeCompare(String(a.hireDate || '')))
@@ -3503,7 +3552,9 @@ async function handleUsuariosD1(request, url, env) {
         rrhhDisponible: emps !== null,
         empresa: { activo: registros.some(r => r.estado === 'ACTIVO'), registros },
         usuarios,
-        altaAbierta: altaAbierta || null
+        altaAbierta: altaAbierta || null,
+        dataMaestra: dmTransp === null ? { disponible: false }
+          : { disponible: true, transportista: dm ? { estado: dm.status || '', nombre: dm.fullName || `${dm.firstName || ''} ${dm.lastName || ''}`.trim(), empleado: !!dm.isEmployee } : null }
       })
     }
 
@@ -3643,6 +3694,10 @@ async function handleUsuariosD1(request, url, env) {
         : {}   // los solicitantes no cambian estados (ni anulan): solo los administradores
       if (!(permitidos[sol.estado] || []).includes(nuevo)) return json({ error: `No se puede pasar de ${sol.estado} a ${nuevo}` }, 403)
       if (nuevo === 'RECHAZADA' && !comentario) return json({ error: 'Indica el motivo del rechazo' }, 400)
+      const llevaTransportista = requiereDataMaestra(sol)
+      if (nuevo === 'EJECUTADA' && llevaTransportista && b.datamaestraOk !== true) {
+        return json({ error: 'Esta solicitud incluye TRANSPORTISTA: confirma que ya lo creaste en Data Maestra.' }, 400)
+      }
       // Usuario nuevo marcado como ejecutado: tiene que existir ya en AP1; se guarda su usuario
       let creado = null
       if (nuevo === 'EJECUTADA' && sol.tipo === 'ALTA') {
@@ -3663,9 +3718,38 @@ async function handleUsuariosD1(request, url, env) {
         await env.db.prepare('UPDATE usuarios_solicitudes SET aprobado_por = ?, aprobado_nombre = ?, aprobado_en = ? WHERE id = ?')
           .bind(s.u, s.n, new Date().toISOString(), id).run()
       }
+      // Transportista: queda registrado quien confirmo Data Maestra y se avisa por correo
+      let correoDM = null
+      if (nuevo === 'EJECUTADA' && llevaTransportista) {
+        await env.db.prepare('UPDATE usuarios_solicitudes SET datamaestra_por = ?, datamaestra_nombre = ?, datamaestra_en = ? WHERE id = ?')
+          .bind(s.u, s.n, new Date().toISOString(), id).run()
+        const actual = await env.db.prepare('SELECT * FROM usuarios_solicitudes WHERE id = ?').bind(id).first()
+        correoDM = await avisarDataMaestra(env, actual, s.n)
+        await env.db.prepare('UPDATE usuarios_solicitudes SET correo_dm_estado = ? WHERE id = ?').bind(correoDM, id).run()
+      }
       // Lo ejecutado ya cambio en AP1: forzar que la proxima lista se lea fresca
       if (nuevo === 'EJECUTADA') _catUsrEn = 0
-      return json({ ok: true })
+      return json({ ok: true, correoDataMaestra: correoDM })
+    }
+
+    // ── Configuracion (solo admin) ──
+    if (path === '/d1/usuarios/config') {
+      if (!s.adm) return json({ error: 'Solo administradores' }, 403)
+      if (request.method === 'GET') {
+        return json({ correosDataMaestra: await leerConfigUsuarios(env, 'correos_datamaestra', []),
+          canalCorreo: !!(env.CORREO_EMPRESA_USER && env.CORREO_EMPRESA_PASS) })
+      }
+      if (request.method === 'POST') {
+        const b = await request.json().catch(() => ({}))
+        const correos = [...new Set((Array.isArray(b.correosDataMaestra) ? b.correosDataMaestra : [])
+          .map(c => String(c).trim().toLowerCase()).filter(Boolean))]
+        const malo = correos.find(c => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c))
+        if (malo) return json({ error: `Correo no válido: ${malo}` }, 400)
+        await env.db.prepare(`INSERT INTO usuarios_config (clave, valor, actualizado_por, actualizado_en) VALUES ('correos_datamaestra', ?, ?, ?)
+          ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor, actualizado_por = excluded.actualizado_por, actualizado_en = excluded.actualizado_en`)
+          .bind(JSON.stringify(correos), s.u, new Date().toISOString()).run()
+        return json({ ok: true, correosDataMaestra: correos })
+      }
     }
 
     // ── Administradores (solo admin) ──
