@@ -12,3 +12,9 @@ build/
 
 # Repositorio propio, gestionado por separado (GitLab/GitHub)
 /ubicame-app/
+
+# Secretos del worker local (wrangler dev)
+.dev.vars
+
+# Repositorio propio (github.com/jparraga-naturisa/control-usuarios)
+/control-usuarios/

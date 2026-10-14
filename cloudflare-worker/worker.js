@@ -1,4 +1,6 @@
-﻿const GATEWAY = 'https://gateway.naturisa.com.ec'
+﻿import { connect } from 'cloudflare:sockets'
+
+const GATEWAY = 'https://gateway.naturisa.com.ec'
 
 const ALLOWED_ORIGINS = [
   'https://jparraga-naturisa.github.io',
@@ -13,6 +15,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3007',
   'http://localhost:3008',
   'http://localhost:3009',
+  'http://localhost:3010',
   'http://localhost:9100',
 ]
 
@@ -348,6 +351,356 @@ async function handleDbAlertasLiquidacion(request, url) {
 
   alertas.sort((a, b) => b.horasTranscurridas - a.horasTranscurridas)
   return corsResponse(JSON.stringify({ alertas, total: alertas.length }), 200, request)
+}
+
+// ── Inventario de laboratorios: stock SAP vs stock del lab (app movil) ──────
+// Mismo calculo que inventario-laboratorios/reporte_inventario.py, pero con el
+// stock SAP (libre utilizacion) consultado en vivo al portal de requisiciones.
+// GET /db/inventario-laboratorios
+//
+// El catalogo de items del portal pesa ~12MB y no se puede filtrar ni paginar
+// (PageNumber se ignora), asi que se guarda en KV una version compacta 1x/dia.
+// Todo el stock de los L*09 esta en items de tipo 18 y 1 (~420); se consultan
+// esos mas los codigos que tenga el lab en su bodega.
+
+const PORTAL_API = '/bff/web/portal/backoffice/api'
+const LAB_API = '/bff/web/lab/backoffice/api'
+const INV_LAB_CATALOGO_KEY = 'inv-lab-catalogo-v1'
+const INV_LAB_TIPOS_ITEM = [18, 1]
+const INV_LAB_LABORATORIOS = [
+  { subsidiaryId: 23, nombre: 'Larviquest 1', almacen: 'L109', warehouseId: 466 },
+  { subsidiaryId: 24, nombre: 'Larviquest 2', almacen: 'L209', warehouseId: 476 },
+  { subsidiaryId: 25, nombre: 'Larviquest 3', almacen: 'L309', warehouseId: 486 },
+  { subsidiaryId: 26, nombre: 'Larviquest 4', almacen: 'L409', warehouseId: 496 },
+]
+// Unidad SAP -> unidad del lab (g / ml). El API del lab reporta stockAvailable/
+// unsyncQuantity ya en g/ml aunque el catalogo diga Kg/L; para mostrar todo en
+// unidad SAP se divide por este mismo factor (aSapUnidad).
+const INV_FACTOR_UM = { KG: 1000, KGS: 1000, G: 1, GR: 1, L: 1000, LT: 1000, ML: 1, GAL: 3785.41, GLN: 3785.41 }
+const INV_UM_SAP_DISPLAY = { KG: 'Kg', KGS: 'Kg', G: 'g', GR: 'g', L: 'L', LT: 'L', ML: 'mL', GAL: 'Gal', GLN: 'Gal' }
+
+function aSapUnidad(valorEnGramosOMl, um) {
+  return valorEnGramosOMl / (INV_FACTOR_UM[um] || 1)
+}
+
+// { codeSap: { ids: [idItem, ...], nombre, unidad, itemTypeId } }
+// Un mismo codeSap puede tener varios idItem en el catalogo (duplicados/variantes);
+// hay que sumar el stock de todos, no solo del primero, o el saldo SAP queda incompleto.
+async function invLabCatalogo(request, env) {
+  const cached = env.data ? await env.data.get(INV_LAB_CATALOGO_KEY, 'json') : null
+  if (cached) return cached
+  const res = await fetch(GATEWAY + PORTAL_API + '/item?companyId=3&PageSize=50000', { headers: request.headers })
+  if (!res.ok) throw Object.assign(new Error('catalogo de items respondio ' + res.status), { status: res.status })
+  const items = (await res.json()).data?.data || []
+  const catalogo = {}
+  for (const i of items) {
+    const cod = String(i.codeSap || '').trim()
+    if (!cod) continue
+    if (!catalogo[cod]) {
+      catalogo[cod] = { ids: [i.idItem], nombre: i.name || '', unidad: String(i.baseUnitMsrAb || '').trim().toUpperCase(), itemTypeId: i.itemTypeId }
+    } else {
+      catalogo[cod].ids.push(i.idItem)
+    }
+  }
+  if (env.data) await env.data.put(INV_LAB_CATALOGO_KEY, JSON.stringify(catalogo), { expirationTtl: 60 * 60 * 24 })
+  return catalogo
+}
+
+async function invLabRegistros(request, subsidiaryId) {
+  const h = { headers: request.headers }
+  const resC = await fetch(GATEWAY + LAB_API + '/cycle?PageNumber=1&PageSize=1000&OrderBy=code+desc&subsidiaryId=' +
+    subsidiaryId + '&includeLaboratory=true&includeLarvalStage=true', h)
+  if (!resC.ok) throw Object.assign(new Error('ciclos lab respondio ' + resC.status), { status: resC.status })
+  const jc = await resC.json()
+  const ciclos = Array.isArray(jc) ? jc : Array.isArray(jc.data) ? jc.data : (jc.data?.data || [])
+  if (!ciclos.length) return { ciclo: null, registros: [] }
+  const c = ciclos[0]
+  const ciclo = { id: c.id || c.cycleId || c.idCycle, codigo: c.code || '', fechaInicio: String(c.sowingDate || c.dryDate || '').split('T')[0] }
+
+  const registros = []
+  for (let page = 1; ; page++) {
+    const res = await fetch(GATEWAY + LAB_API + '/warehouse_production?subsidiaryId=' + subsidiaryId + '&cycleId=' + ciclo.id +
+      '&date=' + ciclo.fechaInicio + '&includeItem=true&includeWarehouseOrigin=true&PageSize=100&PageNumber=' + page, h)
+    if (!res.ok) throw Object.assign(new Error('bodega lab respondio ' + res.status), { status: res.status })
+    const j = await res.json()
+    const inner = Array.isArray(j) ? j : j.data
+    const filas = Array.isArray(inner) ? inner : (inner?.data || [])
+    registros.push(...filas)
+    const totalPages = Array.isArray(inner) ? 1 : (inner?.totalPages || 1)
+    if (page >= totalPages || !filas.length) break
+  }
+  return { ciclo, registros }
+}
+
+async function invLabStockSap(request, lab, catalogo, codigos) {
+  const body = []
+  for (const cod of codigos) {
+    for (const id of catalogo[cod].ids) body.push({ itemId: id, warehouseId: lab.warehouseId, warehouseCode: lab.almacen })
+  }
+  const res = await fetch(GATEWAY + PORTAL_API + '/item/stock', {
+    method: 'POST',
+    headers: { Authorization: request.headers.get('Authorization') || '', 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw Object.assign(new Error('stock SAP respondio ' + res.status), { status: res.status })
+  const porId = {}
+  for (const z of (await res.json()).data || []) porId[z.itemId] = (porId[z.itemId] || 0) + (z.quantity || 0)
+  // Se deja en la unidad nativa de SAP (Kg, L, etc.), sin convertir a g/ml.
+  // Se suma el stock de todos los idItem que comparten el mismo codeSap.
+  const stock = {}
+  for (const cod of codigos) {
+    const total = catalogo[cod].ids.reduce((acc, id) => acc + (porId[id] || 0), 0)
+    stock[cod] = Math.round(total * 10000) / 10000
+  }
+  return stock
+}
+
+async function invLabLaboratorio(request, lab, catalogo, codigosBase) {
+  const { ciclo, registros } = await invLabRegistros(request, lab.subsidiaryId)
+  const labPorCodigo = {}
+  for (const rec of registros) {
+    const cod = String(rec.item?.codeSap || '').trim()
+    if (cod) labPorCodigo[cod] = rec
+  }
+  const codigos = [...new Set([...codigosBase, ...Object.keys(labPorCodigo).filter(c => catalogo[c])])]
+  const stock = await invLabStockSap(request, lab, catalogo, codigos)
+
+  const r2 = v => Math.round(v * 1000) / 1000
+  const filas = []
+  for (const cod of codigos) {
+    const rec = labPorCodigo[cod]
+    const sap = stock[cod] || 0
+    if (!rec && !sap) continue
+    const umSap = catalogo[cod].unidad
+    const stockLab = aSapUnidad(rec?.stockAvailable || 0, umSap)
+    const noEnviados = aSapUnidad(rec?.unsyncQuantity || 0, umSap)
+    filas.push({
+      material: cod,
+      descripcion: rec?.item?.name || catalogo[cod].nombre,
+      unidad: INV_UM_SAP_DISPLAY[umSap] || umSap,
+      stockSap: r2(sap), stockLab: r2(stockLab), consumosNoEnviados: r2(noEnviados),
+      diferencia: r2(sap - stockLab - noEnviados),
+    })
+  }
+  // Materiales del lab que no existen en el catalogo SAP: stock SAP estimado, sin diferencia
+  for (const [cod, rec] of Object.entries(labPorCodigo)) {
+    if (catalogo[cod]) continue
+    const umApi = String(rec.item?.baseUnitMsrAb || '').toUpperCase()
+    const stockLab = aSapUnidad(rec.stockAvailable || 0, umApi)
+    const noEnviados = aSapUnidad(rec.unsyncQuantity || 0, umApi)
+    filas.push({
+      material: cod, descripcion: rec.item?.name || '', unidad: INV_UM_SAP_DISPLAY[umApi] || umApi,
+      stockSap: r2(stockLab + noEnviados), stockLab: r2(stockLab), consumosNoEnviados: r2(noEnviados), diferencia: 0,
+    })
+  }
+  filas.sort((a, b) => a.material.localeCompare(b.material))
+  return {
+    subsidiaryId: lab.subsidiaryId, nombre: lab.nombre, almacen: lab.almacen,
+    ciclo: ciclo?.codigo || null, sinProduccion: !ciclo || !registros.length,
+    conDiferencia: filas.filter(f => f.diferencia !== 0).length, filas,
+  }
+}
+
+function invNumero(v) {
+  const r = Math.round((v || 0) * 1000) / 1000
+  const [entero, dec] = Math.abs(r).toFixed(3).split('.')
+  const conMiles = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  const texto = dec === '000' ? conMiles : `${conMiles}.${dec}`
+  return r < 0 ? `-${texto}` : texto
+}
+
+function invTablaHtmlLaboratorio(lab) {
+  const abrev = lab.nombre.replace('Larviquest ', 'LQ')
+  const TD = 'padding:10px 14px; border:1px solid #ddd; font-size:14px; font-weight:bold;'
+  const TDR = TD + ' text-align:right;'
+  const TDC = TD + ' text-align:center;'
+
+  if (lab.sinProduccion) {
+    return `
+    <div style="margin-bottom:28px;">
+      <div style="background:#2F2F2F; padding:12px 18px; border-radius:4px 4px 0 0; text-align:center;">
+        <b style="color:#FFFFFF; font-size:17px; letter-spacing:1px;">${abrev}</b>
+      </div>
+      <div style="border:1px solid #ddd; border-top:none; padding:16px; background:#FAFAFA; border-radius:0 0 4px 4px; text-align:center;">
+        <p style="margin:0; font-size:14px; font-weight:bold; color:#888; font-style:italic;">
+          Ciclo en fase de secado — sin producción activa
+        </p>
+      </div>
+    </div>`
+  }
+
+  let totalSap = 0, totalLab = 0, totalNoEnv = 0, totalDif = 0
+  const filas = lab.filas.map((f, i) => {
+    totalSap += f.stockSap; totalLab += f.stockLab; totalNoEnv += f.consumosNoEnviados; totalDif += f.diferencia
+    const bg = i % 2 === 0 ? '#F0F4F8' : '#FFFFFF'
+    const tdDif = f.diferencia !== 0 ? TD + ' color:#C00000;' : TD
+    return `
+        <tr style="background:${bg};">
+            <td style="${TD}">${f.material}</td>
+            <td style="${TD} white-space:nowrap;">${f.descripcion}</td>
+            <td style="${TDC}">${f.unidad}</td>
+            <td style="${TDR}">${invNumero(f.stockSap)}</td>
+            <td style="${TDR}">${invNumero(f.stockLab)}</td>
+            <td style="${TDR}">${invNumero(f.consumosNoEnviados)}</td>
+            <td style="${tdDif} text-align:right;">${invNumero(f.diferencia)}</td>
+        </tr>`
+  }).join('')
+
+  const TT = 'padding:11px 14px; border:1px solid #163a5f; font-size:15px; font-weight:bold; text-align:right; background:#1F4E79; color:#FFFFFF;'
+  const totalRow = `
+        <tr>
+            <td style="${TT} text-align:center; min-width:110px;">TOTAL</td>
+            <td style="${TT} min-width:320px;"></td>
+            <td style="${TT} min-width:55px;"></td>
+            <td style="${TT} min-width:110px;">${invNumero(totalSap)}</td>
+            <td style="${TT} min-width:140px;">${invNumero(totalLab)}</td>
+            <td style="${TT} min-width:160px;">${invNumero(totalNoEnv)}</td>
+            <td style="${TT} min-width:110px; color:#FFD700;">${invNumero(totalDif)}</td>
+        </tr>`
+
+  const TH = 'padding:11px 14px; border:1px solid #1a5c9e; font-size:14px; text-align:center;'
+  return `
+    <div style="margin-bottom:32px;">
+      <div style="background:#1F4E79; padding:14px 18px; border-radius:4px 4px 0 0; text-align:center;">
+        <b style="color:#FFFFFF; font-size:18px; letter-spacing:2px;">${abrev}</b>
+      </div>
+      <table style="width:100%; border-collapse:collapse; border:1px solid #ddd; border-top:none; table-layout:fixed;">
+        <colgroup>
+          <col style="width:11%;"><col style="width:33%;"><col style="width:5%;">
+          <col style="width:12%;"><col style="width:14%;"><col style="width:14%;"><col style="width:11%;">
+        </colgroup>
+        <thead>
+          <tr style="background:#2E75B6; color:#FFFFFF;">
+            <th style="${TH}">Material</th>
+            <th style="${TH}">Descripción del material</th>
+            <th style="${TH}">UM</th>
+            <th style="${TH}">Stock SAP</th>
+            <th style="${TH}">Stock Laboratorio</th>
+            <th style="${TH}">Consumos no Enviados</th>
+            <th style="${TH}">Diferencias</th>
+          </tr>
+        </thead>
+        <tbody>${filas}${totalRow}</tbody>
+      </table>
+    </div>`
+}
+
+function invConstruirInformeHtml(laboratorios, fecha) {
+  const tablas = laboratorios.map(invTablaHtmlLaboratorio).join('')
+  return `
+<div style="font-family:Arial, sans-serif; width:100%;">
+  <div style="background:#1a1a2e; padding:22px 24px; border-radius:6px 6px 0 0; margin-bottom:24px; text-align:center;">
+    <h2 style="color:#FFFFFF; margin:0; font-size:20px; font-weight:bold; letter-spacing:2px;">
+      CONTROL DE BODEGAS DE PRODUCCION LABORATORIOS
+    </h2>
+    <p style="color:#8AB8D8; margin:8px 0 0; font-size:14px; font-weight:bold;">Fecha: ${fecha}</p>
+  </div>
+  ${tablas}
+</div>`
+}
+
+async function invSmtpLeerRespuesta(reader, bufRef) {
+  const decoder = new TextDecoder()
+  while (true) {
+    const nl = bufRef.value.indexOf('\r\n')
+    if (nl === -1) {
+      const { value, done } = await reader.read()
+      if (done) return null
+      bufRef.value += decoder.decode(value, { stream: true })
+      continue
+    }
+    const linea = bufRef.value.slice(0, nl)
+    bufRef.value = bufRef.value.slice(nl + 2)
+    if (/^\d{3}-/.test(linea)) continue
+    return linea
+  }
+}
+
+// Office 365 (smtp.office365.com:587) exige STARTTLS: se conecta en claro,
+// se sube a TLS a mitad de la conversacion con socket.startTls().
+async function invEnviarCorreoSmtp(env, destinatarios, asunto, html) {
+  const usuario = env.CORREO_EMPRESA_USER
+  const clave = env.CORREO_EMPRESA_PASS
+  if (!usuario || !clave) throw new Error('SMTP no configurado (faltan secrets CORREO_EMPRESA_USER/CORREO_EMPRESA_PASS)')
+
+  let socket = connect({ hostname: 'smtp.office365.com', port: 587 }, { secureTransport: 'starttls' })
+  let writer = socket.writable.getWriter()
+  let reader = socket.readable.getReader()
+  const bufRef = { value: '' }
+  const enc = (s) => new TextEncoder().encode(s)
+  const leer = () => invSmtpLeerRespuesta(reader, bufRef)
+  const comando = async (texto, prefijoEsperado) => {
+    await writer.write(enc(texto + '\r\n'))
+    const resp = await leer()
+    if (prefijoEsperado && (!resp || !prefijoEsperado.some(p => resp.startsWith(p)))) {
+      throw new Error(`SMTP error en "${texto.split(' ')[0]}": ${resp}`)
+    }
+    return resp
+  }
+
+  try {
+    await leer() // 220 saludo
+    await comando('EHLO naturisa.app', ['250'])
+    await comando('STARTTLS', ['220'])
+
+    socket = socket.startTls()
+    writer = socket.writable.getWriter()
+    reader = socket.readable.getReader()
+    bufRef.value = ''
+
+    await comando('EHLO naturisa.app', ['250'])
+    await comando('AUTH LOGIN', ['334'])
+    await comando(btoa(usuario), ['334'])
+    await comando(btoa(clave), ['235'])
+    await comando(`MAIL FROM:<${usuario}>`, ['250'])
+    for (const d of destinatarios) await comando(`RCPT TO:<${d}>`, ['250', '251'])
+    await comando('DATA', ['354'])
+    const cuerpoStuffed = html.replace(/\r?\n\./g, '\n..')
+    const mensaje =
+      `From: Naturisa <${usuario}>\r\n` +
+      `To: ${destinatarios.join(', ')}\r\n` +
+      `Subject: ${asunto}\r\n` +
+      `MIME-Version: 1.0\r\n` +
+      `Content-Type: text/html; charset=UTF-8\r\n` +
+      `\r\n${cuerpoStuffed}\r\n.`
+    await comando(mensaje, ['250'])
+    await writer.write(enc('QUIT\r\n'))
+  } finally {
+    try { await writer.close() } catch {}
+  }
+}
+
+async function handleDbInventarioLaboratorios(request, env) {
+  if (request.method === 'POST') {
+    try {
+      const body = await request.json().catch(() => ({}))
+      const destinatarios = Array.isArray(body.destinatarios)
+        ? body.destinatarios.map(d => String(d).trim()).filter(Boolean)
+        : []
+      if (!destinatarios.length) return corsResponse('{"error":"faltan destinatarios"}', 400, request)
+
+      const catalogo = await invLabCatalogo(request, env)
+      const codigosBase = Object.keys(catalogo).filter(c => INV_LAB_TIPOS_ITEM.includes(catalogo[c].itemTypeId))
+      const laboratorios = await Promise.all(INV_LAB_LABORATORIOS.map(lab => invLabLaboratorio(request, lab, catalogo, codigosBase)))
+      const fecha = ecuadorNowISO().slice(0, 10)
+      const html = invConstruirInformeHtml(laboratorios, fecha)
+      await invEnviarCorreoSmtp(env, destinatarios, `Control de Bodegas de Produccion Laboratorios — ${fecha}`, html)
+      return corsResponse('{"ok":true}', 200, request)
+    } catch (e) {
+      const status = e.status === 401 ? 401 : 502
+      return corsResponse(JSON.stringify({ error: String(e.message || e) }), status, request)
+    }
+  }
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  try {
+    const catalogo = await invLabCatalogo(request, env)
+    const codigosBase = Object.keys(catalogo).filter(c => INV_LAB_TIPOS_ITEM.includes(catalogo[c].itemTypeId))
+    const laboratorios = await Promise.all(INV_LAB_LABORATORIOS.map(lab => invLabLaboratorio(request, lab, catalogo, codigosBase)))
+    return corsResponse(JSON.stringify({ laboratorios, generado: new Date().toISOString() }), 200, request)
+  } catch (e) {
+    const status = e.status === 401 ? 401 : 502
+    return corsResponse(JSON.stringify({ error: String(e.message || e) }), status, request)
+  }
 }
 
 // ── Tablas propias en D1 (compartidas entre todos los dashboards) ─────────
@@ -908,6 +1261,86 @@ async function handleDbCentroCosto(request, env) {
   if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
   const { results } = await env.db.prepare('SELECT * FROM centro_costo ORDER BY codigo').all()
   return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+
+// GET  /db/centro-costo-reparto -> [{codigo, sucursales: "19,20,21", usuario, actualizado_en}]
+// POST /db/centro-costo-reparto -> body {codigo, sucursales: [ids], usuario}; lista vacia = se borra
+// Campamentos entre los que se reparte (segun sus Ha) el costo de un centro de costo.
+async function handleDbCentroCostoReparto(request, env) {
+  if (request.method === 'GET') {
+    const { results } = await env.db.prepare('SELECT * FROM centro_costo_reparto ORDER BY codigo').all()
+    return corsResponse(JSON.stringify({ data: results }), 200, request)
+  }
+  if (request.method === 'POST') {
+    const body = await request.json().catch(() => null)
+    const codigo = String(body?.codigo || '').trim()
+    if (!codigo) return corsResponse('{"error":"falta codigo"}', 400, request)
+    const ids = (Array.isArray(body.sucursales) ? body.sucursales : [])
+      .map(x => parseInt(x, 10)).filter(x => Number.isFinite(x))
+    if (!ids.length) {
+      await env.db.prepare('DELETE FROM centro_costo_reparto WHERE codigo = ?').bind(codigo).run()
+      return corsResponse('{"ok":true,"borrado":true}', 200, request)
+    }
+    await env.db.prepare(
+      `INSERT INTO centro_costo_reparto (codigo, sucursales, usuario, actualizado_en) VALUES (?, ?, ?, ?)
+       ON CONFLICT(codigo) DO UPDATE SET sucursales = excluded.sucursales, usuario = excluded.usuario,
+         actualizado_en = excluded.actualizado_en`
+    ).bind(codigo, [...new Set(ids)].join(','), String(body.usuario || '') || null, ecuadorNowISO()).run()
+    return corsResponse('{"ok":true}', 200, request)
+  }
+  return corsResponse('{"error":"method not allowed"}', 405, request)
+}
+
+// GET  /db/centro-costo-estructura       -> estructura de centros de costo (KS13)
+// POST /db/centro-costo-estructura/sync  -> body {filas: [...], reemplazar: bool}
+//      reemplazar=true (primer lote) borra la tabla antes de insertar; los siguientes lotes agregan.
+async function handleDbCentroCostoEstructura(request, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const { results } = await env.db.prepare('SELECT * FROM centro_costo_estructura ORDER BY codigo').all()
+  return corsResponse(JSON.stringify({ data: results }), 200, request)
+}
+async function handleDbCentroCostoEstructuraSync(request, env) {
+  if (request.method !== 'POST') return corsResponse('{"error":"method not allowed"}', 405, request)
+  const body = await request.json().catch(() => null)
+  const filas = Array.isArray(body?.filas) ? body.filas.filter(f => f && f.codigo) : []
+  const now = ecuadorNowISO()
+  const batch = []
+  if (body?.reemplazar) batch.push(env.db.prepare('DELETE FROM centro_costo_estructura'))
+  const stmt = env.db.prepare(
+    `INSERT OR REPLACE INTO centro_costo_estructura (codigo, nombre, sociedad, area, zona, cluster, grupo, finca,
+       operacion, grupo_ceco, campamentos, bloqueado, registrado, actualizado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+  const t = v => (v === undefined || v === null || v === '') ? null : String(v)
+  filas.forEach(f => batch.push(stmt.bind(String(f.codigo), t(f.nombre), t(f.sociedad), t(f.area), t(f.zona), t(f.cluster),
+    t(f.grupo), t(f.finca), t(f.operacion), t(f.grupoCeco), t(f.campamentos), f.bloqueado ? 1 : 0, t(f.registrado), now)))
+  if (batch.length) await env.db.batch(batch)
+  return corsResponse(JSON.stringify({ ok: true, filas: filas.length }), 200, request)
+}
+
+// GET  /db/combustible-tipo-equipo -> [{nombre, tipo, usuario, actualizado_en}]
+// POST /db/combustible-tipo-equipo -> body {nombre, tipo, usuario}; tipo vacio = se borra (vuelve al de la estructura)
+async function handleDbCombustibleTipoEquipo(request, env) {
+  if (request.method === 'GET') {
+    const { results } = await env.db.prepare('SELECT * FROM combustible_tipo_equipo ORDER BY nombre').all()
+    return corsResponse(JSON.stringify({ data: results }), 200, request)
+  }
+  if (request.method === 'POST') {
+    const body = await request.json().catch(() => null)
+    const nombre = String(body?.nombre || '').trim()
+    const tipo = String(body?.tipo || '').trim()
+    if (!nombre) return corsResponse('{"error":"falta nombre"}', 400, request)
+    if (!tipo) {
+      await env.db.prepare('DELETE FROM combustible_tipo_equipo WHERE nombre = ?').bind(nombre).run()
+      return corsResponse('{"ok":true,"borrado":true}', 200, request)
+    }
+    await env.db.prepare(
+      `INSERT INTO combustible_tipo_equipo (nombre, tipo, usuario, actualizado_en) VALUES (?, ?, ?, ?)
+       ON CONFLICT(nombre) DO UPDATE SET tipo = excluded.tipo, usuario = excluded.usuario, actualizado_en = excluded.actualizado_en`
+    ).bind(nombre, tipo, String(body.usuario || '') || null, ecuadorNowISO()).run()
+    return corsResponse('{"ok":true}', 200, request)
+  }
+  return corsResponse('{"error":"method not allowed"}', 405, request)
 }
 
 async function handleDbCiclosManual(request, env) {
@@ -2185,13 +2618,24 @@ async function fetchOrdenesControlPorCC(token) {
 }
 
 async function refrescarCentrosCosto(token, env) {
-  const url = new URL(GATEWAY + '/bff/web/datamaestra/backoffice/api/structure/cost_centers')
-  url.searchParams.append('status', 'ACTIVO')
-  url.searchParams.append('PageSize', '5000')
-  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } })
-  if (!res.ok) return 0
-  const json = await res.json()
-  const rows = json?.data || []
+  // ACTIVOS e INACTIVOS (la API toma un solo status por consulta, asi que van dos):
+  // hay consumos de combustible cargados a centros de costo que ya se inactivaron, y sin
+  // ellos esos consumos quedan sin sucursal en los dashboards. Si un codigo viniera en
+  // ambas listas, gana el ACTIVO.
+  async function traer(status) {
+    const url = new URL(GATEWAY + '/bff/web/datamaestra/backoffice/api/structure/cost_centers')
+    url.searchParams.append('status', status)
+    url.searchParams.append('PageSize', '5000')
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } })
+    if (!res.ok) return null
+    const json = await res.json()
+    return json?.data || []
+  }
+  const activos = await traer('ACTIVO')
+  if (!activos) return 0
+  const inactivos = (await traer('INACTIVO').catch(() => null)) || []
+  const vistos = new Set(activos.map(cc => String(cc.code)))
+  const rows = activos.concat(inactivos.filter(cc => cc.code && !vistos.has(String(cc.code))))
   const ordenesPorCC = await fetchOrdenesControlPorCC(token).catch(() => ({}))
   const now = ecuadorNowISO()
   const stmt = env.db.prepare(
@@ -2772,6 +3216,493 @@ async function handleEmailCambio(message, env) {
   ).catch(() => {})
 }
 
+// ── Control de Usuarios (AP1 Balanceado) – D1 + API de Seguridad ─────────────
+// Pantalla control-usuarios/control-usuarios.html. Dos perfiles:
+//  - solicitante: ve los usuarios de AP1 Balanceado de SUS campamentos (sucursales que tiene
+//    asignadas en AP1) y pide altas, bajas y cambios.
+//  - admin (tabla usuarios_admins): ve todos los campamentos, aprueba/rechaza y marca EJECUTADA
+//    despues de hacer el cambio a mano en AP1 Seguridad.
+// El login pasa por aqui: se valida contra AP1, las sucursales del usuario se leen con la cuenta de
+// servicio y se entrega una sesion firmada (HMAC). Asi el campamento no lo decide el navegador, a
+// diferencia de las demas rutas /d1/* que son abiertas.
+// Secret de firma: USUARIOS_SESSION_KEY (si no existe se usa DB_API_KEY).
+
+const SEC_BASE = GATEWAY + '/bff/web/security/backoffice/api'
+// Catalogos de Departamento y Cargo (los ids que trae cada usuario en departmentId / departmentPositionId)
+const PORTAL_BASE = GATEWAY + '/bff/web/portal/backoffice/api'
+// Maestro de empleados de RRHH: cargo real de nomina (en AP1 la mayoria de usuarios no tiene cargo).
+// Solo se usan cargo, centro de costo, area, fecha de ingreso; el registro trae datos sensibles
+// (sueldo, cargas familiares) que nunca salen del worker.
+const RRHH_BASE = GATEWAY + '/bff/web/rrhh/backoffice/api'
+const _MINUSCULAS = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e', 'o', 'a', 'en', 'por', 'para', 'con'])
+function tituloEs(txt) {
+  return String(txt || '').toLowerCase().split(/\s+/).filter(Boolean)
+    .map((w, i) => (i > 0 && _MINUSCULAS.has(w)) ? w : (/^((jr|aq1|tic|siso|sig)\.?|([a-z]\.)+)$/.test(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)))
+    .join(' ')
+}
+const APP_BALANCEADO = 3
+const SESION_HORAS = 12
+const TIPOS_SOLICITUD = ['ALTA', 'BAJA', 'CAMBIO']
+
+let _usrTablas = false
+async function asegurarTablasUsuarios(env) {
+  if (_usrTablas) return
+  await env.db.batch([
+    env.db.prepare(`CREATE TABLE IF NOT EXISTS usuarios_solicitudes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL, estado TEXT NOT NULL DEFAULT 'PENDIENTE',
+      subsidiary_id INTEGER NOT NULL, subsidiary_nombre TEXT, user_id INTEGER, user_nombre TEXT,
+      user_identificacion TEXT, datos TEXT, motivo TEXT, solicitante TEXT NOT NULL, solicitante_nombre TEXT,
+      creado_en TEXT NOT NULL, resuelto_por TEXT, resuelto_en TEXT, comentario_admin TEXT)`),
+    env.db.prepare(`CREATE TABLE IF NOT EXISTS usuarios_admins (username TEXT PRIMARY KEY, agregado_por TEXT, creado_en TEXT)`),
+    // Primer admin solo si la tabla esta vacia (si no, quitarlo seria imposible: volveria en cada arranque)
+    env.db.prepare(`INSERT INTO usuarios_admins (username, agregado_por, creado_en)
+      SELECT 'jparraga', 'sistema', datetime('now') WHERE NOT EXISTS (SELECT 1 FROM usuarios_admins)`)
+  ])
+  // Columnas agregadas despues de crear la tabla: quien aprobo (resuelto_por se pisa al marcar EJECUTADA)
+  const { results: cols } = await env.db.prepare('PRAGMA table_info(usuarios_solicitudes)').all()
+  const tiene = new Set(cols.map(c => c.name))
+  for (const c of ['aprobado_por', 'aprobado_nombre', 'aprobado_en', 'creado_usuario']) {
+    if (!tiene.has(c)) await env.db.prepare(`ALTER TABLE usuarios_solicitudes ADD COLUMN ${c} TEXT`).run()
+  }
+  _usrTablas = true
+}
+
+// Sesion: base64url(JSON) + "." + base64url(HMAC-SHA256)
+const _enc = new TextEncoder()
+function b64urlBytes(bytes) {
+  let s = ''
+  for (const b of bytes) s += String.fromCharCode(b)
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+function deB64urlBytes(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/')
+  while (s.length % 4) s += '='
+  return Uint8Array.from(atob(s), c => c.charCodeAt(0))
+}
+async function llaveSesionUsuarios(env) {
+  const secreto = env.USUARIOS_SESSION_KEY || env.DB_API_KEY
+  if (!secreto) throw new Error('falta el secret USUARIOS_SESSION_KEY')
+  return crypto.subtle.importKey('raw', _enc.encode(secreto), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
+}
+async function crearSesionUsuarios(env, payload) {
+  const p = b64urlBytes(_enc.encode(JSON.stringify(payload)))
+  const firma = await crypto.subtle.sign('HMAC', await llaveSesionUsuarios(env), _enc.encode(p))
+  return p + '.' + b64urlBytes(new Uint8Array(firma))
+}
+async function leerSesionUsuarios(request, env) {
+  const h = request.headers.get('Authorization') || ''
+  const [p, f] = (h.startsWith('Bearer ') ? h.slice(7) : '').split('.')
+  if (!p || !f) return null
+  let ok = false
+  try { ok = await crypto.subtle.verify('HMAC', await llaveSesionUsuarios(env), deB64urlBytes(f), _enc.encode(p)) } catch { return null }
+  if (!ok) return null
+  const s = JSON.parse(new TextDecoder().decode(deB64urlBytes(p)))
+  if (!s.exp || s.exp < Date.now()) return null
+  // El rol admin se consulta en cada request: quitar a alguien de la tabla surte efecto de inmediato
+  s.adm = !!(await env.db.prepare('SELECT 1 FROM usuarios_admins WHERE username = ?').bind(s.u).first())
+  return s
+}
+
+// Lecturas a la API de Seguridad con la cuenta de servicio (token cacheado por isolate)
+let _secToken = null, _secTokenExp = 0
+async function secGet(env, path, base = SEC_BASE) {
+  for (let intento = 0; intento < 2; intento++) {
+    if (!_secToken || Date.now() > _secTokenExp) {
+      _secToken = await ap1Login(env)
+      _secTokenExp = Date.now() + 30 * 60 * 1000
+    }
+    const res = await fetch(base + '/' + path, { headers: { Authorization: 'Bearer ' + _secToken, Accept: 'application/json' } })
+    if (res.status === 401 && intento === 0) { _secToken = null; continue }
+    if (!res.ok) throw new Error(`seguridad ${path.split('?')[0]}: HTTP ${res.status}`)
+    const j = await res.json()
+    return j.data?.data ?? j.data ?? []
+  }
+}
+
+// Catalogo completo (usuarios, roles de AP1 Balanceado por usuario, sucursales), 5 min en memoria
+let _catUsr = null, _catUsrEn = 0
+async function catalogoUsuarios(env, forzar) {
+  if (!forzar && _catUsr && Date.now() - _catUsrEn < 5 * 60 * 1000) return _catUsr
+  const [users, uar, roles, subs, deps, cargos] = await Promise.all([
+    secGet(env, 'users?pageSize=100000'),
+    secGet(env, 'user_application_role?status=ACTIVO&pageSize=100000'),
+    secGet(env, 'roles?PageSize=1000'),
+    secGet(env, 'subsidiaries?status=ACTIVO&pageSize=1000'),
+    secGet(env, 'department?pageSize=1000', PORTAL_BASE),
+    secGet(env, 'position?pageSize=10000', PORTAL_BASE)
+  ])
+  // RRHH es opcional: si falla, la pantalla sigue con el cargo de AP1
+  let empleados = null
+  try { empleados = await secGet(env, 'employees?status=ACTIVO&pageSize=10000', RRHH_BASE) } catch (e) { console.error('RRHH employees:', e) }
+  const rrhhPorCedula = new Map()
+  for (const e of (empleados || []).slice().sort((a, b) => String(a.hireDate || '').localeCompare(String(b.hireDate || '')))) {
+    if (e.status !== 'ACTIVO' || !e.identification) continue
+    // Cedula repetida (recontratos): queda el ingreso mas reciente
+    rrhhPorCedula.set(String(e.identification).trim(), {
+      cargo: tituloEs(e.position || e.positionDescription),
+      centroCosto: tituloEs(e.costCenter),
+      area: tituloEs(e.subcostCenter),
+      fechaIngreso: e.hireDate || null
+    })
+  }
+  const porNombre = (a, b) => a.nombre.localeCompare(b.nombre, 'es')
+  const rolesApp = new Map(roles.filter(r => r.applicationId === APP_BALANCEADO && r.status === 'ACTIVO').map(r => [r.idRole, r.name]))
+  let apps = []
+  try { apps = await secGet(env, 'applications?pageSize=100') } catch (e) { console.error('applications:', e) }
+  const rolesPorUsuario = new Map()
+  for (const x of uar) {
+    if (x.status !== 'ACTIVO' || x.applicationId !== APP_BALANCEADO || !rolesApp.has(x.roleId)) continue
+    if (!rolesPorUsuario.has(x.userId)) rolesPorUsuario.set(x.userId, [])
+    rolesPorUsuario.get(x.userId).push(rolesApp.get(x.roleId))
+  }
+  _catUsr = {
+    usuarios: new Map(users.map(u => [u.idUser, u])),
+    rolesPorUsuario,
+    rrhhPorCedula,
+    rrhhDisponible: empleados !== null,
+    rolesTodos: new Map(roles.map(r => [r.idRole, { nombre: r.name, app: r.applicationId, activo: r.status === 'ACTIVO' }])),
+    aplicaciones: new Map(apps.map(a => [a.idApplication, a.name])),
+    // AP1 Balanceado primero (es la que mas se pide), luego el resto por nombre
+    rolesPorApp: apps.filter(a => a.status === 'ACTIVO')
+      .map(a => ({ id: a.idApplication, nombre: a.name, roles: roles.filter(r => r.applicationId === a.idApplication && r.status === 'ACTIVO')
+        .map(r => ({ id: r.idRole, nombre: r.name })).sort((x, y) => x.nombre.localeCompare(y.nombre, 'es')) }))
+      .filter(a => a.roles.length)
+      .sort((x, y) => (x.id === APP_BALANCEADO ? -1 : y.id === APP_BALANCEADO ? 1 : x.nombre.localeCompare(y.nombre, 'es'))),
+    roles: [...rolesApp.values()].sort(),
+    departamentos: new Map(deps.map(d => [d.idDepartment, d.name])),
+    cargos: new Map(cargos.map(c => [c.idDepartmentPosition, c.name])),
+    listaDepartamentos: deps.filter(d => d.status !== 'INACTIVO').map(d => ({ id: d.idDepartment, nombre: d.name })).sort(porNombre),
+    listaCargos: cargos.filter(c => c.status !== 'INACTIVO').map(c => ({ id: c.idDepartmentPosition, nombre: c.name })).sort(porNombre),
+    sucursales: subs
+      .map(s => ({ id: s.idSubsidiary, nombre: s.name, tipo: s.type }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+  }
+  _catUsrEn = Date.now()
+  return _catUsr
+}
+
+async function idsUsuariosDeSucursal(env, sid) {
+  const filas = await secGet(env, `user_subsidiaries?subsidiaryId=${sid}&pageSize=100000`)
+  return new Set(filas.filter(x => x.subsidiaryId === sid && x.status === 'ACTIVO').map(x => x.userId))
+}
+
+function sucursalesDeSesion(cat, s) {
+  return s.adm ? cat.sucursales : cat.sucursales.filter(x => s.subs.includes(x.id))
+}
+
+function puedeVerSucursal(s, sid) {
+  return s.adm || s.subs.includes(sid)
+}
+
+async function handleUsuariosD1(request, url, env) {
+  const path = url.pathname
+  const json = (obj, status) => corsResponse(JSON.stringify(obj), status || 200, request)
+  try {
+    await asegurarTablasUsuarios(env)
+
+    // ── Login: valida contra AP1 y arma la sesion con las sucursales del usuario ──
+    if (path === '/d1/usuarios/login' && request.method === 'POST') {
+      const b = await request.json().catch(() => ({}))
+      if (!b.username || !b.password) return json({ error: 'Ingresa usuario y contraseña' }, 400)
+      const res = await fetch(AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ userName: b.username, password: b.password, codeApplication: CODE_APP, includeUserInfo: true })
+      })
+      const r = await res.json().catch(() => ({}))
+      const u = r.data?.usuario
+      if (r.code !== 200 || !r.data?.token || !u?.idUser) return json({ error: 'Usuario o contraseña incorrectos' }, 401)
+      const asignadas = await secGet(env, `user_subsidiaries?userId=${u.idUser}&pageSize=1000`)
+      const s = {
+        u: u.username,
+        id: u.idUser,
+        n: `${u.firstNames || ''} ${u.lastNames || ''}`.trim() || u.username,
+        subs: asignadas.filter(x => x.userId === u.idUser && x.status === 'ACTIVO').map(x => x.subsidiaryId),
+        exp: Date.now() + SESION_HORAS * 3600 * 1000
+      }
+      const token = await crearSesionUsuarios(env, s)
+      s.adm = !!(await env.db.prepare('SELECT 1 FROM usuarios_admins WHERE username = ?').bind(s.u).first())
+      const cat = await catalogoUsuarios(env)
+      return json({ token, usuario: { username: s.u, nombre: s.n, idUser: s.id }, isAdmin: s.adm, sucursales: sucursalesDeSesion(cat, s), roles: cat.roles, todasSucursales: cat.sucursales,
+        departamentos: cat.listaDepartamentos, cargos: cat.listaCargos, rolesPorApp: cat.rolesPorApp })
+    }
+
+    const s = await leerSesionUsuarios(request, env)
+    if (!s) return json({ error: 'Sesión vencida, vuelve a ingresar' }, 401)
+
+    // ── Sesion actual (al recargar la pagina) ──
+    if (path === '/d1/usuarios/sesion' && request.method === 'GET') {
+      const cat = await catalogoUsuarios(env)
+      return json({ usuario: { username: s.u, nombre: s.n, idUser: s.id }, isAdmin: s.adm, sucursales: sucursalesDeSesion(cat, s), roles: cat.roles, todasSucursales: cat.sucursales,
+        departamentos: cat.listaDepartamentos, cargos: cat.listaCargos, rolesPorApp: cat.rolesPorApp })
+    }
+
+    // ── Consulta por cedula: esta en la empresa? tiene usuario? que aplicaciones, roles y sucursales ──
+    if (path === '/d1/usuarios/consulta' && request.method === 'GET') {
+      const ced = String(url.searchParams.get('cedula') || '').trim()
+      if (!/^\d{10,13}$/.test(ced)) return json({ error: 'Ingresa una cédula de 10 dígitos (o 13 si es RUC)' }, 400)
+      const cat = await catalogoUsuarios(env)
+      // Los filtros por identification de RRHH y Seguridad si filtran; igual se compara exacto por si cambian
+      const [emps, usrs] = await Promise.all([
+        secGet(env, `employees?identification=${ced}&pageSize=50`, RRHH_BASE).catch(() => null),
+        secGet(env, `users?identification=${ced}&pageSize=50`)
+      ])
+      const registros = (emps || [])
+        .filter(e => String(e.identification || '').trim() === ced)
+        .sort((a, b) => String(b.hireDate || '').localeCompare(String(a.hireDate || '')))
+        .map(e => ({
+          // Solo datos laborales: el registro de RRHH trae sueldo y cargas familiares que no se exponen
+          estado: e.status || '',
+          nombres: tituloEs([e.firstName, e.middleName].filter(Boolean).join(' ')),
+          apellidos: tituloEs([e.lastName, e.maternalLastName].filter(Boolean).join(' ')),
+          cargo: tituloEs(e.position || e.positionDescription),
+          centroCosto: tituloEs(e.costCenter),
+          area: tituloEs(e.subcostCenter),
+          fechaIngreso: e.hireDate || null,
+          telefono: e.phone || '',
+          email: e.email || ''
+        }))
+      const usuarios = []
+      for (const u of usrs.filter(x => String(x.identification || '').trim() === ced)) {
+        const [uar, usub] = await Promise.all([
+          secGet(env, `user_application_role?userId=${u.idUser}&pageSize=500`),
+          secGet(env, `user_subsidiaries?userId=${u.idUser}&pageSize=500`)
+        ])
+        const porApp = new Map()
+        for (const x of uar.filter(x => x.userId === u.idUser && x.status === 'ACTIVO')) {
+          const rol = cat.rolesTodos.get(x.roleId)
+          const appId = x.applicationId || rol?.app
+          if (!porApp.has(appId)) porApp.set(appId, { id: appId, nombre: cat.aplicaciones.get(appId) || `Aplicación ${appId}`, roles: [], roleIds: [] })
+          porApp.get(appId).roles.push(rol?.nombre || `Rol ${x.roleId}`)
+          porApp.get(appId).roleIds.push(x.roleId)
+        }
+        const subsDe = usub.filter(x => x.userId === u.idUser && x.status === 'ACTIVO')
+          .map(x => ({ id: x.subsidiaryId, nombre: (cat.sucursales.find(c => c.id === x.subsidiaryId) || {}).nombre || `Sucursal ${x.subsidiaryId}` }))
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+        const abierta = await env.db.prepare(
+          `SELECT id, tipo, estado FROM usuarios_solicitudes WHERE user_id = ? AND estado IN ('PENDIENTE','APROBADA')`
+        ).bind(u.idUser).first()
+        usuarios.push({
+          idUser: u.idUser, username: u.username || '', estado: u.status || '',
+          nombres: (u.firstNames || '').trim(), apellidos: (u.lastNames || '').trim(),
+          email: u.email || '', telefono: u.phone || '',
+          cargoAp1: cat.cargos.get(u.departmentPositionId) || '', departamentoAp1: cat.departamentos.get(u.departmentId) || '',
+          aplicaciones: [...porApp.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+          sucursales: subsDe,
+          // Sucursales del usuario donde quien consulta puede pedir baja/cambio
+          sucursalesGestionables: subsDe.filter(x => puedeVerSucursal(s, x.id)).map(x => x.id),
+          rolesBalanceado: cat.rolesPorUsuario.get(u.idUser) || [],
+          solicitudAbierta: abierta || null
+        })
+      }
+      const altaAbierta = await env.db.prepare(
+        `SELECT id, estado FROM usuarios_solicitudes WHERE tipo = 'ALTA' AND user_identificacion = ? AND estado IN ('PENDIENTE','APROBADA')`
+      ).bind(ced).first()
+      return json({
+        cedula: ced,
+        rrhhDisponible: emps !== null,
+        empresa: { activo: registros.some(r => r.estado === 'ACTIVO'), registros },
+        usuarios,
+        altaAbierta: altaAbierta || null
+      })
+    }
+
+    // ── Solicitudes ──
+    if (path === '/d1/usuarios/solicitudes' && request.method === 'GET') {
+      const estado = url.searchParams.get('estado')
+      const where = [], binds = []
+      if (estado) { where.push('estado = ?'); binds.push(estado) }
+      if (!s.adm) {
+        if (!s.subs.length) return json({ data: [] })
+        where.push(`subsidiary_id IN (${s.subs.map(() => '?').join(',')})`)
+        binds.push(...s.subs)
+      }
+      const { results } = await env.db.prepare(
+        `SELECT * FROM usuarios_solicitudes ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT 1000`
+      ).bind(...binds).all()
+      // Nombre real de quien resolvio (en la tabla solo queda el usuario de AP1)
+      const cat = await catalogoUsuarios(env)
+      const porUsuario = new Map([...cat.usuarios.values()].map(u => [String(u.username || '').toLowerCase(), `${u.firstNames || ''} ${u.lastNames || ''}`.trim()]))
+      for (const r of results) r.resuelto_nombre = r.resuelto_por ? (porUsuario.get(r.resuelto_por.toLowerCase()) || '') : ''
+      return json({ data: results })
+    }
+
+    if (path === '/d1/usuarios/solicitudes' && request.method === 'POST') {
+      const b = await request.json().catch(() => ({}))
+      const tipo = String(b.tipo || '').toUpperCase()
+      const sid = parseInt(b.subsidiaryId, 10)
+      const datos = b.datos || {}
+      const motivo = String(b.motivo || '').trim().slice(0, 1000)
+      if (!TIPOS_SOLICITUD.includes(tipo)) return json({ error: 'Tipo de solicitud no válido' }, 400)
+      if (!sid || !puedeVerSucursal(s, sid)) return json({ error: 'No tienes acceso a ese campamento' }, 403)
+      const cat = await catalogoUsuarios(env)
+      const suc = cat.sucursales.find(x => x.id === sid)
+      let afectado = null
+      const ids = a => (Array.isArray(a) ? a : []).map(x => parseInt(x, 10)).filter(Boolean)
+      const existeSuc = id => cat.sucursales.some(x => x.id === id)
+      const nomSuc = id => (cat.sucursales.find(x => x.id === id) || {}).nombre || String(id)
+      const rolValido = id => cat.rolesTodos.get(id)?.activo
+      // "AP1 Balanceado · ALIMENTADOR" para mostrar sin tener que volver a consultar catalogos
+      const nomRol = id => { const r = cat.rolesTodos.get(id); return r ? `${cat.aplicaciones.get(r.app) || 'App ' + r.app} · ${r.nombre}` : String(id) }
+
+      if (tipo === 'ALTA') {
+        const ced = String(datos.identificacion || '').trim()
+        if (!/^\d{10,13}$/.test(ced)) return json({ error: 'La cédula debe tener 10 dígitos (o 13 si es RUC)' }, 400)
+        if (!String(datos.nombres || '').trim() || !String(datos.apellidos || '').trim()) return json({ error: 'Nombres y apellidos son obligatorios' }, 400)
+        // Formato nuevo: roleIds (de cualquier aplicacion) y sucursales; el anterior (un rol de AP1 Balanceado) se sigue aceptando
+        const roleIds = ids(datos.roleIds), sucs = ids(datos.sucursales)
+        if (roleIds.length) {
+          if (!roleIds.every(rolValido)) return json({ error: 'Rol no válido' }, 400)
+          datos.rolesNombres = roleIds.map(nomRol)
+        } else if (!cat.roles.includes(datos.rol)) {
+          return json({ error: 'Marca al menos un rol en alguna aplicación' }, 400)
+        }
+        if (sucs.length) {
+          if (!sucs.every(existeSuc)) return json({ error: 'Sucursal no válida' }, 400)
+          if (!s.adm && !sucs.every(id => s.subs.includes(id))) return json({ error: 'Solo puedes asignar tus propios campamentos' }, 403)
+          if (!sucs.includes(sid)) return json({ error: 'El campamento de la solicitud debe estar entre las sucursales marcadas' }, 400)
+          datos.sucursalesNombres = sucs.map(nomSuc)
+        }
+        Object.assign(datos, { roleIds, sucursales: sucs })
+        if (datos.departmentId && !cat.departamentos.has(parseInt(datos.departmentId, 10))) return json({ error: 'Departamento no válido' }, 400)
+        if (datos.cargoId && !cat.cargos.has(parseInt(datos.cargoId, 10))) return json({ error: 'Cargo no válido' }, 400)
+        datos.departamentoNombre = cat.departamentos.get(parseInt(datos.departmentId, 10)) || null
+        datos.cargoNombre = cat.cargos.get(parseInt(datos.cargoId, 10)) || null
+        const existe = [...cat.usuarios.values()].find(u => u.identification === ced)
+        if (existe) return json({ error: `Ya existe el usuario ${existe.username} (${existe.firstNames} ${existe.lastNames}, ${existe.status}) con esa cédula. Pide un CAMBIO en lugar de un alta.` }, 409)
+        const dup = await env.db.prepare(
+          `SELECT id FROM usuarios_solicitudes WHERE tipo = 'ALTA' AND user_identificacion = ? AND estado IN ('PENDIENTE','APROBADA')`
+        ).bind(ced).first()
+        if (dup) return json({ error: `Ya hay una solicitud de alta abierta para esa cédula (#${dup.id})` }, 409)
+        afectado = { id: null, nombre: `${datos.nombres} ${datos.apellidos}`.trim(), ced }
+      } else {
+        const uid = parseInt(b.userId, 10)
+        if (!uid) return json({ error: 'Falta el usuario' }, 400)
+        if (!motivo) return json({ error: 'El motivo es obligatorio' }, 400)
+        if (!(await idsUsuariosDeSucursal(env, sid)).has(uid)) return json({ error: 'Ese usuario no pertenece al campamento seleccionado' }, 403)
+        if (tipo === 'CAMBIO') {
+          // Formato "editar": sucursales y roles que se agregan / quitan (lo que marca el formulario)
+          const nombres = a => (Array.isArray(a) ? a : []).map(String)
+          const sucAdd = ids(datos.sucursalesAgregar), sucQuitar = ids(datos.sucursalesQuitar)
+          const rolAdd = nombres(datos.rolesAgregar), rolQuitar = nombres(datos.rolesQuitar)
+          const rolAddIds = ids(datos.rolesAgregarIds), rolQuitarIds = ids(datos.rolesQuitarIds)
+          if (![...sucAdd, ...sucQuitar].every(existeSuc)) return json({ error: 'Sucursal no válida' }, 400)
+          if (![...rolAdd, ...rolQuitar].every(r => cat.roles.includes(r))) return json({ error: 'Rol no válido' }, 400)
+          // Quitar un rol que hoy tiene aunque este inactivo esta bien; agregar solo roles activos
+          if (!rolAddIds.every(rolValido) || !rolQuitarIds.every(id => cat.rolesTodos.has(id))) return json({ error: 'Rol no válido' }, 400)
+          // Un solicitante solo mueve gente dentro de sus propios campamentos
+          if (!s.adm && ![...sucAdd, ...sucQuitar].every(id => s.subs.includes(id))) return json({ error: 'Solo puedes agregar o quitar tus propios campamentos' }, 403)
+          // Formato anterior (un rol / un campamento destino) se sigue aceptando
+          const rolOk = !datos.rol || cat.roles.includes(datos.rol)
+          const destOk = !datos.subsidiaryDestinoId || existeSuc(parseInt(datos.subsidiaryDestinoId, 10))
+          const cargoOk = !datos.cargoId || cat.cargos.has(parseInt(datos.cargoId, 10))
+          if (!rolOk || !destOk || !cargoOk) return json({ error: 'Rol, cargo o campamento destino no válido' }, 400)
+          if (!datos.rol && !datos.subsidiaryDestinoId && !datos.cargoId && !sucAdd.length && !sucQuitar.length && !rolAdd.length && !rolQuitar.length && !rolAddIds.length && !rolQuitarIds.length) {
+            return json({ error: 'No hay cambios: marca o desmarca alguna sucursal o rol, o elige un cargo' }, 400)
+          }
+          if (datos.cargoId) datos.cargoNombre = cat.cargos.get(parseInt(datos.cargoId, 10))
+          Object.assign(datos, {
+            sucursalesAgregar: sucAdd, sucursalesQuitar: sucQuitar, rolesAgregar: rolAdd, rolesQuitar: rolQuitar,
+            sucursalesAgregarNombres: sucAdd.map(nomSuc), sucursalesQuitarNombres: sucQuitar.map(nomSuc),
+            rolesAgregarIds: rolAddIds, rolesQuitarIds: rolQuitarIds,
+            rolesAgregarNombres: rolAddIds.map(nomRol), rolesQuitarNombres: rolQuitarIds.map(nomRol)
+          })
+        }
+        const abierta = await env.db.prepare(
+          `SELECT id, tipo FROM usuarios_solicitudes WHERE user_id = ? AND estado IN ('PENDIENTE','APROBADA')`
+        ).bind(uid).first()
+        if (abierta) return json({ error: `Ese usuario ya tiene una solicitud abierta (#${abierta.id}, ${abierta.tipo})` }, 409)
+        const u = cat.usuarios.get(uid) || {}
+        afectado = { id: uid, nombre: `${u.firstNames || ''} ${u.lastNames || ''}`.trim(), ced: u.identification || '' }
+        if (tipo === 'CAMBIO' && datos.subsidiaryDestinoId) {
+          datos.subsidiaryDestinoNombre = (cat.sucursales.find(x => x.id === parseInt(datos.subsidiaryDestinoId, 10)) || {}).nombre
+        }
+        datos.rolesActuales = cat.rolesPorUsuario.get(uid) || []
+        datos.cargoActual = cat.cargos.get(u.departmentPositionId) || null
+        datos.departamentoActual = cat.departamentos.get(u.departmentId) || null
+      }
+
+      const r = await env.db.prepare(
+        `INSERT INTO usuarios_solicitudes (tipo, estado, subsidiary_id, subsidiary_nombre, user_id, user_nombre, user_identificacion,
+           datos, motivo, solicitante, solicitante_nombre, creado_en) VALUES (?, 'PENDIENTE', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(tipo, sid, suc?.nombre || String(sid), afectado.id, afectado.nombre, afectado.ced,
+        JSON.stringify(datos).slice(0, 50000), motivo, s.u, s.n, new Date().toISOString()).run()
+      return json({ ok: true, id: r.meta?.last_row_id })
+    }
+
+    const mEstado = path.match(/^\/d1\/usuarios\/solicitudes\/(\d+)\/estado$/)
+    if (mEstado && request.method === 'POST') {
+      const id = parseInt(mEstado[1], 10)
+      const b = await request.json().catch(() => ({}))
+      const nuevo = String(b.estado || '').toUpperCase()
+      const comentario = String(b.comentario || '').trim().slice(0, 1000)
+      const sol = await env.db.prepare('SELECT * FROM usuarios_solicitudes WHERE id = ?').bind(id).first()
+      if (!sol) return json({ error: 'Solicitud no encontrada' }, 404)
+      const permitidos = s.adm
+        ? { PENDIENTE: ['APROBADA', 'RECHAZADA', 'EJECUTADA'], APROBADA: ['EJECUTADA'] }   // aprobada ya no se rechaza
+        : {}   // los solicitantes no cambian estados (ni anulan): solo los administradores
+      if (!(permitidos[sol.estado] || []).includes(nuevo)) return json({ error: `No se puede pasar de ${sol.estado} a ${nuevo}` }, 403)
+      if (nuevo === 'RECHAZADA' && !comentario) return json({ error: 'Indica el motivo del rechazo' }, 400)
+      // Usuario nuevo marcado como ejecutado: tiene que existir ya en AP1; se guarda su usuario
+      let creado = null
+      if (nuevo === 'EJECUTADA' && sol.tipo === 'ALTA') {
+        const ced = String(sol.user_identificacion || '').trim()
+        const enAp1 = (await secGet(env, `users?identification=${ced}&pageSize=50`)).filter(u => String(u.identification || '').trim() === ced)
+        if (!enAp1.length) return json({ error: `Todavía no existe en AP1 un usuario con la cédula ${ced}. Créalo primero en AP1 → Seguridad y luego márcalo como ejecutado.` }, 409)
+        creado = enAp1[0]
+      }
+      await env.db.prepare(
+        'UPDATE usuarios_solicitudes SET estado = ?, resuelto_por = ?, resuelto_en = ?, comentario_admin = COALESCE(?, comentario_admin) WHERE id = ?'
+      ).bind(nuevo, s.u, new Date().toISOString(), comentario || null, id).run()
+      // El aprobador queda guardado aparte; si se ejecuta directo desde PENDIENTE, quien ejecuta tambien aprueba
+      if (creado) {
+        await env.db.prepare('UPDATE usuarios_solicitudes SET user_id = ?, creado_usuario = ? WHERE id = ?')
+          .bind(creado.idUser, creado.username || '', id).run()
+      }
+      if (nuevo === 'APROBADA' || (nuevo === 'EJECUTADA' && sol.estado === 'PENDIENTE')) {
+        await env.db.prepare('UPDATE usuarios_solicitudes SET aprobado_por = ?, aprobado_nombre = ?, aprobado_en = ? WHERE id = ?')
+          .bind(s.u, s.n, new Date().toISOString(), id).run()
+      }
+      // Lo ejecutado ya cambio en AP1: forzar que la proxima lista se lea fresca
+      if (nuevo === 'EJECUTADA') _catUsrEn = 0
+      return json({ ok: true })
+    }
+
+    // ── Administradores (solo admin) ──
+    if (path === '/d1/usuarios/admins') {
+      if (!s.adm) return json({ error: 'Solo administradores' }, 403)
+      if (request.method === 'GET') {
+        const { results } = await env.db.prepare('SELECT * FROM usuarios_admins ORDER BY username').all()
+        const cat = await catalogoUsuarios(env)
+        const porUsername = new Map([...cat.usuarios.values()].map(u => [String(u.username || '').toLowerCase(), u]))
+        return json({ data: results.map(a => {
+          const u = porUsername.get(a.username.toLowerCase())
+          return { ...a, nombre: u ? `${u.firstNames} ${u.lastNames}` : '' }
+        }) })
+      }
+      if (request.method === 'POST') {
+        const b = await request.json().catch(() => ({}))
+        const cat = await catalogoUsuarios(env)
+        const u = [...cat.usuarios.values()].find(x => String(x.username || '').toLowerCase() === String(b.username || '').trim().toLowerCase())
+        if (!u) return json({ error: 'Ese usuario no existe en AP1' }, 400)
+        await env.db.prepare('INSERT OR IGNORE INTO usuarios_admins (username, agregado_por, creado_en) VALUES (?, ?, ?)')
+          .bind(u.username, s.u, new Date().toISOString()).run()
+        return json({ ok: true })
+      }
+      if (request.method === 'DELETE') {
+        const username = url.searchParams.get('username') || ''
+        if (username === s.u) return json({ error: 'No puedes quitarte a ti mismo' }, 400)
+        await env.db.prepare('DELETE FROM usuarios_admins WHERE username = ?').bind(username).run()
+        return json({ ok: true })
+      }
+    }
+
+    return json({ error: 'not found' }, 404)
+  } catch (e) {
+    return json({ error: String(e.message || e) }, 500)
+  }
+}
+
 export default {
   async email(message, env, ctx) {
     const to = message.to || ''
@@ -2846,6 +3777,10 @@ if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
       return handleDbAlertasLiquidacion(request, url)
     }
 
+    if (url.pathname === '/db/inventario-laboratorios') {
+      return handleDbInventarioLaboratorios(request, env)
+    }
+
     if (url.pathname === '/db/sucursales' && env.db) {
       return handleDbSucursales(request, env)
     }
@@ -2904,6 +3839,22 @@ if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
 
     if (url.pathname === '/db/centro-costo' && env.db) {
       return handleDbCentroCosto(request, env)
+    }
+
+    if (url.pathname === '/db/centro-costo-reparto' && env.db) {
+      return handleDbCentroCostoReparto(request, env)
+    }
+
+    if (url.pathname === '/db/combustible-tipo-equipo' && env.db) {
+      return handleDbCombustibleTipoEquipo(request, env)
+    }
+
+    if (url.pathname === '/db/centro-costo-estructura' && env.db) {
+      return handleDbCentroCostoEstructura(request, env)
+    }
+
+    if (url.pathname === '/db/centro-costo-estructura/sync' && env.db) {
+      return handleDbCentroCostoEstructuraSync(request, env)
     }
 
     if (url.pathname === '/db/consumo-combustible' && env.db) {
@@ -3018,6 +3969,11 @@ if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
     // â”€â”€ Activos Fijos â€“ D1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (url.pathname.startsWith('/d1/activos-fijos') && env.db) {
       return handleActivosFijos(request, url, env)
+    }
+
+    // ── Control de Usuarios AP1 Balanceado – D1 + Seguridad ──────────────
+    if (url.pathname.startsWith('/d1/usuarios/') && env.db) {
+      return handleUsuariosD1(request, url, env)
     }
 
     if (url.pathname.startsWith('/kv/')) {
