@@ -406,17 +406,8 @@ async function invLabCatalogo(request, env) {
   return catalogo
 }
 
-async function invLabRegistros(request, subsidiaryId) {
+async function invLabRegistrosDeCiclo(request, subsidiaryId, ciclo) {
   const h = { headers: request.headers }
-  const resC = await fetch(GATEWAY + LAB_API + '/cycle?PageNumber=1&PageSize=1000&OrderBy=code+desc&subsidiaryId=' +
-    subsidiaryId + '&includeLaboratory=true&includeLarvalStage=true', h)
-  if (!resC.ok) throw Object.assign(new Error('ciclos lab respondio ' + resC.status), { status: resC.status })
-  const jc = await resC.json()
-  const ciclos = Array.isArray(jc) ? jc : Array.isArray(jc.data) ? jc.data : (jc.data?.data || [])
-  if (!ciclos.length) return { ciclo: null, registros: [] }
-  const c = ciclos[0]
-  const ciclo = { id: c.id || c.cycleId || c.idCycle, codigo: c.code || '', fechaInicio: String(c.sowingDate || c.dryDate || '').split('T')[0] }
-
   const registros = []
   for (let page = 1; ; page++) {
     const res = await fetch(GATEWAY + LAB_API + '/warehouse_production?subsidiaryId=' + subsidiaryId + '&cycleId=' + ciclo.id +
@@ -429,7 +420,30 @@ async function invLabRegistros(request, subsidiaryId) {
     const totalPages = Array.isArray(inner) ? 1 : (inner?.totalPages || 1)
     if (page >= totalPages || !filas.length) break
   }
-  return { ciclo, registros }
+  return registros
+}
+
+// Al cosechar un ciclo y arrancar uno nuevo, el ciclo nuevo puede tardar en
+// tener registros de bodega aunque todavia queden consumos/saldos pendientes
+// del ciclo recien cosechado. Si el ciclo mas reciente no trae registros, se
+// sigue usando el anterior que si tenga, para no mostrar diferencias falsas.
+async function invLabRegistros(request, subsidiaryId) {
+  const h = { headers: request.headers }
+  const resC = await fetch(GATEWAY + LAB_API + '/cycle?PageNumber=1&PageSize=1000&OrderBy=code+desc&subsidiaryId=' +
+    subsidiaryId + '&includeLaboratory=true&includeLarvalStage=true', h)
+  if (!resC.ok) throw Object.assign(new Error('ciclos lab respondio ' + resC.status), { status: resC.status })
+  const jc = await resC.json()
+  const ciclos = Array.isArray(jc) ? jc : Array.isArray(jc.data) ? jc.data : (jc.data?.data || [])
+  if (!ciclos.length) return { ciclo: null, registros: [] }
+
+  let ultimoCiclo = null
+  for (const c of ciclos.slice(0, 3)) {
+    const ciclo = { id: c.id || c.cycleId || c.idCycle, codigo: c.code || '', fechaInicio: String(c.sowingDate || c.dryDate || '').split('T')[0] }
+    const registros = await invLabRegistrosDeCiclo(request, subsidiaryId, ciclo)
+    if (registros.length) return { ciclo, registros }
+    if (!ultimoCiclo) ultimoCiclo = ciclo
+  }
+  return { ciclo: ultimoCiclo, registros: [] }
 }
 
 async function invLabStockSap(request, lab, catalogo, codigos) {
@@ -3236,6 +3250,7 @@ const PORTAL_BASE = GATEWAY + '/bff/web/portal/backoffice/api'
 const RRHH_BASE = GATEWAY + '/bff/web/rrhh/backoffice/api'
 // Data Maestra → Logística → Transportistas (freight_transporter, filtra por identification)
 const DM_LOGISTICA_BASE = GATEWAY + '/bff/web/datamaestra/backoffice/api/logistic'
+const DM_ESTRUCTURA_BASE = GATEWAY + '/bff/web/datamaestra/backoffice/api/structure'
 const _MINUSCULAS = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e', 'o', 'a', 'en', 'por', 'para', 'con'])
 function tituloEs(txt) {
   return String(txt || '').toLowerCase().split(/\s+/).filter(Boolean)
@@ -3325,6 +3340,52 @@ async function secGet(env, path, base = SEC_BASE) {
 
 // Catalogo completo (usuarios, roles de AP1 Balanceado por usuario, sucursales), 5 min en memoria
 let _catUsr = null, _catUsrEn = 0
+// Cargo de RRHH -> cargo del catalogo de Seguridad (desplegable "Cargo" de AP1).
+// Primero por nombre igual (sin mayusculas, tildes ni puntos); si no, por esta tabla de equivalencias
+// (mismo cargo escrito distinto: plural, sufijo de licencia o nombre cortado a 30 letras por RRHH).
+// Revisadas el 16/10/2026 (analisis_cargos_rrhh_vs_seguridad.xlsx). Agregar aqui las nuevas que se aprueben.
+const EQUIVALENCIAS_CARGO = {
+  'cocinero': 'Cocineros',
+  'chofer licencia tipo e interno': 'Chofer interno',
+  'chofer licencia tipo e externo': 'Choferes externos',
+  'operador de consola': 'Operadores de Consola',
+  'retroexcavador licencia tipo g': 'Retroexcavador',
+  'montacarguista licencia tipo g': 'Montacarguista',
+  'asistente tecnico de larvicult': 'Asistente Técnico de Larvicultura',
+  'tractorista licencia tipo g': 'Tractorista',
+  'operador de gallineta': 'Operador Gallineta',
+  'analista de compras': 'Analistas de compras',
+  'mecanico de fuera de borda': 'Mecánico fuera de borda',
+  'comprador externo': 'Compradores externos',
+  'jefe de mantenimiento campamen': 'Jefe de Mantenimiento Campamentos',
+  'analista de inventarios': 'Analista de Inventario',
+  'coordinador de sap': 'Coordinador SAP',
+  'coordinador del cca': 'Coordinador de CCA',
+  'docente de acuacultura': 'Docente Acuacultura',
+  'jefe de cosecha': 'Jefe de Cosechas',
+  'jefe de departamento medico': 'Jefe de Dpto. Médico',
+  'jefe de mantenimiento electric': 'Jefe de Mantenimiento Eléctrico',
+  'operador de motoniveladora': 'Operador Motoniveladora',
+  'subgerente de logistica y abas': 'Subgerente de Logística y Abastecimiento',
+  // Revisadas el 16/10/2026 desde la hoja "Seguridad sin RRHH"
+  'administrador': 'Administrador de camaronera',
+  'asistente administrativo': 'Asistente Administrativo Campamento',
+  'asistente contable': 'Asistentes contables',
+  'trabajadores sociales': 'Trabajadoras Sociales',
+  'asistente de seguridad y salud': 'Asistente de Seguridad y Salud en el Trabajo',
+  'asistente de mantenimiento': 'Asistente de Mantenimiento (M)'
+}
+const normCargo = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .replace(/[.\-_/,()]/g, ' ').replace(/\s+/g, ' ').trim()
+function cargoSeguridadDe(cat, cargoRRHH) {
+  const k = normCargo(cargoRRHH)
+  if (!k) return null
+  const buscar = n => cat.listaCargos.find(c => normCargo(c.nombre) === normCargo(n)) || null
+  // La equivalencia manda sobre el nombre igual (ej. RRHH "Administrador" -> "Administrador de camaronera",
+  // aunque en Seguridad tambien exista "Administrador")
+  return (EQUIVALENCIAS_CARGO[k] ? buscar(EQUIVALENCIAS_CARGO[k]) : null) || buscar(cargoRRHH)
+}
+
 async function catalogoUsuarios(env, forzar) {
   if (!forzar && _catUsr && Date.now() - _catUsrEn < 5 * 60 * 1000) return _catUsr
   const [users, uar, roles, subs, deps, cargos] = await Promise.all([
@@ -3335,6 +3396,14 @@ async function catalogoUsuarios(env, forzar) {
     secGet(env, 'department?pageSize=1000', PORTAL_BASE),
     secGet(env, 'position?pageSize=10000', PORTAL_BASE)
   ])
+  // Cada cargo de Seguridad pertenece a un solo departamento (el desplegable "Cargo" de AP1 solo muestra
+  // los del departamento elegido). Esa relacion solo viene en la estructura de Data Maestra.
+  const depDeCargo = new Map()
+  try {
+    for (const c of await secGet(env, 'department_position?pageSize=10000', DM_ESTRUCTURA_BASE)) {
+      if (c.departmentId) depDeCargo.set(c.idDepartmentPosition, c.departmentId)
+    }
+  } catch (e) { console.error('department_position:', e) }
   // RRHH es opcional: si falla, la pantalla sigue con el cargo de AP1
   let empleados = null
   try { empleados = await secGet(env, 'employees?status=ACTIVO&pageSize=10000', RRHH_BASE) } catch (e) { console.error('RRHH employees:', e) }
@@ -3375,8 +3444,9 @@ async function catalogoUsuarios(env, forzar) {
     roles: [...rolesApp.values()].sort(),
     departamentos: new Map(deps.map(d => [d.idDepartment, d.name])),
     cargos: new Map(cargos.map(c => [c.idDepartmentPosition, c.name])),
+    depDeCargo,
     listaDepartamentos: deps.filter(d => d.status !== 'INACTIVO').map(d => ({ id: d.idDepartment, nombre: d.name })).sort(porNombre),
-    listaCargos: cargos.filter(c => c.status !== 'INACTIVO').map(c => ({ id: c.idDepartmentPosition, nombre: c.name })).sort(porNombre),
+    listaCargos: cargos.filter(c => c.status !== 'INACTIVO').map(c => ({ id: c.idDepartmentPosition, nombre: c.name, dep: depDeCargo.get(c.idDepartmentPosition) || null })).sort(porNombre),
     sucursales: subs
       .map(s => ({ id: s.idSubsidiary, nombre: s.name, tipo: s.type }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
@@ -3394,6 +3464,19 @@ function requiereDataMaestra(sol) {
   if (sol.tipo === 'ALTA') return (d.rolesNombres || []).some(esT) || /^TRANSPORTISTA$/i.test(d.rol || '')
   if (sol.tipo === 'CAMBIO') return (d.rolesAgregarNombres || []).some(esT) || (d.rolesAgregar || []).some(esT) || /^TRANSPORTISTA$/i.test(d.rol || '')
   return false
+}
+
+// Cedulas de los transportistas ACTIVOS en Data Maestra (Logística → Transportistas), 5 min en memoria.
+// null si Data Maestra no responde (la pantalla no muestra aviso en ese caso).
+let _dmCedulas = null, _dmCedulasEn = 0
+async function cedulasTransportistasDM(env) {
+  if (_dmCedulas && Date.now() - _dmCedulasEn < 5 * 60 * 1000) return _dmCedulas
+  try {
+    const filas = await secGet(env, 'freight_transporter?status=ACTIVO&pageSize=10000', DM_LOGISTICA_BASE)
+    _dmCedulas = new Set(filas.filter(t => t.status === 'ACTIVO').map(t => String(t.identification || '').trim()))
+    _dmCedulasEn = Date.now()
+    return _dmCedulas
+  } catch (e) { console.error('Data Maestra transportistas:', e); return null }
 }
 
 async function leerConfigUsuarios(env, clave, defecto) {
@@ -3505,6 +3588,8 @@ async function handleUsuariosD1(request, url, env) {
           nombres: tituloEs([e.firstName, e.middleName].filter(Boolean).join(' ')),
           apellidos: tituloEs([e.lastName, e.maternalLastName].filter(Boolean).join(' ')),
           cargo: tituloEs(e.position || e.positionDescription),
+          // Su cargo en el catalogo de Seguridad (null si no existe ni tiene equivalencia)
+          cargoSeguridad: cargoSeguridadDe(cat, e.position || e.positionDescription),
           centroCosto: tituloEs(e.costCenter),
           area: tituloEs(e.subcostCenter),
           fechaIngreso: e.hireDate || null,
@@ -3575,6 +3660,11 @@ async function handleUsuariosD1(request, url, env) {
       const cat = await catalogoUsuarios(env)
       const porUsuario = new Map([...cat.usuarios.values()].map(u => [String(u.username || '').toLowerCase(), `${u.firstNames || ''} ${u.lastNames || ''}`.trim()]))
       for (const r of results) r.resuelto_nombre = r.resuelto_por ? (porUsuario.get(r.resuelto_por.toLowerCase()) || '') : ''
+      // Transportistas: ¿ya esta en Data Maestra? (true / false; null si no se pudo consultar)
+      if (results.some(requiereDataMaestra)) {
+        const dm = await cedulasTransportistasDM(env)
+        for (const r of results) if (requiereDataMaestra(r)) r.en_data_maestra = dm ? dm.has(String(r.user_identificacion || '').trim()) : null
+      }
       return json({ data: results })
     }
 
@@ -3617,6 +3707,9 @@ async function handleUsuariosD1(request, url, env) {
         Object.assign(datos, { roleIds, sucursales: sucs })
         if (datos.departmentId && !cat.departamentos.has(parseInt(datos.departmentId, 10))) return json({ error: 'Departamento no válido' }, 400)
         if (datos.cargoId && !cat.cargos.has(parseInt(datos.cargoId, 10))) return json({ error: 'Cargo no válido' }, 400)
+        // El departamento lo manda el cargo: en AP1 el cargo solo aparece dentro de su departamento
+        const depCargo = datos.cargoId ? cat.depDeCargo.get(parseInt(datos.cargoId, 10)) : null
+        if (depCargo) datos.departmentId = depCargo
         datos.departamentoNombre = cat.departamentos.get(parseInt(datos.departmentId, 10)) || null
         datos.cargoNombre = cat.cargos.get(parseInt(datos.cargoId, 10)) || null
         const existe = [...cat.usuarios.values()].find(u => u.identification === ced)
@@ -3651,7 +3744,11 @@ async function handleUsuariosD1(request, url, env) {
           if (!datos.rol && !datos.subsidiaryDestinoId && !datos.cargoId && !sucAdd.length && !sucQuitar.length && !rolAdd.length && !rolQuitar.length && !rolAddIds.length && !rolQuitarIds.length) {
             return json({ error: 'No hay cambios: marca o desmarca alguna sucursal o rol, o elige un cargo' }, 400)
           }
-          if (datos.cargoId) datos.cargoNombre = cat.cargos.get(parseInt(datos.cargoId, 10))
+          if (datos.cargoId) {
+            datos.cargoNombre = cat.cargos.get(parseInt(datos.cargoId, 10))
+            const depCargo = cat.depDeCargo.get(parseInt(datos.cargoId, 10))
+            if (depCargo) { datos.departmentId = depCargo; datos.departamentoNombre = cat.departamentos.get(depCargo) || null }
+          }
           Object.assign(datos, {
             sucursalesAgregar: sucAdd, sucursalesQuitar: sucQuitar, rolesAgregar: rolAdd, rolesQuitar: rolQuitar,
             sucursalesAgregarNombres: sucAdd.map(nomSuc), sucursalesQuitarNombres: sucQuitar.map(nomSuc),
@@ -3694,10 +3791,8 @@ async function handleUsuariosD1(request, url, env) {
         : {}   // los solicitantes no cambian estados (ni anulan): solo los administradores
       if (!(permitidos[sol.estado] || []).includes(nuevo)) return json({ error: `No se puede pasar de ${sol.estado} a ${nuevo}` }, 403)
       if (nuevo === 'RECHAZADA' && !comentario) return json({ error: 'Indica el motivo del rechazo' }, 400)
+      // Transportista: ya no se exige confirmar Data Maestra al ejecutar; la lista avisa (en vivo) si aun no esta
       const llevaTransportista = requiereDataMaestra(sol)
-      if (nuevo === 'EJECUTADA' && llevaTransportista && b.datamaestraOk !== true) {
-        return json({ error: 'Esta solicitud incluye TRANSPORTISTA: confirma que ya lo creaste en Data Maestra.' }, 400)
-      }
       // Usuario nuevo marcado como ejecutado: tiene que existir ya en AP1; se guarda su usuario
       let creado = null
       if (nuevo === 'EJECUTADA' && sol.tipo === 'ALTA') {
@@ -3718,11 +3813,9 @@ async function handleUsuariosD1(request, url, env) {
         await env.db.prepare('UPDATE usuarios_solicitudes SET aprobado_por = ?, aprobado_nombre = ?, aprobado_en = ? WHERE id = ?')
           .bind(s.u, s.n, new Date().toISOString(), id).run()
       }
-      // Transportista: queda registrado quien confirmo Data Maestra y se avisa por correo
+      // Transportista: aviso por correo para registrarlo en Data Maestra
       let correoDM = null
       if (nuevo === 'EJECUTADA' && llevaTransportista) {
-        await env.db.prepare('UPDATE usuarios_solicitudes SET datamaestra_por = ?, datamaestra_nombre = ?, datamaestra_en = ? WHERE id = ?')
-          .bind(s.u, s.n, new Date().toISOString(), id).run()
         const actual = await env.db.prepare('SELECT * FROM usuarios_solicitudes WHERE id = ?').bind(id).first()
         correoDM = await avisarDataMaestra(env, actual, s.n)
         await env.db.prepare('UPDATE usuarios_solicitudes SET correo_dm_estado = ? WHERE id = ?').bind(correoDM, id).run()
