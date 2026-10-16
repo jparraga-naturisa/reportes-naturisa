@@ -3660,6 +3660,20 @@ async function handleUsuariosD1(request, url, env) {
       const cat = await catalogoUsuarios(env)
       const porUsuario = new Map([...cat.usuarios.values()].map(u => [String(u.username || '').toLowerCase(), `${u.firstNames || ''} ${u.lastNames || ''}`.trim()]))
       for (const r of results) r.resuelto_nombre = r.resuelto_por ? (porUsuario.get(r.resuelto_por.toLowerCase()) || '') : ''
+      // Ediciones y bajas: datos actuales del usuario en AP1 (para mostrarlos igual que en un alta)
+      for (const r of results) {
+        const u = r.user_id ? cat.usuarios.get(r.user_id) : null
+        if (u) r.usuario_actual = { username: u.username || '', telefono: u.phone || '', email: u.email || '',
+          departamento: cat.departamentos.get(u.departmentId) || '', cargo: cat.cargos.get(u.departmentPositionId) || '',
+          rrhh: null }
+        // Departamento y Cargo se muestran siempre desde RRHH (el departamento es el del cargo equivalente en Seguridad)
+        const e = cat.rrhhPorCedula.get(String(r.user_identificacion || '').trim())
+        if (u && e) {
+          const cs = cargoSeguridadDe(cat, e.cargo)
+          const dep = cs && cs.dep ? cat.departamentos.get(cs.dep) : ''
+          r.usuario_actual.rrhh = { cargo: e.cargo, centroCosto: e.centroCosto, departamento: dep || '' }
+        }
+      }
       // Transportistas: ¿ya esta en Data Maestra? (true / false; null si no se pudo consultar)
       if (results.some(requiereDataMaestra)) {
         const dm = await cedulasTransportistasDM(env)
