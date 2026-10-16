@@ -3737,7 +3737,10 @@ async function handleUsuariosD1(request, url, env) {
         const uid = parseInt(b.userId, 10)
         if (!uid) return json({ error: 'Falta el usuario' }, 400)
         if (!motivo) return json({ error: 'El motivo es obligatorio' }, 400)
-        if (!(await idsUsuariosDeSucursal(env, sid)).has(uid)) return json({ error: 'Ese usuario no pertenece al campamento seleccionado' }, 403)
+        // El usuario debe estar en el campamento de la solicitud, salvo en una edicion que justo lo agrega a ese campamento
+        // (ej. un usuario que todavia no tiene ninguna sucursal)
+        const loAgrega = tipo === 'CAMBIO' && (Array.isArray(datos.sucursalesAgregar) ? datos.sucursalesAgregar : []).map(Number).includes(sid)
+        if (!loAgrega && !(await idsUsuariosDeSucursal(env, sid)).has(uid)) return json({ error: 'Ese usuario no pertenece al campamento seleccionado' }, 403)
         if (tipo === 'CAMBIO') {
           // Formato "editar": sucursales y roles que se agregan / quitan (lo que marca el formulario)
           const nombres = a => (Array.isArray(a) ? a : []).map(String)
