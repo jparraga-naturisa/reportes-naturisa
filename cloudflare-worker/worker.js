@@ -3415,7 +3415,10 @@ async function catalogoUsuarios(env, forzar) {
       cargo: tituloEs(e.position || e.positionDescription),
       centroCosto: tituloEs(e.costCenter),
       area: tituloEs(e.subcostCenter),
-      fechaIngreso: e.hireDate || null
+      fechaIngreso: e.hireDate || null,
+      nombre: tituloEs([e.firstName, e.middleName, e.lastName, e.maternalLastName].filter(Boolean).join(' ')),
+      telefono: e.phone || (Array.isArray(e.phones) ? e.phones[0] : '') || '',
+      email: e.email || ''
     })
   }
   const porNombre = (a, b) => a.nombre.localeCompare(b.nombre, 'es')
@@ -3671,7 +3674,7 @@ async function handleUsuariosD1(request, url, env) {
         if (u && e) {
           const cs = cargoSeguridadDe(cat, e.cargo)
           const dep = cs && cs.dep ? cat.departamentos.get(cs.dep) : ''
-          r.usuario_actual.rrhh = { cargo: e.cargo, centroCosto: e.centroCosto, departamento: dep || '' }
+          r.usuario_actual.rrhh = { cargo: e.cargo, centroCosto: e.centroCosto, departamento: dep || '', telefono: e.telefono, email: e.email, nombre: e.nombre }
         }
       }
       // Transportistas: ¿ya esta en Data Maestra? (true / false; null si no se pudo consultar)
