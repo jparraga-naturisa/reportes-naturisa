@@ -3417,6 +3417,8 @@ async function catalogoUsuarios(env, forzar) {
       area: tituloEs(e.subcostCenter),
       fechaIngreso: e.hireDate || null,
       nombre: tituloEs([e.firstName, e.middleName, e.lastName, e.maternalLastName].filter(Boolean).join(' ')),
+      nombres: tituloEs([e.firstName, e.middleName].filter(Boolean).join(' ')),
+      apellidos: tituloEs([e.lastName, e.maternalLastName].filter(Boolean).join(' ')),
       telefono: e.phone || (Array.isArray(e.phones) ? e.phones[0] : '') || '',
       email: e.email || ''
     })
@@ -3472,8 +3474,9 @@ function requiereDataMaestra(sol) {
 // Cedulas de los transportistas ACTIVOS en Data Maestra (Logística → Transportistas), 5 min en memoria.
 // null si Data Maestra no responde (la pantalla no muestra aviso en ese caso).
 let _dmCedulas = null, _dmCedulasEn = 0
-async function cedulasTransportistasDM(env) {
-  if (_dmCedulas && Date.now() - _dmCedulasEn < 5 * 60 * 1000) return _dmCedulas
+// fresco: sin cache (boton Actualizar); si no, se reutiliza 1 minuto
+async function cedulasTransportistasDM(env, fresco) {
+  if (!fresco && _dmCedulas && Date.now() - _dmCedulasEn < 60 * 1000) return _dmCedulas
   try {
     const filas = await secGet(env, 'freight_transporter?status=ACTIVO&pageSize=10000', DM_LOGISTICA_BASE)
     _dmCedulas = new Set(filas.filter(t => t.status === 'ACTIVO').map(t => String(t.identification || '').trim()))
@@ -3663,6 +3666,12 @@ async function handleUsuariosD1(request, url, env) {
       const cat = await catalogoUsuarios(env)
       const porUsuario = new Map([...cat.usuarios.values()].map(u => [String(u.username || '').toLowerCase(), `${u.firstNames || ''} ${u.lastNames || ''}`.trim()]))
       for (const r of results) r.resuelto_nombre = r.resuelto_por ? (porUsuario.get(r.resuelto_por.toLowerCase()) || '') : ''
+      // ¿Esta en RRHH? (para "¿Es empleado?" al pegar en Data Maestra)
+      for (const r of results) {
+        let ced = r.user_identificacion
+        if (!ced) { try { ced = JSON.parse(r.datos || '{}').identificacion } catch {} }
+        r.en_rrhh = cat.rrhhDisponible ? cat.rrhhPorCedula.has(String(ced || '').trim()) : null
+      }
       // Ediciones y bajas: datos actuales del usuario en AP1 (para mostrarlos igual que en un alta)
       for (const r of results) {
         const u = r.user_id ? cat.usuarios.get(r.user_id) : null
@@ -3674,12 +3683,12 @@ async function handleUsuariosD1(request, url, env) {
         if (u && e) {
           const cs = cargoSeguridadDe(cat, e.cargo)
           const dep = cs && cs.dep ? cat.departamentos.get(cs.dep) : ''
-          r.usuario_actual.rrhh = { cargo: e.cargo, centroCosto: e.centroCosto, departamento: dep || '', telefono: e.telefono, email: e.email, nombre: e.nombre }
+          r.usuario_actual.rrhh = { cargo: e.cargo, centroCosto: e.centroCosto, departamento: dep || '', telefono: e.telefono, email: e.email, nombre: e.nombre, nombres: e.nombres, apellidos: e.apellidos }
         }
       }
       // Transportistas: ¿ya esta en Data Maestra? (true / false; null si no se pudo consultar)
       if (results.some(requiereDataMaestra)) {
-        const dm = await cedulasTransportistasDM(env)
+        const dm = await cedulasTransportistasDM(env, url.searchParams.get('fresco') === '1')
         for (const r of results) if (requiereDataMaestra(r)) r.en_data_maestra = dm ? dm.has(String(r.user_identificacion || '').trim()) : null
       }
       return json({ data: results })
