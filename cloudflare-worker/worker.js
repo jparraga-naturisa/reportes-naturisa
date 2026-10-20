@@ -917,6 +917,68 @@ async function refrescarOrdenControl(env) {
   return totalFilas
 }
 
+// ── Alerta de orden de control bloqueada (app movil) ────────────────────────
+// Para cada piscina, la orden de control (SAP) del ULTIMO ciclo (el de mayor
+// cycle_number) puede quedar bloqueada en Data Maestra SAP (isBlocked) sin que
+// nadie se entere hasta que falla un posteo. Cruza ciclos (D1) + orden_control
+// (D1) con el catalogo en vivo de control_order (SAP) y alerta las bloqueadas.
+// GET /db/alertas-orden-bloqueada
+
+const CONTROL_ORDER_PATH = '/bff/web/datamaestra/backoffice/api/general/control_order'
+
+async function handleDbAlertasOrdenBloqueada(request, env) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  try {
+    const { results: ultimosCiclos } = await env.db.prepare(`
+      SELECT c.id_ciclo, c.id_sucursal, c.codigo_sucursal, c.nombre_piscina, c.numero_ciclo, c.codigo_ciclo,
+             c.estado, oc.orden_control, s.nombre AS subsidiary_name
+      FROM ciclos c
+      INNER JOIN (
+        SELECT id_sucursal, nombre_piscina, MAX(numero_ciclo) AS max_num
+        FROM ciclos
+        GROUP BY id_sucursal, nombre_piscina
+      ) m ON m.id_sucursal = c.id_sucursal AND m.nombre_piscina = c.nombre_piscina AND m.max_num = c.numero_ciclo
+      LEFT JOIN orden_control oc ON oc.id_ciclo = c.id_ciclo
+      LEFT JOIN sucursales s ON s.id = c.id_sucursal
+      WHERE oc.orden_control IS NOT NULL
+    `).all()
+
+    const ordenes = []
+    for (const status of ['ACTIVO', 'INACTIVO']) {
+      const res = await fetch(GATEWAY + CONTROL_ORDER_PATH + '?status=' + status + '&PageSize=20000&orderBy=companyCodeSap%20asc',
+        { headers: request.headers })
+      if (!res.ok) throw Object.assign(new Error('control_order respondio ' + res.status), { status: res.status })
+      const j = await res.json()
+      ordenes.push(...(j.data?.data || []))
+    }
+    const porCodigo = new Map(ordenes.map(o => [String(o.code || '').trim(), o]))
+
+    const alertas = ultimosCiclos
+      .map(c => {
+        const orden = porCodigo.get(String(c.orden_control || '').trim())
+        if (!orden || !orden.isBlocked) return null
+        return {
+          subsidiary: c.subsidiary_name || c.codigo_sucursal,
+          subsidiaryCode: c.codigo_sucursal,
+          poolName: c.nombre_piscina,
+          cycleCode: c.codigo_ciclo,
+          numeroCiclo: c.numero_ciclo,
+          estadoCiclo: c.estado,
+          ordenControl: c.orden_control,
+          descripcionOrden: orden.description || '',
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => (a.subsidiary || '').localeCompare(b.subsidiary || '') || (a.poolName || '').localeCompare(b.poolName || ''))
+
+    return corsResponse(JSON.stringify({ alertas, total: alertas.length }), 200, request)
+  } catch (e) {
+    console.error('alertas-orden-bloqueada:', e.stack || e)
+    const status = e.status === 401 ? 401 : 502
+    return corsResponse(JSON.stringify({ error: String(e.message || e) }), status, request)
+  }
+}
+
 // â”€â”€ Consumo de balanceado (AP1 feeding_general por piscina/dia) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // GET  /db/consumo-balanceado?idPiscina=<id>&idCiclo=<id>   -> lista consumo diario
 // POST /db/consumo-balanceado/sync                          -> upsert masivo
@@ -3485,6 +3547,88 @@ async function cedulasTransportistasDM(env, fresco) {
   } catch (e) { console.error('Data Maestra transportistas:', e); return null }
 }
 
+// ── Avisos por Microsoft Teams (flujo "cuando se recibe una solicitud de webhook" → publicar tarjeta) ──
+const APP_USUARIOS_URL = 'https://jparraga-naturisa.github.io/control-usuarios/'
+const EVENTOS_TEAMS = ['NUEVA', 'APROBADA', 'RECHAZADA', 'EJECUTADA']
+// Lo que se pide, en una linea (para la tarjeta)
+function resumenPedido(sol) {
+  let d = {}
+  try { d = JSON.parse(sol.datos || '{}') } catch {}
+  const rol = n => String(n).split(' · ').pop()
+  const partes = []
+  if (sol.tipo === 'ALTA') {
+    const roles = d.rolesNombres || (d.rol ? [d.rol] : [])
+    if (roles.length) partes.push('Roles: ' + roles.map(rol).join(', '))
+    if ((d.sucursalesNombres || []).length) partes.push('Sucursales: ' + d.sucursalesNombres.join(', '))
+    if (d.cargoNombre) partes.push('Cargo: ' + d.cargoNombre)
+  } else if (sol.tipo === 'CAMBIO') {
+    const add = [...(d.rolesAgregarNombres || []), ...(d.rolesAgregar || []), ...(d.rol ? [d.rol] : [])]
+    const del = [...(d.rolesQuitarNombres || []), ...(d.rolesQuitar || [])]
+    if (add.length) partes.push('Agrega rol: ' + add.map(rol).join(', '))
+    if (del.length) partes.push('Quita rol: ' + del.map(rol).join(', '))
+    if ((d.sucursalesAgregarNombres || []).length) partes.push('Agrega sucursal: ' + d.sucursalesAgregarNombres.join(', '))
+    if ((d.sucursalesQuitarNombres || []).length) partes.push('Quita sucursal: ' + d.sucursalesQuitarNombres.join(', '))
+    if (d.cargoNombre) partes.push(`Cargo: ${d.cargoActual || 'Sin cargo'} → ${d.cargoNombre}`)
+  } else if (sol.tipo === 'BAJA') partes.push('Dar de baja el usuario')
+  return partes.join(' · ') || '—'
+}
+function nombrePersonaSol(sol) {
+  if (sol.tipo !== 'ALTA') return sol.user_nombre || ''
+  let d = {}
+  try { d = JSON.parse(sol.datos || '{}') } catch {}
+  return `${d.nombres || ''} ${d.apellidos || ''}`.trim() || sol.user_nombre || ''
+}
+async function postTeams(url, tarjeta) {
+  const ctl = new AbortController()
+  const t = setTimeout(() => ctl.abort(), 8000)
+  try {
+    const res = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
+      body: JSON.stringify({ type: 'message', attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', contentUrl: null, content: tarjeta }] })
+    })
+    if (!res.ok) return `error HTTP ${res.status}: ${(await res.text()).slice(0, 150)}`
+    return 'enviado'
+  } catch (e) {
+    return 'error: ' + String(e.message || e).slice(0, 150)
+  } finally { clearTimeout(t) }
+}
+function tarjetaTeams(titulo, color, sub, hechos, nota) {
+  return {
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json', type: 'AdaptiveCard', version: '1.4',
+    body: [
+      { type: 'TextBlock', text: titulo, weight: 'Bolder', size: 'Medium', color, wrap: true },
+      ...(sub ? [{ type: 'TextBlock', text: sub, isSubtle: true, spacing: 'None', wrap: true }] : []),
+      { type: 'FactSet', facts: hechos.filter(([, v]) => v).map(([title, value]) => ({ title, value: String(value) })) },
+      ...(nota ? [{ type: 'TextBlock', text: nota, color: 'Warning', weight: 'Bolder', wrap: true }] : [])
+    ],
+    actions: [{ type: 'Action.OpenUrl', title: 'Abrir Control de Usuarios', url: APP_USUARIOS_URL }]
+  }
+}
+// evento: NUEVA | APROBADA | RECHAZADA | EJECUTADA. Nunca rompe la operacion: devuelve el resultado como texto.
+async function avisarTeams(env, sol, evento, quien, extra) {
+  try {
+    const url = await leerConfigUsuarios(env, 'teams_webhook', '')
+    if (!url) return 'sin webhook'
+    const eventos = await leerConfigUsuarios(env, 'teams_eventos', EVENTOS_TEAMS)
+    if (!eventos.includes(evento)) return 'evento desactivado'
+    const tipo = { ALTA: 'Usuario nuevo', CAMBIO: 'Edición', BAJA: 'Baja' }[sol.tipo] || sol.tipo
+    const cab = {
+      NUEVA: ['Nueva solicitud por aprobar', 'Accent'], APROBADA: ['Solicitud aprobada: falta ejecutarla en AP1', 'Accent'],
+      RECHAZADA: ['Solicitud rechazada', 'Attention'], EJECUTADA: ['Solicitud ejecutada', 'Good']
+    }[evento]
+    const hechos = [
+      ['Persona', nombrePersonaSol(sol)], ['Cédula', sol.user_identificacion], ['Sucursal', sol.subsidiary_nombre],
+      ['Qué se pide', resumenPedido(sol)], ['Solicitado por', sol.solicitante_nombre || sol.solicitante],
+      ...(evento !== 'NUEVA' ? [[{ APROBADA: 'Aprobado por', RECHAZADA: 'Rechazado por', EJECUTADA: 'Ejecutado por' }[evento], quien]] : []),
+      ['Usuario AP1', extra?.usuario], ['Observación', sol.motivo], ['Comentario', extra?.comentario]
+    ]
+    return await postTeams(url, tarjetaTeams(`${cab[0]} · #${sol.id}`, cab[1], tipo, hechos, extra?.nota))
+  } catch (e) {
+    console.error('Teams:', e)
+    return 'error: ' + String(e.message || e).slice(0, 150)
+  }
+}
+
 async function leerConfigUsuarios(env, clave, defecto) {
   const r = await env.db.prepare('SELECT valor FROM usuarios_config WHERE clave = ?').bind(clave).first()
   if (!r) return defecto
@@ -3804,7 +3948,11 @@ async function handleUsuariosD1(request, url, env) {
            datos, motivo, solicitante, solicitante_nombre, creado_en) VALUES (?, 'PENDIENTE', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(tipo, sid, suc?.nombre || String(sid), afectado.id, afectado.nombre, afectado.ced,
         JSON.stringify(datos).slice(0, 50000), motivo, s.u, s.n, new Date().toISOString()).run()
-      return json({ ok: true, id: r.meta?.last_row_id })
+      const nuevaId = r.meta?.last_row_id
+      // Aviso por Teams a los administradores (no bloquea si falla)
+      const nueva = nuevaId ? await env.db.prepare('SELECT * FROM usuarios_solicitudes WHERE id = ?').bind(nuevaId).first() : null
+      const teams = nueva ? await avisarTeams(env, nueva, 'NUEVA', s.n) : null
+      return json({ ok: true, id: nuevaId, teams })
     }
 
     const mEstado = path.match(/^\/d1\/usuarios\/solicitudes\/(\d+)\/estado$/)
@@ -3851,18 +3999,43 @@ async function handleUsuariosD1(request, url, env) {
       }
       // Lo ejecutado ya cambio en AP1: forzar que la proxima lista se lea fresca
       if (nuevo === 'EJECUTADA') _catUsrEn = 0
-      return json({ ok: true, correoDataMaestra: correoDM })
+      // Aviso por Teams; si es transportista y aun no esta en Data Maestra, la tarjeta lo recuerda
+      const final = await env.db.prepare('SELECT * FROM usuarios_solicitudes WHERE id = ?').bind(id).first()
+      let nota = null
+      if (nuevo === 'EJECUTADA' && llevaTransportista) {
+        const dm = await cedulasTransportistasDM(env, true)
+        if (dm && !dm.has(String(final.user_identificacion || '').trim())) nota = 'Transportista: falta registrarlo en Data Maestra (Logística → Transportistas).'
+      }
+      const teams = await avisarTeams(env, final, nuevo, s.n, { comentario, usuario: final.creado_usuario, nota })
+      return json({ ok: true, correoDataMaestra: correoDM, teams })
     }
 
     // ── Configuracion (solo admin) ──
     if (path === '/d1/usuarios/config') {
       if (!s.adm) return json({ error: 'Solo administradores' }, 403)
       if (request.method === 'GET') {
+        const wh = await leerConfigUsuarios(env, 'teams_webhook', '')
         return json({ correosDataMaestra: await leerConfigUsuarios(env, 'correos_datamaestra', []),
-          canalCorreo: !!(env.CORREO_EMPRESA_USER && env.CORREO_EMPRESA_PASS) })
+          canalCorreo: !!(env.CORREO_EMPRESA_USER && env.CORREO_EMPRESA_PASS),
+          // La direccion del webhook no se devuelve completa (quien la tenga puede publicar en el canal)
+          teams: { configurado: !!wh, fin: wh ? wh.slice(-6) : '', eventos: await leerConfigUsuarios(env, 'teams_eventos', EVENTOS_TEAMS) } })
       }
       if (request.method === 'POST') {
         const b = await request.json().catch(() => ({}))
+        const guardar = (clave, valor) => env.db.prepare(`INSERT INTO usuarios_config (clave, valor, actualizado_por, actualizado_en) VALUES (?, ?, ?, ?)
+          ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor, actualizado_por = excluded.actualizado_por, actualizado_en = excluded.actualizado_en`)
+          .bind(clave, JSON.stringify(valor), s.u, new Date().toISOString()).run()
+        // Teams: { webhook?: string ('' = quitar), eventos?: [...] }
+        if (b.teams) {
+          if (typeof b.teams.webhook === 'string') {
+            const wh = b.teams.webhook.trim()
+            if (wh && !/^https:\/\/[^\s]+$/i.test(wh) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(wh)) return json({ error: 'La dirección del webhook debe empezar con https://' }, 400)
+            await guardar('teams_webhook', wh)
+          }
+          if (Array.isArray(b.teams.eventos)) await guardar('teams_eventos', b.teams.eventos.map(String).filter(e => EVENTOS_TEAMS.includes(e)))
+          const wh = await leerConfigUsuarios(env, 'teams_webhook', '')
+          return json({ ok: true, teams: { configurado: !!wh, fin: wh ? wh.slice(-6) : '', eventos: await leerConfigUsuarios(env, 'teams_eventos', EVENTOS_TEAMS) } })
+        }
         const correos = [...new Set((Array.isArray(b.correosDataMaestra) ? b.correosDataMaestra : [])
           .map(c => String(c).trim().toLowerCase()).filter(Boolean))]
         const malo = correos.find(c => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c))
@@ -3872,6 +4045,16 @@ async function handleUsuariosD1(request, url, env) {
           .bind(JSON.stringify(correos), s.u, new Date().toISOString()).run()
         return json({ ok: true, correosDataMaestra: correos })
       }
+    }
+
+    // ── Teams: enviar una tarjeta de prueba (solo admin) ──
+    if (path === '/d1/usuarios/teams/prueba' && request.method === 'POST') {
+      if (!s.adm) return json({ error: 'Solo administradores' }, 403)
+      const url = await leerConfigUsuarios(env, 'teams_webhook', '')
+      if (!url) return json({ error: 'Primero guarda la dirección del webhook' }, 400)
+      const r = await postTeams(url, tarjetaTeams('Prueba de avisos · Control de Usuarios', 'Good', 'Si ves este mensaje, los avisos por Teams funcionan.',
+        [['Enviado por', s.n], ['Fecha', new Date().toLocaleString('es-EC', { timeZone: 'America/Guayaquil' })]]))
+      return json(r === 'enviado' ? { ok: true } : { error: 'Teams no aceptó el mensaje: ' + r }, r === 'enviado' ? 200 : 502)
     }
 
     // ── Administradores (solo admin) ──
@@ -3985,6 +4168,10 @@ if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
 
     if (url.pathname === '/db/inventario-laboratorios') {
       return handleDbInventarioLaboratorios(request, env)
+    }
+
+    if (url.pathname === '/db/alertas-orden-bloqueada' && env.db) {
+      return handleDbAlertasOrdenBloqueada(request, env)
     }
 
     if (url.pathname === '/db/sucursales' && env.db) {
