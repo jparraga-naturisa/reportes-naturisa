@@ -6,6 +6,8 @@ import AlertaSucursalBox from './AlertaSucursalBox';
 import CosechaListado from './CosechaListado';
 import SiembraListado from './SiembraListado';
 import LiquidacionListado from './LiquidacionListado';
+import InventarioLabListado from './InventarioLabListado';
+import OrdenBloqueadaListado from './OrdenBloqueadaListado';
 import { COLORES, GRADIENTE_BOTON } from './theme';
 
 const TITULOS = {
@@ -13,6 +15,8 @@ const TITULOS = {
   cosecha: 'Cosecha Prefinales',
   siembra: 'Siembra de Larva',
   liquidacion: 'Liquidación de Cosechas',
+  inventario: 'Inventario Laboratorios',
+  ordenBloqueada: 'Órdenes de Control Bloqueadas',
 };
 
 export default function ReporteScreen({ tipo, sucursales, token, onCambiarReporte, onCerrarSesion }) {
@@ -46,6 +50,10 @@ export default function ReporteScreen({ tipo, sucursales, token, onCambiarReport
         <SiembraListado key={refreshKey} sucursales={sucursales} token={token} onSesionExpirada={onCerrarSesion} />
       ) : tipo === 'liquidacion' ? (
         <LiquidacionListado key={refreshKey} sucursales={sucursales} token={token} onSesionExpirada={onCerrarSesion} />
+      ) : tipo === 'inventario' ? (
+        <InventarioLabListado key={refreshKey} token={token} onSesionExpirada={onCerrarSesion} />
+      ) : tipo === 'ordenBloqueada' ? (
+        <OrdenBloqueadaListado key={refreshKey} token={token} onSesionExpirada={onCerrarSesion} />
       ) : (
         <ScrollView
           contentContainerStyle={styles.scroll}

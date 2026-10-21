@@ -7,6 +7,8 @@ const REPORTES = [
   { tipo: 'cosecha', titulo: 'Cosecha Prefinales', icono: 'shrimp', color: '#22D3EE' },
   { tipo: 'siembra', titulo: 'Siembra de Larva', icono: 'worm', color: '#34D399' },
   { tipo: 'liquidacion', titulo: 'Liquidación de Cosechas', icono: 'file-invoice-dollar', color: '#A78BFA' },
+  { tipo: 'inventario', titulo: 'Inventario Laboratorios', icono: 'flask', color: '#F472B6' },
+  { tipo: 'ordenBloqueada', titulo: 'Órdenes de Control Bloqueadas', icono: 'lock', color: '#FB923C' },
   // Próximos reportes se agregan acá.
 ];
 
