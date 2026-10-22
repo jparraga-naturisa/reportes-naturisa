@@ -438,7 +438,7 @@ async function invLabRegistros(request, subsidiaryId) {
 
   let ultimoCiclo = null
   for (const c of ciclos.slice(0, 3)) {
-    const ciclo = { id: c.id || c.cycleId || c.idCycle, codigo: c.code || '', fechaInicio: String(c.sowingDate || c.dryDate || '').split('T')[0] }
+    const ciclo = { id: c.id || c.cycleId || c.idCycle, codigo: c.code || '', estado: c.status || c.state || '', fechaInicio: String(c.sowingDate || c.dryDate || '').split('T')[0] }
     const registros = await invLabRegistrosDeCiclo(request, subsidiaryId, ciclo)
     if (registros.length) return { ciclo, registros }
     if (!ultimoCiclo) ultimoCiclo = ciclo
@@ -510,7 +510,7 @@ async function invLabLaboratorio(request, lab, catalogo, codigosBase) {
   filas.sort((a, b) => a.material.localeCompare(b.material))
   return {
     subsidiaryId: lab.subsidiaryId, nombre: lab.nombre, almacen: lab.almacen,
-    ciclo: ciclo?.codigo || null, sinProduccion: !ciclo || !registros.length,
+    ciclo: ciclo?.codigo || null, cicloEstado: ciclo?.estado || null, sinProduccion: !ciclo || !registros.length,
     conDiferencia: filas.filter(f => f.diferencia !== 0).length, filas,
   }
 }
@@ -715,6 +715,71 @@ async function handleDbInventarioLaboratorios(request, env) {
     const status = e.status === 401 ? 401 : 502
     return corsResponse(JSON.stringify({ error: String(e.message || e) }), status, request)
   }
+}
+
+// ── Aviso diario por Teams de diferencias en Inventario Laboratorios ───────
+// Corre por cron (18:00 Ecuador). El webhook de Teams se guarda en KV (env.data)
+// bajo la clave INV_LAB_TEAMS_WEBHOOK_KEY: wrangler kv key put --namespace-id
+// <id> "inv-lab-teams-webhook" "<url>" --remote
+const INV_LAB_TEAMS_WEBHOOK_KEY = 'inv-lab-teams-webhook'
+
+function tarjetaTeamsInventario(secciones) {
+  const body = [
+    { type: 'TextBlock', text: 'Inventario Laboratorios · diferencias SAP vs Laboratorio', weight: 'Bolder', size: 'Medium', color: 'Attention', wrap: true },
+  ]
+  for (const { lab, conDif } of secciones) {
+    body.push({
+      type: 'Container',
+      style: 'emphasis',
+      spacing: 'Medium',
+      bleed: true,
+      items: [
+        { type: 'TextBlock', text: `${lab.nombre} (${lab.almacen})`, weight: 'Bolder', color: 'Accent', wrap: true },
+        { type: 'TextBlock', text: `Corrida: ${lab.ciclo || 'sin ciclo'}${lab.cicloEstado ? ' · ' + lab.cicloEstado : ''}`, isSubtle: true, size: 'Small', spacing: 'None', wrap: true },
+        ...conDif.map((f, i) => ({
+          type: 'ColumnSet',
+          spacing: 'Small',
+          separator: i > 0,
+          columns: [
+            {
+              type: 'Column', width: 'stretch',
+              items: [{ type: 'TextBlock', text: `${f.material} ${f.descripcion}`, wrap: false, size: 'Small' }],
+            },
+            {
+              type: 'Column', width: '90px',
+              items: [{ type: 'TextBlock', text: `${invNumero(f.diferencia)} ${f.unidad}`, wrap: false, size: 'Small', weight: 'Bolder', horizontalAlignment: 'Right' }],
+            },
+          ],
+        })),
+      ],
+    })
+  }
+  return { $schema: 'http://adaptivecards.io/schemas/adaptive-card.json', type: 'AdaptiveCard', version: '1.4', body }
+}
+
+async function avisoInventarioLaboratoriosTeams(env) {
+  const webhook = env.data ? await env.data.get(INV_LAB_TEAMS_WEBHOOK_KEY) : null
+  if (!webhook) { console.error('inventario-laboratorios teams: sin webhook configurado en KV'); return }
+
+  const token = await ap1Login(env)
+  const fakeRequest = { headers: new Headers({ Authorization: 'Bearer ' + token, Accept: 'application/json' }) }
+
+  const catalogo = await invLabCatalogo(fakeRequest, env)
+  const codigosBase = Object.keys(catalogo).filter(c => INV_LAB_TIPOS_ITEM.includes(catalogo[c].itemTypeId))
+  const laboratorios = await Promise.all(INV_LAB_LABORATORIOS.map(lab => invLabLaboratorio(fakeRequest, lab, catalogo, codigosBase)))
+
+  const secciones = laboratorios
+    .map(lab => {
+      const conDif = lab.filas.filter(f => f.diferencia !== 0)
+      return conDif.length ? { lab, conDif } : null
+    })
+    .filter(Boolean)
+
+  if (!secciones.length) return 'sin diferencias'
+
+  const resultado = await postTeams(webhook, tarjetaTeamsInventario(secciones))
+  if (resultado !== 'enviado') console.error('inventario-laboratorios teams:', resultado)
+  return resultado
 }
 
 // ── Tablas propias en D1 (compartidas entre todos los dashboards) ─────────
@@ -4104,8 +4169,11 @@ export default {
 
   async scheduled(event, env, ctx) {
     // Cron liviano cada 6h: "0 */6 * * *". Cron pesado diario: "0 7 * * *" (2am Ecuador).
+    // Aviso Teams Inventario Laboratorios: "0 17 * * *" (12pm Ecuador).
     if (event.cron === '0 7 * * *') {
       ctx.waitUntil(refrescoPesado(env).catch(e => console.error('refrescoPesado error:', e)))
+    } else if (event.cron === '0 17 * * *') {
+      ctx.waitUntil(avisoInventarioLaboratoriosTeams(env).catch(e => console.error('avisoInventarioLaboratoriosTeams error:', e)))
     } else {
       ctx.waitUntil(refrescoLiviano(env).catch(e => console.error('refrescoLiviano error:', e)))
     }
@@ -4168,6 +4236,15 @@ if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
 
     if (url.pathname === '/db/inventario-laboratorios') {
       return handleDbInventarioLaboratorios(request, env)
+    }
+
+    if (url.pathname === '/db/inventario-laboratorios/teams/prueba' && request.method === 'POST') {
+      try {
+        const resultado = await avisoInventarioLaboratoriosTeams(env)
+        return corsResponse(JSON.stringify({ ok: true, resultado: resultado || 'sin webhook' }), 200, request)
+      } catch (e) {
+        return corsResponse(JSON.stringify({ error: String(e.message || e) }), 502, request)
+      }
     }
 
     if (url.pathname === '/db/alertas-orden-bloqueada' && env.db) {

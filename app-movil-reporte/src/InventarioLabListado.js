@@ -217,11 +217,8 @@ export default function InventarioLabListado({ token, onSesionExpirada }) {
         {enviandoInforme ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
-          <FontAwesome6 name="envelope" size={14} color="#fff" />
+          <FontAwesome6 name="envelope" size={18} color="#fff" />
         )}
-        <Text style={styles.botonInformeTexto}>
-          {enviandoInforme ? 'Enviando informe...' : 'Enviar informe completo'}
-        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.filtro} onPress={() => setSoloDiferencias((v) => !v)} activeOpacity={0.8}>
@@ -240,7 +237,7 @@ export default function InventarioLabListado({ token, onSesionExpirada }) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.labNombre}>{lab.nombre}</Text>
                 <Text style={styles.labDetalle}>
-                  {lab.almacen}{lab.ciclo ? ` · Ciclo ${lab.ciclo}` : ''}{lab.sinProduccion ? ' · sin producción' : ''}
+                  {lab.almacen}{lab.ciclo ? ` · Ciclo ${lab.ciclo}` : ''}{lab.cicloEstado ? ` (${lab.cicloEstado})` : ''}{lab.sinProduccion ? ' · sin producción' : ''}
                 </Text>
               </View>
               <View style={[styles.contador, lab.conDiferencia > 0 && styles.contadorAlerta]}>
@@ -269,8 +266,11 @@ export default function InventarioLabListado({ token, onSesionExpirada }) {
                 </View>
                 {filas.map((f, i) => (
                   <View key={f.material} style={[styles.bloque, i % 2 === 0 && styles.filaPar]}>
-                    <Text style={styles.material} numberOfLines={1}>
-                      <Text style={styles.materialCodigo}>{f.material}</Text>  {f.descripcion}
+                    <Text
+                      style={[styles.material, f.diferencia !== 0 && styles.materialDestacado]}
+                      numberOfLines={1}
+                    >
+                      <Text style={[styles.materialCodigo, f.diferencia !== 0 && styles.materialDestacado]}>{f.material}</Text>  {f.descripcion}
                       <Text style={styles.unidad}>  ({f.unidad})</Text>
                     </Text>
                     <View style={styles.fila}>
@@ -296,10 +296,9 @@ const styles = StyleSheet.create({
   scroll: { padding: 12, paddingBottom: 24 },
   titulo: { fontSize: 15, fontWeight: 'bold', color: COLORES.texto, textAlign: 'center', marginBottom: 10 },
   botonInforme: {
-    flexDirection: 'row', gap: 8, alignSelf: 'center', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: COLORES.acento, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18, marginBottom: 12,
+    width: 44, height: 44, borderRadius: 22, alignSelf: 'center', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORES.acento, marginBottom: 12,
   },
-  botonInformeTexto: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
   filtro: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', paddingVertical: 6, marginBottom: 10 },
   filtroTexto: { color: COLORES.texto, fontSize: 13 },
   error: { color: COLORES.destacado, padding: 16, textAlign: 'center' },
@@ -326,6 +325,7 @@ const styles = StyleSheet.create({
   filaPar: { backgroundColor: COLORES.filaPar },
   bloque: { paddingTop: 6, paddingBottom: 2 },
   material: { color: COLORES.texto, fontSize: 11, paddingHorizontal: 8 },
+  materialDestacado: { fontSize: 13, fontWeight: 'bold', color: COLORES.destacado },
   materialCodigo: { color: COLORES.acento, fontWeight: 'bold' },
   unidad: { color: COLORES.textoMuted },
   celda: { flex: 1, fontSize: 11, textAlign: 'center', color: COLORES.texto },

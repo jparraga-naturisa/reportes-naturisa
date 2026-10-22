@@ -21,4 +21,4 @@ database_id = "157a0e5f-880a-4a5d-afb5-cc40c4b4c95e"
 # "0 */6 * * *"  = liviano cada 6h (sucursales + piscinas + ciclos)
 # "0 7 * * *"    = pesado 1x/dia a las 02:00 Ecuador (historia_ciclo + calibracion)
 [triggers]
-crons = ["0 */6 * * *", "0 7 * * *"]
+crons = ["0 */6 * * *", "0 7 * * *", "0 17 * * *"]
