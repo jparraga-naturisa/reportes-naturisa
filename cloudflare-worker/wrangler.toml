@@ -21,5 +21,6 @@ database_id = "157a0e5f-880a-4a5d-afb5-cc40c4b4c95e"
 # "0 */6 * * *"  = liviano cada 6h (sucursales + piscinas + ciclos)
 # "0 7 * * *"    = pesado 1x/dia a las 02:00 Ecuador (historia_ciclo + calibracion)
 [triggers]
+# "0 17 * * *"   = 12:00 Ecuador: aviso Inventario Laboratorios + recordatorio de pendientes de Control de Usuarios
 # "0 21 * * *"   = 16:00 Ecuador: recordatorio de solicitudes pendientes de Control de Usuarios por Teams
 crons = ["0 */6 * * *", "0 7 * * *", "0 17 * * *", "0 21 * * *"]

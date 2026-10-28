@@ -3696,7 +3696,7 @@ async function personasTeams(env, correos) {
     return { id: String(c).trim(), nombre }
   })
 }
-// Recordatorio diario (16:00 Ecuador) en el mismo Teams: solicitudes pendientes de aprobar y aprobadas sin
+// Recordatorio de pendientes (12:00 y 16:00 Ecuador) en el mismo Teams: solicitudes pendientes de aprobar y aprobadas sin
 // ejecutar, arrobando a quien le toca. Si no hay pendientes no se envia nada.
 // forzar: enviar aunque el recordatorio este desactivado (boton "Enviar recordatorio ahora")
 async function recordatorioPendientesTeams(env, forzar) {
@@ -3706,7 +3706,13 @@ async function recordatorioPendientesTeams(env, forzar) {
   await asegurarTablasUsuarios(env)
   const { results } = await env.db.prepare(
     `SELECT * FROM usuarios_solicitudes WHERE estado IN ('PENDIENTE','APROBADA') ORDER BY id`).all()
-  if (!results.length) return 'nada pendiente'
+  // Transportistas ejecutados (ultimos 60 dias) que aun no estan en Data Maestra
+  const { results: ejecutadas } = await env.db.prepare(
+    `SELECT * FROM usuarios_solicitudes WHERE estado = 'EJECUTADA' AND resuelto_en >= ? ORDER BY id`)
+    .bind(new Date(Date.now() - 60 * 86400000).toISOString()).all()
+  const dm = await cedulasTransportistasDM(env, true)
+  const sinDM = dm ? ejecutadas.filter(s => requiereDataMaestra(s) && !dm.has(String(s.user_identificacion || '').trim())) : []
+  if (!results.length && !sinDM.length) return 'nada pendiente'
   // Cada linea: solo numero de solicitud y nombre de la persona
   const linea = s => `#${s.id} · ${nombrePersonaSol(s)}`
   const pend = results.filter(s => s.estado === 'PENDIENTE')
@@ -3714,6 +3720,7 @@ async function recordatorioPendientesTeams(env, forzar) {
   const men = await mencionesTeams(env)
   const pAprobar = pend.length ? await personasTeams(env, men.aprobar) : []
   const pEjecutar = aprob.length ? await personasTeams(env, men.ejecutar) : []
+  const pDM = sinDM.length ? await personasTeams(env, men.datamaestra) : []
   const at = p => `<at>${p.nombre}</at>`
   const MAX = 15
   const seccion = (titulo, color, items, personas, toca) => !items.length ? [] : [
@@ -3722,7 +3729,7 @@ async function recordatorioPendientesTeams(env, forzar) {
       text: items.slice(0, MAX).map(x => '- ' + x).join('\n') + (items.length > MAX ? `\n- … y ${items.length - MAX} más` : '') },
     ...(personas.length ? [{ type: 'TextBlock', text: `👉 ${toca}: ${personas.map(at).join(', ')}`, weight: 'Bolder', wrap: true }] : [])
   ]
-  const personas = [...pAprobar, ...pEjecutar].filter((p, i, a) => a.findIndex(x => x.id === p.id) === i)
+  const personas = [...pAprobar, ...pEjecutar, ...pDM].filter((p, i, a) => a.findIndex(x => x.id === p.id) === i)
   const fecha = new Date().toLocaleDateString('es-EC', { timeZone: 'America/Guayaquil', weekday: 'long', day: 'numeric', month: 'long' })
   const tarjeta = {
     $schema: 'http://adaptivecards.io/schemas/adaptive-card.json', type: 'AdaptiveCard', version: '1.4',
@@ -3730,7 +3737,8 @@ async function recordatorioPendientesTeams(env, forzar) {
       { type: 'TextBlock', text: 'Recordatorio · solicitudes pendientes', weight: 'Bolder', size: 'Medium', color: 'Accent', wrap: true },
       { type: 'TextBlock', text: fecha, isSubtle: true, spacing: 'None' },
       ...seccion('Pendientes de aprobar', 'Warning', pend.map(linea), pAprobar, 'Le toca aprobar'),
-      ...seccion('Aprobadas sin ejecutar en AP1', 'Accent', aprob.map(linea), pEjecutar, 'Le toca ejecutar')
+      ...seccion('Aprobadas sin ejecutar en AP1', 'Accent', aprob.map(linea), pEjecutar, 'Le toca ejecutar'),
+      ...seccion('Transportistas que faltan en Data Maestra', 'Attention', sinDM.map(linea), pDM, 'Le toca registrarlos')
     ],
     actions: [{ type: 'Action.OpenUrl', title: 'Abrir Control de Usuarios', url: APP_USUARIOS_URL }],
     ...(personas.length ? { msteams: { entities: personas.map(p => ({ type: 'mention', text: at(p), mentioned: { id: p.id, name: p.nombre } })) } } : {})
@@ -4270,6 +4278,8 @@ export default {
       ctx.waitUntil(refrescoPesado(env).catch(e => console.error('refrescoPesado error:', e)))
     } else if (event.cron === '0 17 * * *') {
       ctx.waitUntil(avisoInventarioLaboratoriosTeams(env).catch(e => console.error('avisoInventarioLaboratoriosTeams error:', e)))
+      // 12:00 Ecuador: tambien el recordatorio de solicitudes pendientes de Control de Usuarios
+      ctx.waitUntil(recordatorioPendientesTeams(env).then(r => console.log('recordatorio usuarios 12:00:', r)).catch(e => console.error('recordatorio usuarios error:', e)))
     } else if (event.cron === '0 21 * * *') {
       // 16:00 Ecuador: recordatorio de solicitudes pendientes de Control de Usuarios por Teams
       ctx.waitUntil(recordatorioPendientesTeams(env).then(r => console.log('recordatorio usuarios:', r)).catch(e => console.error('recordatorio usuarios error:', e)))
