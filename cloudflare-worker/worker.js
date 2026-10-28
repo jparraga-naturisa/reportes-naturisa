@@ -3707,10 +3707,8 @@ async function recordatorioPendientesTeams(env, forzar) {
   const { results } = await env.db.prepare(
     `SELECT * FROM usuarios_solicitudes WHERE estado IN ('PENDIENTE','APROBADA') ORDER BY id`).all()
   if (!results.length) return 'nada pendiente'
-  const ahora = Date.now()
-  const hace = f => { const n = Math.floor((ahora - new Date(f).getTime()) / 86400000); return n <= 0 ? 'hoy' : n === 1 ? 'hace 1 día' : `hace ${n} días` }
-  const tipo = t => ({ ALTA: 'Usuario nuevo', CAMBIO: 'Edición', BAJA: 'Baja' }[t] || t)
-  const linea = s => `#${s.id} · ${tipo(s.tipo)} · ${nombrePersonaSol(s)} · ${s.subsidiary_nombre} · ${resumenPedido(s)}`
+  // Cada linea: solo numero de solicitud y nombre de la persona
+  const linea = s => `#${s.id} · ${nombrePersonaSol(s)}`
   const pend = results.filter(s => s.estado === 'PENDIENTE')
   const aprob = results.filter(s => s.estado === 'APROBADA')
   const men = await mencionesTeams(env)
@@ -3731,8 +3729,8 @@ async function recordatorioPendientesTeams(env, forzar) {
     body: [
       { type: 'TextBlock', text: 'Recordatorio · solicitudes pendientes', weight: 'Bolder', size: 'Medium', color: 'Accent', wrap: true },
       { type: 'TextBlock', text: fecha, isSubtle: true, spacing: 'None' },
-      ...seccion('Pendientes de aprobar', 'Warning', pend.map(s => `${linea(s)} (pedida ${hace(s.creado_en)})`), pAprobar, 'Le toca aprobar'),
-      ...seccion('Aprobadas sin ejecutar en AP1', 'Accent', aprob.map(s => `${linea(s)} (aprobada ${hace(s.aprobado_en || s.resuelto_en || s.creado_en)})`), pEjecutar, 'Le toca ejecutar')
+      ...seccion('Pendientes de aprobar', 'Warning', pend.map(linea), pAprobar, 'Le toca aprobar'),
+      ...seccion('Aprobadas sin ejecutar en AP1', 'Accent', aprob.map(linea), pEjecutar, 'Le toca ejecutar')
     ],
     actions: [{ type: 'Action.OpenUrl', title: 'Abrir Control de Usuarios', url: APP_USUARIOS_URL }],
     ...(personas.length ? { msteams: { entities: personas.map(p => ({ type: 'mention', text: at(p), mentioned: { id: p.id, name: p.nombre } })) } } : {})
