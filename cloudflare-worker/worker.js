@@ -3657,17 +3657,44 @@ async function postTeams(url, tarjeta) {
     return 'error: ' + String(e.message || e).slice(0, 150)
   } finally { clearTimeout(t) }
 }
-function tarjetaTeams(titulo, color, sub, hechos, nota) {
+// mencion (opcional): { texto: 'Le toca aprobar', personas: [{ id: correo, nombre }] } → "@Persona" en Teams (notifica)
+function tarjetaTeams(titulo, color, sub, hechos, nota, mencion) {
+  const personas = (mencion?.personas || []).filter(p => p.id)
+  const at = p => `<at>${p.nombre}</at>`
   return {
     $schema: 'http://adaptivecards.io/schemas/adaptive-card.json', type: 'AdaptiveCard', version: '1.4',
     body: [
       { type: 'TextBlock', text: titulo, weight: 'Bolder', size: 'Medium', color, wrap: true },
       ...(sub ? [{ type: 'TextBlock', text: sub, isSubtle: true, spacing: 'None', wrap: true }] : []),
       { type: 'FactSet', facts: hechos.filter(([, v]) => v).map(([title, value]) => ({ title, value: String(value) })) },
-      ...(nota ? [{ type: 'TextBlock', text: nota, color: 'Warning', weight: 'Bolder', wrap: true }] : [])
+      ...(nota ? [{ type: 'TextBlock', text: nota, color: 'Warning', weight: 'Bolder', wrap: true }] : []),
+      ...(personas.length ? [{ type: 'TextBlock', text: `👉 ${mencion.texto}: ${personas.map(at).join(', ')}`, weight: 'Bolder', wrap: true, spacing: 'Medium' }] : [])
     ],
-    actions: [{ type: 'Action.OpenUrl', title: 'Abrir Control de Usuarios', url: APP_USUARIOS_URL }]
+    actions: [{ type: 'Action.OpenUrl', title: 'Abrir Control de Usuarios', url: APP_USUARIOS_URL }],
+    ...(personas.length ? { msteams: { entities: personas.map(p => ({ type: 'mention', text: at(p), mentioned: { id: p.id, name: p.nombre } })) } } : {})
   }
+}
+// Correos a arrobar en Teams por paso: { aprobar: [], ejecutar: [], datamaestra: [] }.
+// Data Maestra usa por defecto los correos del aviso de transportistas.
+async function mencionesTeams(env) {
+  const m = await leerConfigUsuarios(env, 'teams_menciones', {})
+  return {
+    aprobar: m.aprobar || [], ejecutar: m.ejecutar || [],
+    datamaestra: m.datamaestra || await leerConfigUsuarios(env, 'correos_datamaestra', [])
+  }
+}
+// correo → { id, nombre }: el nombre sale del usuario de AP1 con el mismo usuario (antes de la @), si existe
+async function personasTeams(env, correos) {
+  if (!correos?.length) return []
+  let cat = null
+  try { cat = await catalogoUsuarios(env) } catch {}
+  const porUser = new Map(cat ? [...cat.usuarios.values()].map(u => [String(u.username || '').toLowerCase(), u]) : [])
+  return correos.map(c => {
+    const u = porUser.get(String(c).split('@')[0].toLowerCase())
+    const p = u ? `${u.firstNames || ''} ${u.lastNames || ''}`.trim().split(/\s+/) : []
+    const nombre = p.length >= 4 ? `${p[0]} ${p[2]}` : (p.join(' ') || String(c).split('@')[0])
+    return { id: String(c).trim(), nombre }
+  })
 }
 // evento: NUEVA | APROBADA | RECHAZADA | EJECUTADA. Nunca rompe la operacion: devuelve el resultado como texto.
 async function avisarTeams(env, sol, evento, quien, extra) {
@@ -3687,7 +3714,13 @@ async function avisarTeams(env, sol, evento, quien, extra) {
       ...(evento !== 'NUEVA' ? [[{ APROBADA: 'Aprobado por', RECHAZADA: 'Rechazado por', EJECUTADA: 'Ejecutado por' }[evento], quien]] : []),
       ['Usuario AP1', extra?.usuario], ['Observación', sol.motivo], ['Comentario', extra?.comentario]
     ]
-    return await postTeams(url, tarjetaTeams(`${cab[0]} · #${sol.id}`, cab[1], tipo, hechos, extra?.nota))
+    // A quien le toca el siguiente paso: aprobar (nueva), ejecutar en AP1 (aprobada), registrar en Data Maestra
+    const men = await mencionesTeams(env)
+    const toca = evento === 'NUEVA' ? ['Le toca aprobar', men.aprobar]
+      : evento === 'APROBADA' ? ['Le toca ejecutarla en AP1', men.ejecutar]
+      : evento === 'EJECUTADA' && extra?.nota ? ['Le toca registrarlo en Data Maestra', men.datamaestra] : null
+    const mencion = toca ? { texto: toca[0], personas: await personasTeams(env, toca[1]) } : null
+    return await postTeams(url, tarjetaTeams(`${cab[0]} · #${sol.id}`, cab[1], tipo, hechos, extra?.nota, mencion))
   } catch (e) {
     console.error('Teams:', e)
     return 'error: ' + String(e.message || e).slice(0, 150)
@@ -4083,7 +4116,7 @@ async function handleUsuariosD1(request, url, env) {
         return json({ correosDataMaestra: await leerConfigUsuarios(env, 'correos_datamaestra', []),
           canalCorreo: !!(env.CORREO_EMPRESA_USER && env.CORREO_EMPRESA_PASS),
           // La direccion del webhook no se devuelve completa (quien la tenga puede publicar en el canal)
-          teams: { configurado: !!wh, fin: wh ? wh.slice(-6) : '', eventos: await leerConfigUsuarios(env, 'teams_eventos', EVENTOS_TEAMS) } })
+          teams: { configurado: !!wh, fin: wh ? wh.slice(-6) : '', eventos: await leerConfigUsuarios(env, 'teams_eventos', EVENTOS_TEAMS), menciones: await mencionesTeams(env) } })
       }
       if (request.method === 'POST') {
         const b = await request.json().catch(() => ({}))
@@ -4098,8 +4131,19 @@ async function handleUsuariosD1(request, url, env) {
             await guardar('teams_webhook', wh)
           }
           if (Array.isArray(b.teams.eventos)) await guardar('teams_eventos', b.teams.eventos.map(String).filter(e => EVENTOS_TEAMS.includes(e)))
+          // Personas a arrobar por paso (correos de Naturisa)
+          if (b.teams.menciones && typeof b.teams.menciones === 'object') {
+            const m = {}
+            for (const k of ['aprobar', 'ejecutar', 'datamaestra']) {
+              const l = [...new Set((Array.isArray(b.teams.menciones[k]) ? b.teams.menciones[k] : []).map(c => String(c).trim().toLowerCase()).filter(Boolean))]
+              const malo = l.find(c => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c))
+              if (malo) return json({ error: `Correo no válido: ${malo}` }, 400)
+              m[k] = l
+            }
+            await guardar('teams_menciones', m)
+          }
           const wh = await leerConfigUsuarios(env, 'teams_webhook', '')
-          return json({ ok: true, teams: { configurado: !!wh, fin: wh ? wh.slice(-6) : '', eventos: await leerConfigUsuarios(env, 'teams_eventos', EVENTOS_TEAMS) } })
+          return json({ ok: true, teams: { configurado: !!wh, fin: wh ? wh.slice(-6) : '', eventos: await leerConfigUsuarios(env, 'teams_eventos', EVENTOS_TEAMS), menciones: await mencionesTeams(env) } })
         }
         const correos = [...new Set((Array.isArray(b.correosDataMaestra) ? b.correosDataMaestra : [])
           .map(c => String(c).trim().toLowerCase()).filter(Boolean))]
