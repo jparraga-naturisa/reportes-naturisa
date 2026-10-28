@@ -3696,6 +3696,50 @@ async function personasTeams(env, correos) {
     return { id: String(c).trim(), nombre }
   })
 }
+// Recordatorio diario (16:00 Ecuador) en el mismo Teams: solicitudes pendientes de aprobar y aprobadas sin
+// ejecutar, arrobando a quien le toca. Si no hay pendientes no se envia nada.
+// forzar: enviar aunque el recordatorio este desactivado (boton "Enviar recordatorio ahora")
+async function recordatorioPendientesTeams(env, forzar) {
+  const url = await leerConfigUsuarios(env, 'teams_webhook', '')
+  if (!url) return 'sin webhook'
+  if (!forzar && !(await leerConfigUsuarios(env, 'teams_recordatorio', true))) return 'desactivado'
+  await asegurarTablasUsuarios(env)
+  const { results } = await env.db.prepare(
+    `SELECT * FROM usuarios_solicitudes WHERE estado IN ('PENDIENTE','APROBADA') ORDER BY id`).all()
+  if (!results.length) return 'nada pendiente'
+  const ahora = Date.now()
+  const hace = f => { const n = Math.floor((ahora - new Date(f).getTime()) / 86400000); return n <= 0 ? 'hoy' : n === 1 ? 'hace 1 día' : `hace ${n} días` }
+  const tipo = t => ({ ALTA: 'Usuario nuevo', CAMBIO: 'Edición', BAJA: 'Baja' }[t] || t)
+  const linea = s => `#${s.id} · ${tipo(s.tipo)} · ${nombrePersonaSol(s)} · ${s.subsidiary_nombre} · ${resumenPedido(s)}`
+  const pend = results.filter(s => s.estado === 'PENDIENTE')
+  const aprob = results.filter(s => s.estado === 'APROBADA')
+  const men = await mencionesTeams(env)
+  const pAprobar = pend.length ? await personasTeams(env, men.aprobar) : []
+  const pEjecutar = aprob.length ? await personasTeams(env, men.ejecutar) : []
+  const at = p => `<at>${p.nombre}</at>`
+  const MAX = 15
+  const seccion = (titulo, color, items, personas, toca) => !items.length ? [] : [
+    { type: 'TextBlock', text: `${titulo} (${items.length})`, weight: 'Bolder', color, spacing: 'Medium', wrap: true },
+    { type: 'TextBlock', spacing: 'Small', wrap: true,
+      text: items.slice(0, MAX).map(x => '- ' + x).join('\n') + (items.length > MAX ? `\n- … y ${items.length - MAX} más` : '') },
+    ...(personas.length ? [{ type: 'TextBlock', text: `👉 ${toca}: ${personas.map(at).join(', ')}`, weight: 'Bolder', wrap: true }] : [])
+  ]
+  const personas = [...pAprobar, ...pEjecutar].filter((p, i, a) => a.findIndex(x => x.id === p.id) === i)
+  const fecha = new Date().toLocaleDateString('es-EC', { timeZone: 'America/Guayaquil', weekday: 'long', day: 'numeric', month: 'long' })
+  const tarjeta = {
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json', type: 'AdaptiveCard', version: '1.4',
+    body: [
+      { type: 'TextBlock', text: 'Recordatorio · solicitudes pendientes', weight: 'Bolder', size: 'Medium', color: 'Accent', wrap: true },
+      { type: 'TextBlock', text: fecha, isSubtle: true, spacing: 'None' },
+      ...seccion('Pendientes de aprobar', 'Warning', pend.map(s => `${linea(s)} (pedida ${hace(s.creado_en)})`), pAprobar, 'Le toca aprobar'),
+      ...seccion('Aprobadas sin ejecutar en AP1', 'Accent', aprob.map(s => `${linea(s)} (aprobada ${hace(s.aprobado_en || s.resuelto_en || s.creado_en)})`), pEjecutar, 'Le toca ejecutar')
+    ],
+    actions: [{ type: 'Action.OpenUrl', title: 'Abrir Control de Usuarios', url: APP_USUARIOS_URL }],
+    ...(personas.length ? { msteams: { entities: personas.map(p => ({ type: 'mention', text: at(p), mentioned: { id: p.id, name: p.nombre } })) } } : {})
+  }
+  return await postTeams(url, tarjeta)
+}
+
 // evento: NUEVA | APROBADA | RECHAZADA | EJECUTADA. Nunca rompe la operacion: devuelve el resultado como texto.
 async function avisarTeams(env, sol, evento, quien, extra) {
   try {
@@ -4116,7 +4160,7 @@ async function handleUsuariosD1(request, url, env) {
         return json({ correosDataMaestra: await leerConfigUsuarios(env, 'correos_datamaestra', []),
           canalCorreo: !!(env.CORREO_EMPRESA_USER && env.CORREO_EMPRESA_PASS),
           // La direccion del webhook no se devuelve completa (quien la tenga puede publicar en el canal)
-          teams: { configurado: !!wh, fin: wh ? wh.slice(-6) : '', eventos: await leerConfigUsuarios(env, 'teams_eventos', EVENTOS_TEAMS), menciones: await mencionesTeams(env) } })
+          teams: { configurado: !!wh, fin: wh ? wh.slice(-6) : '', eventos: await leerConfigUsuarios(env, 'teams_eventos', EVENTOS_TEAMS), menciones: await mencionesTeams(env), recordatorio: await leerConfigUsuarios(env, 'teams_recordatorio', true) } })
       }
       if (request.method === 'POST') {
         const b = await request.json().catch(() => ({}))
@@ -4131,6 +4175,7 @@ async function handleUsuariosD1(request, url, env) {
             await guardar('teams_webhook', wh)
           }
           if (Array.isArray(b.teams.eventos)) await guardar('teams_eventos', b.teams.eventos.map(String).filter(e => EVENTOS_TEAMS.includes(e)))
+          if (typeof b.teams.recordatorio === 'boolean') await guardar('teams_recordatorio', b.teams.recordatorio)
           // Personas a arrobar por paso (correos de Naturisa)
           if (b.teams.menciones && typeof b.teams.menciones === 'object') {
             const m = {}
@@ -4143,7 +4188,7 @@ async function handleUsuariosD1(request, url, env) {
             await guardar('teams_menciones', m)
           }
           const wh = await leerConfigUsuarios(env, 'teams_webhook', '')
-          return json({ ok: true, teams: { configurado: !!wh, fin: wh ? wh.slice(-6) : '', eventos: await leerConfigUsuarios(env, 'teams_eventos', EVENTOS_TEAMS), menciones: await mencionesTeams(env) } })
+          return json({ ok: true, teams: { configurado: !!wh, fin: wh ? wh.slice(-6) : '', eventos: await leerConfigUsuarios(env, 'teams_eventos', EVENTOS_TEAMS), menciones: await mencionesTeams(env), recordatorio: await leerConfigUsuarios(env, 'teams_recordatorio', true) } })
         }
         const correos = [...new Set((Array.isArray(b.correosDataMaestra) ? b.correosDataMaestra : [])
           .map(c => String(c).trim().toLowerCase()).filter(Boolean))]
@@ -4164,6 +4209,15 @@ async function handleUsuariosD1(request, url, env) {
       const r = await postTeams(url, tarjetaTeams('Prueba de avisos · Control de Usuarios', 'Good', 'Si ves este mensaje, los avisos por Teams funcionan.',
         [['Enviado por', s.n], ['Fecha', new Date().toLocaleString('es-EC', { timeZone: 'America/Guayaquil' })]]))
       return json(r === 'enviado' ? { ok: true } : { error: 'Teams no aceptó el mensaje: ' + r }, r === 'enviado' ? 200 : 502)
+    }
+
+    // ── Teams: enviar el recordatorio de pendientes ahora (solo admin) ──
+    if (path === '/d1/usuarios/teams/recordatorio' && request.method === 'POST') {
+      if (!s.adm) return json({ error: 'Solo administradores' }, 403)
+      const r = await recordatorioPendientesTeams(env, true)
+      if (r === 'enviado') return json({ ok: true, resultado: 'Recordatorio enviado a Teams' })
+      if (r === 'nada pendiente') return json({ ok: true, resultado: 'No hay solicitudes pendientes: hoy no se enviaría recordatorio' })
+      return json({ error: r === 'sin webhook' ? 'Primero guarda la dirección del webhook' : 'Teams no aceptó el mensaje: ' + r }, r === 'sin webhook' ? 400 : 502)
     }
 
     // ── Administradores (solo admin) ──
@@ -4218,6 +4272,9 @@ export default {
       ctx.waitUntil(refrescoPesado(env).catch(e => console.error('refrescoPesado error:', e)))
     } else if (event.cron === '0 17 * * *') {
       ctx.waitUntil(avisoInventarioLaboratoriosTeams(env).catch(e => console.error('avisoInventarioLaboratoriosTeams error:', e)))
+    } else if (event.cron === '0 21 * * *') {
+      // 16:00 Ecuador: recordatorio de solicitudes pendientes de Control de Usuarios por Teams
+      ctx.waitUntil(recordatorioPendientesTeams(env).then(r => console.log('recordatorio usuarios:', r)).catch(e => console.error('recordatorio usuarios error:', e)))
     } else {
       ctx.waitUntil(refrescoLiviano(env).catch(e => console.error('refrescoLiviano error:', e)))
     }
