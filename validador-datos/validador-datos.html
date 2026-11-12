@@ -117,6 +117,7 @@ table.cmp-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .cmp-tbl td:first-child { text-align: left; font-weight: 600; color: var(--text); white-space: normal; }
 .cmp-tbl tr:hover td { background: #f8fafc; }
 .cmp-tbl td.empty { color: #c7c7cc; }
+.cmp-tbl.dgh-solo-diff tr.dgh-ok { display: none; }
 .cmp-tbl td.diff { color: var(--danger); font-weight: 700; background: #fef2f2; }
 .cmp-tbl tr.grp-first td { border-top: 2px solid var(--border); border-bottom: none; }
 .cmp-tbl td.grp-title, .cmp-tbl tr:hover td.grp-title { background: var(--primary); color: white; font-weight: 700; font-size: 12.5px; padding: 8px 10px; }
@@ -146,6 +147,7 @@ table.cmp-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
         <button class="htab-btn" id="tab-btn-resumen" onclick="showTab('resumen')">Resumen vs Piscinas</button>
         <button class="htab-btn" id="tab-btn-concepto" onclick="showTab('concepto')">Por Concepto</button>
         <button class="htab-btn" id="tab-btn-liq" onclick="showTab('liq')">Piscinas Liquidadas</button>
+        <button class="htab-btn" id="tab-btn-dgh" onclick="showTab('dgh')">Datos generales vs Historia</button>
     </nav>
     <div class="header-user" id="header-user" onclick="toggleUserMenu(event)">
         <div class="user-avatar" id="user-avatar"></div>
@@ -385,6 +387,41 @@ table.cmp-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
     </div>
 </div>
 
+<div id="tab-dgh" style="display:none">
+    <div class="filters">
+        <div class="fg">
+            <label>Sucursal</label>
+            <select id="dgh-sucursal"></select>
+        </div>
+        <div class="fg">
+            <label>Uso del ciclo</label>
+            <select id="dgh-uso">
+                <option value="">Todos</option>
+                <option value="7" selected>Engorde</option>
+                <option value="8">Pre Engorde</option>
+                <option value="9">Precriadero</option>
+            </select>
+        </div>
+        <div class="fg">
+            <label>Mostrar</label>
+            <div class="chk-group">
+                <label><input type="checkbox" id="dgh-solo-diff" checked onchange="dghToggleSoloDiff()"> Solo diferencias</label>
+            </div>
+        </div>
+        <button class="btn-apply" id="btn-dgh" onclick="validarDatosGeneralesVsHistoria()">Validar</button>
+        <button class="btn-apply" onclick="exportarExcel('dgh-content', 'datos_generales_vs_historia')" style="background:#166534">Exportar a Excel</button>
+    </div>
+
+    <div class="main" id="dgh-content">
+        <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <div>Compara el widget "Datos generales" (cycles/{id}) contra la última semana de "Historia del ciclo - Siembra"
+            (cycle_histories/production/{id}) en todos los ciclos activos de la sucursal.<br>
+            Peso y biomasa de siembra se comparan contra la semana 0 (siembra) de la historia.</div>
+        </div>
+    </div>
+</div>
+
 <script>
 const _IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 const _PROXY    = _IS_LOCAL ? '' : 'https://naturisa-proxy.parragajonathan965.workers.dev';
@@ -429,6 +466,10 @@ function populateSucursales() {
     liqSel.innerHTML = '<option value="ALL">— Todas las sucursales —</option>' + SUBSIDIARIES
         .slice().sort((a,b) => a.name.localeCompare(b.name, 'es'))
         .map(s => `<option value="${s.code}">${s.name} (${s.code})</option>`).join('');
+    const dghSel = document.getElementById('dgh-sucursal');
+    dghSel.innerHTML = '<option value="ALL">— Todas las sucursales —</option>' + SUBSIDIARIES
+        .slice().sort((a,b) => a.name.localeCompare(b.name, 'es'))
+        .map(s => `<option value="${s.code}">${s.name} (${s.code})</option>`).join('');
 }
 populateSucursales();
 
@@ -443,10 +484,12 @@ function showTab(name) {
     document.getElementById('tab-resumen').style.display = name === 'resumen' ? '' : 'none';
     document.getElementById('tab-concepto').style.display = name === 'concepto' ? '' : 'none';
     document.getElementById('tab-liq').style.display = name === 'liq' ? '' : 'none';
+    document.getElementById('tab-dgh').style.display = name === 'dgh' ? '' : 'none';
     document.getElementById('tab-btn-ciclo').classList.toggle('active', name === 'ciclo');
     document.getElementById('tab-btn-resumen').classList.toggle('active', name === 'resumen');
     document.getElementById('tab-btn-concepto').classList.toggle('active', name === 'concepto');
     document.getElementById('tab-btn-liq').classList.toggle('active', name === 'liq');
+    document.getElementById('tab-btn-dgh').classList.toggle('active', name === 'dgh');
 }
 
 // ── Autocompletado de piscina/ciclo ───────────────────────────
@@ -578,6 +621,13 @@ document.addEventListener('click', () => document.getElementById('user-menu').cl
 })();
 
 // ── API helpers ──────────────────────────────────────────────
+// El token de AP1 vence pero el nombre queda guardado, asi que la pagina parecia seguir
+// conectada: ante cualquier 401 se cierra la sesion para que vuelva a aparecer el login.
+function sesionExpirada() {
+    if (!getToken()) return;
+    doLogout();
+    document.getElementById('login-status').textContent = '⚠ La sesión expiró — vuelve a ingresar';
+}
 async function apiGet(path, params) {
     let qs = '';
     if (params) {
@@ -589,6 +639,7 @@ async function apiGet(path, params) {
     const res = await fetch(fullUrl, {
         headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json, text/plain, */*' }
     });
+    if (res.status === 401) sesionExpirada();
     if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
     const json = await res.json();
     return json.data;
@@ -601,6 +652,7 @@ async function apiPost(path, body) {
         headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json, text/plain, */*', 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
+    if (res.status === 401) sesionExpirada();
     if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
     const json = await res.json();
     return json.data;
@@ -2098,6 +2150,158 @@ async function buscarPorConcepto() {
         container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Error: ${e.message}</div></div>`;
     } finally {
         btn.disabled = false; btn.textContent = 'Buscar diferencias';
+    }
+}
+
+// ── Datos generales vs Historia del ciclo - Siembra ─────────────────────────
+// Ambos widgets del tablero nativo muestran varios conceptos iguales del ciclo activo: se compara
+// cycles/{id} (Datos generales) contra la ULTIMA fila de cycle_histories/production/{id} (semana en
+// curso, la que muestra la pantalla) - y los datos de siembra contra la fila 0 (semana de siembra).
+// Mapeo verificado con datos reales (A1, sep/2026): en ciclos sanos todos los conceptos coinciden exacto.
+const DGH_CONCEPTS = [
+    { label: 'Días de producción', decimals: 0, cd: o => o.daysProduction, ch: h => h.last.productionDays },
+    { label: 'Peso siembra (g)', decimals: 2, cd: o => o.sowingAverageWeightGrams, ch: h => h.first.weight },
+    { label: 'Biomasa inicial (lb)', decimals: 0, cd: o => o.initialBiomassPounds, ch: h => h.first.biomassActual },
+    { label: 'Peso promedio finca (g)', decimals: 2, cd: o => o.averageWeightGrams, ch: h => h.last.weight },
+    { label: 'Crecimiento última semana (g)', decimals: 2, cd: o => o.growthLastWeek, ch: h => h.last.growthlastWeeks },
+    { label: 'Crecimiento 2 semanas (g)', decimals: 2, cd: o => o.growthTwoWeeks, ch: h => h.last.growth2Weeks },
+    // Datos generales calcula este (a diferencia de 1S/2S) sobre la ULTIMA SEMANA CERRADA, no la semana
+    // en curso (proyectada) - y lo deja en 0 hasta tener 4 semanas cerradas.
+    { label: 'Crecimiento 4 semanas (g)', decimals: 2, cd: o => o.growthFourWeeks, ch: h => h.last.growth4Weeks,
+      nota: 'Datos generales usa la última semana cerrada; Historia incluye la semana en curso' },
+    { label: 'Crecimiento desde inicio (g)', decimals: 2, cd: o => o.initialGrowth, ch: h => h.last.growthFromTheBeginning },
+    { label: 'Sobrevivencia (%)', decimals: 2, cd: o => o.estimatedSurvival, ch: h => h.last.survival },
+    { label: 'Animales totales', decimals: 0, cd: o => cdField(o, 'TotalAnimals'), ch: h => h.last.totalAnimals },
+    { label: 'Animales actuales', decimals: 0, cd: o => cdField(o, 'ActualAnimals'), ch: h => h.last.totalActualAnimals },
+    { label: 'Animales cosechados', decimals: 0, cd: o => cdField(o, 'ThinnedAnimals'), ch: h => h.last.accumulatedAnimalsHarvested },
+    { label: 'Densidad actual (/m2)', decimals: 2, tol: 0.06, cd: o => cdField(o, 'ActualDensityPerMeter'), ch: h => h.last.totalActualAnimalsPerSquareMeter,
+      nota: 'Historia redondea a 1 decimal (tolerancia 0,06)' },
+    { label: 'Biomasa actual (lb)', decimals: 0, cd: o => o.estimatedActualBiomassPounds, ch: h => h.last.biomassActual },
+    { label: 'Biomasa cosechada (lb)', decimals: 0, cd: o => cdField(o, 'ThinnedBiomassPounds'), ch: h => h.last.accumulatedBiomassHarvested },
+    { label: 'Biomasa total (lb)', decimals: 0, cd: o => cdField(o, 'TotalBiomassPounds'),
+      ch: h => (h.last.biomassActual || 0) + (h.last.accumulatedBiomassHarvested || 0), nota: 'Historia: biomasa actual + cosechada acumulada' },
+    { label: 'Alimento acumulado (kg)', decimals: 0, cd: o => o.accumulatedFeedKilograms, ch: h => h.last.totalAccumulateFeed },
+    { label: 'FCA Real', decimals: 2, cd: o => o.growthFactor, ch: h => h.last.fca },
+    { label: 'FCA Bruto', decimals: 2, cd: o => o.grossGrowthFactor, ch: h => h.last.fcaGross },
+    { label: 'FCA Larvas', decimals: 2, cd: o => o.estimatedGrowthFactorFromLarvae, ch: h => h.last.fcaFromLarvae },
+];
+
+// null/undefined se tratan como 0 (la historia omite campos que aun no aplican, ej. growth4Weeks
+// antes de la semana 4, mientras Datos generales los manda en 0) - si ambos son 0 no hay nada que comparar.
+function dghComparar(concept, cd, hist) {
+    const safe = fn => { try { const v = fn(); return (typeof v === 'number' && !Number.isNaN(v)) ? v : null; } catch (e) { return null; } };
+    const a = safe(() => concept.cd(cd)), b = safe(() => concept.ch(hist));
+    const na = a || 0, nb = b || 0;
+    const tol = concept.tol ?? (0.5 * Math.pow(10, -concept.decimals) + 1e-9);
+    return { a, b, delta: na - nb, vacio: !na && !nb, esDiff: Math.abs(na - nb) > tol };
+}
+
+function dghToggleSoloDiff() {
+    const solo = document.getElementById('dgh-solo-diff').checked;
+    document.querySelectorAll('#dgh-content table.dgh-detalle').forEach(t => t.classList.toggle('dgh-solo-diff', solo));
+}
+
+async function validarDatosGeneralesVsHistoria() {
+    if (!getToken()) { alert('Inicia sesión primero'); return; }
+    const subCode = document.getElementById('dgh-sucursal').value;
+    const uso = document.getElementById('dgh-uso').value;
+    const subs = subCode === 'ALL' ? SUBSIDIARIES : SUBSIDIARIES.filter(s => s.code === subCode);
+    const container = document.getElementById('dgh-content');
+    const btn = document.getElementById('btn-dgh');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Validando...';
+    const { year, week } = isoWeek(new Date());
+
+    try {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><div id="dgh-progreso">Buscando ciclos activos...</div></div>`;
+        const progreso = document.getElementById('dgh-progreso');
+        // pool_production da los ciclos activos (idCycle) de la semana actual; puede traer varias
+        // filas por ciclo (varios lotes) - se deduplica por idCycle.
+        const ciclos = [];
+        const vistos = new Set();
+        const errores = [];
+        await runPool(subs, 6, async sub => {
+            let data = null;
+            try {
+                data = await apiGet('report_production/pool_production', [['subsidiaryIds', sub.id], ['cutOffYear', year], ['cutOffWeek', week]]);
+            } catch (e) { errores.push(`${sub.code}: ${e.message}`); return; }
+            (data || []).forEach(r => {
+                if (!r.idCycle || vistos.has(r.idCycle)) return;
+                if (uso && String(r.cycleUsageId) !== uso) return;
+                vistos.add(r.idCycle);
+                ciclos.push({ sub, cycleId: r.idCycle, poolName: canonicalPoolName(r.poolName), cycleNumber: r.cycleNumber });
+            });
+        });
+        if (!ciclos.length) {
+            const detalleErr = errores.length
+                ? `<br><br>No se pudo consultar Piscinas en producción en ${errores.length} sucursal(es):<br>${errores.slice(0, 5).join('<br>')}`
+                  + (errores.some(e => /HTTP 401/.test(e)) ? '<br><b>La sesión expiró: vuelve a ingresar arriba y presiona Validar.</b>' : '')
+                : '';
+            container.innerHTML = `<div class="empty-state"><div class="empty-icon">🤷</div><div>Sin ciclos activos para los filtros elegidos.${detalleErr}</div></div>`;
+            return;
+        }
+
+        let done = 0;
+        const resultados = [];
+        await runPool(ciclos, 6, async c => {
+            const [cd, hist] = await Promise.all([
+                fetchCycleDetail(c.cycleId),
+                apiGet(`cycle_histories/production/${c.cycleId}`, []).catch(() => null),
+            ]);
+            done++;
+            progreso.textContent = `Validando ${done}/${ciclos.length} ciclos...`;
+            if (!cd || !hist || !hist.length) { resultados.push({ ...c, error: !cd ? 'Sin Datos generales' : 'Sin Historia del ciclo' }); return; }
+            const h = { first: hist[0], last: hist[hist.length - 1] };
+            resultados.push({ ...c, dias: cd.daysProduction, comps: DGH_CONCEPTS.map(k => dghComparar(k, cd, h)) });
+        });
+
+        resultados.sort((x, y) => x.sub.code.localeCompare(y.sub.code) || String(x.poolName).localeCompare(String(y.poolName), 'es', { numeric: true }));
+        const validos = resultados.filter(r => !r.error);
+        const conDiff = validos.filter(r => r.comps.some(c => c.esDiff));
+
+        const resumenRows = DGH_CONCEPTS.map((k, i) => {
+            const comparados = validos.filter(r => !r.comps[i].vacio).length;
+            const n = validos.filter(r => r.comps[i].esDiff).length;
+            return `<tr><td>${k.label}</td><td>${comparados}</td><td class="${n ? 'diff' : ''}">${n}</td>
+                <td style="text-align:left;white-space:normal;color:var(--muted)">${k.nota || ''}</td></tr>`;
+        }).join('');
+
+        // La identificacion (sucursal/piscina/ciclo) se repite en cada fila: con "Solo diferencias"
+        // se ocultan filas sueltas, y asi ninguna fila visible (ni el Excel) queda sin su ciclo.
+        const fv = (v, d) => (v === null || v === undefined) ? '—' : fmtField(v, d);
+        let detalle = '';
+        resultados.forEach(r => {
+            const ident = `<td>${r.sub.code}</td><td>${r.poolName}</td><td>${r.cycleNumber}</td><td>${r.dias ?? '—'}</td>`;
+            if (r.error) {
+                detalle += `<tr>${ident}<td colspan="4" class="diff" style="text-align:left">${r.error}</td></tr>`;
+                return;
+            }
+            r.comps.forEach((c, i) => {
+                if (c.vacio) return;
+                const k = DGH_CONCEPTS[i];
+                detalle += `<tr class="${c.esDiff ? '' : 'dgh-ok'}">${ident}`
+                    + `<td style="text-align:left">${k.label}</td><td>${fv(c.a, k.decimals)}</td><td>${fv(c.b, k.decimals)}</td>`
+                    + `<td class="${c.esDiff ? 'diff' : ''}">${c.esDiff ? fv(c.delta, k.decimals) : '✓'}</td></tr>`;
+            });
+        });
+
+        const solo = document.getElementById('dgh-solo-diff').checked;
+        const sinDatos = resultados.length - validos.length;
+        container.innerHTML = `
+            <div class="section-card"><div class="section-title"><span>Resumen por concepto</span>
+                <span class="section-hint">${conDiff.length} de ${validos.length} ciclos activos con alguna diferencia${sinDatos ? ` · ${sinDatos} sin datos` : ''}${errores.length ? ` · ${errores.length} sucursal(es) con error: ${errores.join(', ')}` : ''}</span></div>
+                <table class="cmp-tbl"><thead><tr><th>Concepto</th><th>Ciclos comparados</th><th>Con diferencia</th><th style="text-align:left">Nota</th></tr></thead>
+                <tbody>${resumenRows}</tbody></table></div>
+            <div class="section-card"><div class="section-title"><span>Detalle por ciclo</span>
+                <span class="section-hint">Diferencia = Datos generales − Historia</span></div>
+                <table class="cmp-tbl dgh-detalle ${solo ? 'dgh-solo-diff' : ''}"><thead><tr><th>Sucursal</th><th>Piscina</th><th>Ciclo</th><th>Días prod.</th>
+                    <th style="text-align:left">Concepto</th><th>Datos generales</th><th>Historia siembra</th><th>Diferencia</th></tr></thead>
+                <tbody>${detalle}</tbody></table>
+                ${!conDiff.length && !sinDatos ? '<div style="padding:24px;text-align:center;color:var(--muted)">✓ Ninguna diferencia entre Datos generales e Historia en los ciclos validados.</div>' : ''}
+            </div>`;
+    } catch (e) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Error: ${e.message}</div></div>`;
+    } finally {
+        btn.disabled = false; btn.textContent = 'Validar';
     }
 }
 

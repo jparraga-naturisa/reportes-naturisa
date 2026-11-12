@@ -223,9 +223,10 @@ tbody tr:last-child td{border-bottom:none}
     <div class="fg"><label>Usuario</label><input type="text" id="login-user" placeholder="Ingresa tu usuario" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <div class="fg"><label>Contraseña</label><input type="password" id="login-pass" placeholder="Ingresa tu contraseña" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <div class="login-error" id="login-error"></div>
-    <button class="btn-login" onclick="doLogin()">Ingresar</button>
+    <button class="btn-login" id="btn-login" onclick="doLogin()">Ingresar</button>
   </div>
 </div>
+
 
 <div class="app-shell" id="app-shell" style="display:none">
   <!-- ── Sidebar ── -->
@@ -244,6 +245,10 @@ tbody tr:last-child td{border-bottom:none}
       <div class="tab" onclick="showTab('historial')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
         Historial
+      </div>
+      <div class="tab" onclick="showTab('solicitud')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Solicitud
       </div>
       <div class="sidebar-section">Admin</div>
       <div class="tab" id="tab-btn-usuarios" style="display:none" onclick="showTab('usuarios')">
@@ -275,6 +280,7 @@ tbody tr:last-child td{border-bottom:none}
       <span class="topbar-title" id="topbar-title">Dashboard</span>
       <div class="topbar-right">
         <span id="hdr-date" style="font-size:12px;color:var(--muted)"></span>
+        <span id="badge-prueba" style="display:none;background:#f59e0b;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.5px">⚠ MODO PRUEBA</span>
       </div>
     </div>
     <main class="content">
@@ -517,6 +523,156 @@ tbody tr:last-child td{border-bottom:none}
     </div>
   </div>
 
+  <!-- ── TAB: Solicitud ── -->
+  <div id="tab-solicitud" style="display:none">
+    <div style="max-width:680px">
+      <div id="tab-sol-success" style="display:none;text-align:center;background:#fff;border-radius:14px;padding:40px;box-shadow:0 2px 12px rgba(0,0,0,.08);margin-bottom:20px">
+        <div style="font-size:48px;margin-bottom:10px">✅</div>
+        <div style="font-size:18px;font-weight:700;color:var(--primary);margin-bottom:6px">¡Solicitud enviada!</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:20px">El requerimiento fue registrado correctamente.</div>
+        <button class="btn btn-primary" onclick="initSolicitudTab()">Nueva solicitud</button>
+      </div>
+      <div id="tab-sol-form">
+        <div class="form-card">
+          <div class="form-grid">
+
+            <!-- Filtros principales -->
+            <div class="fg"><label>Área</label>
+              <select id="sol-area" onchange="solOnAreaChange()">
+                <option value="">-- Seleccionar --</option>
+                <option>Bodega</option>
+                <option>Producción</option>
+              </select>
+            </div>
+
+            <!-- Módulo (solo Producción) -->
+            <div class="fg" id="sol-fg-modulo-prod" style="display:none"><label>Módulo</label>
+              <select id="sol-modulo-prod" onchange="solOnModuloChange()">
+                <option value="">-- Seleccionar --</option>
+                <option value="consumo">Consumo</option>
+                <option value="planificacion">Planificación</option>
+                <option value="peso">Peso</option>
+              </select>
+            </div>
+
+            <div class="fg"><label>Sucursal</label>
+              <select id="sol-sucursal" onchange="solOnSucursalChange()">
+                <option value="">-- Cargando... --</option>
+              </select>
+            </div>
+
+            <!-- Panel búsqueda de movimientos -->
+            <div id="sol-mov-panel" class="fg-full" style="display:none">
+              <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg)">
+                <div style="font-weight:600;font-size:13px;margin-bottom:10px;color:var(--primary)">Buscar movimiento a corregir</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-bottom:12px">
+                  <div class="fg" style="margin:0"><label>Desde</label><input type="date" id="sol-mov-desde"></div>
+                  <div class="fg" style="margin:0"><label>Hasta</label><input type="date" id="sol-mov-hasta"></div>
+                  <button type="button" class="btn btn-primary" id="sol-mov-btn" onclick="solBuscarMovimientos()" style="height:36px">Buscar</button>
+                </div>
+                <div id="sol-mov-results"></div>
+              </div>
+            </div>
+
+            <!-- Filtro piscina (solo Producción) -->
+            <div class="fg" id="sol-fg-piscina-filtro" style="display:none"><label>Piscina</label>
+              <select id="sol-piscina-filtro" onchange="solOnPiscinaFiltroChange()">
+                <option value="">-- Cargando... --</option>
+              </select>
+            </div>
+
+            <!-- Filtro ciclo (solo Planificación) -->
+            <div class="fg" id="sol-fg-ciclo-filtro" style="display:none"><label>Ciclo</label>
+              <select id="sol-plan-ciclo" onchange="solPlanOnCicloChange()">
+                <option value="">-- Seleccionar ciclo --</option>
+              </select>
+            </div>
+
+            <!-- Panel búsqueda consumos (Producción) -->
+            <div id="sol-cons-panel" class="fg-full" style="display:none">
+              <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg)">
+                <div style="font-weight:600;font-size:13px;margin-bottom:10px;color:var(--primary)">Buscar consumo a corregir</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-bottom:12px">
+                  <div class="fg" style="margin:0"><label>Desde</label><input type="date" id="sol-cons-desde"></div>
+                  <div class="fg" style="margin:0"><label>Hasta</label><input type="date" id="sol-cons-hasta"></div>
+                  <button type="button" class="btn btn-primary" id="sol-cons-btn" onclick="solBuscarConsumos()" style="height:36px">Buscar</button>
+                </div>
+                <div id="sol-cons-results"></div>
+              </div>
+            </div>
+
+            <!-- Panel Planificación (ciclos) -->
+            <div id="sol-plan-panel" class="fg-full" style="display:none">
+              <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg)">
+                <div style="font-weight:600;font-size:13px;margin-bottom:10px;color:var(--primary)">Planificación</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-bottom:12px">
+                  <div class="fg" style="margin:0"><label>Desde</label><input type="date" id="sol-plan-desde"></div>
+                  <div class="fg" style="margin:0"><label>Hasta</label><input type="date" id="sol-plan-hasta"></div>
+                  <button type="button" class="btn btn-primary" onclick="solFiltrarCiclosPorFecha()" style="height:36px">Buscar</button>
+                </div>
+                <div id="sol-plan-results"></div>
+              </div>
+            </div>
+
+            <!-- Panel Peso -->
+            <div id="sol-peso-panel" class="fg-full" style="display:none">
+              <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg)">
+                <div style="font-weight:600;font-size:13px;margin-bottom:10px;color:var(--primary)">Muestreos de peso</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-bottom:12px">
+                  <div class="fg" style="margin:0"><label>Desde</label><input type="date" id="sol-peso-desde"></div>
+                  <div class="fg" style="margin:0"><label>Hasta</label><input type="date" id="sol-peso-hasta"></div>
+                  <button type="button" class="btn btn-primary" onclick="solBuscarPesos()" style="height:36px">Buscar</button>
+                </div>
+                <div id="sol-peso-results"></div>
+              </div>
+            </div>
+            <div id="sol-peso-accion-panel" class="fg-full" style="display:none">
+              <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg)">
+                <div style="font-weight:600;font-size:13px;margin-bottom:10px;color:var(--primary)">Acción a realizar</div>
+                <div id="sol-peso-accion-fields"></div>
+              </div>
+            </div>
+
+            <!-- Acción Planificación -->
+            <div id="sol-plan-accion-panel" class="fg-full" style="display:none">
+              <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg)">
+                <div style="font-weight:600;font-size:13px;margin-bottom:10px;color:var(--primary)">Acción a realizar</div>
+                <div id="sol-plan-accion-fields"></div>
+              </div>
+            </div>
+
+            <!-- Acción a realizar (aparece al seleccionar un consumo) -->
+            <div id="sol-cons-accion-panel" class="fg-full" style="display:none">
+              <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg)">
+                <div style="font-weight:600;font-size:13px;margin-bottom:10px;color:var(--primary)">Acción a realizar</div>
+                <div id="sol-cons-accion-fields"></div>
+              </div>
+            </div>
+
+            <!-- Campos ocultos compatibilidad -->
+            <input type="hidden" id="sol-modulo">
+            <input type="hidden" id="sol-prioridad">
+            <input type="hidden" id="sol-desc">
+            <div id="sol-desc-extras" style="display:none"><div id="sol-desc-extras-grid"></div></div>
+            <div id="sol-fg-causa" style="display:none"><select id="sol-causa"></select></div>
+
+            <!-- Datos autocargados al seleccionar viaje/consumo -->
+            <input type="hidden" id="sol-piscina">
+            <div class="fg fg-full" id="sol-fg-detalle"><label>Detalle de la corrección</label>
+              <textarea id="sol-detalle" rows="5" placeholder="Se autocompleta al seleccionar el viaje. Puedes editar el detalle aquí." style="resize:vertical;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;width:100%;background:var(--card);color:var(--text)"></textarea>
+            </div>
+            <div class="fg fg-full"><label>Solicitado por</label>
+              <input type="text" id="sol-solicitante" placeholder="Tu nombre o área">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="sol-btn-guardar" onclick="saveSolicitud()">Enviar Solicitud</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── TAB: Configuracion (solo admin) ── -->
   <div id="tab-config" style="display:none">
     <div class="cfg-layout">
@@ -531,17 +687,46 @@ tbody tr:last-child td{border-bottom:none}
 
   <!-- ── TAB: Usuarios (solo admin) ── -->
   <div id="tab-usuarios" style="display:none">
-    <div class="table-wrap">
-      <div class="table-toolbar" style="padding:14px 18px">
-        <span style="font-size:15px;font-weight:700">Usuarios</span>
-        <button class="btn btn-primary" onclick="openUsuarioModal()" style="margin-left:auto;padding:7px 16px;font-size:13px">+ Nuevo Usuario</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:4px 0">
+
+      <!-- Administradores -->
+      <div class="table-wrap" style="margin-bottom:20px">
+        <div class="table-toolbar" style="padding:14px 18px">
+          <span style="font-size:14px;font-weight:700">Administradores</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:8px">Usuarios con acceso completo a la aplicación</span>
+          <button class="btn btn-primary" onclick="openAdminModal()" style="margin-left:auto;padding:6px 14px;font-size:12px">+ Agregar</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table><thead><tr><th>Usuario AP1</th><th></th></tr></thead>
+          <tbody id="tbl-admins"></tbody></table>
+        </div>
       </div>
-      <div style="overflow-x:auto">
-        <table><thead><tr>
-          <th>Usuario</th><th>Rol</th><th>Acciones</th>
-        </tr></thead>
-        <tbody id="tbl-usuarios"></tbody></table>
+
+      <!-- Destinatarios de notificación -->
+      <div class="table-wrap">
+        <div class="table-toolbar" style="padding:14px 18px">
+          <span style="font-size:14px;font-weight:700">Notificaciones</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:8px">Reciben correo al ingresar un registro</span>
+          <button class="btn btn-primary" onclick="openNotifModal()" style="margin-left:auto;padding:6px 14px;font-size:12px">+ Agregar</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table><thead><tr><th>Nombre</th><th>Correo</th><th>Activo</th><th></th></tr></thead>
+          <tbody id="tbl-notificaciones"></tbody></table>
+        </div>
       </div>
+
+      <!-- Correos vinculados por usuarios al ingresar -->
+      <div class="table-wrap" style="margin-top:20px">
+        <div class="table-toolbar" style="padding:14px 18px">
+          <span style="font-size:14px;font-weight:700">Correos de Usuarios</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:8px">Registrados al primer ingreso</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table><thead><tr><th>Usuario AP1</th><th>Correo</th><th></th></tr></thead>
+          <tbody id="tbl-emails"></tbody></table>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -601,23 +786,57 @@ tbody tr:last-child td{border-bottom:none}
 // ══════════════════════════════════════════════════════
 //  DATA LAYER  (Cloudflare D1 via Worker)
 // ══════════════════════════════════════════════════════
-const API = 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const API_PROD = 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const API_LOCAL = 'http://localhost:8787';
+const ES_LOCAL  = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+let API = ES_LOCAL ? API_LOCAL : API_PROD;
+
+// Wrapper de fetch que cae a producción si el local falla por conexión rechazada
+async function apiFetch(path, opts){
+  try{
+    const r = await fetch(API + path, opts);
+    return r;
+  }catch(e){
+    if(API === API_LOCAL && e.name === 'TypeError'){
+      console.warn('[API] Local no disponible, cambiando a producción:', path);
+      API = API_PROD; // siguiente llamada ya va directo a prod
+      return fetch(API_PROD + path, opts);
+    }
+    throw e;
+  }
+}
 let RECORDS = [];
 
 async function fetchAllRecords(){
   let data = null;
   try {
-    const r = await fetch(API + '/d1/cambios');
+    const r = await apiFetch('/d1/cambios');
     if(r.ok) data = await r.json().catch(()=>null);
   } catch(e){}
-  RECORDS = Array.isArray(data) ? data : [];
+  RECORDS = (Array.isArray(data) ? data : []).map(r => ({
+    ...r,
+    extras:       typeof r.extras       === 'string' ? JSON.parse(r.extras       || '{}') : (r.extras       || {}),
+    departamentos:typeof r.departamentos === 'string' ? JSON.parse(r.departamentos|| '[]') : (r.departamentos|| []),
+    deptDone:     typeof r.deptDone     === 'string' ? JSON.parse(r.deptDone     || '[]') : (r.deptDone     || []),
+    deptDoneDates:typeof r.deptDoneDates === 'string' ? JSON.parse(r.deptDoneDates|| '{}') : (r.deptDoneDates|| {}),
+  }));
 }
 
-function loadData(){ return RECORDS; }
+function parseArr(v){ if(Array.isArray(v)) return v; try{ const p=JSON.parse(v||'[]'); return Array.isArray(p)?p:[]; }catch(e){ return []; } }
+function parseObj(v){ if(v && typeof v==='object' && !Array.isArray(v)) return v; try{ const p=JSON.parse(v||'{}'); return (p&&typeof p==='object'&&!Array.isArray(p))?p:{}; }catch(e){ return {}; } }
+function loadData(){
+  return RECORDS.map(r=>({
+    ...r,
+    extras:        parseObj(r.extras),
+    departamentos: parseArr(r.departamentos),
+    deptDone:      parseArr(r.deptDone),
+    deptDoneDates: parseObj(r.deptDoneDates),
+  }));
+}
 
 function saveData(d){
   RECORDS = d;
-  fetch(API + '/d1/cambios', {
+  return apiFetch('/d1/cambios', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(d)
@@ -668,7 +887,7 @@ function toast(msg, type='ok'){
 // ══════════════════════════════════════════════════════
 //  TABS
 // ══════════════════════════════════════════════════════
-const TABS=['dashboard','historial','usuarios','config'];
+const TABS=['dashboard','historial','solicitud','usuarios','config'];
 function showTab(name){
   TABS.forEach(t=>{
     const el=document.getElementById('tab-'+t);
@@ -677,17 +896,19 @@ function showTab(name){
   if(name==='dashboard') renderDashboard();
   if(name==='historial') renderHistorial();
   if(name==='config')   renderConfigTab();
+  if(name==='solicitud') initSolicitudTab();
 }
 
 // ══════════════════════════════════════════════════════
 //  FORM
 // ══════════════════════════════════════════════════════
 const MODULOS_POR_AREA = {
-  'Bodega':['Transferencias a finca','Asignación de viajes'],
+  'Bodega':['Recepción en bodega','Transferencias a finca','Asignación de viajes'],
   'Producción':['Consumos','Planificación','Cosecha','Siembras y Transferencias','Peso','Sobrevivencia','Poblaciones']
 };
 
 const PRIORIDAD_POR_MODULO = {
+  'Recepción en bodega':       'Alta',
   'Transferencias a finca':    'Alta',
   'Asignación de viajes':      'Alta',
   'Consumos':                  'Media',
@@ -700,6 +921,7 @@ const PRIORIDAD_POR_MODULO = {
 };
 
 const DESCRIPCIONES_POR_MODULO = {
+  'Recepción en bodega':   ['ELIMINAR VIAJE'],
   'Transferencias a finca':['ELIMINAR VIAJE'],
   'Asignación de viajes':  ['ELIMINAR VIAJE'],
   'Consumos':              ['Consumos'],
@@ -729,9 +951,7 @@ const EXTRAS_POR_DESCRIPCION = {
       { label:'ANULACION DE VIAJE',
         fields:[
           {id:'fecha-viaje', label:'Fecha del viaje',      type:'date'},
-          {id:'num-viaje',   label:'Número de viaje',       placeholder:'N° de viaje'},
-          {id:'sap-salida',  label:'Documento SAP Salida',  placeholder:'N° doc. salida'},
-          {id:'sap-ingreso', label:'Documento SAP Entrada', placeholder:'N° doc. entrada'}
+          {id:'num-viaje',   label:'Número de viaje',       placeholder:'N° de viaje'}
         ],
         causas:['Destino incorrecto','Asignación del tipo de balanceado incorrecto','Asignación de la cantidad incorrecta','Duplicado de viaje']
       }
@@ -779,8 +999,7 @@ const EXTRAS_POR_DESCRIPCION = {
         fields:[
           {id:'fecha-reg-dosis', label:'Fecha de registro', type:'date'},
           {id:'piscina-dosis',   label:'Piscina',           placeholder:'Ej: NA-0001'},
-          {id:'dosis-eliminar',  label:'Dosis a eliminar',  placeholder:'Descripción de la dosis'},
-          {id:'doc-sap-dosis',   label:'Documento SAP',     placeholder:'N° documento SAP'}
+          {id:'dosis-eliminar',  label:'Dosis a eliminar',  placeholder:'Descripción de la dosis'}
         ],
         causas:['Duplicado de dosis']
       },
@@ -880,7 +1099,7 @@ function applyConfig(){
 
 async function loadConfig(){
   try {
-    const r = await fetch(API + '/d1/cambios-config');
+    const r = await apiFetch('/d1/cambios-config');
     if(r.ok){
       const data = await r.json().catch(()=>null);
       if(data && data.modulos && data.modConfig){ CONFIG = data; applyConfig(); return; }
@@ -902,7 +1121,7 @@ async function loadConfig(){
 
 async function saveConfig(){
   try {
-    const r = await fetch(API+'/d1/cambios-config',{
+    const r = await apiFetch('/d1/cambios-config',{
       method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(CONFIG)
     });
     if(!r.ok) throw new Error('HTTP '+r.status);
@@ -1170,6 +1389,13 @@ function saveRecord(){
     data.push(rec);
     saveData(data);
     toast(`Registro #${rec.id} guardado`, 'ok');
+    // Enviar notificación por correo
+    const ses = getSession();
+    apiFetch('/d1/cambios/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordId: rec.id, solicitanteEmail: ses?.email || null, destinatarios: [] })
+    }).catch(() => {});
     clearForm();
     closeNuevoRegistroModal();
     renderDashboard();
@@ -1974,7 +2200,7 @@ function renderDashboard(){
   // Días promedio de resolución global (todos los departamentos combinados)
   const DEPTS_KPI = ['Key User','Auditoría','Desarrollo'];
   const diasGlobal = data.flatMap(r=>
-    DEPTS_KPI.filter(d=>(r.deptDone||[]).includes(d) && r.deptDoneDates?.[d] && r.fechaReporte)
+    DEPTS_KPI.filter(d=>(Array.isArray(r.deptDone)?r.deptDone:JSON.parse(r.deptDone||'[]')).includes(d) && r.deptDoneDates?.[d] && r.fechaReporte)
       .map(d=>Math.round((new Date(r.deptDoneDates[d])-new Date(r.fechaReporte))/(1000*60*60*24)))
   );
   const promDiasGlobal = diasGlobal.length ? Math.round(diasGlobal.reduce((a,b)=>a+b,0)/diasGlobal.length) : null;
@@ -2214,16 +2440,9 @@ function exportCSV(){
 //  INIT
 // ══════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════
-//  USUARIOS DEL SISTEMA
-//  Para agregar o cambiar contraseñas: edita USUARIOS y sube a GitHub.
-//  Así todos los equipos reciben los cambios automáticamente.
+//  ADMINISTRADORES — manejados desde la pestaña Usuarios
 // ══════════════════════════════════════════════════════
-const USUARIOS = [
-  { id:1, username:'jparraga', password:'Naturisa2025', role:'admin' },
-  { id:2, username:'jcorozo', password:'Naturisa2025', role:'admin' },
-  // Agrega más usuarios debajo de esta línea:
-  // { id:3, username:'maria',   password:'maria2026',   role:'user' },
-];
+let ADMINS = []; // [{id, username}] cargado desde D1
 
 const SES_KEY = 'naturisa_session_v1';
 function getSession(){ try{ return JSON.parse(sessionStorage.getItem(SES_KEY)||'null'); }catch(e){ return null; } }
@@ -2232,42 +2451,63 @@ function clearSession(){ sessionStorage.removeItem(SES_KEY); }
 
 async function loadUsuarios(){
   try{
-    const r = await fetch(API+'/d1/cambios-usuarios');
+    const r = await apiFetch('/d1/cambios-usuarios');
     if(r.ok){
       const d = await r.json().catch(()=>null);
-      if(Array.isArray(d) && d.length){
-        USUARIOS.length=0;
-        d.forEach(u=>USUARIOS.push(u));
-        return;
-      }
+      ADMINS = Array.isArray(d) ? d : [];
     }
-  }catch(e){}
-  // Si no hay datos en D1, sincronizar los hardcoded
-  await saveUsuarios();
+  }catch(e){ ADMINS = []; }
 }
 
-async function saveUsuarios(){
-  await fetch(API+'/d1/cambios-usuarios',{
-    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(USUARIOS)
-  }).catch(()=>{});
-}
+const AP1_CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
 
-function doLogin(){
+async function doLogin(){
   const username = document.getElementById('login-user').value.trim();
   const password = document.getElementById('login-pass').value;
   const errEl    = document.getElementById('login-error');
+  const btnLogin = document.getElementById('btn-login');
   errEl.textContent = '';
   if(!username||!password){ errEl.textContent='Completa usuario y contraseña.'; return; }
-  const user = USUARIOS.find(u => u.username.toLowerCase()===username.toLowerCase() && u.password===password);
-  if(!user){
-    const existe = USUARIOS.find(u=>u.username.toLowerCase()===username.toLowerCase());
-    errEl.textContent = existe ? 'Contraseña incorrecta.' : 'Usuario no encontrado.';
-    return;
+  btnLogin.disabled = true;
+  btnLogin.textContent = 'Ingresando...';
+  try {
+    const r = await apiFetch('/bff/web/ap1/security/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ userName: username, password, codeApplication: AP1_CODE_APP, includeUserInfo: true })
+    });
+    const json = await r.json().catch(()=>({}));
+    if (!r.ok || json.code !== 200 || !json.data?.token) {
+      errEl.textContent = 'Usuario o contraseña incorrectos.';
+      return;
+    }
+    const info  = json.data.userInfo || json.data.user || json.data || {};
+    const rol   = (info.roleName || info.role || info.userRole || info.position || '').toLowerCase();
+    // Verificar si el usuario está en la lista de administradores (ya cargada al init)
+    const isAdmin = ADMINS.some(a => a.username.toLowerCase() === username.toLowerCase());
+    // Buscar email en tabla de mapeo
+    let email = info.email || info.mail || info.userEmail || null;
+    if (!email) {
+      try {
+        const re = await apiFetch('/d1/cambios-emails');
+        const reData = re.ok ? await re.json() : {};
+        const emails = reData.emails || [];
+        const map = emails.find(e => e.username.toLowerCase() === username.toLowerCase());
+        if (map) email = map.email;
+      } catch(_) {}
+    }
+    const nombre = info.fullName || info.name || info.userName || username;
+    setSession({ username: nombre, usernameAP1: username, role: rol, isAdmin, email, token: json.data.token });
+    document.getElementById('login-user').value='';
+    document.getElementById('login-pass').value='';
+    showApp();
+  } catch(e) {
+    console.error('[doLogin error]', e);
+    errEl.textContent = 'Error de conexión. Intenta de nuevo.';
+  } finally {
+    btnLogin.disabled = false;
+    btnLogin.textContent = 'Ingresar';
   }
-  setSession({id:user.id, username:user.username, role:user.role});
-  document.getElementById('login-user').value='';
-  document.getElementById('login-pass').value='';
-  showApp();
 }
 
 function doLogout(){
@@ -2282,109 +2522,156 @@ function doLogout(){
 function showApp(){
   const s = getSession();
   if(!s) return;
+  // Sesiones viejas sin campo isAdmin: recalcular desde ADMINS
+  if(s.isAdmin === undefined){
+    s.isAdmin = ADMINS.some(a => a.username.toLowerCase() === (s.usernameAP1||s.username||'').toLowerCase());
+    setSession(s);
+  }
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-shell').style.display='flex';
-  // Sidebar user info
-  const hdrUser = document.getElementById('hdr-user');
-  hdrUser.style.display='block';
+  if(ES_LOCAL) document.getElementById('badge-prueba').style.display='';
+  document.getElementById('hdr-user').style.display='block';
   document.getElementById('hdr-avatar').textContent = s.username.charAt(0).toUpperCase();
   document.getElementById('hdr-username').textContent = s.username;
-  // Tabs solo admin
-  document.getElementById('tab-btn-usuarios').style.display = s.role==='admin'?'flex':'none';
-  document.getElementById('tab-btn-config').style.display   = s.role==='admin'?'flex':'none';
-  showTab('dashboard');
-}
 
-// ── Gestión de usuarios (admin) ──
-let _editUserId = null;
-
-function openUsuarioModal(id){
-  _editUserId = id||null;
-  const u = id ? USUARIOS.find(x=>x.id===id) : null;
-  document.getElementById('modal-usuario-title').textContent = u ? 'Editar Usuario' : 'Nuevo Usuario';
-  document.getElementById('uf-username').value = u?.username||'';
-  document.getElementById('uf-password').value = '';
-  document.getElementById('uf-role').value = u?.role||'user';
-  document.getElementById('modal-usuario').style.display='flex';
-  document.body.style.overflow='hidden';
-}
-
-function closeUsuarioModal(){
-  document.getElementById('modal-usuario').style.display='none';
-  document.body.style.overflow='';
-  _editUserId=null;
-}
-
-async function saveUsuarioModal(){
-  const username = document.getElementById('uf-username').value.trim();
-  const password = document.getElementById('uf-password').value;
-  const role     = document.getElementById('uf-role').value;
-  if(!username){ toast('El usuario es requerido','err'); return; }
-  if(_editUserId){
-    const idx = USUARIOS.findIndex(u=>u.id===_editUserId);
-    if(idx<0) return;
-    USUARIOS[idx].username = username;
-    USUARIOS[idx].role = role;
-    if(password) USUARIOS[idx].password = password;
-  } else {
-    if(USUARIOS.find(u=>u.username.toLowerCase()===username.toLowerCase())){
-      toast('Ya existe un usuario con ese nombre','err'); return;
-    }
-    const newId = Math.max(0,...USUARIOS.map(u=>u.id))+1;
-    USUARIOS.push({id:newId, username, password, role});
+  if(!s.isAdmin){
+    // Usuario regular: ocultar sidebar, solo pestaña solicitud
+    document.querySelector('.sidebar').style.display = 'none';
+    document.getElementById('tab-btn-usuarios').style.display = 'none';
+    document.getElementById('tab-btn-config').style.display   = 'none';
+    const solSol = document.getElementById('sol-solicitante');
+    if(solSol && !solSol.value) solSol.value = s.username;
+    showTab('solicitud');
+    checkVincularEmail();
+    return;
   }
-  await saveUsuarios();
-  closeUsuarioModal();
-  renderUsuarios();
-  toast('Usuario guardado','ok');
+
+  // Administrador: app completa sin restricciones
+  document.querySelector('.sidebar').style.display = '';
+  document.getElementById('tab-btn-usuarios').style.display = 'flex';
+  document.getElementById('tab-btn-config').style.display   = 'flex';
+  showTab('dashboard');
+  checkVincularEmail();
 }
 
-async function deleteUsuario(id){
-  const s = getSession();
-  if(s?.id===id){ toast('No puedes eliminar tu propio usuario','err'); return; }
-  if(!confirm('¿Eliminar este usuario?')) return;
-  const idx = USUARIOS.findIndex(u=>u.id===id);
-  if(idx<0) return;
-  USUARIOS.splice(idx,1);
-  await saveUsuarios();
+// ── Gestión de administradores ──────────────────────────────────────────────
+function openAdminModal(){
+  document.getElementById('adm-username').value='';
+  document.getElementById('modal-admin').style.display='flex';
+  setTimeout(()=>document.getElementById('adm-username').focus(),50);
+}
+function closeAdminModal(){
+  document.getElementById('modal-admin').style.display='none';
+}
+async function saveAdminModal(){
+  const username = document.getElementById('adm-username').value.trim().toLowerCase();
+  if(!username){ toast('Ingresa un usuario AP1','err'); return; }
+  if(ADMINS.some(a=>a.username.toLowerCase()===username)){ toast('Ya está en la lista','err'); return; }
+  const newId = ADMINS.length ? Math.max(...ADMINS.map(a=>a.id||0))+1 : 1;
+  ADMINS.push({id:newId, username, password:'', role:'admin'});
+  await apiFetch('/d1/cambios-usuarios',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(ADMINS)});
+  closeAdminModal();
   renderUsuarios();
-  toast('Usuario eliminado','ok');
+  toast('Administrador agregado','ok');
+}
+async function deleteAdmin(username){
+  if(!confirm(`¿Eliminar a "${username}" de administradores?`)) return;
+  ADMINS = ADMINS.filter(a=>a.username.toLowerCase()!==username.toLowerCase());
+  await apiFetch('/d1/cambios-usuarios',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(ADMINS)});
+  renderUsuarios();
+  toast('Eliminado','ok');
+}
+
+// ── Notificaciones ──────────────────────────────────────────────────────────
+let _notifData = [];
+let _emailMapData = [];
+
+async function loadNotificaciones(){
+  try {
+    const [rn, re] = await Promise.all([
+      apiFetch('/d1/cambios-notificaciones'),
+      apiFetch('/d1/cambios-emails?vinculados=1')
+    ]);
+    _notifData    = rn.ok ? await rn.json() : [];
+    const reData  = re.ok ? await re.json() : {};
+    _emailMapData = reData.emails || [];
+  } catch(_){}
 }
 
 function renderUsuarios(){
-  const s = getSession();
-  const tbody = document.getElementById('tbl-usuarios');
-  if(!tbody) return;
-  tbody.innerHTML = USUARIOS.map(u=>`<tr>
-    <td>
-      <div style="font-weight:600;font-size:13px">${u.username}${u.id===s?.id?' <span style="font-size:10px;color:var(--muted)">(tú)</span>':''}</div>
-    </td>
-    <td><span class="${u.role==='admin'?'role-badge-admin':'role-badge-user'}">${u.role==='admin'?'Administrador':'Usuario'}</span></td>
-    <td>
-      <div style="display:flex;gap:6px">
-        <button onclick="openUsuarioModal(${u.id})" style="padding:4px 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:12px;font-weight:600;cursor:pointer;color:var(--text)">Editar</button>
-        ${u.id!==s?.id?`<button onclick="deleteUsuario(${u.id})" style="padding:4px 8px;border:1px solid #fecdd3;border-radius:6px;background:#fff1f2;font-size:12px;cursor:pointer;color:#be123c">✕</button>`:''}
-      </div>
-    </td>
-  </tr>`).join('');
+  // Tabla administradores
+  const ta = document.getElementById('tbl-admins');
+  if(ta) ta.innerHTML = ADMINS.map(a=>`<tr>
+    <td style="font-weight:600;font-size:13px">${a.username}</td>
+    <td><button onclick="deleteAdmin('${a.username}')" style="padding:3px 8px;border:1px solid #fecdd3;border-radius:6px;background:#fff1f2;font-size:11px;cursor:pointer;color:#be123c">✕</button></td>
+  </tr>`).join('') || '<tr><td colspan="2" style="text-align:center;color:var(--muted);font-size:12px;padding:16px">Sin administradores</td></tr>';
+
+  // Tabla notificaciones
+  const tn = document.getElementById('tbl-notificaciones');
+  if(tn) tn.innerHTML = _notifData.map(n=>`<tr>
+    <td style="font-weight:600;font-size:13px">${n.nombre}</td>
+    <td style="font-size:12px">${n.email}</td>
+    <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${n.activo?'#dcfce7':'#f1f5f9'};color:${n.activo?'#15803d':'#64748b'}">${n.activo?'Activo':'Inactivo'}</span></td>
+    <td><button onclick="deleteNotif(${n.id})" style="padding:3px 8px;border:1px solid #fecdd3;border-radius:6px;background:#fff1f2;font-size:11px;cursor:pointer;color:#be123c">✕</button></td>
+  </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);font-size:12px;padding:16px">Sin destinatarios</td></tr>';
+
+  // Tabla emails AP1
+  const te = document.getElementById('tbl-emails');
+  if(te) te.innerHTML = _emailMapData.map(e=>`<tr>
+    <td style="font-weight:600;font-size:13px">${e.username}</td>
+    <td style="font-size:12px">${e.email}</td>
+    <td><button onclick="deleteEmailMap('${e.username}')" style="padding:3px 8px;border:1px solid #fecdd3;border-radius:6px;background:#fff1f2;font-size:11px;cursor:pointer;color:#be123c">✕</button></td>
+  </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--muted);font-size:12px;padding:16px">Sin registros</td></tr>';
+}
+
+// Notif modal
+function openNotifModal(){ document.getElementById('modal-notif').style.display='flex'; document.getElementById('nf-nombre').value=''; document.getElementById('nf-email').value=''; document.getElementById('nf-activo').checked=true; }
+function closeNotifModal(){ document.getElementById('modal-notif').style.display='none'; }
+async function saveNotifModal(){
+  const nombre = document.getElementById('nf-nombre').value.trim();
+  const email  = document.getElementById('nf-email').value.trim();
+  const activo = document.getElementById('nf-activo').checked ? 1 : 0;
+  if(!nombre||!email){ toast('Completa nombre y correo','err'); return; }
+  await apiFetch('/d1/cambios-notificaciones',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre,email,activo}) });
+  await loadNotificaciones(); closeNotifModal(); renderUsuarios(); toast('Guardado','ok');
+}
+async function deleteNotif(id){
+  if(!confirm('¿Eliminar destinatario?')) return;
+  await apiFetch('/d1/cambios-notificaciones',{ method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) });
+  await loadNotificaciones(); renderUsuarios(); toast('Eliminado','ok');
+}
+
+// Email map modal
+function openEmailMapModal(){ document.getElementById('modal-emailmap').style.display='flex'; document.getElementById('em-username').value=''; document.getElementById('em-email').value=''; }
+function closeEmailMapModal(){ document.getElementById('modal-emailmap').style.display='none'; }
+async function saveEmailMapModal(){
+  const username = document.getElementById('em-username').value.trim();
+  const email    = document.getElementById('em-email').value.trim();
+  if(!username||!email){ toast('Completa usuario y correo','err'); return; }
+  await apiFetch('/d1/cambios-emails',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,email}) });
+  await loadNotificaciones(); closeEmailMapModal(); renderUsuarios(); toast('Guardado','ok');
+}
+async function deleteEmailMap(username){
+  if(!confirm('¿Eliminar este mapeo?')) return;
+  await apiFetch('/d1/cambios-emails',{ method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username}) });
+  await loadNotificaciones(); renderUsuarios(); toast('Eliminado','ok');
 }
 
 // ── Tabs: integrar con auth ──
 const _origShowTab = showTab;
 showTab = function(name){
   const s = getSession();
-  if((name==='usuarios'||name==='config') && s?.role!=='admin') return;
+  if(!s?.isAdmin && (name==='usuarios'||name==='config')) return;
   _origShowTab(name);
-  const TABS_ALL=['dashboard','historial','usuarios','config'];
   document.querySelectorAll('.tab').forEach(el=>{
     const onclick = el.getAttribute('onclick')||'';
     const m = onclick.match(/showTab\('(\w+)'\)/);
     if(m) el.classList.toggle('active', m[1]===name);
   });
-  const TITLES={dashboard:'Dashboard',historial:'Historial',usuarios:'Usuarios',config:'Configuración'};
+  const TITLES={dashboard:'Dashboard',historial:'Historial',usuarios:'Notificaciones',config:'Configuración'};
   const t=document.getElementById('topbar-title');
   if(t) t.textContent=TITLES[name]||name;
-  if(name==='usuarios') renderUsuarios();
+  if(name==='usuarios'){ loadNotificaciones().then(renderUsuarios); }
 };
 
 function openNuevoRegistroModal(){
@@ -2409,40 +2696,1472 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   await fetchAllRecords();
   await loadConfig();
   await loadUsuarios();
+  await loadNotificaciones();
   const s = getSession();
   if(s){ showApp(); }
 });
+
+// ── Pantalla Solicitud (usuarios no-admin) ──────────────────────────────────
+let _solRowCnt = 0;
+let _solCurrentAcciones = [];
+
+function solUpdateModulos(){
+  const area = document.getElementById('sol-area').value;
+  const sel  = document.getElementById('sol-modulo');
+  const opts = MODULOS_POR_AREA[area] || [];
+  sel.innerHTML = opts.length
+    ? '<option value="">-- Seleccionar --</option>' + opts.map(m=>`<option>${m}</option>`).join('')
+    : '<option value="">-- Sin módulos definidos --</option>';
+  document.getElementById('sol-prioridad').value = '';
+  solUpdateDescripciones();
+}
+
+function solUpdatePrioridad(){
+  const modulo = document.getElementById('sol-modulo').value;
+  document.getElementById('sol-prioridad').value = PRIORIDAD_POR_MODULO[modulo] || '';
+}
+
+function solUpdateDescripciones(){
+  const modulo = document.getElementById('sol-modulo').value;
+  const sel    = document.getElementById('sol-desc');
+  const opts   = DESCRIPCIONES_POR_MODULO[modulo] || [];
+  document.getElementById('sol-causa').innerHTML = '<option value="">-- Selecciona la descripción primero --</option>';
+  document.getElementById('sol-desc-extras').style.display = 'none';
+  document.getElementById('sol-desc-extras-grid').innerHTML = '';
+  if(opts.length === 1){
+    sel.innerHTML = `<option value="${opts[0]}">${opts[0]}</option>`;
+    sel.value = opts[0];
+    document.getElementById('sol-fg-desc').style.display = 'none';
+    solUpdateDescExtras();
+  } else {
+    sel.innerHTML = opts.length
+      ? '<option value="">-- Seleccionar --</option>' + opts.map(d=>`<option>${d}</option>`).join('')
+      : '<option value="">-- Sin opciones --</option>';
+    document.getElementById('sol-fg-desc').style.display = '';
+  }
+}
+
+const SOL_MOV_SUBS = [13,28,32,29,30,19,6,8,10034,7,11,14,17,16,15,5,10035,4,18,21,3,10,9,1,10038,27,10037,10036,2,31,12,20,10033];
+
+// Cache de sucursales y piscinas cargadas del API
+let SOL_SUCURSALES = []; // [{id, code, name, subsidiaryId}]
+let SOL_PISCINAS   = []; // [{id, name, code}]
+
+async function solCargarSucursales(){
+  const s = getSession();
+  const sel = document.getElementById('sol-sucursal');
+  const headers = { 'Authorization':'Bearer '+(s?.token||''), 'Accept':'application/json' };
+  // Intentar varios endpoints hasta encontrar el que retorna sucursales
+  const paths = [
+    '/bff/web/ap1/backoffice/api/subsidiaries?type=FINCA&PageSize=200',
+    '/bff/web/ap1/backoffice/api/subsidiaries?PageSize=200',
+    '/bff/web/ap1/backoffice/api/subsidiary_users/'+AP1_CODE_APP+'?type=FINCA',
+  ];
+  let arr = [];
+  for(const path of paths){
+    try{
+      const r = await apiFetch(path,{headers});
+      if(!r.ok) continue;
+      const json = await r.json();
+      console.log('[sucursales] path:', path, 'keys:', Object.keys(json), 'muestra:', JSON.stringify(json).slice(0,300));
+      const data = json.data || json.content || json.items || json.result || (Array.isArray(json)?json:[]);
+      arr = Array.isArray(data) ? data : Object.values(data).find(v=>Array.isArray(v)) || [];
+      if(arr.length > 0){ console.log('[sucursales] total:', arr.length, 'primer item:', arr[0]); break; }
+    }catch(e){ console.warn('[sucursales] endpoint falló:', path, e); }
+  }
+  if(arr.length === 0){
+    sel.innerHTML = '<option value="">-- Error al cargar --</option>';
+    return;
+  }
+  // Filtrar fincas activas si tienen ese campo; si no, tomar todos
+  const fincas = arr.filter(x=>x.status==='ACTIVO' || x.estado==='ACTIVO' || !x.status);
+  SOL_SUCURSALES = fincas;
+  const getId   = x => x.idSubsidiary || x.subsidiaryId || x.id || '';
+  const getCode = x => x.codeSubsidiary || x.subsidiaryCode || x.code || '';
+  const getName = x => x.name || x.subsidiaryName || x.nombre || '';
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>' +
+    fincas.map(x=>`<option value="${getId(x)}">${getCode(x) ? getCode(x)+' - ' : ''}${getName(x)}</option>`).join('');
+}
+
+async function solCargarPiscinas(sucursalId){
+  const s   = getSession();
+  const sel = document.getElementById('sol-piscina-filtro');
+  sel.innerHTML = '<option value="">-- Cargando... --</option>';
+  SOL_PISCINAS = [];
+  try{
+    // Cargar todas las páginas
+    let page = 1, allPools = [];
+    while(true){
+      const r = await apiFetch(`/bff/web/ap1/backoffice/api/pools?subsidiaryId=${sucursalId}&PageSize=100&currentPage=${page}`,{
+        headers:{ 'Authorization':'Bearer '+(s?.token||''), 'Accept':'application/json' }
+      });
+      const json = await r.json();
+      // data puede ser {pageSize, currentPage, totalPages, data:[...]}
+      const inner = json.data?.data || json.data || json.content || json.items || (Array.isArray(json)?json:[]);
+      const arr   = Array.isArray(inner) ? inner : [];
+      allPools = allPools.concat(arr);
+      const totalPages = json.data?.totalPages || 1;
+      if(page >= totalPages || arr.length === 0) break;
+      page++;
+    }
+    console.log('[piscinas] total:', allPools.length, 'primer item:', allPools[0]);
+    SOL_PISCINAS = allPools;
+    sel.innerHTML = '<option value="">-- Seleccionar piscina --</option>' +
+      allPools.map(x=>`<option value="${x.codePool||x.idPool}">${x.codePool||x.idPool}</option>`).join('');
+  }catch(e){
+    console.error('[piscinas]', e);
+    sel.innerHTML = '<option value="">-- Error al cargar --</option>';
+  }
+}
+
+// Palabras clave del nombre de sucursal en el campo observation
+const SOL_SUC_NOMBRES = {
+  'A1':'Acualit 1','A2':'Acualit 2','AM':'Matriz AM','AP':'Pesjoya','AR':'Río Nilo',
+  'BO':'Bonanza','BR':'Biorey','CA':'Camaron','CO':'Coaque','CR':'Camino Real',
+  'ES':'Esteromar','FI':'Fincacua','GO':'Golfomar','GR':'Granmar','IN':'Inducam',
+  'JO':'Josefina','KA':'Kamaclusa','LA':'Lanconor','LG':'Gelices','MA':'Maricultura',
+  'MG':'Margolfo','MH':'Marchena','NA':'Naturisa','NM':'Matriz NM','PE':'Pesjoya',
+  'RM':'Matriz RM','RN':'Rio Nilo','RO':'Roblemar','SC':'Solcamaron'
+};
+
+function solToggleCamposArea(area){
+  const ocultar = area === 'Producción' || area === 'Bodega';
+  document.getElementById('sol-fg-detalle').style.display = ocultar ? 'none' : '';
+}
+function solOnAreaChange(){
+  solResetPaneles();
+  const area = document.getElementById('sol-area').value;
+  document.getElementById('sol-fg-modulo-prod').style.display = area === 'Producción' ? '' : 'none';
+  document.getElementById('sol-modulo-prod').value = '';
+  document.getElementById('sol-fg-piscina-filtro').style.display = 'none';
+  document.getElementById('sol-fg-ciclo-filtro').style.display = 'none';
+  document.getElementById('sol-piscina-filtro').value = '';
+  solToggleCamposArea(area);
+  if(area === 'Bodega'){
+    const suc = document.getElementById('sol-sucursal').value;
+    if(suc) solMostrarPanel();
+  }
+}
+function solOnSucursalChange(){
+  solResetPaneles();
+  const area = document.getElementById('sol-area').value;
+  const suc  = document.getElementById('sol-sucursal').value;
+  if(area === 'Bodega' && suc){
+    solMostrarPanel();
+  } else if(area === 'Producción' && suc){
+    const mod = document.getElementById('sol-modulo-prod').value;
+    if(mod) solMostrarFiltroProduccion(mod);
+  }
+}
+function solOnModuloChange(){
+  solResetPaneles();
+  const suc = document.getElementById('sol-sucursal').value;
+  const mod = document.getElementById('sol-modulo-prod').value;
+  document.getElementById('sol-fg-piscina-filtro').style.display = 'none';
+  document.getElementById('sol-fg-ciclo-filtro').style.display = 'none';
+  document.getElementById('sol-piscina-filtro').value = '';
+  if(mod && suc) solMostrarFiltroProduccion(mod);
+}
+function solOnPiscinaFiltroChange(){
+  const piscina = document.getElementById('sol-piscina-filtro').value;
+  const mod     = document.getElementById('sol-modulo-prod').value;
+  const sucId   = document.getElementById('sol-sucursal').value;
+  document.getElementById('sol-cons-results').innerHTML = '';
+  if(mod === 'planificacion'){
+    if(sucId) solCargarCiclos(sucId);
+    return;
+  }
+  if(mod === 'consumo'){
+    document.getElementById('sol-cons-panel').style.display = piscina ? '' : 'none';
+    if(piscina){
+      const hoy = new Date().toISOString().slice(0,10);
+      if(!document.getElementById('sol-cons-desde').value) document.getElementById('sol-cons-desde').value = hoy;
+      if(!document.getElementById('sol-cons-hasta').value) document.getElementById('sol-cons-hasta').value = hoy;
+    }
+  }
+}
+function solMostrarFiltroProduccion(mod){
+  const sucVal = document.getElementById('sol-sucursal').value;
+  document.getElementById('sol-fg-piscina-filtro').style.display = '';
+  document.getElementById('sol-fg-ciclo-filtro').style.display = 'none';
+  // Peso y Planificación necesitan el ciclo
+  if((mod === 'planificacion' || mod === 'peso') && sucVal){
+    solCargarPiscinas(sucVal);
+    solCargarCiclos(sucVal);
+  } else if(sucVal){
+    solCargarPiscinas(sucVal);
+  }
+}
+function solResetPaneles(){
+  document.getElementById('sol-mov-results').innerHTML = '';
+  document.getElementById('sol-mov-panel').style.display = 'none';
+  document.getElementById('sol-cons-results').innerHTML = '';
+  document.getElementById('sol-cons-panel').style.display = 'none';
+  document.getElementById('sol-cons-accion-panel').style.display = 'none';
+  document.getElementById('sol-cons-accion-fields').innerHTML = '';
+  document.getElementById('sol-plan-panel').style.display = 'none';
+  document.getElementById('sol-plan-results').innerHTML = '';
+  document.getElementById('sol-plan-accion-panel').style.display = 'none';
+  document.getElementById('sol-plan-accion-fields').innerHTML = '';
+  document.getElementById('sol-peso-panel').style.display = 'none';
+  document.getElementById('sol-peso-results').innerHTML = '';
+  document.getElementById('sol-peso-accion-panel').style.display = 'none';
+  document.getElementById('sol-peso-accion-fields').innerHTML = '';
+  const planCiclo = document.getElementById('sol-plan-ciclo');
+  if(planCiclo) planCiclo.innerHTML = '<option value="">-- Seleccionar ciclo --</option>';
+  const desglose = document.getElementById('sol-desglose');
+  if(desglose) desglose.innerHTML = '';
+  document.getElementById('sol-piscina').value = '';
+  document.getElementById('sol-detalle').value = '';
+}
+function solMostrarPanel(){
+  document.getElementById('sol-mov-panel').style.display = '';
+  const hoy = new Date().toISOString().slice(0,10);
+  if(!document.getElementById('sol-mov-desde').value) document.getElementById('sol-mov-desde').value = hoy;
+  if(!document.getElementById('sol-mov-hasta').value) document.getElementById('sol-mov-hasta').value = hoy;
+}
+function solIniciarMovPanel(){ /* legacy */ }
+
+async function solCargarCiclos(sucursalId){
+  const s   = getSession();
+  const mod = document.getElementById('sol-modulo-prod').value;
+  const res = document.getElementById('sol-plan-results');
+  const piscId = document.getElementById('sol-piscina-filtro').value;
+  if(mod === 'planificacion') document.getElementById('sol-plan-panel').style.display = '';
+  res.innerHTML = '<p style="font-size:12px;color:var(--muted)">Cargando ciclos...</p>';
+  try{
+    const r = await apiFetch(`/bff/web/ap1/backoffice/api/cycles/cycles_navigation?subsidiaryId=${sucursalId}&includePools=true&activeFilter=false`,{
+      headers:{ 'Authorization':'Bearer '+(s?.token||''), 'Accept':'application/json' }
+    });
+    const json = await r.json();
+    console.log('[ciclos] keys:', Object.keys(json), 'primer item:', (json.data||json)?.[0]);
+    const data = json.data || (Array.isArray(json)?json:[]);
+    const arr  = Array.isArray(data) ? data : [];
+    // Estructura: [{idPool, poolName, poolOrder, status, detail:[ciclo,...]}]
+    // Aplanar: un ciclo por fila, con datos de la piscina incluidos
+    const ciclos = [];
+    arr.forEach(pool=>{
+      const poolCode = SOL_PISCINAS.find(p=>p.idPool===pool.idPool)?.codePool || pool.poolName || pool.idPool;
+      (pool.detail||[]).forEach(c=>{
+        ciclos.push({...c, _poolId: pool.idPool, _poolCode: poolCode, _poolName: pool.poolName});
+      });
+    });
+    console.log('[ciclos] total ciclos:', ciclos.length, 'primer ciclo:', ciclos[0], 'keys:', ciclos[0]?Object.keys(ciclos[0]):[]);
+    const hoy = new Date().toISOString().slice(0,10);
+    const hace1a = new Date(Date.now()-365*864e5).toISOString().slice(0,10);
+    if(!document.getElementById('sol-plan-desde').value) document.getElementById('sol-plan-desde').value = hace1a;
+    if(!document.getElementById('sol-plan-hasta').value) document.getElementById('sol-plan-hasta').value = hoy;
+    document.getElementById('sol-plan-results')._allCiclos = ciclos;
+    solPoblarCicloDrop();
+    solFiltrarCiclos();
+  }catch(e){
+    console.error('[ciclos]', e);
+    res.innerHTML='<p style="color:var(--danger);font-size:12px">Error al cargar ciclos.</p>';
+  }
+}
+
+function solPoblarCicloDrop(){
+  const res    = document.getElementById('sol-plan-results');
+  const todos  = res._allCiclos || [];
+  const piscId = document.getElementById('sol-piscina-filtro').value;
+  const piscPool = SOL_PISCINAS.find(p=>p.codePool===piscId);
+  const filtrados = piscId
+    ? todos.filter(x=> piscPool ? x._poolId===piscPool.idPool : x._poolCode===piscId)
+    : todos;
+  const sel = document.getElementById('sol-plan-ciclo');
+  sel.innerHTML = '<option value="">-- Seleccionar ciclo --</option>' +
+    filtrados.map(x=>{
+      const estado = ['ACTIVO','PRODUCCION','ACTIVA'].includes(x.status) ? '🟢' : '⚫';
+      return `<option value="${x.idCycle||x.id}">${estado} Ciclo ${x.cycleNumber||x.cycleCode||x.id} — ${x._poolCode}</option>`;
+    }).join('');
+  sel._cicloMap = Object.fromEntries(filtrados.map(x=>[String(x.idCycle||x.id), x]));
+  document.getElementById('sol-fg-ciclo-filtro').style.display = filtrados.length ? '' : 'none';
+}
+
+function solPlanOnCicloChange(){
+  const sel  = document.getElementById('sol-plan-ciclo');
+  const item = sel._cicloMap?.[sel.value];
+  const mod  = document.getElementById('sol-modulo-prod').value;
+  if(!item) return;
+  const inicio = (item.startDate||item.start||item.seedingDate||item.startingDate||'').slice(0,10);
+  const fin    = (item.endDate||item.end||item.endingDate||'').slice(0,10);
+  if(mod === 'planificacion'){
+    if(inicio) document.getElementById('sol-plan-desde').value = inicio;
+    if(fin)    document.getElementById('sol-plan-hasta').value = fin;
+    solCargarDetalleCiclo(item);
+  } else if(mod === 'peso'){
+    if(inicio) document.getElementById('sol-peso-desde').value = inicio;
+    if(fin)    document.getElementById('sol-peso-hasta').value = fin;
+    document.getElementById('sol-peso-panel').style.display = '';
+    document.getElementById('sol-peso-results').innerHTML = '<p style="font-size:12px;color:var(--muted)">Ajusta el rango de fechas y haz clic en Buscar.</p>';
+    document.getElementById('sol-peso-accion-panel').style.display = 'none';
+  }
+}
+
+async function solCargarDetalleCiclo(item){
+  const s   = getSession();
+  const res = document.getElementById('sol-plan-results');
+  const cycleId = item.idCycle||item.id;
+  res.innerHTML = '<p style="font-size:12px;color:var(--muted)">Cargando planificación...</p>';
+  document.getElementById('sol-plan-accion-panel').style.display = 'none';
+  try{
+    const r = await apiFetch(`/bff/web/ap1/backoffice/api/cycles/${cycleId}?IncludeCodes=true&IncludeCycleUsage=true`,{
+      headers:{'Authorization':'Bearer '+(s?.token||'')}
+    });
+    const json = await r.json();
+    const data = json.data||json;
+    console.log('[ciclo detalle]', data, 'keys:', Object.keys(data));
+    res._cicloDetalle = data;
+    res._cicloItem    = item;
+    solRenderPlanificacion(data, item);
+  }catch(e){
+    console.error('[ciclo detalle]', e);
+    res.innerHTML = '<p style="font-size:12px;color:var(--danger)">Error al cargar planificación.</p>';
+  }
+}
+
+function solFiltrarCiclos(){
+  solPoblarCicloDrop();
+  document.getElementById('sol-plan-results').innerHTML='';
+  document.getElementById('sol-plan-accion-panel').style.display='none';
+}
+
+function solFiltrarCiclosPorFecha(){
+  const res    = document.getElementById('sol-plan-results');
+  const todos  = res._allCiclos || [];
+  const desde  = document.getElementById('sol-plan-desde').value;
+  const hasta  = document.getElementById('sol-plan-hasta').value;
+  const piscId = document.getElementById('sol-piscina-filtro').value;
+  const piscPool = SOL_PISCINAS.find(p=>p.codePool===piscId);
+  const filtrados = todos.filter(x=>{
+    const fecha = (x.startDate||x.start||x.seedingDate||x.startingDate||'').slice(0,10);
+    const matchDesde = !desde || !fecha || fecha >= desde;
+    const matchHasta = !hasta || !fecha || fecha <= hasta;
+    const matchPisc  = !piscId || (piscPool ? x._poolId===piscPool.idPool : x._poolCode===piscId);
+    return matchDesde && matchHasta && matchPisc;
+  });
+  const sel = document.getElementById('sol-plan-ciclo');
+  const valorActual = sel.value;
+  sel.innerHTML = '<option value="">-- Seleccionar ciclo --</option>' +
+    filtrados.map(x=>{
+      const estado = ['ACTIVO','PRODUCCION','ACTIVA'].includes(x.status) ? '🟢' : '⚫';
+      return `<option value="${x.idCycle||x.id}">${estado} Ciclo ${x.cycleNumber||x.cycleCode||x.id} — ${x._poolCode}</option>`;
+    }).join('');
+  sel._cicloMap = Object.fromEntries(filtrados.map(x=>[String(x.idCycle||x.id), x]));
+  if(valorActual && sel.querySelector(`option[value="${valorActual}"]`)) sel.value = valorActual;
+  if(res._cicloDetalle && res._cicloItem){
+    solRenderPlanificacion(res._cicloDetalle, res._cicloItem);
+  } else {
+    res.innerHTML = `<p style="font-size:11px;color:var(--muted)">${filtrados.length} ciclo(s) — selecciona uno del dropdown</p>`;
+    document.getElementById('sol-plan-accion-panel').style.display='none';
+  }
+}
+
+function solRenderPlanificacion(data, item){
+  const res   = document.getElementById('sol-plan-results');
+  const desde = document.getElementById('sol-plan-desde').value;
+  const hasta = document.getElementById('sol-plan-hasta').value;
+  const dias  = data.cycleUsage||data.usage||data.planDays||data.days||data.detail||data.items||[];
+  console.log('[plan dias] total:', dias.length, 'primer dia:', dias[0], 'keys:', dias[0]?Object.keys(dias[0]):[]);
+  const filtrados = dias.filter(x=>{
+    const f = (x.date||x.planDate||x.assignedDate||x.day||'').slice(0,10);
+    return (!desde||!f||f>=desde) && (!hasta||!f||f<=hasta);
+  });
+  const inicio   = (item.startDate||item.start||item.seedingDate||'').slice(0,10)||'–';
+  const fin      = (item.endDate||item.end||item.endingDate||'').slice(0,10)||'–';
+  const esActivo = ['ACTIVO','PRODUCCION','ACTIVA'].includes(item.status);
+  const sumHtml  = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;display:grid;grid-template-columns:repeat(4,auto);gap:6px 20px;align-items:center;margin-bottom:10px">
+      <span style="color:var(--muted)">Ciclo</span><strong>${item.cycleNumber||item.idCycle||'–'}</strong>
+      <span style="color:var(--muted)">Piscina</span><strong>${item._poolCode||'–'}</strong>
+      <span style="color:var(--muted)">Inicio</span><strong>${inicio}</strong>
+      <span style="color:var(--muted)">Fin</span><strong>${fin}</strong>
+      <span style="color:var(--muted)">Estado</span>
+      <span style="${esActivo?'color:#166534;background:#dcfce7':'color:#64748b;background:#f1f5f9'};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;display:inline-block">${esActivo?'Activo':'Cerrado'}</span>
+    </div>`;
+  let tablaHtml = '';
+  if(!filtrados.length){
+    tablaHtml = `<p style="font-size:12px;color:var(--muted)">Sin datos de planificación${desde||hasta?' en el rango seleccionado':''}.${dias.length?' ('+dias.length+' días totales en el ciclo)':''}</p>`;
+  } else {
+    const cols = Object.keys(filtrados[0]).filter(k=>!k.startsWith('_')&&typeof filtrados[0][k]!=='object').slice(0,7);
+    tablaHtml = `
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${filtrados.length} día(s) — click en una fila para seleccionar</div>
+      <div style="overflow-x:auto;max-height:240px;border:1px solid var(--border);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--primary);color:#fff;position:sticky;top:0">
+          ${cols.map(c=>`<th style="padding:5px 8px;text-align:left;white-space:nowrap">${c}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+          ${filtrados.map((x,i)=>`
+          <tr onclick="solSeleccionarDiaPlan(${i})" data-idx="${i}"
+              style="cursor:pointer;border-bottom:1px solid var(--border)"
+              onmouseover="this.style.background='#e8f4ff'" onmouseout="this.style.background=''">
+            ${cols.map(c=>`<td style="padding:4px 8px;white-space:nowrap">${x[c]??'–'}</td>`).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+    res._planItems = filtrados;
+  }
+  res.innerHTML = sumHtml + tablaHtml;
+  // Panel de acción
+  const accionPanel  = document.getElementById('sol-plan-accion-panel');
+  const accionFields = document.getElementById('sol-plan-accion-fields');
+  accionPanel.style.display = '';
+  if(!accionFields._cicloItem){
+    accionFields.innerHTML = `
+      <div class="fg fg-full">
+        <label>Acción</label>
+        <select id="sol-plan-sel-accion" onchange="solPlanOnAccion(this)">
+          <option value="">-- Seleccionar acción --</option>
+          <option>Cambio de fecha de inicio</option>
+          <option>Cambio de fecha de fin</option>
+          <option>Corrección de densidad</option>
+          <option>Corrección de datos del ciclo</option>
+        </select>
+      </div>
+      <div id="sol-plan-correccion"></div>`;
+    accionFields._cicloItem = item;
+  }
+  document.getElementById('sol-piscina').value = item._poolCode||'';
+  document.getElementById('sol-detalle').value =
+    `Módulo: Planificación\nCiclo: ${item.cycleNumber||item.idCycle||'–'}\nPiscina: ${item._poolCode||'–'}\nInicio: ${inicio}`;
+}
+
+function solSeleccionarDiaPlan(idx){
+  const res  = document.getElementById('sol-plan-results');
+  const item = (res._planItems||[])[idx];
+  if(!item) return;
+  document.querySelectorAll('#sol-plan-results tr[data-idx]').forEach(tr=>{
+    tr.style.background = tr.dataset.idx==idx ? '#bfdbfe' : '';
+  });
+  const cicloItem = res._cicloItem||{};
+  document.getElementById('sol-plan-accion-panel').style.display = '';
+  const accionFields = document.getElementById('sol-plan-accion-fields');
+  accionFields._cicloItem = {...cicloItem, _diaSeleccionado: item};
+  // Actualizar detalle
+  document.getElementById('sol-piscina').value = cicloItem._poolCode||'';
+  document.getElementById('sol-detalle').value =
+    `Módulo: Planificación\nCiclo: ${cicloItem.cycleNumber||cicloItem.idCycle||'–'}\nPiscina: ${cicloItem._poolCode||'–'}\nDía: ${JSON.stringify(item)}`;
+}
+
+
+// ── PESO ──────────────────────────────────────────────
+async function solBuscarPesos(){
+  const sel   = document.getElementById('sol-plan-ciclo');
+  const item  = sel._cicloMap?.[sel.value];
+  if(!item){ alert('Selecciona un ciclo primero.'); return; }
+  const s     = getSession();
+  const res   = document.getElementById('sol-peso-results');
+  const desde = document.getElementById('sol-peso-desde').value;
+  const hasta = document.getElementById('sol-peso-hasta').value;
+  const cycleId = item.idCycle||item.id;
+  res.innerHTML = '<p style="font-size:12px;color:var(--muted)">Cargando pesos...</p>';
+  document.getElementById('sol-peso-accion-panel').style.display = 'none';
+  try{
+    const r = await apiFetch(`/bff/web/ap1/backoffice/api/cycle_sampling_weights/cycle?cycleId=${cycleId}&status=ACTIVO&orderBy=samplingDate%20asc&PageSize=1000`,{
+      headers:{'Authorization':'Bearer '+(s?.token||''), 'Accept':'application/json'}
+    });
+    const json = await r.json();
+    let arr = json.data||json.items||json.results||json||[];
+    if(!Array.isArray(arr)) arr = Object.values(arr).find(v=>Array.isArray(v))||[];
+    console.log('[pesos] total:', arr.length, 'primer item:', arr[0], 'keys:', arr[0]?Object.keys(arr[0]):[]);
+    const filtrados = arr.filter(x=>{
+      const f = (x.samplingDate||x.date||x.fecha||'').slice(0,10);
+      return (!desde||!f||f>=desde) && (!hasta||!f||f<=hasta);
+    });
+    solRenderPesos(filtrados, item);
+  }catch(e){
+    console.error('[pesos]', e);
+    res.innerHTML = '<p style="font-size:12px;color:var(--danger)">Error al cargar pesos.</p>';
+  }
+}
+
+function solRenderPesos(items, cicloItem){
+  const res = document.getElementById('sol-peso-results');
+  if(!items.length){
+    res.innerHTML = '<p style="font-size:12px;color:var(--muted)">No se encontraron muestreos en el rango seleccionado.</p>';
+    return;
+  }
+  const colsFinal = ['samplingDate','averageWeightGrams'];
+  const labels = {samplingDate:'Fecha',averageWeightGrams:'Peso registrado (g)'};
+  res.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${items.length} muestreo(s) — click en una fila para seleccionar</div>
+    <div style="overflow-x:auto;max-height:260px;border:1px solid var(--border);border-radius:6px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:var(--primary);color:#fff;position:sticky;top:0">
+        ${colsFinal.map(c=>`<th style="padding:5px 8px;text-align:left;white-space:nowrap">${labels[c]||c}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${items.map((x,i)=>`
+        <tr onclick="solSeleccionarPeso(${i})" data-idx="${i}"
+            style="cursor:pointer;border-bottom:1px solid var(--border)"
+            onmouseover="this.style.background='#e8f4ff'" onmouseout="this.style.background=''">
+          ${colsFinal.map(c=>{
+            let v = x[c]??'–';
+            if(typeof v==='string' && v.includes('T') && v.includes(':')) v = v.slice(0,10);
+            return `<td style="padding:4px 8px;white-space:nowrap">${v}</td>`;
+          }).join('')}
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  res._pesoItems  = items;
+  res._cicloItem  = cicloItem;
+}
+
+function solSeleccionarPeso(idx){
+  const res  = document.getElementById('sol-peso-results');
+  const item = (res._pesoItems||[])[idx];
+  if(!item) return;
+  document.querySelectorAll('#sol-peso-results tr[data-idx]').forEach(tr=>{
+    tr.style.background = tr.dataset.idx==idx ? '#bfdbfe' : '';
+  });
+  const ciclo  = res._cicloItem||{};
+  const fecha  = (item.samplingDate||item.date||'').slice(0,10);
+  const accionPanel  = document.getElementById('sol-peso-accion-panel');
+  const accionFields = document.getElementById('sol-peso-accion-fields');
+  accionPanel.style.display = '';
+  accionFields.innerHTML = `
+    <div class="fg fg-full"><label>Acción</label>
+      <select id="sol-peso-sel-accion" onchange="solPesoOnAccion(this)">
+        <option value="">-- Seleccionar acción --</option>
+        <option value="mod-peso">Modificación de registro de peso (más de 3 días)</option>
+        <option value="mod-fecha">Modificación de registro de fecha de peso (más de 3 días)</option>
+        <option value="elim">Eliminación de peso registrado</option>
+      </select>
+    </div>
+    <div id="sol-peso-correccion"></div>`;
+  accionFields._pesoItem  = item;
+  accionFields._cicloItem = ciclo;
+  document.getElementById('sol-piscina').value = ciclo._poolCode||'';
+  document.getElementById('sol-detalle').value =
+    `Módulo: Peso\nCiclo: ${ciclo.cycleNumber||ciclo.idCycle||'–'}\nPiscina: ${ciclo._poolCode||'–'}\nFecha muestreo: ${fecha}\nPeso registrado: ${item.averageWeightGrams??'–'} g`;
+}
+
+function solPesoOnAccion(sel){
+  const accion = sel.value;
+  const fields = document.getElementById('sol-peso-accion-fields');
+  const item   = fields._pesoItem||{};
+  const ciclo  = fields._cicloItem||{};
+  const corr   = document.getElementById('sol-peso-correccion');
+  if(!accion){ corr.innerHTML=''; return; }
+  const fecha  = (item.samplingDate||'').slice(0,10);
+  const pisCic = `${ciclo._poolCode||'–'} / Ciclo ${ciclo.cycleNumber||ciclo.idCycle||'–'}`;
+  const peso   = item.averageWeightGrams??'–';
+  const G = (f,label,val,input)=>`
+    <div style="padding:8px 12px;font-weight:600;color:var(--muted);border-top:1px solid var(--border)">${label}</div>
+    <div style="padding:8px 12px;border-top:1px solid var(--border)">${val}</div>
+    <div style="padding:6px 10px;border-top:1px solid var(--border)">${input}</div>`;
+  const HDR = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:10px;font-size:12px">
+    <div style="padding:6px 12px;background:#f1f5f9;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted)">Campo</div>
+    <div style="padding:6px 12px;background:#f1f5f9;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted)">Registrado</div>
+    <div style="padding:6px 12px;background:#f1f5f9;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted)">Correcto</div>`;
+  const inp = (id,type,extra='')=>`<input type="${type}" id="${id}" ${extra} style="width:100%;font-size:12px;border:1px solid var(--border);border-radius:5px;padding:4px 6px;background:var(--card);color:var(--text)" oninput="solPesoActualizarDetalle()">`;
+  let grid = '';
+  if(accion==='mod-peso'){
+    grid = HDR +
+      G('','Piscina y Ciclo', pisCic, `<span style="font-size:12px;padding:4px 0;display:block">${pisCic}</span>`) +
+      G('','Fecha de registro', fecha, `<span style="font-size:12px;padding:4px 0;display:block">${fecha}</span>`) +
+      G('sol-peso-val','Peso registrado (g)', peso, inp('sol-peso-val','number','step="0.01" placeholder="Peso correcto..."')) +
+      '</div>';
+  } else if(accion==='mod-fecha'){
+    grid = HDR +
+      G('','Piscina y Ciclo', pisCic, `<span style="font-size:12px;padding:4px 0;display:block">${pisCic}</span>`) +
+      G('sol-peso-fecha','Fecha de registro', fecha, inp('sol-peso-fecha','date','')) +
+      G('','Peso registrado (g)', peso, `<span style="font-size:12px;padding:4px 0;display:block">${peso}</span>`) +
+      '</div>';
+  } else if(accion==='elim'){
+    grid = `<div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:10px;font-size:12px">
+      <div style="padding:6px 12px;background:#f1f5f9;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted)">Campo</div>
+      <div style="padding:6px 12px;background:#f1f5f9;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted)">Registrado</div>
+      <div style="padding:8px 12px;font-weight:600;color:var(--muted);border-top:1px solid var(--border)">Piscina</div>
+      <div style="padding:8px 12px;border-top:1px solid var(--border)">${ciclo._poolCode||'–'}</div>
+      <div style="padding:8px 12px;font-weight:600;color:var(--muted);border-top:1px solid var(--border)">Fecha de registro</div>
+      <div style="padding:8px 12px;border-top:1px solid var(--border)">${fecha}</div>
+      <div style="padding:8px 12px;font-weight:600;color:var(--muted);border-top:1px solid var(--border)">Peso registrado (g)</div>
+      <div style="padding:8px 12px;border-top:1px solid var(--border)">${peso}</div>
+    </div>`;
+  }
+  corr.innerHTML = grid;
+  solPesoActualizarDetalle();
+}
+
+function solPesoActualizarDetalle(){
+  const fields = document.getElementById('sol-peso-accion-fields');
+  const item   = fields._pesoItem||{};
+  const ciclo  = fields._cicloItem||{};
+  const accion = document.getElementById('sol-peso-sel-accion')?.value||'';
+  const fecha  = (item.samplingDate||'').slice(0,10);
+  const peso   = item.averageWeightGrams??'–';
+  const val    = document.getElementById('sol-peso-val')?.value||'';
+  const nFecha = document.getElementById('sol-peso-fecha')?.value||'';
+  const obs    = document.getElementById('sol-peso-obs')?.value||'';
+  const accionLabel = {
+    'mod-peso' :'Modificación de registro de peso (más de 3 días)',
+    'mod-fecha':'Modificación de registro de fecha de peso (más de 3 días)',
+    'elim'     :'Eliminación de peso registrado'
+  }[accion]||accion;
+  let detalle = `Módulo: Peso | Acción: ${accionLabel}\nPiscina: ${ciclo._poolCode||'–'} | Ciclo: ${ciclo.cycleNumber||ciclo.idCycle||'–'}\nFecha de registro: ${fecha} | Peso registrado: ${peso} g\n`;
+  if(accion==='mod-peso'  && val)    detalle += `Peso correcto: ${val} g\nMotivo: Registro de peso incorrecto\n`;
+  if(accion==='mod-fecha' && nFecha) detalle += `Fecha correcta: ${nFecha}\nMotivo: Registro de la fecha de peso incorrecto\n`;
+  if(accion==='elim'      && obs)    detalle += `Motivo: ${obs}\n`;
+  document.getElementById('sol-detalle').value = detalle;
+}
+
+function solPlanOnAccion(sel){
+  const accion = sel.value;
+  const item   = document.getElementById('sol-plan-accion-fields')._cicloItem||{};
+  const corr   = document.getElementById('sol-plan-correccion');
+  if(!accion){ corr.innerHTML=''; return; }
+  let campos = '';
+  if(accion.includes('fecha de inicio')){
+    campos = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:10px;font-size:12px">
+      <div style="padding:6px 12px;background:#f1f5f9;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted)">Campo</div>
+      <div style="padding:6px 12px;background:#f1f5f9;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted)">Registrado</div>
+      <div style="padding:6px 12px;background:#f1f5f9;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted)">Correcto</div>
+      <div style="padding:8px 12px;font-weight:600;color:var(--muted);border-top:1px solid var(--border)">Fecha inicio</div>
+      <div style="padding:8px 12px;border-top:1px solid var(--border)">${(item.startDate||'').slice(0,10)||'–'}</div>
+      <div style="padding:6px 10px;border-top:1px solid var(--border)"><input type="date" id="sol-plan-f-inicio" style="width:100%;font-size:12px;border:1px solid var(--border);border-radius:5px;padding:4px 6px;background:var(--card);color:var(--text)" oninput="solPlanActualizarDetalle()"></div>
+    </div>`;
+  } else if(accion.includes('fecha de fin')){
+    campos = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:10px;font-size:12px">
+      <div style="padding:6px 12px;background:#f1f5f9;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted)">Campo</div>
+      <div style="padding:6px 12px;background:#f1f5f9;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted)">Registrado</div>
+      <div style="padding:6px 12px;background:#f1f5f9;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted)">Correcto</div>
+      <div style="padding:8px 12px;font-weight:600;color:var(--muted);border-top:1px solid var(--border)">Fecha fin</div>
+      <div style="padding:8px 12px;border-top:1px solid var(--border)">${(item.endDate||item.end||'').slice(0,10)||'–'}</div>
+      <div style="padding:6px 10px;border-top:1px solid var(--border)"><input type="date" id="sol-plan-f-fin" style="width:100%;font-size:12px;border:1px solid var(--border);border-radius:5px;padding:4px 6px;background:var(--card);color:var(--text)" oninput="solPlanActualizarDetalle()"></div>
+    </div>`;
+  } else {
+    campos = `<div class="fg fg-full" style="margin-top:10px"><label>Describe la corrección</label>
+      <textarea id="sol-plan-obs" rows="3" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text)" oninput="solPlanActualizarDetalle()" placeholder="Describe qué dato necesita corregirse..."></textarea>
+    </div>`;
+  }
+  corr.innerHTML = campos;
+  solPlanActualizarDetalle();
+}
+
+function solPlanActualizarDetalle(){
+  const item   = document.getElementById('sol-plan-accion-fields')._cicloItem||{};
+  const accion = document.getElementById('sol-plan-sel-accion')?.value||'–';
+  const fInicio= document.getElementById('sol-plan-f-inicio')?.value||'';
+  const fFin   = document.getElementById('sol-plan-f-fin')?.value||'';
+  const obs    = document.getElementById('sol-plan-obs')?.value||'';
+  document.getElementById('sol-detalle').value =
+    `Módulo: Planificación | Acción: ${accion}\nCiclo: ${item.cycleNumber||item.cycleCode||item.idCycle||'–'} | Piscina: ${item._poolCode||'–'}\n` +
+    (fInicio?`Fecha inicio registrada: ${(item.startDate||'').slice(0,10)} → Correcta: ${fInicio}\n`:'') +
+    (fFin?`Fecha fin registrada: ${(item.endDate||'').slice(0,10)} → Correcta: ${fFin}\n`:'') +
+    (obs?`Corrección: ${obs}`:'');
+}
+
+async function solBuscarConsumos(){
+  const s        = getSession();
+  const btn      = document.getElementById('sol-cons-btn');
+  const res      = document.getElementById('sol-cons-results');
+  const desde    = document.getElementById('sol-cons-desde').value;
+  const hasta    = document.getElementById('sol-cons-hasta').value;
+  const sucId    = document.getElementById('sol-sucursal').value;   // ID numérico del API
+  const piscId   = document.getElementById('sol-piscina-filtro').value; // ID piscina del API
+  if(!desde||!hasta){ res.innerHTML='<p style="color:var(--danger);font-size:12px">Selecciona rango de fechas.</p>'; return; }
+  btn.disabled=true; btn.textContent='Buscando...';
+  res.innerHTML='<p style="font-size:12px;color:var(--muted)">Cargando consumos...</p>';
+  try{
+    const params = new URLSearchParams();
+    params.set('initDate', desde);
+    params.set('endDate', hasta);
+    params.append('subsidiaryIds', sucId);   // solo la sucursal del usuario
+    params.set('PageSize','1000');
+    const r = await apiFetch('/bff/mobile/feedcontrol/balanceado/api/report/consumptions?'+params,{
+      headers:{ 'Authorization':'Bearer '+(s?.token||''), 'Accept':'application/json' }
+    });
+    const json = await r.json();
+    console.log('[consumos] status:', r.status, 'primer item:', (json.data||json.items||json.content||json)?.[0]);
+    const items = json.data || json.items || json.content || (Array.isArray(json)?json:[]);
+    const arrItems = Array.isArray(items) ? items : Object.values(items).find(v=>Array.isArray(v)) || [];
+    // piscId es el codePool (ej: "PE-0033")
+    if(arrItems.length) console.log('[consumos] campos:', Object.keys(arrItems[0]), 'primer item:', arrItems[0]);
+    const filtrados = piscId
+      ? arrItems.filter(x => JSON.stringify(x).toUpperCase().includes(piscId.toUpperCase()))
+      : arrItems;
+    console.log('[consumos] total:', arrItems.length, 'filtrados piscina:', filtrados.length);
+    solRenderConsumos(filtrados);
+  }catch(e){
+    console.error('[consumos] error:', e);
+    res.innerHTML='<p style="color:var(--danger);font-size:12px">Error al cargar consumos.</p>';
+  }finally{
+    btn.disabled=false; btn.textContent='Buscar';
+  }
+}
+
+function solRenderConsumos(items){
+  const res = document.getElementById('sol-cons-results');
+  if(!items.length){ res.innerHTML='<p style="font-size:12px;color:var(--muted)">No se encontraron consumos en ese rango.</p>'; return; }
+  res.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${items.length} registro(s) — click en una fila para seleccionar</div>
+    <div style="overflow-x:auto;max-height:260px;border:1px solid var(--border);border-radius:6px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:var(--primary);color:#fff;position:sticky;top:0">
+        <th style="padding:6px 8px;text-align:left">Fecha</th>
+        <th style="padding:6px 8px;text-align:left">Piscina</th>
+        <th style="padding:6px 8px;text-align:left">Balanceado</th>
+        <th style="padding:6px 8px;text-align:right">Sacos</th>
+        <th style="padding:6px 8px;text-align:right">Kilos</th>
+      </tr></thead>
+      <tbody>
+        ${items.map((x,i)=>`
+        <tr onclick="solSeleccionarConsumo(${i})" data-idx="${i}"
+            style="cursor:pointer;border-bottom:1px solid var(--border)"
+            onmouseover="this.style.background='#e8f4ff'" onmouseout="this.style.background=''">
+          <td style="padding:5px 8px;white-space:nowrap">${(x.assignedDate||'').slice(0,10)}</td>
+          <td style="padding:5px 8px;white-space:nowrap">${x.poolCode||'–'}</td>
+          <td style="padding:5px 8px">${x.productName||'–'}</td>
+          <td style="padding:5px 8px;text-align:right;font-variant-numeric:tabular-nums">${x.sacks??'–'}</td>
+          <td style="padding:5px 8px;text-align:right;font-variant-numeric:tabular-nums">${x.kilograms??'–'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  res._items = items;
+}
+
+function solSeleccionarConsumo(idx){
+  const items = document.getElementById('sol-cons-results')._items || [];
+  const item  = items[idx];
+  if(!item) return;
+  document.querySelectorAll('#sol-cons-results tr[data-idx]').forEach(tr=>{
+    tr.style.background = tr.dataset.idx==idx ? '#bfdbfe' : '';
+  });
+  const piscina = item.poolCode || document.getElementById('sol-piscina-filtro').value || '';
+  document.getElementById('sol-piscina').value = piscina;
+  const fecha = (item.assignedDate||'').slice(0,10);
+  document.getElementById('sol-detalle').value =
+    `Módulo: Consumo\nFecha: ${fecha}\nPiscina: ${piscina}\nCiclo: ${item.cycleCode||item.cycleNumber||'–'}\nBalanceado: ${item.productName||'–'}\nSacos: ${item.sacks??'–'}\nKilos: ${item.kilograms??'–'}`;
+
+  // Mostrar panel de acciones
+  const config = EXTRAS_POR_DESCRIPCION['Consumos'];
+  const accionPanel = document.getElementById('sol-cons-accion-panel');
+  const accionFields = document.getElementById('sol-cons-accion-fields');
+  if(!config){ accionPanel.style.display='none'; return; }
+  accionPanel.style.display = '';
+  const acciones = config.acciones || [];
+  accionFields.innerHTML = `
+    <div class="fg fg-full">
+      <label>Acción</label>
+      <select id="sol-cons-sel-accion" onchange="solConsOnAccion(this)">
+        <option value="">-- Seleccionar acción --</option>
+        ${acciones.map((a,i)=>`<option value="${i}">${a.label}</option>`).join('')}
+      </select>
+    </div>`;
+  accionFields._consumoItem = item;
+}
+
+function solConsOnAccion(sel){
+  const idx  = parseInt(sel.value);
+  if(isNaN(idx)) return;
+  const item = document.getElementById('sol-cons-accion-fields')._consumoItem || {};
+  solRenderCorreccionConsumo(item);
+}
+
+function solRenderCorreccionConsumo(item){
+  const accionPanel = document.getElementById('sol-cons-accion-panel');
+  // Reusar contenedor o agregar debajo del select
+  let grid = document.getElementById('sol-cons-correccion-grid');
+  if(!grid){
+    grid = document.createElement('div');
+    grid.id = 'sol-cons-correccion-grid';
+    document.getElementById('sol-cons-accion-fields').appendChild(grid);
+  }
+  const fecha  = (item.assignedDate||'').slice(0,10);
+  const kilos  = item.kilograms ?? '';
+  const sacos  = item.sacks ?? '';
+  const balan  = item.productName || '';
+
+  grid.innerHTML = `
+    <div style="margin-top:14px;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:#f1f5f9;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700">
+        <div style="padding:7px 12px">Campo</div>
+        <div style="padding:7px 12px">Registrado</div>
+        <div style="padding:7px 12px">Correcto</div>
+      </div>
+
+      <!-- Fecha -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border);align-items:center">
+        <div style="padding:8px 12px;font-weight:600;color:var(--muted);font-size:12px">Fecha</div>
+        <div style="padding:8px 12px;font-variant-numeric:tabular-nums">${fecha||'–'}</div>
+        <div style="padding:6px 10px"><input type="date" id="sol-cor-fecha" style="width:100%;font-size:12px;border:1px solid var(--border);border-radius:5px;padding:4px 6px;background:var(--card);color:var(--text)" oninput="solActualizarDiff()"></div>
+      </div>
+
+      <!-- Balanceado (solo lectura, no se cambia) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border);align-items:center">
+        <div style="padding:8px 12px;font-weight:600;color:var(--muted);font-size:12px">Balanceado</div>
+        <div style="padding:8px 12px;font-size:12px;grid-column:2/4">${balan||'–'}</div>
+      </div>
+
+      <!-- Sacos -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border);align-items:center">
+        <div style="padding:8px 12px;font-weight:600;color:var(--muted);font-size:12px">Sacos</div>
+        <div style="padding:8px 12px;font-variant-numeric:tabular-nums">${sacos||'–'}</div>
+        <div style="padding:6px 10px"><input type="number" id="sol-cor-sacos" style="width:100%;font-size:12px;border:1px solid var(--border);border-radius:5px;padding:4px 6px;background:var(--card);color:var(--text)" placeholder="Sacos correctos" oninput="solCalcDesde('sacos')"></div>
+      </div>
+
+      <!-- Kilos -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border);align-items:center">
+        <div style="padding:8px 12px;font-weight:600;color:var(--muted);font-size:12px">Kilos</div>
+        <div style="padding:8px 12px;font-variant-numeric:tabular-nums">${kilos||'–'}</div>
+        <div style="padding:6px 10px"><input type="number" id="sol-cor-kilos" style="width:100%;font-size:12px;border:1px solid var(--border);border-radius:5px;padding:4px 6px;background:var(--card);color:var(--text)" placeholder="Kilos correctos" oninput="solCalcDesde('kilos')"></div>
+      </div>
+
+      <!-- Diferencia -->
+      <div id="sol-cor-diff" style="display:none;border-top:2px solid var(--border);background:#fef9c3;padding:10px 12px;font-size:12px"></div>
+    </div>`;
+
+  // Guardar item de referencia en el grid
+  grid._item = item;
+  solActualizarDetalle(item);
+}
+
+function solCalcDesde(origen){
+  const sacosEl = document.getElementById('sol-cor-sacos');
+  const kilosEl = document.getElementById('sol-cor-kilos');
+  if(!sacosEl||!kilosEl) return;
+  if(origen==='sacos'){
+    const s = parseFloat(sacosEl.value);
+    if(!isNaN(s) && s>0) kilosEl.value = s * 25;
+    else kilosEl.value = '';
+  } else {
+    const k = parseFloat(kilosEl.value);
+    if(!isNaN(k) && k>0) sacosEl.value = +(k/25).toFixed(2);
+    else sacosEl.value = '';
+  }
+  solActualizarDiff();
+}
+
+function solActualizarDiff(){
+  const grid = document.getElementById('sol-cons-correccion-grid');
+  const item = grid?._item || {};
+  const kilosReg = parseFloat(item.kilograms||0);
+  const sacosReg = parseFloat(item.sacks||0);
+  const kilosCor = parseFloat(document.getElementById('sol-cor-kilos')?.value||0);
+  const sacosCor = parseFloat(document.getElementById('sol-cor-sacos')?.value||0);
+  const diffKilos = kilosCor - kilosReg;
+  const diffSacos = sacosCor - sacosReg;
+  const diffEl = document.getElementById('sol-cor-diff');
+  if((kilosCor||sacosCor) && diffEl){
+    const fmt = n => (n>0?'+':'')+n.toLocaleString();
+    diffEl.style.display = '';
+    diffEl.innerHTML = `<b>Diferencia:</b> Sacos ${fmt(diffSacos)} &nbsp;|&nbsp; Kilos ${fmt(diffKilos)}`;
+    diffEl.style.background = (diffKilos===0&&diffSacos===0) ? '#dcfce7' : '#fef9c3';
+  } else if(diffEl){
+    diffEl.style.display = 'none';
+  }
+  solActualizarDetalle(item);
+}
+
+function solActualizarDetalle(item){
+  const accionSel = document.getElementById('sol-cons-sel-accion');
+  const config    = EXTRAS_POR_DESCRIPCION['Consumos'];
+  const acciones  = config?.acciones||[];
+  const accion    = acciones[parseInt(accionSel?.value)]?.label||'–';
+  const fecha     = (item.assignedDate||'').slice(0,10);
+  const fechaCor  = document.getElementById('sol-cor-fecha')?.value||'';
+  const sacosCor  = document.getElementById('sol-cor-sacos')?.value||'';
+  const kilosCor  = document.getElementById('sol-cor-kilos')?.value||'';
+  const diffKilos = kilosCor ? (parseFloat(kilosCor)-parseFloat(item.kilograms||0)) : null;
+  const diffSacos = sacosCor ? (parseFloat(sacosCor)-parseFloat(item.sacks||0)) : null;
+  document.getElementById('sol-detalle').value =
+    `Módulo: Consumo | Acción: ${accion}\nPiscina: ${item.poolCode||'–'} | Ciclo: ${item.cycleCode||'–'}\n` +
+    `Balanceado: ${item.productName||'–'}\n` +
+    `Fecha registrada: ${fecha}${fechaCor?' → Correcta: '+fechaCor:''}\n` +
+    `Sacos: ${item.sacks??'–'}${sacosCor?' → Correcto: '+sacosCor+(diffSacos!==null?' ('+( diffSacos>0?'+':'')+diffSacos+')':''):''}\n` +
+    `Kilos: ${item.kilograms??'–'}${kilosCor?' → Correcto: '+kilosCor+(diffKilos!==null?' ('+(diffKilos>0?'+':'')+diffKilos+')':''):''}`;
+}
+
+async function solBuscarMovimientos(){
+  const s    = getSession();
+  const btn  = document.getElementById('sol-mov-btn');
+  const res  = document.getElementById('sol-mov-results');
+  const desde = document.getElementById('sol-mov-desde').value;
+  const hasta = document.getElementById('sol-mov-hasta').value;
+  if(!desde||!hasta){ res.innerHTML='<p style="color:var(--danger);font-size:12px">Selecciona rango de fechas.</p>'; return; }
+  btn.disabled=true; btn.textContent='Buscando...';
+  res.innerHTML='<p style="font-size:12px;color:var(--muted)">Cargando movimientos...</p>';
+  const desglose = document.getElementById('sol-desglose');
+  if(desglose) desglose.innerHTML='';
+  try{
+    const params = new URLSearchParams();
+    params.set('initDate', desde); params.set('endDate', hasta);
+    const sucId = document.getElementById('sol-sucursal').value;
+    if(sucId) params.append('subsidiaryIds', sucId);
+    else SOL_MOV_SUBS.forEach(id=>params.append('subsidiaryIds',id));
+    params.set('PageSize','1000');
+    const r = await apiFetch('/bff/mobile/feedcontrol/balanceado/api/movements/details?'+params,{
+      headers:{
+        'Authorization':'Bearer '+(s?.token||''),
+        'Accept':'application/json'
+      }
+    });
+    console.log('[movimientos] HTTP status:', r.status, r.statusText);
+    const json = await r.json();
+    console.log('[movimientos] status:', r.status, 'keys:', Object.keys(json), 'sample:', JSON.stringify(json).slice(0,500));
+    const items = json.data || json.items || json.content || json || [];
+    const arrItems = Array.isArray(items) ? items : Object.values(items).find(v=>Array.isArray(v)) || [];
+    const area = document.getElementById('sol-area').value;
+    // Bodega = T1+T2+T3, Producción = T1
+    const tiposPrefijo = area === 'Producción' ? ['T1'] : ['T1','T2','T3'];
+    const filtrados = arrItems.filter(x=>{
+      const obs = (x.observation||'').toUpperCase();
+      return tiposPrefijo.some(t => obs.startsWith(t));
+    });
+    // Extraer número de viaje del observation: "T2 #434792 ..." → "T2 #434792"
+    function tripKey(x){ const m=(x.observation||'').match(/^(T\d+\s*#\d+)/i); return m?m[1].trim():x.movementId; }
+    function tripRoute(obs){ const m=(obs||'').match(/^T\d+\s*#\d+\s+(.+?)\s+-\s+(.+)$/i); return m?{origen:m[1].trim(),destino:m[2].trim()}:{origen:'',destino:''}; }
+    const viajeMap = new Map();
+    filtrados.forEach(x=>{
+      const key = tripKey(x);
+      if(!viajeMap.has(key)){
+        const route = tripRoute(x.observation);
+        viajeMap.set(key, { ...x, _tripKey: key, _origen: route.origen, _destino: route.destino, _lineas: [] });
+      }
+      viajeMap.get(key)._lineas.push(x);
+    });
+    // Calcular estado de entrega de cada viaje
+    viajeMap.forEach(v=>{
+      const destinos = v._lineas.map(x=>(x.destinationWarehouseName||'').toUpperCase());
+      v._entregado = destinos.some(d => d.startsWith('BM'));
+      // Piscina final = destino BM donde fue entregado
+      const lineaBM = v._lineas.find(x=>(x.destinationWarehouseName||'').toUpperCase().startsWith('BM'));
+      v._piscinaFinal = lineaBM?.destinationWarehouseName || v._destino || '';
+    });
+    const unicos = [...viajeMap.values()];
+    console.log('[movimientos] viajes únicos:', unicos.length);
+    solRenderMovimientos(unicos);
+  }catch(e){
+    res.innerHTML='<p style="color:var(--danger);font-size:12px">Error al cargar movimientos.</p>';
+  }finally{
+    btn.disabled=false; btn.textContent='Buscar';
+  }
+}
+
+function solRenderMovimientos(items){
+  const res = document.getElementById('sol-mov-results');
+  if(!items.length){ res.innerHTML='<p style="font-size:12px;color:var(--muted)">No se encontraron movimientos en ese rango.</p>'; return; }
+  res.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${items.length} viaje(s) — click en una fila para seleccionar</div>
+    <div style="overflow-x:auto;max-height:220px;border:1px solid var(--border);border-radius:6px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:var(--primary);color:#fff;position:sticky;top:0">
+        <th style="padding:6px 8px;text-align:left;white-space:nowrap">N° Viaje</th>
+        <th style="padding:6px 8px;text-align:left;white-space:nowrap">Fecha</th>
+        <th style="padding:6px 8px;text-align:left;white-space:nowrap">Origen</th>
+        <th style="padding:6px 8px;text-align:left;white-space:nowrap">Piscina destino</th>
+        <th style="padding:6px 8px;text-align:left;white-space:nowrap">Estado</th>
+        <th style="padding:6px 8px;text-align:left;white-space:nowrap">Usuario</th>
+      </tr></thead>
+      <tbody>
+        ${items.map((item,i)=>{
+          const estado = item._entregado
+            ? '<span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600">Entregado</span>'
+            : '<span style="background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600">En ruta</span>';
+          return `
+          <tr onclick="solSeleccionarMovimiento(${i})" data-idx="${i}"
+              style="cursor:pointer;border-bottom:1px solid var(--border)"
+              onmouseover="this.style.background='#e8f4ff'" onmouseout="this.style.background=''">
+            <td style="padding:5px 8px;white-space:nowrap;font-weight:600">${item._tripKey||'–'}</td>
+            <td style="padding:5px 8px;white-space:nowrap">${(item.createdAt||'').slice(0,16).replace('T',' ')}</td>
+            <td style="padding:5px 8px;white-space:nowrap">${item._origen||'–'}</td>
+            <td style="padding:5px 8px;white-space:nowrap">${item._piscinaFinal||'–'}</td>
+            <td style="padding:5px 8px;white-space:nowrap">${estado}</td>
+            <td style="padding:5px 8px;white-space:nowrap">${item.createdBy||'–'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>`;
+  res._items = items;
+}
+
+function solSeleccionarMovimiento(idx){
+  const items = document.getElementById('sol-mov-results')._items || [];
+  const item  = items[idx];
+  if(!item) return;
+  // Marcar fila seleccionada
+  document.querySelectorAll('#sol-mov-results tr[data-idx]').forEach(tr=>{
+    tr.style.background = tr.dataset.idx==idx ? '#bfdbfe' : '';
+  });
+  // Log para ver todos los campos disponibles
+  console.log('[viaje seleccionado] campos primer ítem:', Object.keys(item._lineas[0]||{}));
+  console.log('[viaje seleccionado] primera línea:', item._lineas[0]);
+
+  // Auto-completar piscina: si está entregado usar BM final, si no "En ruta"
+  document.getElementById('sol-piscina').value = item._entregado
+    ? (item._piscinaFinal || item._destino || '')
+    : 'En ruta - ' + (item._destino || '');
+
+  // Renderizar desglose del viaje (incluye acción y motivo al final)
+  solRenderDesglose(item);
+}
+
+function solRenderDesglose(viaje){
+  // Solo el primer movimiento (SALIDA del origen) para evitar duplicar cantidades por legs contables
+  const todas  = viaje._lineas || [];
+  const minMov = Math.min(...todas.map(x=>x.movementId));
+  const lineas = todas.filter(x => x.movementId === minMov && x.type === 'SALIDA');
+  const fecha  = (viaje.createdAt||'').slice(0,10);
+
+  // Detectar campos disponibles de la primera línea
+  const muestra = lineas[0] || viaje;
+  const getSacos   = x => x.equivalenceSacks       ?? '–';
+  const getKilos   = x => x.equivalenceKilograms   ?? '–';
+  const getPiscina = x => x.destinationWarehouseName ?? '–';
+  const getBalance = x => x.productName             ?? '–';
+
+  // Agrupar por tipo de balanceado
+  const grupos = {};
+  lineas.forEach(x=>{
+    const k = getBalance(x);
+    if(!grupos[k]) grupos[k] = {sacos:0, kilos:0};
+    grupos[k].sacos += Number(getSacos(x)) || 0;
+    grupos[k].kilos += Number(getKilos(x)) || 0;
+  });
+  const filasBal = Object.entries(grupos).map(([bal,v],i)=>`
+    <tr style="border-bottom:1px solid var(--border);background:${i%2?'var(--bg)':'var(--card)'}">
+      <td style="padding:5px 10px">${bal}</td>
+      <td style="padding:5px 10px;text-align:right;font-variant-numeric:tabular-nums">${v.sacos.toLocaleString()}</td>
+      <td style="padding:5px 10px;text-align:right;font-variant-numeric:tabular-nums">${v.kilos.toLocaleString()}</td>
+    </tr>`).join('');
+
+  let html = `
+    <div style="margin-top:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:12px">
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:#f1f5f9;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px">
+            <th style="padding:6px 10px;text-align:left;border-bottom:1px solid var(--border)">Tipo de balanceado</th>
+            <th style="padding:6px 10px;text-align:right;border-bottom:1px solid var(--border)">Sacos</th>
+            <th style="padding:6px 10px;text-align:right;border-bottom:1px solid var(--border)">Kilos</th>
+          </tr>
+        </thead>
+        <tbody>${filasBal}</tbody>
+        <tfoot>
+          <tr style="background:#f1f5f9;font-weight:700;border-top:2px solid var(--border)">
+            <td style="padding:6px 10px;color:var(--muted);font-size:11px;text-transform:uppercase">Total</td>
+            <td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums" id="sol-tot-sacos">–</td>
+            <td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums" id="sol-tot-kilos">–</td>
+          </tr>
+        </tfoot>
+      </table>
+      </div>
+    </div>`;
+
+  // Insertar desglose dentro del panel de búsqueda, después de los resultados
+  let panel = document.getElementById('sol-desglose');
+  if(!panel){
+    panel = document.createElement('div');
+    panel.id = 'sol-desglose';
+    document.getElementById('sol-mov-results').after(panel);
+  }
+  panel.innerHTML = html;
+  panel._viaje = viaje;
+
+  // Totales
+  const totalSacos = lineas.reduce((s,x)=>s+(x.equivalenceSacks||0),0);
+  const totalKilos = lineas.reduce((s,x)=>s+(x.equivalenceKilograms||0),0);
+  panel.querySelector('#sol-tot-sacos').textContent = totalSacos.toLocaleString();
+  panel.querySelector('#sol-tot-kilos').textContent = totalKilos.toLocaleString();
+
+  // Añadir ACCIÓN y MOTIVO al final del panel
+  const bodAcciones = EXTRAS_POR_DESCRIPCION['ELIMINAR VIAJE']?.acciones || [];
+  const accionOpts  = bodAcciones.map((a,i)=>`<option value="${i}">${a.label}</option>`).join('');
+  const causasAcc0  = (bodAcciones[0]?.causas||[]);
+  const accionDiv   = document.createElement('div');
+  accionDiv.style.marginTop = '12px';
+  accionDiv.innerHTML = `
+    <div class="fg fg-full" style="margin-bottom:6px">
+      <label style="background:#fef08a;display:block;padding:6px 10px;border-radius:4px;letter-spacing:1px;font-size:11px;font-weight:700">ACCIÓN</label>
+      <select id="sol-bod-sel-accion" onchange="solBodOnAccionChange(this)" style="width:100%">
+        <option value="">-- Seleccionar acción --</option>
+        ${accionOpts}
+      </select>
+    </div>
+    <div id="sol-bod-causas-wrap" style="display:none" class="fg fg-full">
+      <label style="background:#fef08a;display:block;padding:6px 10px;border-radius:4px;letter-spacing:1px;font-size:11px;font-weight:700">MOTIVO</label>
+      <select id="sol-bod-causas" onchange="solBodActualizarDetalle()" style="width:100%">
+        <option value="">-- Seleccionar motivo --</option>
+        ${causasAcc0.map(c=>`<option>${c}</option>`).join('')}
+      </select>
+    </div>`;
+  accionDiv.dataset.bodAcciones = JSON.stringify(bodAcciones);
+  panel.appendChild(accionDiv);
+
+  // Base del detalle
+  const lineasTxt = lineas.map(x=>`  ${getBalance(x)} | ${getSacos(x)} sacos | ${getKilos(x)} kg`).join('\n');
+  document.getElementById('sol-detalle').value =
+    `Viaje: ${viaje._tripKey||''}\nFecha: ${fecha}\nOrigen: ${viaje._origen||''}\nDestino: ${viaje._destino||''}\nRegistrado por: ${viaje.createdBy||''}\nTotal: ${totalSacos} sacos / ${totalKilos} kg\n\nDetalle:\n${lineasTxt}`;
+}
+
+function solBodOnAccionChange(sel){
+  const idx   = parseInt(sel.value);
+  const panel = document.getElementById('sol-desglose');
+  const viaje = panel?._viaje || {};
+  const bodAcc = EXTRAS_POR_DESCRIPCION['ELIMINAR VIAJE']?.acciones || [];
+  const cWrap = document.getElementById('sol-bod-causas-wrap');
+  const cSel  = document.getElementById('sol-bod-causas');
+  if(isNaN(idx)||!bodAcc[idx]){ if(cWrap) cWrap.style.display='none'; solBodActualizarDetalle(viaje); return; }
+  const accion = bodAcc[idx];
+  const causas = accion.causas||[];
+  if(causas.length && cSel){
+    cSel.innerHTML = '<option value="">-- Seleccionar motivo --</option>'+causas.map(c=>`<option>${c}</option>`).join('');
+    cWrap.style.display='';
+  } else if(cWrap){ cWrap.style.display='none'; }
+  solBodActualizarDetalle(viaje);
+}
+
+function solBodActualizarDetalle(viaje){
+  const v = viaje || document.getElementById('sol-desglose')?._viaje || {};
+  const todas = v._lineas||[];
+  const minMov = Math.min(...todas.map(x=>x.movementId));
+  const ll = todas.filter(x=>x.movementId===minMov && x.type==='SALIDA');
+  const fecha  = (v.createdAt||'').slice(0,10);
+  const bodAcc = EXTRAS_POR_DESCRIPCION['ELIMINAR VIAJE']?.acciones || [];
+  const idx    = parseInt(document.getElementById('sol-bod-sel-accion')?.value??'');
+  const accion = !isNaN(idx) && bodAcc[idx] ? bodAcc[idx] : null;
+  const lineasTxt = ll.map(x=>`  ${x.productName||'–'} | ${x.equivalenceSacks??'–'} sacos | ${x.equivalenceKilograms??'–'} kg`).join('\n');
+  let det = `Viaje: ${v._tripKey||''}\nFecha: ${fecha}\nOrigen: ${v._origen||''}\nDestino: ${v._piscinaFinal||v._destino||''}\nRegistrado por: ${v.createdBy||''}\n\nDetalle:\n${lineasTxt}`;
+  if(accion){
+    det += `\n\nAcción: ${accion.label}`;
+    const mot = document.getElementById('sol-bod-causas')?.value;
+    if(mot) det += `\nMotivo: ${mot}`;
+  }
+  document.getElementById('sol-detalle').value = det.trim();
+}
+
+function solUpdateDescExtras(){
+  solIniciarMovPanel();
+  const desc     = document.getElementById('sol-desc').value;
+  const selCausa = document.getElementById('sol-causa');
+  const causas   = CAUSAS_POR_DESCRIPCION[desc] || [];
+  selCausa.innerHTML = causas.length
+    ? '<option value="">-- Seleccionar causa --</option>' + causas.map(c=>`<option>${c}</option>`).join('')
+    : '<option value="">-- Sin causas definidas --</option>';
+  const config = EXTRAS_POR_DESCRIPCION[desc];
+  const grid   = document.getElementById('sol-desc-extras-grid');
+  const wrap   = document.getElementById('sol-desc-extras');
+  _solRowCnt = 0;
+  if(!config){ wrap.style.display='none'; grid.innerHTML=''; return; }
+  if(config.tableLayout){
+    document.getElementById('sol-fg-causa').style.display = 'none';
+    _solCurrentAcciones = config.acciones || [];
+    grid.style.gridTemplateColumns = '1fr';
+    grid.innerHTML = `
+      <div class="fg fg-full" style="margin-bottom:4px">
+        <label style="background:#fef08a;display:block;padding:6px 10px;border-radius:4px;letter-spacing:1px">ACCION</label>
+        <select id="sol-sel-accion" onchange="solOnSelectAccion(this)" style="width:100%">
+          <option value="">-- Seleccionar acción --</option>
+          ${_solCurrentAcciones.map((a,i)=>`<option value="${i}">${i+1}.- ${a.label}</option>`).join('')}
+        </select>
+      </div>
+      <div id="sol-accion-fields" style="display:none;margin-bottom:8px"></div>
+      <div class="fg fg-full" id="sol-fg-sel-motivo" style="display:none">
+        <label style="background:#fef08a;display:block;padding:6px 10px;border-radius:4px;letter-spacing:1px">MOTIVO</label>
+        <select id="sol-sel-motivo" style="width:100%"><option value="">-- Seleccionar motivo --</option></select>
+      </div>`;
+    wrap.style.display = 'block';
+    return;
+  }
+  if(config.repeatable){
+    document.getElementById('sol-fg-causa').style.display = 'none';
+    grid.style.gridTemplateColumns = '1fr';
+    grid.innerHTML = `<div id="sol-rep-rows"></div>
+      <button type="button" onclick="solAddRepRow()" class="btn btn-secondary btn-sm" style="margin-top:6px">+ Agregar fila</button>`;
+    wrap.style.display = 'block';
+    solAddRepRow();
+    return;
+  }
+  document.getElementById('sol-fg-causa').style.display = '';
+  grid.style.gridTemplateColumns = 'repeat(auto-fit,minmax(200px,1fr))';
+  grid.innerHTML = config.fields.map(f=>`<div class="fg"><label>${f.label}</label>
+    ${f.type==='select'
+      ? `<select id="sol-ext-${f.id}">${(f.options||[]).map(o=>`<option>${o}</option>`).join('')}</select>`
+      : `<input type="${f.type||'text'}" id="sol-ext-${f.id}" placeholder="${f.label}">`
+    }</div>`).join('');
+  wrap.style.display = 'block';
+}
+
+function solOnSelectAccion(sel){
+  const idx = parseInt(sel.value);
+  const accionFields = document.getElementById('sol-accion-fields');
+  const motivoWrap   = document.getElementById('sol-fg-sel-motivo');
+  const motivoSel    = document.getElementById('sol-sel-motivo');
+  if(isNaN(idx) || !_solCurrentAcciones[idx]){ accionFields.style.display='none'; motivoWrap.style.display='none'; return; }
+  const accion = _solCurrentAcciones[idx];
+  accionFields.innerHTML = (accion.fields||[]).map(f=>`<div class="fg" style="margin-bottom:8px"><label>${f.label}</label>
+    ${f.type==='select'
+      ? `<select id="sol-ext-${f.id}">${(f.options||[]).map(o=>`<option>${o}</option>`).join('')}</select>`
+      : `<input type="${f.type||'text'}" id="sol-ext-${f.id}" placeholder="${f.label}">`
+    }</div>`).join('');
+  accionFields.style.display = 'block';
+  if(accion.motivos && accion.motivos.length){
+    motivoSel.innerHTML = '<option value="">-- Seleccionar motivo --</option>' + accion.motivos.map(m=>`<option>${m}</option>`).join('');
+    motivoWrap.style.display = '';
+  } else { motivoWrap.style.display='none'; }
+}
+
+function solAddRepRow(){
+  const config = EXTRAS_POR_DESCRIPCION[document.getElementById('sol-desc').value];
+  if(!config) return;
+  const rid = ++_solRowCnt;
+  const container = document.getElementById('sol-rep-rows');
+  const row = document.createElement('div');
+  row.id = `sol-rep-row-${rid}`;
+  row.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:8px;padding:10px;background:#f8fafc;border-radius:6px;position:relative';
+  row.innerHTML = config.fields.map(f=>`<div class="fg"><label>${f.label}</label>
+    ${f.type==='select'
+      ? `<select id="sol-rep-${rid}-${f.id}">${(f.options||[]).map(o=>`<option>${o}</option>`).join('')}</select>`
+      : `<input type="${f.type||'text'}" id="sol-rep-${rid}-${f.id}" placeholder="${f.label}">`
+    }</div>`).join('')
+    + (rid>1?`<button onclick="document.getElementById('sol-rep-row-${rid}').remove()" style="position:absolute;top:4px;right:4px;background:none;border:none;cursor:pointer;font-size:16px;color:var(--danger)">×</button>`:'');
+  container.appendChild(row);
+}
+
+async function saveSolicitud(){
+  const area = document.getElementById('sol-area').value;
+  const esProduccion = area === 'Producción';
+  const desc = esProduccion
+    ? (document.getElementById('sol-modulo-prod')?.value || '')
+    : document.getElementById('sol-desc').value;
+  if(!area){ toast('Selecciona el área','err'); return; }
+  if(!desc){ toast('Selecciona el módulo','err'); return; }
+  if(esProduccion){
+    const detalle = document.getElementById('sol-detalle').value.trim();
+    if(!detalle){ toast('Selecciona una acción y completa la corrección','err'); return; }
+  }
+
+  const extrasObj = {};
+  const extConfig = EXTRAS_POR_DESCRIPCION[desc];
+  if(extConfig){
+    if(extConfig.tableLayout){
+      const selAccion = document.getElementById('sol-sel-accion');
+      const idx = parseInt(selAccion?.value);
+      if(!isNaN(idx) && _solCurrentAcciones[idx]){
+        const accion = _solCurrentAcciones[idx];
+        extrasObj._accion = accion.label;
+        accion.fields.forEach(f=>{ const el=document.getElementById(`sol-ext-${f.id}`); if(el) extrasObj[f.label]=el.value.trim(); });
+        const mot = document.getElementById('sol-sel-motivo');
+        if(mot) extrasObj._motivo = mot.value;
+      }
+    } else if(extConfig.repeatable){
+      const rows = document.querySelectorAll('[id^="sol-rep-row-"]');
+      extrasObj._rows = Array.from(rows).map(row=>{
+        const rid = row.id.replace('sol-rep-row-','');
+        const item = {};
+        extConfig.fields.forEach(f=>{ const el=document.getElementById(`sol-rep-${rid}-${f.id}`); if(el) item[f.label]=el.value.trim(); });
+        return item;
+      });
+    } else {
+      extConfig.fields.forEach(e=>{ const el=document.getElementById(`sol-ext-${e.id}`); if(el) extrasObj[e.label]=el.value.trim(); });
+    }
+  }
+
+  const data = loadData();
+  const s = getSession();
+  const rec = {
+    id: nextId(data),
+    fechaReporte: new Date().toISOString().slice(0,10),
+    sucursal: document.getElementById('sol-sucursal').value,
+    area,
+    modulo: document.getElementById('sol-modulo-prod')?.value || document.getElementById('sol-modulo')?.value || '',
+    descripcion: desc,
+    extras: extrasObj,
+    causa: document.getElementById('sol-causa')?.value||'',
+    prioridad: document.getElementById('sol-prioridad')?.value||'',
+    piscina: document.getElementById('sol-piscina').value.trim(),
+    detalle: document.getElementById('sol-detalle').value.trim(),
+    solicitante: document.getElementById('sol-solicitante').value.trim() || s?.username || '',
+    estado: 'Abierto',
+    fechaResolucion: null,
+    creadoEn: new Date().toISOString()
+  };
+
+  const btn = document.getElementById('sol-btn-guardar');
+  btn.disabled = true; btn.textContent = 'Enviando…';
+
+  // Modo prueba: en localhost no guarda ni envía correo
+  if(ES_LOCAL){
+    setTimeout(()=>{
+      btn.disabled = false; btn.textContent = 'Enviar Solicitud';
+      document.getElementById('tab-sol-form').style.display = 'none';
+      document.getElementById('tab-sol-success').style.display = 'block';
+      document.getElementById('tab-sol-success').querySelector('div:nth-child(2)').textContent = '✅ [MODO PRUEBA]';
+      const sub = document.getElementById('tab-sol-success').querySelector('div:nth-child(3)');
+      if(sub) sub.textContent = 'Prueba completada. En producción se guardaría y enviaría correo.';
+    }, 600);
+    return;
+  }
+
+  try {
+    data.push(rec);
+    await saveData(data);
+    // Notificar por correo
+    try {
+      await apiFetch('/d1/cambios/email',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({recordId:rec.id, solicitanteEmail:s?.email, destinatarios:[]})});
+    } catch(_){}
+    document.getElementById('tab-sol-form').style.display = 'none';
+    document.getElementById('tab-sol-success').style.display = 'block';
+  } catch(e) {
+    toast('Error al guardar. Intenta de nuevo.','err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enviar Solicitud';
+  }
+}
+
+function solNueva(){ initSolicitudTab(); }
+function initSolicitudTab(){
+  const s = getSession();
+  document.getElementById('sol-area').value = '';
+  document.getElementById('sol-fg-modulo-prod').style.display = 'none';
+  document.getElementById('sol-modulo-prod').value = '';
+  document.getElementById('sol-fg-piscina-filtro').style.display = 'none';
+  solResetPaneles();
+  document.getElementById('tab-sol-success').style.display = 'none';
+  document.getElementById('tab-sol-form').style.display = '';
+  const solSol = document.getElementById('sol-solicitante');
+  if(solSol && s) solSol.value = s.username;
+  // Cargar sucursales del API si aún no están cargadas
+  if(SOL_SUCURSALES.length === 0) solCargarSucursales();
+}
+
+// ── Vincular correo corporativo al primer ingreso ──────────────────────────
+function checkVincularEmail(){
+  const s = getSession();
+  if(!s) return;
+  const key = 'email_vinculado_' + (s.usernameAP1 || s.username);
+  const yaVinculo = localStorage.getItem(key);
+  if(yaVinculo) return;
+  const email = s.email || '';
+  if(email && email.toLowerCase().endsWith('@naturisa.com.ec')){
+    // Ya tiene correo corporativo — marcar en D1 silenciosamente
+    marcarVinculado(s.usernameAP1 || s.username, email);
+    localStorage.setItem(key, '1');
+    return;
+  }
+  // Sin correo corporativo — mostrar modal obligatorio
+  document.getElementById('vincular-email').value = '';
+  document.getElementById('vincular-error').textContent = '';
+  document.getElementById('modal-vincular').style.display = 'flex';
+  setTimeout(()=>document.getElementById('vincular-email').focus(), 100);
+}
+function marcarVinculado(username, email){
+  apiFetch('/d1/cambios-emails',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({username, email, vinculado:1})
+  }).catch(()=>{});
+}
+async function saveVincularEmail(){
+  const email = document.getElementById('vincular-email').value.trim();
+  const errEl = document.getElementById('vincular-error');
+  const btn   = document.getElementById('btn-vincular');
+  errEl.textContent = '';
+  if(!email || !email.includes('@')){
+    errEl.textContent = 'Ingresa un correo válido.'; return;
+  }
+  if(!email.toLowerCase().endsWith('@naturisa.com.ec')){
+    errEl.textContent = 'Debe ser un correo @naturisa.com.ec.'; return;
+  }
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try{
+    const s = getSession();
+    const usernameAP1 = s.usernameAP1 || s.username;
+    await apiFetch('/d1/cambios-emails',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username: usernameAP1, email, vinculado:1})
+    });
+    setSession({...s, email});
+    localStorage.setItem('email_vinculado_' + usernameAP1, '1');
+    document.getElementById('modal-vincular').style.display='none';
+    toast('Correo vinculado correctamente','ok');
+  }catch(e){
+    errEl.textContent = 'Error al guardar. Intenta de nuevo.';
+  }finally{
+    btn.disabled=false; btn.textContent='Guardar y continuar';
+  }
+}
 </script>
 
-<!-- ── Modal Usuario ── -->
-<div id="modal-usuario" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;align-items:center;justify-content:center">
-  <div style="background:var(--card);border-radius:12px;width:100%;max-width:420px;padding:28px;position:relative;margin:20px">
+<!-- ── Modal Admin ── -->
+<div id="modal-admin" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:12px;width:100%;max-width:380px;padding:28px;margin:20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-      <div style="font-size:16px;font-weight:700" id="modal-usuario-title">Nuevo Usuario</div>
-      <button onclick="closeUsuarioModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">×</button>
+      <div style="font-size:16px;font-weight:700">Agregar Administrador</div>
+      <button onclick="closeAdminModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">×</button>
+    </div>
+    <div class="fg">
+      <label>Usuario AP1</label>
+      <input type="text" id="adm-username" placeholder="ej: jparraga" autocomplete="off"
+        onkeydown="if(event.key==='Enter')saveAdminModal()">
+      <span style="font-size:11px;color:var(--muted);margin-top:4px;display:block">Ingresa el nombre de usuario exacto con el que accede a AP1.</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeAdminModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAdminModal()">Guardar</button>
+    </div>
+  </div>
+</div>
+<!-- ── Modal Notificación ── -->
+<div id="modal-notif" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:12px;width:100%;max-width:400px;padding:28px;margin:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-size:16px;font-weight:700">Destinatario de Notificación</div>
+      <button onclick="closeNotifModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">×</button>
     </div>
     <div class="form-grid" style="grid-template-columns:1fr">
-      <div class="fg">
-        <label>Usuario</label>
-        <input type="text" id="uf-username" placeholder="nombre de usuario" autocomplete="off">
-      </div>
-      <div class="fg">
-        <label>Contraseña</label>
-        <input type="password" id="uf-password" placeholder="contraseña" autocomplete="new-password">
-        <span style="font-size:11px;color:var(--muted);margin-top:3px;display:block">Al editar, dejar vacío para no cambiar la contraseña.</span>
-      </div>
-      <div class="fg">
-        <label>Rol</label>
-        <select id="uf-role">
-          <option value="user">Usuario</option>
-          <option value="admin">Administrador</option>
-        </select>
+      <div class="fg"><label>Nombre</label><input type="text" id="nf-nombre" placeholder="Nombre completo"></div>
+      <div class="fg"><label>Correo</label><input type="email" id="nf-email" placeholder="correo@naturisa.com.ec"></div>
+      <div class="fg" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="nf-activo" checked style="width:auto">
+        <label style="margin:0;font-size:13px;font-weight:500;text-transform:none;letter-spacing:0">Activo (recibe notificaciones)</label>
       </div>
     </div>
     <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
-      <button class="btn btn-secondary" onclick="closeUsuarioModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveUsuarioModal()">Guardar</button>
+      <button class="btn btn-secondary" onclick="closeNotifModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveNotifModal()">Guardar</button>
     </div>
+  </div>
+</div>
+
+<!-- ── Modal Email Map ── -->
+<div id="modal-emailmap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:12px;width:100%;max-width:400px;padding:28px;margin:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-size:16px;font-weight:700">Correo de Usuario AP1</div>
+      <button onclick="closeEmailMapModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">×</button>
+    </div>
+    <div class="form-grid" style="grid-template-columns:1fr">
+      <div class="fg"><label>Usuario AP1</label><input type="text" id="em-username" placeholder="jparraga" autocomplete="off"></div>
+      <div class="fg"><label>Correo</label><input type="email" id="em-email" placeholder="jparraga@naturisa.com.ec"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeEmailMapModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEmailMapModal()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Vincular Correo (primer ingreso) ── -->
+<div id="modal-vincular" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:14px;width:100%;max-width:420px;padding:32px;margin:20px;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:36px;margin-bottom:10px">📧</div>
+      <div style="font-size:18px;font-weight:700;color:var(--primary);margin-bottom:6px">Vincula tu correo corporativo</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.5">Para recibir notificaciones del sistema, ingresa tu correo <strong>@naturisa.com.ec</strong></div>
+    </div>
+    <div class="fg" style="margin-bottom:8px">
+      <label>Correo corporativo</label>
+      <input type="email" id="vincular-email" placeholder="tuusuario@naturisa.com.ec" autocomplete="email"
+        onkeydown="if(event.key==='Enter')saveVincularEmail()"
+        style="font-size:14px;padding:10px 12px">
+    </div>
+    <div id="vincular-error" style="font-size:12px;color:var(--danger);min-height:18px;margin-bottom:12px"></div>
+    <button class="btn btn-primary" onclick="saveVincularEmail()" id="btn-vincular" style="width:100%;padding:11px;font-size:14px">Guardar y continuar</button>
   </div>
 </div>
 </body>
