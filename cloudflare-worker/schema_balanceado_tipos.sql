@@ -4,7 +4,11 @@
 CREATE TABLE IF NOT EXISTS balanceado_tipos (
   id_producto     INTEGER NOT NULL PRIMARY KEY,
   nombre_producto TEXT NOT NULL,
-  tipo            TEXT NOT NULL CHECK (tipo IN ('INICIADOR','ENGORDE'))
+  tipo            TEXT NOT NULL CHECK (tipo IN ('INICIADOR','ENGORDE')),
+  -- $/kg del ultimo documento de consumo SAP (mov. 261) del Excel de insumos:
+  -- SUM(importe)/SUM(cantidad) de las lineas de ese documento, a 5 decimales
+  precio_kilo     TEXT,
+  codigo_sap      TEXT   -- codigo de material SAP (columna Material del Excel de insumos)
 );
 
 INSERT INTO balanceado_tipos (id_producto, nombre_producto, tipo) VALUES
@@ -19,6 +23,8 @@ INSERT INTO balanceado_tipos (id_producto, nombre_producto, tipo) VALUES
   (3353,   'Cargill Naturisa Maxima Ext 35% 1.8Mm',          'ENGORDE'),
   (15648,  'Carg Naturisa Maxima Li 35% Ext 1.8Mm',          'ENGORDE'),
   (8120,   'Haid Shrimp Happi Lw St #5 Pel 35% 2.0Mm',       'ENGORDE'),
-  (118378, 'Haid Speed Pro Bf #4 Pel 37% 1.6Mm',             'ENGORDE')
+  (118378, 'Haid Speed Pro Bf #4 Pel 37% 1.6Mm',             'ENGORDE'),
+  (260519, 'Carg Naturisa Maxima Na1 35% Ext 1.8Mm',         'ENGORDE'),
+  (260994, 'Carg Aqax Adapt Sh Rd Ext 35% 2.0Mm',            'ENGORDE')
 ON CONFLICT(id_producto) DO UPDATE SET
   nombre_producto = excluded.nombre_producto, tipo = excluded.tipo;
