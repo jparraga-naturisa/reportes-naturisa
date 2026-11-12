@@ -128,8 +128,8 @@ class App(tk.Tk):
         # Panel Laboratorios
         self._panel_lab = tk.Frame(self._content, bg=self.C_CARD)
 
-        self._mk_field_label(self._panel_lab, "ARCHIVO SAP",
-                             "Selecciona el archivo EXPORT_*.xlsx de SAP")
+        self._mk_field_label(self._panel_lab, "SALDOS SAP",
+                             "Vacío = consulta directa a SAP · Opcional: EXPORT_*.xlsx")
 
         file_box = tk.Frame(self._panel_lab, bg=self.C_INPUT,
                             highlightbackground=self.C_BORDER,
@@ -154,6 +154,14 @@ class App(tk.Tk):
                   activebackground=self.C_ACCENT,
                   activeforeground="#FFFFFF",
                   padx=10, pady=7, bd=0).pack(side="right")
+
+        tk.Button(file_box, text="✕",
+                  command=self._limpiar_ruta,
+                  bg=self.C_INPUT, fg=self.C_TEXT,
+                  font=("Segoe UI", 8, "bold"),
+                  relief="flat", cursor="hand2",
+                  activebackground=self.C_BORDER,
+                  padx=8, pady=7, bd=0).pack(side="right")
 
         self._btn = tk.Button(self._panel_lab,
                               text="▶   GENERAR Y ENVIAR REPORTE",
@@ -273,11 +281,12 @@ class App(tk.Tk):
             self._log_write(f"> archivo: {os.path.basename(ruta)}\n")
             self._set_status("ARCHIVO CARGADO — LISTO", self.C_ACCENT)
 
+    def _limpiar_ruta(self):
+        self._ruta.set("")
+        self._set_status("CONSULTA DIRECTA A SAP — LISTO", self.C_ACCENT)
+
     def _ejecutar(self):
-        ruta = self._ruta.get().strip()
-        if not ruta:
-            self._set_status("⚠  SELECCIONA EL ARCHIVO SAP PRIMERO", self.C_ERR)
-            return
+        ruta = self._ruta.get().strip() or None
         self._bloquear()
         self._btn.configure(text="PROCESANDO...")
         self._log_clear()

@@ -320,6 +320,7 @@ def enviar_correo_ok(n_total: int, fecha: str):
 
     except Exception as e:
         print(f"Error al enviar correo de confirmacion: {e}")
+        raise
 
 
 def enviar_correo(df_alertas: pd.DataFrame, fecha: str):
@@ -393,6 +394,7 @@ def enviar_correo(df_alertas: pd.DataFrame, fecha: str):
 
     except Exception as e:
         print(f"Error al enviar correo: {e}")
+        raise
 
 
 def main():

@@ -40,6 +40,15 @@ ALMACEN_POR_SUBSIDIARIA = {
     26: "L409",
 }
 
+# idWarehouse en el portal (bff/web/portal) de cada almacén SAP
+WAREHOUSE_ID_PORTAL = {
+    "L109": 466,
+    "L209": 476,
+    "L309": 486,
+    "L409": 496,
+}
+COMPANY_ID_PORTAL = 3  # Naturisa
+
 OUTPUT_DIR = r"C:\Reportes\Naturisa"
 
 CORREO_REMITENTE    = "parragajonathan965@gmail.com"
@@ -51,8 +60,61 @@ SMTP_PORT           = 587
 
 BASE     = "https://gateway.naturisa.com.ec"
 LAB_BASE = f"{BASE}/bff/web/lab/backoffice/api"
+PORTAL_BASE = f"{BASE}/bff/web/portal/backoffice/api"
 
 DESKTOP = os.path.join(os.path.expanduser("~"), "Desktop")
+
+# Conversión de unidad SAP → unidad del laboratorio (g / ml)
+FACTOR_UM = {"KG": 1000, "KGS": 1000, "G": 1, "GR": 1,
+             "L": 1000, "LT": 1000, "ML": 1, "GAL": 3785.41, "GLN": 3785.41}
+UM_LAB_SAP = {"KG": "G", "KGS": "G", "G": "G", "GR": "G",
+              "L": "ML", "LT": "ML", "ML": "ML", "GAL": "ML", "GLN": "ML"}
+
+
+def cargar_saldos_sap_api(token: str) -> tuple:
+    """
+    Consulta los saldos SAP (libre utilización) directo del portal de requisiciones.
+    Devuelve ({almacen: {material: {stock, descripcion, unidad}}}, set de códigos SAP del catálogo).
+    Solo incluye materiales con stock != 0; un código del catálogo ausente tiene stock 0.
+    """
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    print(f"  Consultando catalogo de items SAP...")
+    r = requests.get(f"{PORTAL_BASE}/item", headers=headers,
+                     params={"companyId": COMPANY_ID_PORTAL, "PageSize": 50000}, timeout=180)
+    r.raise_for_status()
+    items = r.json()["data"]["data"]
+    por_id = {i["idItem"]: i for i in items if str(i.get("codeSap") or "").strip()}
+    codigos = {str(i["codeSap"]).strip() for i in por_id.values()}
+    print(f"    {len(por_id)} items en catalogo")
+
+    def _stock_almacen(almacen, wid):
+        ids = list(por_id)
+        materiales = {}
+        for k in range(0, len(ids), 5000):
+            body = [{"itemId": i, "warehouseId": wid, "warehouseCode": almacen} for i in ids[k:k + 5000]]
+            resp = requests.post(f"{PORTAL_BASE}/item/stock", headers=headers, json=body, timeout=300)
+            resp.raise_for_status()
+            for z in resp.json().get("data") or []:
+                qty = z.get("quantity") or 0
+                if not qty:
+                    continue
+                item = por_id[z["itemId"]]
+                um   = str(item.get("baseUnitMsrAb") or "").strip().upper()
+                mat  = str(item["codeSap"]).strip()
+                prev = materiales.get(mat, {}).get("stock", 0)
+                materiales[mat] = {
+                    "stock":       round(prev + qty * FACTOR_UM.get(um, 1), 4),
+                    "descripcion": str(item.get("name") or "").strip(),
+                    "unidad":      UM_LAB_SAP.get(um, um),
+                }
+        return almacen, materiales
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=len(WAREHOUSE_ID_PORTAL)) as ex:
+        resultado = dict(ex.map(lambda kv: _stock_almacen(*kv), WAREHOUSE_ID_PORTAL.items()))
+    for almacen, materiales in resultado.items():
+        print(f"    {almacen}: {len(materiales)} materiales con stock")
+    return resultado, codigos
 
 
 def cargar_saldos_sap(ruta_excel: str = None) -> dict:
@@ -87,10 +149,7 @@ def cargar_saldos_sap(ruta_excel: str = None) -> dict:
         col_um  = next((cols[c] for c in cols if "unidad" in c.lower() and "medida" in c.lower()), None)
         col_desc = next((cols[c] for c in cols if "descripci" in c.lower() and "material" in c.lower()), None)
 
-        FACTOR = {"KG": 1000, "KGS": 1000, "G": 1, "GR": 1,
-                  "L": 1000, "LT": 1000, "ML": 1, "GAL": 3785.41, "GLN": 3785.41}
-        UM_LAB = {"KG": "G", "KGS": "G", "G": "G", "GR": "G",
-                  "L": "ML", "LT": "ML", "ML": "ML", "GAL": "ML", "GLN": "ML"}
+        FACTOR, UM_LAB = FACTOR_UM, UM_LAB_SAP
 
         cols_sel = [c for c in [col_mat, col_alm, col_desc, col_um, col_lib] if c]
         df = df[cols_sel].copy()
@@ -531,16 +590,22 @@ def enviar_correo(tablas_data: list, fecha: str):
 
     except Exception as e:
         print(f"Error al enviar correo: {e}")
+        raise
 
 
 def main(ruta_excel: str = None):
+    """Sin ruta_excel los saldos SAP se consultan directo del portal; con ruta se lee el Excel."""
     fecha = date.today().strftime("%Y-%m-%d")
     print(f"[{datetime.now():%H:%M:%S}] Reporte Inventario Naturisa — {fecha}")
 
     try:
         token = obtener_token()
 
-        saldos_sap_por_almacen = cargar_saldos_sap(ruta_excel)
+        codigos_catalogo = set()
+        if ruta_excel:
+            saldos_sap_por_almacen = cargar_saldos_sap(ruta_excel)
+        else:
+            saldos_sap_por_almacen, codigos_catalogo = cargar_saldos_sap_api(token)
 
         rutas_generadas = []
         tablas_data = []
@@ -562,6 +627,15 @@ def main(ruta_excel: str = None):
             registros = []
             if ciclo:
                 registros = obtener_inventario(token, sub_id, ciclo["cycle_id"], ciclo["fecha_inicio"])
+
+            # Con saldos del API, un material del lab sin stock SAP tiene stock real 0 (no estimado)
+            if codigos_catalogo:
+                saldos_sap = dict(saldos_sap)
+                for rec in registros:
+                    item   = rec.get("item", {})
+                    codigo = str(item.get("codeSap", "")).strip()
+                    if codigo in codigos_catalogo and codigo not in saldos_sap:
+                        saldos_sap[codigo] = {"stock": 0, "descripcion": item.get("name", ""), "unidad": ""}
 
             sin_app = not ciclo or not registros
 
