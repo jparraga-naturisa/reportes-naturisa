@@ -10,6 +10,8 @@ export const INVENTARIO_LAB_URL = process.env.EXPO_PUBLIC_INVENTARIO_LAB_URL
   || 'https://naturisa-proxy.parragajonathan965.workers.dev/db/inventario-laboratorios';
 export const ORDEN_BLOQUEADA_URL = process.env.EXPO_PUBLIC_ORDEN_BLOQUEADA_URL
   || 'https://naturisa-proxy.parragajonathan965.workers.dev/db/alertas-orden-bloqueada';
+export const RESERVAS_PEROXIDO_URL = process.env.EXPO_PUBLIC_RESERVAS_PEROXIDO_URL
+  || 'https://naturisa-proxy.parragajonathan965.workers.dev/db/alertas-reservas-peroxido';
 export const CODE_APPLICATION = '55ab9cb4-c887-4f42-98ec-b90470be6613';
 
 export const COLUMNAS_ORDEN = ['Ingreso a Muro', 'Saldo Muro', 'Cargado Tolva', 'Sobrante Tolva', 'Saldo Tolva'];

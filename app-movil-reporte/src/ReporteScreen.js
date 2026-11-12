@@ -8,6 +8,7 @@ import SiembraListado from './SiembraListado';
 import LiquidacionListado from './LiquidacionListado';
 import InventarioLabListado from './InventarioLabListado';
 import OrdenBloqueadaListado from './OrdenBloqueadaListado';
+import ReservasPeroxidoListado from './ReservasPeroxidoListado';
 import { COLORES, GRADIENTE_BOTON } from './theme';
 
 const TITULOS = {
@@ -17,6 +18,7 @@ const TITULOS = {
   liquidacion: 'Liquidación de Cosechas',
   inventario: 'Inventario Laboratorios',
   ordenBloqueada: 'Órdenes de Control Bloqueadas',
+  reservasPeroxido: 'Reservas Peróxido Pendientes',
 };
 
 export default function ReporteScreen({ tipo, sucursales, token, onCambiarReporte, onCerrarSesion }) {
@@ -54,6 +56,8 @@ export default function ReporteScreen({ tipo, sucursales, token, onCambiarReport
         <InventarioLabListado key={refreshKey} token={token} onSesionExpirada={onCerrarSesion} />
       ) : tipo === 'ordenBloqueada' ? (
         <OrdenBloqueadaListado key={refreshKey} token={token} onSesionExpirada={onCerrarSesion} />
+      ) : tipo === 'reservasPeroxido' ? (
+        <ReservasPeroxidoListado key={refreshKey} token={token} onSesionExpirada={onCerrarSesion} />
       ) : (
         <ScrollView
           contentContainerStyle={styles.scroll}

@@ -9,6 +9,7 @@ const REPORTES = [
   { tipo: 'liquidacion', titulo: 'Liquidación de Cosechas', icono: 'file-invoice-dollar', color: '#A78BFA' },
   { tipo: 'inventario', titulo: 'Inventario Laboratorios', icono: 'flask', color: '#F472B6' },
   { tipo: 'ordenBloqueada', titulo: 'Órdenes de Control Bloqueadas', icono: 'lock', color: '#FB923C' },
+  { tipo: 'reservasPeroxido', titulo: 'Reservas Peróxido Pendientes', icono: 'flask-vial', color: '#38BDF8' },
   // Próximos reportes se agregan acá.
 ];
 
