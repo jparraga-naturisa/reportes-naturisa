@@ -166,14 +166,30 @@ button.tq.pend{ color:var(--muted); border-style:dashed; background:#fcfcfd; }
 .vacio-msg{ padding:40px; text-align:center; color:var(--muted); }
 
 /* Login QA */
-.login{ max-width:360px; margin:44px auto; text-align:left; }
-.login h3{ margin:0 0 4px; color:var(--navy); font-size:17px; }
-.login p{ margin:0 0 16px; font-size:13px; color:var(--muted); }
-.login label{ display:block; font-size:11.5px; font-weight:600; color:var(--muted); margin-bottom:5px; }
-.login input{ width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:5px; font-size:14px; margin-bottom:12px; }
+.login{ max-width:368px; margin:38px auto; text-align:left; background:var(--card);
+  border:1px solid var(--border); border-radius:9px; box-shadow:0 8px 26px rgba(16,42,72,.10); overflow:hidden; }
+.login-cab{ background:var(--navy); color:#fff; padding:17px 22px; display:flex; align-items:center; gap:11px; }
+.login-cab svg{ flex:none; opacity:.9; }
+.login-cab b{ display:block; font-size:15px; font-weight:600; }
+.login-cab span{ display:block; font-size:11.5px; opacity:.72; margin-top:1px; }
+.login-cuerpo{ padding:20px 22px 22px; }
+.login label{ display:block; font-size:11.5px; font-weight:600; color:var(--muted); margin-bottom:5px; letter-spacing:.2px; }
+.login input{ width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:5px; font-size:14px; }
 .login input:focus{ outline:none; border-color:var(--link); box-shadow:0 0 0 2px rgba(21,101,192,.14); }
-.login .btn{ width:100%; justify-content:center; display:flex; }
-.login .status{ text-align:center; margin-top:10px; font-size:13px; color:var(--danger); min-height:16px; }
+.login .campo{ margin-bottom:14px; }
+.login .pass{ position:relative; }
+.login .pass input{ padding-right:40px; }
+.login .ojo{ position:absolute; right:4px; top:50%; transform:translateY(-50%); background:none; border:0; cursor:pointer;
+  padding:7px; color:var(--muted); line-height:0; border-radius:4px; }
+.login .ojo:hover{ color:var(--navy); background:var(--hover); }
+.login .btn{ width:100%; justify-content:center; display:flex; margin-top:2px; }
+.login .status{ text-align:center; margin-top:11px; font-size:12.5px; color:var(--danger); min-height:16px; line-height:1.45; }
+.login .tok{ border-top:1px solid var(--line); margin-top:16px; padding-top:13px; }
+.login .tok > summary{ cursor:pointer; font-size:12.5px; color:var(--link); list-style:none; }
+.login .tok > summary::-webkit-details-marker{ display:none; }
+.login .tok > summary:hover{ text-decoration:underline; }
+.login .tok p{ margin:11px 0 9px; font-size:12px; color:var(--muted); line-height:1.5; }
+.login .tok input{ margin-bottom:9px; font-size:12.5px; }
 
 @media (max-width:1100px){
   :root{ --side:62px; }
@@ -267,14 +283,22 @@ button.tq.pend{ color:var(--muted); border-style:dashed; background:#fcfcfd; }
 // Solo local: las sucursales vienen de D1 (vía comun/server.py en localhost) y los cupos
 // se guardan en localStorage de este equipo. Para compartir: Excel ⇄ Importar.
 // Los tanques salen de Data Maestra QA (structure/fuel_tanks aún no está en producción):
-// comun/server.py (en local) y el worker (en la web) reenvían /bff-qa/* a qa-gateway.naturisa.com.ec.
+// En local lo reenvía comun/server.py (/bff-qa/*). En la web, qa-gateway acepta el origen de
+// GitHub Pages para leer los tanques, así que se le pide directo; el login no manda cabecera CORS,
+// así que ese sí pasa por el worker (ruta /bff-qa, hay que desplegarlo para que funcione).
 const LOCAL = window.location.hostname === 'localhost';
 const WORKER = LOCAL ? '' : 'https://naturisa-proxy.parragajonathan965.workers.dev';
-const QA = WORKER + '/bff-qa';
-const AUTH_URL = QA + '/web/ap1/security/api/auth';
+const QA = LOCAL ? '/bff-qa' : 'https://qa-gateway.naturisa.com.ec/bff';
+const AUTH_URL = (LOCAL ? QA : WORKER + '/bff-qa') + '/web/ap1/security/api/auth';
 const TANQUES_URL = QA + '/web/datamaestra/backoffice/api/structure/fuel_tanks?status=ACTIVO&status=MANTENIMIENTO' +
   '&includeUsage=true&includeSubsidiary=true&includeWarehouse=true&includeUnitMeasure=true&includeItem=true&PageSize=1000';
-const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
+// Data Maestra tiene su propio login (otra ruta y otro codigo de aplicacion que AP1 Balanceado);
+// con los de AP1 responde "Usuario o clave incorrecto" aunque usuario y clave esten bien.
+// Esa ruta si manda cabecera CORS, asi que desde la web se le pide directo; la de AP1 va por el worker.
+const APPS = [
+  { nombre: 'Data Maestra', url: QA + '/web/datamaestra/security/api/auth', code: 'd06297ed-eb64-4d15-a0a3-35befce8f34a' },
+  { nombre: 'AP1 Balanceado', url: AUTH_URL, code: '55ab9cb4-c887-4f42-98ec-b90470be6613' },
+];
 // Clusters de /db/sucursales que no son granjas
 const NO_GRANJA = ['Acopio', 'Oficina'];
 // Clusters cuyas sucursales llevan un solo cupo (columna Cupo total), como Otros; van antes de Otros
@@ -981,17 +1005,39 @@ function renderTanques(){
 
 function pintarLogin(tb, ancho){
   tb.innerHTML = `<tr><td colspan="${ancho}"><div class="login">
-    <h3>Ingresar a Data Maestra QA</h3>
-    <p>Los tanques se leen del ambiente de QA. Usa tu usuario de QA.</p>
-    <label>Usuario</label><input id="qaUserIn" autocomplete="username">
-    <label>Contraseña</label><input id="qaPassIn" type="password" autocomplete="current-password">
-    <button class="btn" id="qaLoginBtn">Ingresar</button>
-    <div class="status" id="qaStatus">${esc(TANQUES_ERR)}</div>
-    <p style="margin:18px 0 6px">¿Tu usuario no entra aquí? Abre Data Maestra QA en el navegador, F12 › Red (Network),
-      recarga, clic en cualquier consulta a <b>qa-gateway</b> › Encabezados › copia el valor de <b>Authorization</b> y pégalo:</p>
-    <input id="qaTokenIn" placeholder="Bearer eyJ…">
-    <button class="btn ghost" id="qaTokenBtn">Usar token</button></div></td></tr>`;
-  document.getElementById('qaPassIn').addEventListener('keydown', e => { if(e.key === 'Enter') loginQA(); });
+    <div class="login-cab">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      <div><b>Data Maestra QA</b><span>Los tanques se leen del ambiente de QA</span></div>
+    </div>
+    <div class="login-cuerpo">
+      <div class="campo"><label for="qaUserIn">Usuario</label>
+        <input id="qaUserIn" autocomplete="username" placeholder="tu usuario de QA"></div>
+      <div class="campo"><label for="qaPassIn">Contraseña</label>
+        <div class="pass"><input id="qaPassIn" type="password" autocomplete="current-password">
+          <button type="button" class="ojo" id="qaVer" title="Ver la contraseña" aria-label="Ver la contraseña"></button></div></div>
+      <button class="btn" id="qaLoginBtn">Ingresar</button>
+      <div class="status" id="qaStatus">${esc(TANQUES_ERR)}</div>
+      <details class="tok">
+        <summary>¿Tu usuario no entra aquí? Usar un token</summary>
+        <p>Abre Data Maestra QA en el navegador, F12 › Red (Network), recarga, clic en cualquier consulta a
+          <b>qa-gateway</b> › Encabezados › copia el valor de <b>Authorization</b> y pégalo:</p>
+        <input id="qaTokenIn" placeholder="Bearer eyJ…">
+        <button class="btn ghost" id="qaTokenBtn">Usar token</button>
+      </details>
+    </div></div></td></tr>`;
+  const pass = document.getElementById('qaPassIn'), ver = document.getElementById('qaVer');
+  const OJO = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const OJO_OFF = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12s3.6-7 10-7c2 0 3.7.7 5.1 1.6M22 12s-3.6 7-10 7c-2 0-3.7-.7-5.1-1.6"/><path d="M10 10a3 3 0 0 0 4 4"/><path d="m3 3 18 18"/></svg>';
+  ver.innerHTML = OJO;
+  ver.addEventListener('click', () => {
+    const verla = pass.type === 'password';
+    pass.type = verla ? 'text' : 'password';
+    ver.innerHTML = verla ? OJO_OFF : OJO;
+    ver.title = ver.ariaLabel = verla ? 'Ocultar la contraseña' : 'Ver la contraseña';
+    pass.focus();
+  });
+  for(const id of ['qaUserIn', 'qaPassIn'])
+    document.getElementById(id).addEventListener('keydown', e => { if(e.key === 'Enter') loginQA(); });
   document.getElementById('qaLoginBtn').addEventListener('click', loginQA);
   document.getElementById('qaTokenBtn').addEventListener('click', () => {
     const tok = document.getElementById('qaTokenIn').value.trim().replace(/^bearer\s+/i, '');
@@ -1001,6 +1047,7 @@ function pintarLogin(tb, ancho){
     pintarUsuario();
     cargarTanques();
   });
+  document.getElementById('qaUserIn').focus();
 }
 
 // ── Pestaña 3: la tabla de tanques tal como está en Data Maestra, para revisar configuraciones ──
@@ -1121,14 +1168,20 @@ async function loginQA(){
   if(!user || !pass){ status.textContent = 'Ingresa usuario y contraseña'; return; }
   btn.textContent = 'Ingresando…'; btn.disabled = true; status.textContent = '';
   try{
-    const res = await fetch(AUTH_URL, {
+    const pedir = a => fetch(a.url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/plain, */*' },
-      body: JSON.stringify({ userName: user, password: pass, codeApplication: CODE_APP, includeUserInfo: true })
+      body: JSON.stringify({ userName: user, password: pass, codeApplication: a.code, includeUserInfo: true })
     });
+    let usada = APPS[0];
+    let res = await pedir(usada);
+    // Si el usuario no está dado de alta en Data Maestra, se reintenta con el login de AP1 Balanceado.
+    if(res.status === 401){ usada = APPS[1]; res = await pedir(usada); }
     // Un 404 sin JSON = el comun/server.py que está corriendo es anterior a la ruta /bff-qa
     if(res.status === 404 && !(res.headers.get('content-type') || '').includes('json')){
-      status.textContent = 'El servidor local está desactualizado: cierra la ventana negra de Cupos de Diesel y vuelve a abrir el acceso directo.';
+      status.textContent = LOCAL
+        ? 'El servidor local está desactualizado: cierra la ventana negra de Cupos de Diesel y vuelve a abrir el acceso directo.'
+        : 'Falta desplegar el worker (ruta /bff-qa). Mientras tanto entra desde localhost:3013, o pega aquí abajo el token.';
       return;
     }
     const json = await res.json().catch(() => ({}));
@@ -1142,10 +1195,17 @@ async function loginQA(){
     } else {
       const msg = g(json, 'message');
       const det = g(json, 'data');
-      status.textContent = Array.isArray(det) ? det.join(' ') : (msg || `QA respondió HTTP ${res.status}`);
+      // QA avisa en data si el rechazo es por 2FA o por clave vencida; sin eso, el mensaje es siempre el mismo.
+      if(g(data, 'twoFactorRequired')) status.textContent = 'Tu usuario de QA pide verificación en dos pasos, que esta pantalla no maneja. Entra a Data Maestra QA y pega aquí el token.';
+      else if(g(data, 'forceChangePasswordRequired')) status.textContent = 'QA te pide cambiar la contraseña antes de entrar. Hazlo en Data Maestra QA y vuelve aquí.';
+      else status.textContent = (Array.isArray(det) ? det.join(' ') : (msg || 'No se pudo entrar')) +
+        ` (${usada.nombre}, HTTP ${res.status}${LOCAL ? '' : ', web'})`;
     }
   }catch(e){
-    status.textContent = 'Error de conexión: ' + e.message;
+    // Desde la web el navegador bloquea el login: qa-gateway no manda cabecera CORS en el preflight.
+    status.textContent = LOCAL
+      ? 'Error de conexión: ' + e.message
+      : 'Desde la web el ingreso con usuario y contraseña no funciona hasta desplegar el worker. Entra desde localhost:3013, o pega aquí abajo el token.';
   }finally{
     btn.textContent = 'Ingresar'; btn.disabled = false;
   }
