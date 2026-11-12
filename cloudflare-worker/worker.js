@@ -16,6 +16,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3008',
   'http://localhost:3009',
   'http://localhost:3010',
+  'http://localhost:3011',
   'http://localhost:9100',
 ]
 
@@ -1044,6 +1045,75 @@ async function handleDbAlertasOrdenBloqueada(request, env) {
   }
 }
 
+// ---- Alerta de reservas de Peroxido pendientes de consumo (app movil) ----
+// Usa el reporte de seguimiento (company-wide, sin restriccion de departamento)
+// en vez del listado /reservation (que esta limitado al departamento destino
+// de cada documento). Trae un registro por item de reserva con material y
+// almacen ya incluidos, sin tener que abrir cada reserva.
+// GET /db/alertas-reservas-peroxido
+
+const RESERVA_TRACKING_PATH = '/bff/web/portal/backoffice/api/purchase_requisition/tracking'
+const RESERVATION_PATH = '/bff/web/portal/backoffice/api/reservation'
+const RESERVA_ESTADOS_PENDIENTES = ['APROBADO', 'RECIBIDO PARCIAL']
+const RESERVA_COMPANY_IDS = [1, 2, 3, 4, 5]
+
+async function handleDbAlertasReservasPeroxido(request) {
+  if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
+  try {
+    const hoy = new Date(Date.now() - 5 * 60 * 60 * 1000)
+    const desde = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1).toISOString().slice(0, 10)
+    const hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().slice(0, 10)
+
+    const sp = new URLSearchParams({ dateOptionPR: 'last3Months', startDatePR: desde, endDatePR: hasta, requestTypeIds: '5' })
+    for (const id of RESERVA_COMPANY_IDS) sp.append('companyIds', String(id))
+
+    const res = await fetch(GATEWAY + RESERVA_TRACKING_PATH + '?' + sp, { headers: request.headers })
+    if (!res.ok) throw Object.assign(new Error('purchase_requisition/tracking respondio ' + res.status), { status: res.status })
+    const filas = await res.json()
+
+    // El reporte de seguimiento solo trae el estado al momento de aprobar (siempre
+    // "APROBADO"); hay que cruzar cada reserva candidata contra /reservation?code=
+    // para saber si ya paso a RECIBIDO (consumo dado) o sigue pendiente.
+    const candidatas = (Array.isArray(filas) ? filas : []).filter((f) => {
+      const nombre = String(f.itemName || '').toUpperCase()
+      if (!nombre.includes('PEROXIDO') && !nombre.includes('PERÓXIDO')) return false
+      return String(f.warehouseCode || '').toUpperCase().endsWith('09')
+    })
+
+    const codigos = [...new Set(candidatas.map(f => f.reservationCode).filter(Boolean))]
+    const estadoReal = new Map()
+    const CONCURRENCIA = 10
+    for (let i = 0; i < codigos.length; i += CONCURRENCIA) {
+      const lote = codigos.slice(i, i + CONCURRENCIA)
+      const resultados = await Promise.all(lote.map(cod =>
+        fetch(GATEWAY + RESERVATION_PATH + '?' + new URLSearchParams({ code: cod, PageSize: '5' }), { headers: request.headers })
+          .then(r => r.ok ? r.json() : null).catch(() => null)
+      ))
+      resultados.forEach((j, idx) => {
+        const fila = j?.data?.data?.[0]
+        if (fila) estadoReal.set(lote[idx], fila.status)
+      })
+    }
+    console.log('DEBUG reservas-peroxido codigos:', codigos.length, 'estadoReal:', JSON.stringify([...estadoReal.entries()]))
+
+    const alertas = candidatas
+      .map((f) => ({ ...f, estadoActual: estadoReal.get(f.reservationCode) || f.status }))
+      .filter((f) => RESERVA_ESTADOS_PENDIENTES.includes(String(f.estadoActual || '').toUpperCase()))
+      .map((f) => ({
+        codigo: f.reservationCode || f.code, codigoSap: f.reservationCodeSAP, sucursal: f.branchOfficeName, solicitante: f.requesterName,
+        fecha: f.documentDate, estado: f.estadoActual, item: f.itemName, almacen: f.warehouseCode,
+        piscina: f.costCenterName, cantidad: f.authorizedQuantity ?? f.requestedQuantity, unidad: f.baseUnitCode,
+      }))
+
+    alertas.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
+    return corsResponse(JSON.stringify({ alertas, total: alertas.length }), 200, request)
+  } catch (e) {
+    console.error('alertas-reservas-peroxido:', e.stack || e)
+    const status = e.status === 401 ? 401 : 502
+    return corsResponse(JSON.stringify({ error: String(e.message || e) }), status, request)
+  }
+}
+
 // â”€â”€ Consumo de balanceado (AP1 feeding_general por piscina/dia) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // GET  /db/consumo-balanceado?idPiscina=<id>&idCiclo=<id>   -> lista consumo diario
 // POST /db/consumo-balanceado/sync                          -> upsert masivo
@@ -1149,11 +1219,15 @@ async function handleDbConsumoInsumos(request, url, env) {
   const idCiclo     = url.searchParams.get('idCiclo')
   const ordenControl = url.searchParams.get('ordenControl')
   const anio        = url.searchParams.get('anio')
+  const material    = url.searchParams.get('material')   // codigo SAP (p. ej. 11000246 peroxido, bodega.html)
+  const desde       = url.searchParams.get('desde')      // YYYY-MM-DD
   const conds = []
   const binds = []
   if (idCiclo)      { conds.push('id_ciclo = ?');          binds.push(idCiclo) }
   if (ordenControl) { conds.push('orden_control = ?');      binds.push(ordenControl) }
   if (anio)         { conds.push("strftime('%Y', fecha) = ?"); binds.push(String(anio)) }
+  if (material)     { conds.push('codigo_material = ?');    binds.push(String(material)) }
+  if (desde)        { conds.push('fecha >= ?');             binds.push(String(desde)) }
   const where = conds.length ? ' WHERE ' + conds.join(' AND ') : ''
   const stmt = env.db.prepare(`SELECT * FROM consumo_insumos${where} ORDER BY fecha`).bind(...binds)
   const { results } = await stmt.all()
@@ -3066,6 +3140,95 @@ async function handleCambiosD1(request, url, env) {
 
 // ── Activos Fijos – D1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// ── Bodega (bodega/bodega.html) – D1 ────────────────────────────────────────
+// GET /d1/bodega/parametros  -> capacidad, montacargas y sector por campamento (lectura abierta)
+// PUT /d1/bodega/parametros  -> { sub_id, capacidad_pallets?, montacargas?, montacargas_operativos?, sector?, notas? }
+//     Requiere el token AP1 del usuario (Authorization: Bearer). Se valida contra el gateway y el
+//     usuario queda en actualizado_por.
+
+// Valida un token AP1 llamando a un endpoint liviano del gateway; devuelve el usuario o null.
+async function usuarioAp1(request) {
+  const auth = request.headers.get('Authorization') || ''
+  if (!auth.startsWith('Bearer ')) return null
+  const r = await fetch(`${GATEWAY}/bff/web/ap1/backoffice/api/subsidiaries?pageSize=1`, {
+    headers: { Authorization: auth, Accept: 'application/json' },
+  })
+  if (!r.ok) return null
+  try {
+    const b64 = auth.slice(7).split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const claims = JSON.parse(atob(b64 + '='.repeat((4 - b64.length % 4) % 4)))
+    return claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || 'ap1'
+  } catch (e) {
+    return 'ap1'
+  }
+}
+
+async function handleBodegaD1(request, url, env) {
+  if (url.pathname === '/d1/bodega/parametros') {
+    if (request.method === 'GET') {
+      const { results } = await env.db.prepare('SELECT * FROM bodega_parametros ORDER BY campamento').all()
+      return corsResponse(JSON.stringify({ data: results || [] }), 200, request)
+    }
+    if (request.method === 'PUT') {
+      const usuario = await usuarioAp1(request)
+      if (!usuario) return corsResponse('{"error":"no autorizado"}', 401, request)
+      const b = await request.json()
+      const subId = parseInt(b.sub_id, 10)
+      if (!subId) return corsResponse('{"error":"sub_id requerido"}', 400, request)
+      const num = v => (v === '' || v == null || isNaN(Number(v))) ? null : Number(v)
+      const sector = ['Islas', 'Isla Josefina', 'Continente'].includes(b.sector) ? b.sector : null
+      await env.db.prepare(
+        `INSERT INTO bodega_parametros (sub_id, campamento, sector, capacidad_pallets, montacargas, montacargas_operativos, notas, actualizado_por, actualizado_en)
+         VALUES (?,?,?,?,?,?,?,?,?)
+         ON CONFLICT(sub_id) DO UPDATE SET
+           campamento = COALESCE(NULLIF(excluded.campamento, ''), campamento), sector = excluded.sector,
+           capacidad_pallets = excluded.capacidad_pallets, montacargas = excluded.montacargas,
+           montacargas_operativos = excluded.montacargas_operativos, notas = excluded.notas,
+           actualizado_por = excluded.actualizado_por, actualizado_en = excluded.actualizado_en`
+      ).bind(subId, String(b.campamento || ''), sector, num(b.capacidad_pallets), num(b.montacargas),
+             num(b.montacargas_operativos), b.notas ? String(b.notas).slice(0, 500) : null,
+             usuario, new Date().toISOString()).run()
+      const fila = await env.db.prepare('SELECT * FROM bodega_parametros WHERE sub_id = ?').bind(subId).first()
+      return corsResponse(JSON.stringify({ ok: true, data: fila }), 200, request)
+    }
+    return corsResponse('{"error":"method not allowed"}', 405, request)
+  }
+  return corsResponse('{"error":"ruta no encontrada"}', 404, request)
+}
+
+// ── Recursos por sucursal (recursos-sucursal/recursos-sucursal.html) – D1 ───
+// GET /d1/recursos-sucursal  -> estaciones de bomba, vehiculos de diesel y parametristas por granja (lectura abierta)
+// PUT /d1/recursos-sucursal  -> { sub_id, sucursal, estaciones_bomba?, vehiculos_diesel?, parametristas?, observaciones? }
+//     Requiere el token AP1 del usuario; el usuario queda en actualizado_por.
+async function handleRecursosSucursal(request, url, env) {
+  if (url.pathname !== '/d1/recursos-sucursal') return corsResponse('{"error":"ruta no encontrada"}', 404, request)
+  if (request.method === 'GET') {
+    const { results } = await env.db.prepare('SELECT * FROM recursos_sucursal ORDER BY sucursal').all()
+    return corsResponse(JSON.stringify({ data: results || [] }), 200, request)
+  }
+  if (request.method === 'PUT') {
+    const usuario = await usuarioAp1(request)
+    if (!usuario) return corsResponse('{"error":"no autorizado"}', 401, request)
+    const b = await request.json()
+    const subId = parseInt(b.sub_id, 10)
+    if (!subId) return corsResponse('{"error":"sub_id requerido"}', 400, request)
+    const ent = v => (v === '' || v == null || !Number.isInteger(Number(v)) || Number(v) < 0) ? null : Number(v)
+    await env.db.prepare(
+      `INSERT INTO recursos_sucursal (sub_id, sucursal, estaciones_bomba, vehiculos_diesel, parametristas, observaciones, actualizado_por, actualizado_en)
+       VALUES (?,?,?,?,?,?,?,?)
+       ON CONFLICT(sub_id) DO UPDATE SET
+         sucursal = COALESCE(NULLIF(excluded.sucursal, ''), sucursal),
+         estaciones_bomba = excluded.estaciones_bomba, vehiculos_diesel = excluded.vehiculos_diesel,
+         parametristas = excluded.parametristas, observaciones = excluded.observaciones,
+         actualizado_por = excluded.actualizado_por, actualizado_en = excluded.actualizado_en`
+    ).bind(subId, String(b.sucursal || ''), ent(b.estaciones_bomba), ent(b.vehiculos_diesel), ent(b.parametristas),
+           b.observaciones ? String(b.observaciones).slice(0, 500) : null, usuario, new Date().toISOString()).run()
+    const fila = await env.db.prepare('SELECT * FROM recursos_sucursal WHERE sub_id = ?').bind(subId).first()
+    return corsResponse(JSON.stringify({ ok: true, data: fila }), 200, request)
+  }
+  return corsResponse('{"error":"method not allowed"}', 405, request)
+}
+
 async function handleActivosFijos(request, url, env) {
   const path = url.pathname
   const now = new Date().toISOString()
@@ -4360,6 +4523,10 @@ if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
       return handleDbAlertasOrdenBloqueada(request, env)
     }
 
+    if (url.pathname === '/db/alertas-reservas-peroxido') {
+      return handleDbAlertasReservasPeroxido(request)
+    }
+
     if (url.pathname === '/db/sucursales' && env.db) {
       return handleDbSucursales(request, env)
     }
@@ -4550,9 +4717,41 @@ if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
       return handleActivosFijos(request, url, env)
     }
 
+    // ── Bodega (balanceado) – parametros manuales por campamento ─────────
+    if (url.pathname.startsWith('/d1/bodega/') && env.db) {
+      return handleBodegaD1(request, url, env)
+    }
+
+    // ── Recursos por sucursal (bombas, vehiculos de diesel, parametristas) ─
+    if (url.pathname === '/d1/recursos-sucursal' && env.db) {
+      return handleRecursosSucursal(request, url, env)
+    }
+
     // ── Control de Usuarios AP1 Balanceado – D1 + Seguridad ──────────────
     if (url.pathname.startsWith('/d1/usuarios/') && env.db) {
       return handleUsuariosD1(request, url, env)
+    }
+
+    // ── Gateway de QA ────────────────────────────────────────────────────
+    // Lo mismo que hace comun/server.py en local: /bff-qa/* -> qa-gateway/bff/*.
+    // Lo necesita Cupos de diesel para leer los tanques de Data Maestra, que
+    // todavia no estan en produccion. Solo reenvia; el token lo pone el navegador.
+    if (url.pathname.startsWith('/bff-qa/')) {
+      const destino = 'https://qa-gateway.naturisa.com.ec/bff/' + url.pathname.slice('/bff-qa/'.length) + url.search
+      const headers = new Headers()
+      for (const h of ['Authorization', 'Content-Type', 'Accept']) {
+        const v = request.headers.get(h)
+        if (v) headers.set(h, v)
+      }
+      const res = await fetch(destino, {
+        method: request.method,
+        headers,
+        body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.text()
+      })
+      return new Response(res.body, {
+        status: res.status,
+        headers: { ...getCors(origin), 'Content-Type': res.headers.get('Content-Type') || 'application/json' }
+      })
     }
 
     if (url.pathname.startsWith('/kv/')) {
