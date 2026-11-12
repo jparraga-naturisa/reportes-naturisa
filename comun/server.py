@@ -10,9 +10,19 @@ import ssl
 import sys
 import urllib.request
 import urllib.error
+import urllib.parse
 import webbrowser
 import threading
 from pathlib import Path
+
+# La consola de Windows suele usar cp1252, que no soporta ✓/→/╔ etc. y
+# rompe cada print (y con él, cada request: log_message se llama antes
+# de enviar la respuesta). Se fuerza UTF-8 con reemplazo para que nunca truene.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 # Contexto SSL sin verificación (API interna)
 SSL_CTX = ssl.create_default_context()
@@ -25,7 +35,15 @@ NO_OPEN   = len(_args) != len(sys.argv) - 1
 PORT      = int(_args[1]) if len(_args) > 1 else 3000
 HTML_FILE = _args[0] if len(_args) > 0 else 'dashboard-alimentacion/dashboard-alimentacion.html'
 API_HOST  = 'https://gateway.naturisa.com.ec'
+# /bff-qa/* va al gateway de QA (p. ej. datamaestra structure/fuel_tanks, que aún no está en producción)
+QA_HOST   = 'https://qa-gateway.naturisa.com.ec'
 WORKER_URL = 'https://naturisa-proxy.parragajonathan965.workers.dev'
+
+
+def gateway_url(path):
+    if path.startswith('/bff-qa/'):
+        return QA_HOST + '/bff/' + path[len('/bff-qa/'):]
+    return API_HOST + path
 
 
 def proxy_request(method, url, body=None, auth=None, extra_headers=None):
@@ -83,7 +101,7 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
             self.send_cors()
             self.end_headers()
             self.wfile.write(content)
-        elif self.path.startswith('/db/') or self.path.startswith('/api/'):
+        elif self.path.startswith(('/db/', '/api/', '/d1/')):
             # Proxy al Cloudflare Worker
             url = WORKER_URL + self.path
             auth = self.headers.get('Authorization')
@@ -97,9 +115,9 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
                 print(f'  ERROR proxy GET {self.path}: {e}')
                 self._send_json(500, {'error': str(e)})
             return
-        elif self.path.startswith('/bff/'):
+        elif self.path.startswith(('/bff/', '/bff-qa/')):
             # Proxy transparente al gateway
-            url = API_HOST + self.path
+            url = gateway_url(self.path)
             auth = self.headers.get('Authorization')
             try:
                 with proxy_request('GET', url, auth=auth) as resp:
@@ -111,7 +129,23 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
                 print(f'  ERROR proxy GET {self.path}: {e}')
                 self._send_json(500, {'error': str(e)})
         else:
-            self.send_error(404, 'Not found')
+            # Otros archivos del repositorio (p. ej. el selector de app enlaza
+            # ../consumos-insumos/consumos-insumos.html): se sirven desde la raiz.
+            root = Path(__file__).resolve().parent.parent   # raiz del repositorio (comun/..)
+            rel = urllib.parse.unquote(self.path.split('?', 1)[0]).lstrip('/')
+            target = (root / rel).resolve()
+            types = {'.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css',
+                     '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon'}
+            if root in target.parents and target.is_file() and target.suffix.lower() in types:
+                content = target.read_bytes()
+                self.send_response(200)
+                self.send_header('Content-Type', types[target.suffix.lower()])
+                self.send_header('Content-Length', len(content))
+                self.send_cors()
+                self.end_headers()
+                self.wfile.write(content)
+            else:
+                self.send_error(404, 'Not found')
 
     def do_POST(self):
         length = int(self.headers.get('Content-Length', 0))
@@ -121,8 +155,8 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
         if self.path in ('/auth', '/bff/web/ap1/security/api/auth'):
             url = f'{API_HOST}/bff/web/ap1/security/api/auth'
             extra = None
-        elif self.path.startswith('/bff/'):
-            url = API_HOST + self.path
+        elif self.path.startswith(('/bff/', '/bff-qa/')):
+            url = gateway_url(self.path)
             extra = None
         elif self.path.startswith('/db/') or self.path.startswith('/kv/'):
             # Proxy al Cloudflare Worker — pasar X-Api-Key si viene en el request
@@ -143,6 +177,22 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
             print(f'  ERROR proxy POST {self.path}: {e}')
             self._send_json(500, {'error': str(e)})
 
+    def do_PUT(self):
+        # Proxy al Cloudflare Worker para las rutas D1 que se editan (p. ej. /d1/recursos-sucursal):
+        # el Worker no acepta CORS desde todos los puertos de localhost.
+        if not self.path.startswith('/d1/'):
+            self.send_error(404, 'Not found')
+            return
+        length = int(self.headers.get('Content-Length', 0))
+        body   = self.rfile.read(length) if length else None
+        try:
+            with proxy_request('PUT', WORKER_URL + self.path, body=body, auth=self.headers.get('Authorization')) as resp:
+                self._send_json(resp.status, resp.read())
+        except urllib.error.HTTPError as e:
+            self._send_json(e.code, e.read())
+        except Exception as e:
+            print(f'  ERROR proxy PUT {self.path}: {e}')
+            self._send_json(500, {'error': str(e)})
 
 if __name__ == '__main__':
     _root = Path(__file__).parent.parent   # raíz del proyecto
@@ -153,7 +203,10 @@ if __name__ == '__main__':
         _html_resolved = (_root / HTML_FILE).resolve()
     HTML_FILE = str(_html_resolved)
     os.chdir(_root)
-    server = http.server.HTTPServer(('localhost', PORT), NaturisaHandler)
+    # Con hilos: cada request se atiende en paralelo. Con HTTPServer simple las páginas que lanzan
+    # muchas consultas al gateway a la vez (p. ej. bodega.html, ~150) quedaban en fila una tras otra.
+    server = http.server.ThreadingHTTPServer(('localhost', PORT), NaturisaHandler)
+    server.daemon_threads = True
 
     def open_browser():
         import time; time.sleep(0.8)
@@ -163,16 +216,21 @@ if __name__ == '__main__':
         threading.Thread(target=open_browser, daemon=True).start()
 
     title = HTML_FILE.replace('.html', '').replace('-', ' ').replace('_', ' ').title()
-    print()
-    print('  ╔══════════════════════════════════════╗')
-    print(f'  ║   Naturisa — {title:<24}║')
-    print('  ╚══════════════════════════════════════╝')
-    print()
-    print(f'  ✓ Servidor iniciado en: http://localhost:{PORT}')
-    print('  ✓ El navegador se abrirá automáticamente' if not NO_OPEN else '  ✓ Apertura automática de navegador desactivada (--no-open)')
-    print()
-    print('  Presiona Ctrl+C para detener')
-    print()
+    try:
+        print()
+        print('  ╔══════════════════════════════════════╗')
+        print(f'  ║   Naturisa — {title:<24}║')
+        print('  ╚══════════════════════════════════════╝')
+        print()
+        print(f'  ✓ Servidor iniciado en: http://localhost:{PORT}')
+        print('  ✓ El navegador se abrirá automáticamente' if not NO_OPEN else '  ✓ Apertura automática de navegador desactivada (--no-open)')
+        print()
+        print('  Presiona Ctrl+C para detener')
+        print()
+    except UnicodeEncodeError:
+        print(f'Naturisa - {title}')
+        print(f'Servidor iniciado en: http://localhost:{PORT}')
+        print('Presiona Ctrl+C para detener')
 
     try:
         server.serve_forever()
