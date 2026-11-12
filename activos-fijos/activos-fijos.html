@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Activos Fijos — Naturisa</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --primary:#1a3a5c; --primary-light:#2d6a9f; --accent:#00b4d8;
+  --success:#10b981; --warning:#f59e0b; --danger:#ef4444;
+  --bg:#f5f5f7; --card:#ffffff; --text:#1d1d1f; --muted:#6e6e73; --border:#e5e5ea;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.05); --shadow-md:0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --radius:10px; --radius-sm:8px;
+}
+*{box-sizing:border-box;}
+html,body{ height:100%; margin:0; }
+body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); overflow:hidden; }
+.mono{ font-variant-numeric:tabular-nums; }
+
+/* ── Sidebar ── */
+.sidebar{ position:fixed; top:0; left:0; bottom:0; width:190px; background:var(--primary); display:flex; flex-direction:column; z-index:200; }
+.sb-logo{ padding:16px 18px 12px; border-bottom:1px solid rgba(255,255,255,.1); }
+.sb-logo .accent{ color:var(--accent); font-size:16px; font-weight:800; letter-spacing:.3px; }
+.sb-logo .sub{ font-size:11px; color:rgba(255,255,255,.55); margin-top:2px; }
+.sb-nav{ flex:1; padding:10px 0; overflow-y:auto; }
+.sb-nav-item{ display:flex; align-items:center; gap:11px; width:100%; padding:10px 18px; background:none; border:none; border-left:3px solid transparent; color:rgba(255,255,255,.6); font-size:13.5px; font-weight:500; cursor:pointer; text-align:left; transition:color .15s,background .15s,border-color .15s; }
+.sb-nav-item:hover{ background:rgba(255,255,255,.07); color:rgba(255,255,255,.9); }
+.sb-nav-item.active{ background:rgba(255,255,255,.1); color:#fff; border-left-color:var(--accent); font-weight:700; }
+.sb-nav-icon{ width:18px; height:18px; flex-shrink:0; opacity:.85; }
+
+.sb-footer{ border-top:1px solid rgba(255,255,255,.1); padding:12px 14px; position:relative; }
+.hdr-user-btn{ display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2); border-radius:20px; padding:5px 10px 5px 5px; cursor:pointer; color:#fff; font-size:12px; font-weight:600; width:100%; }
+.hdr-user-btn:hover{ background:rgba(255,255,255,.2); }
+.hdr-user-av{ width:28px; height:28px; border-radius:50%; background:var(--accent); color:#0a2540; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:800; flex-shrink:0; }
+.hdr-user-name{ flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hdr-user-dd{ position:absolute; bottom:calc(100% + 6px); left:14px; right:14px; background:#fff; border-radius:10px; box-shadow:var(--shadow-md),0 8px 24px rgba(0,0,0,.18); overflow:hidden; display:none; z-index:300; border:1px solid var(--border); }
+.hdr-user-dd.open{ display:block; }
+.hdr-dd-head{ padding:11px 14px; font-size:12.5px; font-weight:700; color:var(--text); background:#fafafa; border-bottom:1px solid var(--border); }
+.hdr-dd-item{ display:flex; align-items:center; gap:9px; width:100%; padding:9px 14px; background:none; border:none; font-size:12.5px; font-weight:500; color:var(--text); cursor:pointer; text-align:left; }
+.hdr-dd-item:hover{ background:#f5f5f7; }
+.hdr-dd-item.danger{ color:#dc2626; }
+.hdr-dd-item.danger:hover{ background:#fef2f2; }
+.hdr-dd-sep{ height:1px; background:var(--border); margin:2px 0; }
+.hdr-dd-upload{ display:flex; align-items:center; gap:9px; width:100%; padding:9px 14px; font-size:12.5px; font-weight:500; color:var(--text); cursor:pointer; }
+.hdr-dd-upload:hover{ background:#f5f5f7; }
+.hdr-dd-upload.busy{ opacity:.55; pointer-events:none; }
+.hdr-dd-status{ padding:6px 14px 10px; font-size:11px; color:var(--muted); }
+.hdr-dd-status.err{ color:var(--danger); }
+
+/* ── Content ── */
+.content-wrap{ position:fixed; left:190px; top:0; right:0; bottom:0; display:flex; flex-direction:column; overflow:hidden; }
+.topbar{ display:flex; align-items:center; gap:12px; padding:14px 22px; border-bottom:1px solid var(--border); background:var(--card); flex-shrink:0; flex-wrap:wrap; }
+.topbar h1{ font-size:17px; margin:0; font-weight:700; }
+.topbar .scope{ font-size:11.5px; color:var(--muted); margin-top:1px; }
+.search{ display:flex; align-items:center; gap:7px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:6px 10px; min-width:220px; }
+.search input{ all:unset; flex:1; font-size:13px; }
+.search svg{ flex-shrink:0; color:var(--muted); }
+
+/* Filter pill + popover (fincas) */
+.fp-wrap{ position:relative; }
+.fp-btn{ display:flex; align-items:center; gap:6px; padding:6px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; font-size:12.5px; font-weight:600; color:var(--text); cursor:pointer; }
+.fp-btn:hover{ background:var(--bg); }
+.fp-btn.active{ background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+.fp-badge{ background:#1d4ed8; color:#fff; border-radius:10px; font-size:10px; font-weight:700; padding:0 6px; min-width:16px; text-align:center; }
+.fp-panel{ position:absolute; top:calc(100% + 6px); left:0; z-index:210; background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,.14); width:280px; max-height:60vh; overflow-y:auto; display:none; padding:6px; }
+.fp-panel.open{ display:block; }
+.fp-item{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:7px; font-size:13px; cursor:pointer; }
+.fp-item:hover{ background:var(--bg); }
+.fp-item.active{ background:#eff6ff; color:#1d4ed8; font-weight:600; }
+.fp-item .cnt{ font-size:11px; color:var(--muted); }
+.fp-item.active .cnt{ color:#1d4ed8; }
+
+.main{ padding:16px 22px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:14px; min-width:0; }
+.view{ display:none; flex-direction:column; gap:14px; }
+.view.active{ display:flex; }
+
+/* KPI cards */
+.kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:12px; }
+.kpi-card{ background:#fff; border-radius:var(--radius); padding:12px 14px; box-shadow:var(--shadow-sm); border:1px solid var(--border); display:flex; align-items:center; gap:12px; min-width:0; }
+.kpi-icon{ width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.kpi-icon.blue{ background:#dbeafe; color:#2563eb; }
+.kpi-icon.green{ background:#d1fae5; color:#059669; }
+.kpi-icon.orange{ background:#fef3c7; color:#b45309; }
+.kpi-icon.red{ background:#fee2e2; color:#dc2626; }
+.kpi-icon.cyan{ background:#cffafe; color:#0e7490; }
+.kpi-label{ font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.kpi-value{ font-size:20px; font-weight:700; color:var(--text); line-height:1.2; }
+
+/* Panels / tables */
+.panel{ background:#fff; border-radius:var(--radius); box-shadow:var(--shadow-sm); border:1px solid var(--border); overflow:hidden; }
+.panel-head{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border); gap:10px; flex-wrap:wrap; }
+.panel-head h2{ font-size:14px; margin:0; font-weight:700; }
+.panel-head .hint{ font-size:11.5px; color:var(--muted); }
+.back-btn{ all:unset; cursor:pointer; display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--primary-light); font-weight:600; }
+.back-btn:hover{ text-decoration:underline; }
+.table-wrap{ overflow-x:auto; }
+table{ width:100%; table-layout:fixed; border-collapse:collapse; font-size:12.5px; }
+thead th{ text-align:left; padding:8px 12px; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:#334155; font-weight:700; border-bottom:1px solid var(--border); background:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+tbody td{ padding:8px 12px; border-bottom:1px solid #f1f1f3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+tbody td.ellip{ cursor:help; }
+tbody tr:last-child td{ border-bottom:none; }
+tbody tr{ cursor:pointer; }
+tbody tr:hover td{ background:#f8fafc; }
+.class-row{ cursor:pointer; }
+.asset-code{ color:var(--muted); font-size:11px; }
+.chip{ display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:99px; font-size:11px; font-weight:600; }
+.chip::before{ content:''; width:6px; height:6px; border-radius:50%; }
+.chip.op{ background:#d1fae5; color:#065f46; } .chip.op::before{ background:#059669; }
+.chip.taller{ background:#fef3c7; color:#92400e; } .chip.taller::before{ background:#b45309; }
+.chip.espera_repuesto{ background:#fee2e2; color:#991b1b; } .chip.espera_repuesto::before{ background:#dc2626; }
+.chip.baja{ background:#f1f5f9; color:#475569; } .chip.baja::before{ background:#94a3b8; }
+.empty{ padding:40px 16px; text-align:center; color:var(--muted); font-size:13px; }
+
+/* Drawer */
+.overlay{ position:fixed; inset:0; background:rgba(15,23,42,.4); opacity:0; pointer-events:none; transition:opacity .18s ease; z-index:400; }
+.overlay.show{ opacity:1; pointer-events:auto; }
+.drawer{ position:fixed; top:0; right:0; height:100%; width:420px; max-width:92vw; background:#fff; box-shadow:-16px 0 40px -20px rgba(0,0,0,.35); transform:translateX(100%); transition:transform .2s ease; z-index:401; display:flex; flex-direction:column; }
+.drawer.show{ transform:translateX(0); }
+.drawer-head{ padding:18px 20px 14px; border-bottom:1px solid var(--border); display:flex; gap:14px; align-items:flex-start; }
+.drawer-head canvas{ flex-shrink:0; border-radius:8px; border:1px solid var(--border); }
+.drawer-head .ttl{ font-size:15px; font-weight:700; }
+.drawer-head .code{ font-size:12px; color:var(--muted); margin-top:2px; }
+.drawer-close{ all:unset; cursor:pointer; margin-left:auto; color:var(--muted); padding:4px; }
+.drawer-body{ padding:16px 20px; overflow-y:auto; display:flex; flex-direction:column; gap:18px; flex:1; }
+.kv{ display:grid; grid-template-columns:120px 1fr; row-gap:8px; font-size:12.5px; }
+.kv dt{ color:var(--muted); } .kv dd{ margin:0; }
+.section-ttl{ font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin:0 0 8px; font-weight:700; }
+.timeline{ display:flex; flex-direction:column; }
+.tl-item{ display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+.tl-item:last-child{ border-bottom:none; }
+.tl-dot{ width:8px; height:8px; border-radius:50%; background:var(--primary-light); margin-top:5px; flex-shrink:0; }
+.tl-body .h{ font-size:12.5px; font-weight:600; } .tl-body .d{ font-size:11.5px; color:var(--muted); }
+.btn{ all:unset; cursor:pointer; background:var(--primary); color:#fff; font-weight:600; font-size:13px; padding:9px 14px; border-radius:8px; text-align:center; }
+.btn:hover{ background:var(--primary-light); }
+.btn.ghost{ background:var(--bg); color:var(--text); }
+.btn.ghost:hover{ background:#e9e9ec; }
+.btn:disabled{ opacity:.45; pointer-events:none; }
+.mnt-row{ display:grid; grid-template-columns:auto 1fr auto auto; gap:14px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); }
+.mnt-row:last-child{ border-bottom:none; }
+.mnt-sev{ width:4px; align-self:stretch; border-radius:2px; }
+.mnt-sev.crit{ background:var(--danger); } .mnt-sev.warn{ background:var(--warning); }
+.mnt-name{ font-weight:600; font-size:13px; } .mnt-meta{ font-size:11.5px; color:var(--muted); }
+.form-grid{ display:grid; gap:10px; }
+.form-grid label{ font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:4px; }
+.form-grid input, .form-grid select, .form-grid textarea{ font:inherit; padding:7px 9px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); }
+.banner{ display:flex; gap:10px; align-items:flex-start; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:11px 14px; font-size:12.5px; color:var(--text); }
+.banner b{ color:#1d4ed8; }
+
+/* Login */
+.login-modal{ position:fixed; inset:0; background:#0f172a; z-index:999; display:flex; align-items:center; justify-content:center; }
+.login-card{ background:#fff; border-radius:18px; padding:48px 40px; width:390px; max-width:92vw; box-shadow:0 24px 64px rgba(0,0,0,.45); }
+.login-card .brand-lockup{ text-align:center; margin-bottom:28px; }
+.login-card .brand-icon{ width:56px; height:56px; border-radius:16px; background:var(--primary); color:var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; }
+.login-card .brand-lockup .mark{ font-size:20px; font-weight:700; color:var(--muted); letter-spacing:1.5px; }
+.login-card .brand-lockup .sub{ font-size:19px; color:var(--primary); font-weight:800; margin-top:4px; }
+.login-card label{ display:block; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px; }
+.login-card input{ width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; margin-bottom:14px; background:#fff; color:var(--text); }
+.login-card input:focus{ outline:none; border-color:var(--primary-light); }
+.pass-wrap{ position:relative; }
+.pass-wrap input{ padding-right:2.6rem; margin-bottom:0; }
+.pass-toggle{ all:unset; cursor:pointer; position:absolute; right:.8rem; top:50%; transform:translateY(-50%); display:flex; align-items:center; color:var(--muted); }
+.pass-toggle:hover{ color:var(--primary); }
+.login-card .status{ text-align:center; margin-top:14px; font-size:13px; color:var(--danger); min-height:18px; }
+.login-card .login-submit{ width:100%; margin-top:12px; }
+
+/* Zoom / pantallas medianas: encoge el sidebar y compacta el contenido antes de
+   llegar al colapso total, para que nada se corte ni se monte al hacer zoom. */
+@media (max-width:1280px){
+  .sidebar{ width:150px; }
+  .content-wrap{ left:150px; }
+  .sb-logo{ padding:14px 14px 10px; }
+  .sb-nav-item{ padding:9px 14px; font-size:13px; }
+  .topbar{ padding:12px 16px; gap:8px; }
+  .main{ padding:14px 16px; }
+  .search{ min-width:0; flex:1 1 140px; }
+  .kpi-grid{ grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:8px; }
+  .kpi-card{ padding:10px 12px; gap:8px; }
+  .kpi-icon{ width:32px; height:32px; }
+  .kpi-value{ font-size:17px; }
+}
+@media (max-width:900px){
+  .sidebar{ width:60px; }
+  .sb-logo .accent, .sb-logo .sub{ display:none; }
+  .sb-nav-item{ justify-content:center; padding:12px; }
+  .sb-nav-item span{ display:none; }
+  .content-wrap{ left:60px; }
+  .hdr-user-name{ display:none; }
+  .topbar h1{ font-size:15px; }
+  .topbar .scope{ display:none; }
+}
+@media (max-width:640px){
+  .topbar{ flex-wrap:wrap; }
+  .search{ order:3; flex-basis:100%; }
+  .kpi-grid{ grid-template-columns:repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="login-modal" id="loginModal">
+  <div class="login-card">
+    <div class="brand-lockup">
+      <div class="brand-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 7l2-4h14l2 4"/><path d="M9 11h6"/></svg>
+      </div>
+      <div class="mark">NATURISA</div>
+      <div class="sub">Activos Fijos</div>
+    </div>
+    <label>Usuario</label>
+    <input type="text" id="loginUser" autocomplete="username" placeholder="Tu usuario">
+    <label>Contraseña</label>
+    <div class="pass-wrap" style="margin-bottom:14px;">
+      <input type="password" id="loginPass" autocomplete="current-password" placeholder="Tu contraseña"
+        onkeydown="if(event.key==='Enter') document.getElementById('loginBtn').click()">
+      <button type="button" class="pass-toggle" id="passToggle" title="Mostrar contraseña" aria-label="Mostrar contraseña">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+    <button class="btn login-submit" id="loginBtn">Ingresar</button>
+    <div class="status" id="loginStatus"></div>
+  </div>
+</div>
+
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="accent">NATURISA</div>
+    <div class="sub">Activos Fijos</div>
+  </div>
+  <nav class="sb-nav" id="tabs">
+    <button class="sb-nav-item active" data-view="catalogo">
+      <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <span>Catálogo</span>
+    </button>
+    <button class="sb-nav-item" data-view="mantenimiento">
+      <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      <span>Mantenimiento</span>
+    </button>
+    <button class="sb-nav-item" data-view="movimientos">
+      <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      <span>Movimientos</span>
+    </button>
+  </nav>
+  <div class="sb-footer">
+    <button class="hdr-user-btn" id="userBtn">
+      <span class="hdr-user-av" id="userAv"></span>
+      <span class="hdr-user-name" id="userName"></span>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:.7;flex-shrink:0;"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="hdr-user-dd" id="userDd">
+      <div class="hdr-dd-head" id="userFullName"></div>
+      <label class="hdr-dd-upload" id="uploadBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span id="uploadBtnText">Actualizar Excel</span>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none;">
+      </label>
+      <div class="hdr-dd-status" id="uploadStatus" style="display:none;"></div>
+      <div class="hdr-dd-sep"></div>
+      <button class="hdr-dd-item danger" id="logoutBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Cerrar sesión
+      </button>
+    </div>
+  </div>
+</aside>
+
+<div class="content-wrap">
+  <div class="topbar">
+    <div><h1>Control de Activos Fijos</h1><div class="scope" id="scopeSub">Cargando…</div></div>
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-left:auto;">
+      <div class="fp-wrap">
+        <button class="fp-btn" id="fpBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          Finca <span class="fp-badge" id="fpBadge" style="display:none;">1</span>
+        </button>
+        <div class="fp-panel" id="tree"></div>
+      </div>
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="searchBox" placeholder="Buscar por código, serie, descripción…">
+      </div>
+    </div>
+  </div>
+
+  <main class="main">
+    <section class="view active" id="view-catalogo">
+      <div class="kpi-grid" id="kpis">
+        <div class="kpi-card">
+          <div class="kpi-icon blue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16"/></svg></div>
+          <div><div class="kpi-label">Total activos</div><div class="kpi-value" id="kpiTotal">—</div></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+          <div><div class="kpi-label">Operativos</div><div class="kpi-value" id="kpiOp">—</div></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon orange"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+          <div><div class="kpi-label">En taller</div><div class="kpi-value" id="kpiTaller">—</div></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon red"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+          <div><div class="kpi-label">Espera repuesto</div><div class="kpi-value" id="kpiEspera">—</div></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon cyan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+          <div><div class="kpi-label">Dados de baja</div><div class="kpi-value" id="kpiBaja">—</div></div>
+        </div>
+      </div>
+
+      <div class="panel" id="classSummaryPanel">
+        <div class="panel-head"><h2>Clases de activos</h2><div class="hint" id="classCount">—</div></div>
+        <div class="table-wrap">
+          <table>
+            <colgroup><col style="width:70%"><col style="width:30%"></colgroup>
+            <thead><tr><th>Clase</th><th>Activos</th></tr></thead>
+            <tbody id="classSummaryBody"><tr><td colspan="2" class="empty">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" id="descSummaryPanel" style="display:none;">
+        <div class="panel-head">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <button class="back-btn" id="btnBackToClases">← Clases</button>
+            <h2 id="descSummaryTitle">Descripciones</h2>
+          </div>
+          <div class="hint" id="descCount">—</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <colgroup><col style="width:70%"><col style="width:30%"></colgroup>
+            <thead><tr><th>Descripción</th><th>Activos</th></tr></thead>
+            <tbody id="descSummaryBody"><tr><td colspan="2" class="empty">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" id="detailPanel" style="display:none;">
+        <div class="panel-head">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <button class="back-btn" id="btnBack">← Descripciones</button>
+            <h2 id="detailTitle">Detalle</h2>
+          </div>
+          <div class="hint" id="rowCount">—</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <colgroup>
+              <col style="width:10%"><col style="width:13%"><col style="width:18%"><col style="width:18%">
+              <col style="width:18%"><col style="width:8%"><col style="width:9%"><col style="width:6%">
+            </colgroup>
+            <thead><tr><th>Activo</th><th>Clase</th><th>Descripción</th><th>Denominación</th><th>Finca / ubicación</th><th>Cód. clase</th><th>Fecha inicio</th><th>Estado</th></tr></thead>
+            <tbody id="assetsBody"><tr><td colspan="8" class="empty">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:10px; padding:12px 16px; border-top:1px solid var(--border);">
+          <button class="btn ghost" id="btnPrev">← Anterior</button>
+          <span class="mono" id="pageInfo" style="font-size:12px; color:var(--muted);">—</span>
+          <button class="btn ghost" id="btnNext">Siguiente →</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-mantenimiento">
+      <div class="panel">
+        <div class="panel-head"><h2>Órdenes de mantenimiento</h2><div class="hint" id="ordCount">—</div></div>
+        <div id="mntList"><div class="empty">Cargando…</div></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-movimientos">
+      <div class="panel">
+        <div class="panel-head"><h2>Últimas transferencias</h2><div class="hint" id="movCount">—</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Activo</th><th>Origen</th><th>Destino</th><th>Custodio nuevo</th><th>Fecha</th></tr></thead>
+            <tbody id="movBody"><tr><td colspan="5" class="empty">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <canvas id="qrCanvas" width="64" height="64"></canvas>
+    <div><div class="ttl" id="dTitle">—</div><div class="code mono" id="dCode">—</div></div>
+    <button class="drawer-close" id="drawerClose">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div>
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <p class="section-ttl" style="margin:0;">Ficha técnica</p>
+        <button class="back-btn" id="btnEditFicha">✎ Editar</button>
+      </div>
+      <dl class="kv" id="dKv"></dl>
+      <div id="dEditForm"></div>
+    </div>
+    <div><p class="section-ttl">Historial</p><div class="timeline" id="dTimeline"></div></div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn" id="btnMove">Registrar movimiento</button>
+      <button class="btn ghost" id="btnOrder">Abrir orden</button>
+    </div>
+    <div id="dForm"></div>
+  </div>
+</aside>
+
+<script>
+const API = 'https://naturisa-proxy.parragajonathan965.workers.dev';
+
+// ── Login con usuario AP1 (mismo esquema que los demás dashboards) ──
+const AUTH_URL = window.location.hostname === 'localhost'
+  ? '/auth'
+  : 'https://gateway.naturisa.com.ec/bff/web/ap1/security/api/auth';
+const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
+
+function getToken(){ return localStorage.getItem('nat_token') || ''; }
+
+function applyLoginUI(on, nombre){
+  document.getElementById('loginModal').style.display = on ? 'none' : 'flex';
+  if(on){
+    // Nombre completo suele venir como "Nombre Segundo Apellido1 Apellido2" — se toma
+    // el primer nombre y el primer apellido (mitad del arreglo), no las dos primeras palabras.
+    const words = (nombre||'').split(' ').filter(Boolean);
+    const firstName = words[0] || '';
+    const firstLast = words[Math.floor(words.length/2)] || '';
+    const shortName = firstLast ? `${firstName} ${firstLast}` : firstName;
+    const initials = `${firstName[0]||''}${firstLast[0]||''}`.toUpperCase();
+    document.getElementById('userAv').textContent = initials;
+    document.getElementById('userName').textContent = shortName || 'Usuario';
+    document.getElementById('userFullName').textContent = nombre || 'Usuario';
+  }
+}
+
+async function doLogin(){
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
+  const status = document.getElementById('loginStatus');
+  const btn = document.getElementById('loginBtn');
+  if(!user || !pass){ status.textContent = 'Ingresa usuario y contraseña'; return; }
+  btn.textContent = 'Ingresando…'; btn.disabled = true; status.textContent = '';
+  try{
+    const res = await fetch(AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/plain, */*' },
+      body: JSON.stringify({ userName: user, password: pass, codeApplication: CODE_APP, includeUserInfo: true })
+    });
+    const json = await res.json();
+    if(json.code === 200 && json.data?.token){
+      localStorage.setItem('nat_token', json.data.token);
+      localStorage.setItem('nat_user', user);
+      const u = json.data.usuario;
+      const fullName = u ? `${u.firstNames} ${u.lastNames}`.trim() : user;
+      localStorage.setItem('nat_name', fullName);
+      applyLoginUI(true, fullName);
+      init();
+    } else {
+      status.textContent = 'Usuario o contraseña incorrectos';
+    }
+  }catch(e){
+    status.textContent = 'Error de conexión: '+e.message;
+  }finally{
+    btn.textContent = 'Ingresar'; btn.disabled = false;
+  }
+}
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('passToggle').addEventListener('click', ()=>{
+  const input = document.getElementById('loginPass');
+  const btn = document.getElementById('passToggle');
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.title = showing ? 'Mostrar contraseña' : 'Ocultar contraseña';
+  btn.innerHTML = showing
+    ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>'
+    : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.6 20.6 0 0 1 5.06-6.06M9.9 4.24A9.16 9.16 0 0 1 12 4c7 0 11 8 11 8a20.7 20.7 0 0 1-3.22 4.47M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+});
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  localStorage.removeItem('nat_token');
+  localStorage.removeItem('nat_user');
+  localStorage.removeItem('nat_name');
+  applyLoginUI(false);
+});
+
+// ── Menú de usuario (dropdown) ──
+document.getElementById('userBtn').addEventListener('click', e=>{
+  e.stopPropagation();
+  document.getElementById('userDd').classList.toggle('open');
+});
+document.addEventListener('click', ()=> document.getElementById('userDd').classList.remove('open'));
+
+let currentScope = '';
+let currentQuery = '';
+let currentClase = '';
+let currentDescripcion = '';
+let currentActivo = null;
+let currentOffset = 0;
+const PAGE_SIZE = 200;
+let lastPageLength = 0;
+let lastPorClase = [];
+let lastPorDescripcion = [];
+
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fincaCorta(f){ return (f||'').replace(/^\d+ - /,'') || '—'; }
+
+async function api(path, opts){
+  const r = await fetch(API + path, opts);
+  if(!r.ok) throw new Error('HTTP '+r.status+' en '+path);
+  return r.json();
+}
+
+// ── Filtro de finca (popover) ──
+document.getElementById('fpBtn').addEventListener('click', e=>{
+  e.stopPropagation();
+  document.getElementById('tree').classList.toggle('open');
+});
+document.addEventListener('click', ()=> document.getElementById('tree').classList.remove('open'));
+document.getElementById('tree').addEventListener('click', e=> e.stopPropagation());
+
+// Recalcula los KPIs con el filtro actual (finca + clase, si están elegidos) — nunca el total global.
+async function refreshKpis(){
+  const params = new URLSearchParams();
+  if(currentScope) params.set('finca', currentScope);
+  if(currentClase) params.set('clase', currentClase);
+  const qs = params.toString();
+  const r = await api('/d1/activos-fijos/resumen'+(qs?'?'+qs:''));
+  document.getElementById('kpiTotal').textContent = r.total.toLocaleString();
+  const byEstado = Object.fromEntries((r.porEstado||[]).map(e=>[e.estado, e.n]));
+  document.getElementById('kpiOp').textContent = (byEstado.operativo||0).toLocaleString();
+  document.getElementById('kpiTaller').textContent = (byEstado.taller||0).toLocaleString();
+  document.getElementById('kpiEspera').textContent = (byEstado.espera_repuesto||0).toLocaleString();
+  document.getElementById('kpiBaja').textContent = (byEstado.baja||0).toLocaleString();
+  return r;
+}
+
+async function loadResumen(){
+  const r = await refreshKpis();
+
+  const tree = document.getElementById('tree');
+  const todas = (r.porFinca||[]);
+  tree.innerHTML = `<div class="fp-item active" data-scope="">Todas las fincas <span class="cnt">${r.total.toLocaleString()}</span></div>` +
+    todas.map(f=>`<div class="fp-item" data-scope="${esc(f.finca)}">${esc(fincaCorta(f.finca))} <span class="cnt">${f.n.toLocaleString()}</span></div>`).join('');
+  tree.querySelectorAll('.fp-item').forEach(b=> b.addEventListener('click', ()=>{
+    tree.querySelectorAll('.fp-item').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    currentScope = b.dataset.scope;
+    currentClase = '';
+    currentDescripcion = '';
+    currentQuery = '';
+    currentOffset = 0;
+    document.getElementById('searchBox').value = '';
+    tree.classList.remove('open');
+    const fpBtn = document.getElementById('fpBtn'), fpBadge = document.getElementById('fpBadge');
+    fpBtn.classList.toggle('active', !!currentScope);
+    fpBadge.style.display = currentScope ? '' : 'none';
+    // al elegir una finca (o "Todas") siempre se vuelve al resumen por clase, ahora
+    // acotado a esa finca — los otros niveles se abren solo al hacer clic hacia adentro.
+    showLevel('clase');
+    refreshKpis();
+    loadClassSummary();
+  }));
+  document.getElementById('scopeSub').textContent = r.total ? `${r.total.toLocaleString()} activos en D1` : 'Sin datos aún — sube el Excel para empezar';
+
+  await loadClassSummary();
+}
+
+// Los 3 niveles del catálogo: 'clase' (resumen por clase) → 'descripcion' (resumen por
+// descripción, dentro de la clase elegida) → 'detalle' (tabla plana de activos).
+function showLevel(level){
+  document.getElementById('classSummaryPanel').style.display = level === 'clase' ? '' : 'none';
+  document.getElementById('descSummaryPanel').style.display = level === 'descripcion' ? '' : 'none';
+  document.getElementById('detailPanel').style.display = level === 'detalle' ? '' : 'none';
+}
+
+async function loadClassSummary(){
+  const body = document.getElementById('classSummaryBody');
+  body.innerHTML = '<tr><td colspan="2" class="empty">Cargando…</td></tr>';
+  const params = currentScope ? '?finca='+encodeURIComponent(currentScope) : '';
+  const r = await api('/d1/activos-fijos/resumen'+params);
+  lastPorClase = r.porClase || [];
+  document.querySelector('#classSummaryPanel h2').textContent = currentScope
+    ? 'Clases de activos · '+fincaCorta(currentScope)
+    : 'Clases de activos';
+  document.getElementById('classCount').textContent = r.total.toLocaleString() + ' activos';
+  if(!lastPorClase.length){ body.innerHTML = '<tr><td colspan="2" class="empty">Sin activos que coincidan. Sube el Excel de SAP para cargar el maestro.</td></tr>'; return; }
+  body.innerHTML = lastPorClase.map(c => `
+    <tr class="class-row" data-clase="${esc(c.clase)}">
+      <td>${esc(c.clase) || 'Sin clase'}</td>
+      <td class="mono">${c.n.toLocaleString()}</td>
+    </tr>`).join('');
+  body.querySelectorAll('tr').forEach(tr => tr.addEventListener('click', () => openDescSummary(tr.dataset.clase)));
+}
+
+async function openDescSummary(clase){
+  currentClase = clase;
+  currentDescripcion = '';
+  showLevel('descripcion');
+  refreshKpis();
+  const body = document.getElementById('descSummaryBody');
+  body.innerHTML = '<tr><td colspan="2" class="empty">Cargando…</td></tr>';
+  const params = new URLSearchParams();
+  if(currentScope) params.set('finca', currentScope);
+  params.set('clase', currentClase);
+  const r = await api('/d1/activos-fijos/resumen?'+params.toString());
+  lastPorDescripcion = r.porDescripcion || [];
+  document.getElementById('descSummaryTitle').textContent = (clase || 'Sin clase') + (currentScope ? ' · '+fincaCorta(currentScope) : '');
+  document.getElementById('descCount').textContent = r.total.toLocaleString() + ' activos';
+  if(!lastPorDescripcion.length){ body.innerHTML = '<tr><td colspan="2" class="empty">Sin activos que coincidan.</td></tr>'; return; }
+  body.innerHTML = lastPorDescripcion.map(d => `
+    <tr class="class-row" data-desc="${esc(d.descripcion)}">
+      <td>${esc(d.descripcion) || 'Sin descripción'}</td>
+      <td class="mono">${d.n.toLocaleString()}</td>
+    </tr>`).join('');
+  body.querySelectorAll('tr').forEach(tr => tr.addEventListener('click', () => openDetail(tr.dataset.desc)));
+}
+
+function openDetail(descripcion){
+  currentDescripcion = descripcion;
+  currentOffset = 0;
+  showLevel('detalle');
+  document.getElementById('detailTitle').textContent = (descripcion || 'Sin descripción') + ' · ' + currentClase + (currentScope ? ' · '+fincaCorta(currentScope) : '');
+  loadTable();
+}
+
+document.getElementById('btnBackToClases').addEventListener('click', ()=>{
+  currentClase = '';
+  currentDescripcion = '';
+  showLevel('clase');
+  refreshKpis();
+});
+
+document.getElementById('btnBack').addEventListener('click', ()=>{
+  currentDescripcion = '';
+  currentQuery = '';
+  document.getElementById('searchBox').value = '';
+  if(currentClase){ showLevel('descripcion'); } else { showLevel('clase'); refreshKpis(); }
+});
+
+async function loadTable(){
+  const body = document.getElementById('assetsBody');
+  body.innerHTML = '<tr><td colspan="8" class="empty">Cargando…</td></tr>';
+  const params = new URLSearchParams();
+  if(currentScope) params.set('finca', currentScope);
+  if(currentClase) params.set('clase', currentClase);
+  if(currentDescripcion) params.set('descripcion', currentDescripcion);
+  if(currentQuery) params.set('q', currentQuery);
+  params.set('limit', String(PAGE_SIZE));
+  params.set('offset', String(currentOffset));
+  const list = await api('/d1/activos-fijos?'+params.toString());
+  lastPageLength = list.length;
+  const desde = list.length ? currentOffset+1 : 0;
+  const hasta = currentOffset + list.length;
+  document.getElementById('rowCount').textContent = list.length ? `mostrando ${desde.toLocaleString()}–${hasta.toLocaleString()}` : 'sin resultados';
+  document.getElementById('pageInfo').textContent = `página ${Math.floor(currentOffset/PAGE_SIZE)+1}`;
+  document.getElementById('btnPrev').disabled = currentOffset === 0;
+  document.getElementById('btnNext').disabled = list.length < PAGE_SIZE;
+  if(!list.length){ body.innerHTML = '<tr><td colspan="8" class="empty">No hay activos que coincidan. Sube el Excel de SAP para cargar el maestro.</td></tr>'; return; }
+  body.innerHTML = list.map(a=>{
+    const estado = a.estado || 'operativo';
+    return `<tr data-activo="${a.activo}">
+      <td class="mono asset-code">${a.activo}</td>
+      <td class="ellip" title="${esc(a.clase)}">${esc(a.clase)}</td>
+      <td class="ellip" title="${esc(a.descripcion)}">${esc(a.descripcion)}</td>
+      <td class="ellip" title="${esc(a.denominacion)}">${esc(a.denominacion) || '—'}</td>
+      <td class="ellip" title="${esc(fincaCorta(a.finca))} · ${esc(a.ubicacion_actual || a.emplazamiento)}">${esc(fincaCorta(a.finca))} <span class="asset-code">· ${esc(a.ubicacion_actual || a.emplazamiento)}</span></td>
+      <td class="mono">${esc(a.clase_codigo) || '—'}</td>
+      <td class="mono">${esc(a.fecha_capitalizacion) || '—'}</td>
+      <td><span class="chip ${estado}">${estado.replace('_',' ')}</span></td>
+    </tr>`;
+  }).join('');
+  body.querySelectorAll('tr').forEach(tr=> tr.addEventListener('click', ()=> openDrawer(tr.dataset.activo)));
+}
+
+async function loadOrdenes(){
+  const list = await api('/d1/activos-fijos/ordenes');
+  document.getElementById('ordCount').textContent = list.length.toLocaleString()+' órdenes';
+  const el = document.getElementById('mntList');
+  if(!list.length){ el.innerHTML = '<div class="empty">Sin órdenes registradas todavía. Ábrelas desde la ficha de un activo.</div>'; return; }
+  el.innerHTML = list.map(o=>{
+    const sev = o.estado==='ABIERTA' ? (o.tipo==='correctivo'?'crit':'warn') : '';
+    return `<div class="mnt-row">
+      <div class="mnt-sev ${sev}"></div>
+      <div><div class="mnt-name">${esc(o.descripcion || o.tipo)} <span class="asset-code mono">${o.activo}</span></div>
+      <div class="mnt-meta">${esc(o.descripcion)} · ${esc(fincaCorta(o.finca))} · ${esc(o.emplazamiento)}</div></div>
+      <div class="mono">${o.fecha_apertura ? o.fecha_apertura.slice(0,10) : '—'}</div>
+      <div><span class="chip ${o.estado==='ABIERTA'?'espera_repuesto':'op'}">${o.estado}</span></div>
+    </div>`;
+  }).join('');
+}
+
+async function loadMovimientos(){
+  const list = await api('/d1/activos-fijos/movimientos');
+  document.getElementById('movCount').textContent = list.length.toLocaleString()+' movimientos';
+  const body = document.getElementById('movBody');
+  if(!list.length){ body.innerHTML = '<tr><td colspan="5" class="empty">Sin transferencias registradas todavía.</td></tr>'; return; }
+  body.innerHTML = list.map(m=>`<tr>
+    <td class="mono">${m.activo}</td>
+    <td>${esc(m.ubicacion_origen)||'—'}</td>
+    <td>${esc(m.ubicacion_destino)||'—'}</td>
+    <td>${esc(m.custodio_destino)||'—'}</td>
+    <td class="mono">${m.fecha ? m.fecha.slice(0,16).replace('T',' ') : '—'}</td>
+  </tr>`).join('');
+}
+
+function drawQR(seed){
+  const c = document.getElementById('qrCanvas'); const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,64,64);
+  const cells=8, cell=64/cells; let s=0;
+  for(let i=0;i<seed.length;i++) s=(s*31+seed.charCodeAt(i))>>>0;
+  function rnd(){ s=(s*1664525+1013904223)>>>0; return s/4294967296; }
+  ctx.fillStyle = '#1a3a5c';
+  for(let y=0;y<cells;y++) for(let x=0;x<cells;x++){
+    const corner = (x<2&&y<2)||(x>cells-3&&y<2)||(x<2&&y>cells-3);
+    if(corner || rnd()>0.55) ctx.fillRect(x*cell,y*cell,cell-1,cell-1);
+  }
+}
+
+let currentFicha = null;
+
+async function openDrawer(activo){
+  currentActivo = activo;
+  document.getElementById('dForm').innerHTML = '';
+  document.getElementById('dEditForm').innerHTML = '';
+  const { ficha, movimientos, ordenes } = await api('/d1/activos-fijos/detalle?activo='+activo);
+  currentFicha = ficha;
+  document.getElementById('dTitle').textContent = ficha.descripcion || ('Activo '+ficha.activo);
+  document.getElementById('dCode').textContent = ficha.activo + (ficha.serie && ficha.serie!=='S/S' ? ' · '+ficha.serie : '');
+  drawQR(String(ficha.activo));
+  document.getElementById('dKv').innerHTML = `
+    <dt>Clase</dt><dd>${esc(ficha.clase)}</dd>
+    <dt>Denominación</dt><dd>${esc(ficha.denominacion) || '—'}</dd>
+    <dt>Finca</dt><dd>${esc(fincaCorta(ficha.finca))}</dd>
+    <dt>Ubicación</dt><dd>${esc(ficha.ubicacion_actual || ficha.emplazamiento)}</dd>
+    <dt>Custodio</dt><dd>${esc(ficha.custodio_actual) || 'por asignar'}</dd>
+    <dt>Marca (cód.)</dt><dd>${esc(ficha.marca) || '—'}</dd>
+    <dt>Serie</dt><dd>${ficha.serie && ficha.serie!=='S/S' ? esc(ficha.serie) : 'sin registrar'}</dd>
+    <dt>Fecha inicio</dt><dd>${esc(ficha.fecha_capitalizacion)}</dd>
+    <dt>Fecha de baja</dt><dd>${ficha.fecha_baja ? esc(ficha.fecha_baja) : '—'}</dd>
+    <dt>Horómetro</dt><dd>${ficha.horometro_actual ? ficha.horometro_actual.toLocaleString()+' h' : 'por capturar'}</dd>
+    <dt>Estado</dt><dd><span class="chip ${ficha.estado}">${ficha.estado.replace('_',' ')}</span></dd>`;
+
+  const tl = [];
+  if(ficha.fecha_baja) tl.push({h:'Dado de baja en SAP', d: ficha.fecha_baja});
+  movimientos.forEach(m=> tl.push({h:`Movido a ${m.ubicacion_destino||'—'}`, d:(m.fecha||'').slice(0,16).replace('T',' ')+(m.custodio_destino? ' · '+m.custodio_destino:'')}));
+  ordenes.forEach(o=> tl.push({h:`Orden ${o.tipo} — ${o.estado}`, d:(o.fecha_apertura||'').slice(0,10)+(o.descripcion?' · '+o.descripcion:'')}));
+  tl.push({h:'Capitalizado en SAP', d: ficha.fecha_capitalizacion});
+  document.getElementById('dTimeline').innerHTML = tl.length ? tl.map(t=>`
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-body"><div class="h">${esc(t.h)}</div><div class="d">${esc(t.d)}</div></div></div>`).join('')
+    : '<div class="empty">Sin historial todavía.</div>';
+
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('drawer').classList.add('show');
+}
+function closeDrawer(){ document.getElementById('overlay').classList.remove('show'); document.getElementById('drawer').classList.remove('show'); }
+
+document.getElementById('btnEditFicha').addEventListener('click', ()=>{
+  if(!currentFicha) return;
+  const f = currentFicha;
+  document.getElementById('dEditForm').innerHTML = `
+    <div class="form-grid" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
+      <label>Denominación <input id="eDenominacion" value="${esc(f.denominacion || '')}"></label>
+      <label>Ubicación actual <input id="eUbicacion" value="${esc(f.ubicacion_actual || f.emplazamiento || '')}"></label>
+      <label>Custodio <input id="eCustodio" value="${esc(f.custodio_actual || '')}"></label>
+      <label>Marca (cód.) <input id="eMarca" value="${esc(f.marca || '')}"></label>
+      <label>Serie <input id="eSerie" value="${f.serie && f.serie!=='S/S' ? esc(f.serie) : ''}"></label>
+      <label>Horómetro <input id="eHorometro" type="number" step="0.1" value="${f.horometro_actual || 0}"></label>
+      <label>Estado
+        <select id="eEstado">
+          <option value="operativo">Operativo</option>
+          <option value="taller">En taller</option>
+          <option value="espera_repuesto">Espera de repuesto</option>
+          <option value="baja">De baja</option>
+        </select>
+      </label>
+      <label>Fecha de baja <input id="eFechaBaja" type="date" value="${f.fecha_baja || ''}"></label>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" id="eSave">Guardar cambios</button>
+        <button class="btn ghost" id="eCancel">Cancelar</button>
+      </div>
+    </div>`;
+  document.getElementById('eEstado').value = f.estado || 'operativo';
+  document.getElementById('eCancel').addEventListener('click', ()=>{ document.getElementById('dEditForm').innerHTML = ''; });
+  document.getElementById('eSave').addEventListener('click', async ()=>{
+    const body = {
+      activo: f.activo,
+      denominacion: document.getElementById('eDenominacion').value.trim() || null,
+      ubicacion_actual: document.getElementById('eUbicacion').value.trim() || null,
+      custodio_actual: document.getElementById('eCustodio').value.trim() || null,
+      marca: document.getElementById('eMarca').value.trim() || null,
+      serie: document.getElementById('eSerie').value.trim() || null,
+      horometro_actual: parseFloat(document.getElementById('eHorometro').value) || 0,
+      estado: document.getElementById('eEstado').value,
+      fecha_baja: document.getElementById('eFechaBaja').value || null,
+    };
+    const btn = document.getElementById('eSave');
+    btn.textContent = 'Guardando…';
+    try{
+      await fetch(API+'/d1/activos-fijos/editar', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      document.getElementById('dEditForm').innerHTML = '<div class="banner">Guardado. Ficha actualizada.</div>';
+      await openDrawer(f.activo);
+      loadTable();
+    }catch(err){
+      btn.textContent = 'Guardar cambios';
+      alert('Error al guardar: '+err.message);
+    }
+  });
+});
+document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+document.getElementById('overlay').addEventListener('click', closeDrawer);
+
+document.getElementById('btnMove').addEventListener('click', ()=>{
+  document.getElementById('dForm').innerHTML = `
+    <p class="section-ttl">Registrar movimiento</p>
+    <div class="form-grid">
+      <label>Ubicación destino <input id="fUbic" placeholder="Ej. Piscina 14"></label>
+      <label>Custodio destino <input id="fCust" placeholder="Nombre del responsable"></label>
+      <label>Horómetro actual <input id="fHor" type="number" step="0.1"></label>
+      <label>Observaciones <textarea id="fObs" rows="2"></textarea></label>
+      <button class="btn" id="fSubmitMove">Guardar movimiento</button>
+    </div>`;
+  document.getElementById('fSubmitMove').addEventListener('click', async ()=>{
+    const body = {
+      activo: currentActivo,
+      ubicacion_destino: document.getElementById('fUbic').value || null,
+      custodio_destino: document.getElementById('fCust').value || null,
+      horometro: document.getElementById('fHor').value ? parseFloat(document.getElementById('fHor').value) : null,
+      observaciones: document.getElementById('fObs').value || null,
+      usuario: localStorage.getItem('nat_name') || localStorage.getItem('nat_user') || '',
+    };
+    await fetch(API+'/d1/activos-fijos/movimiento', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    document.getElementById('dForm').innerHTML = '<div class="banner"><b>Guardado.</b> Movimiento registrado.</div>';
+    openDrawer(currentActivo); loadTable(); loadMovimientos();
+  });
+});
+
+document.getElementById('btnOrder').addEventListener('click', ()=>{
+  document.getElementById('dForm').innerHTML = `
+    <p class="section-ttl">Abrir orden de mantenimiento</p>
+    <div class="form-grid">
+      <label>Tipo
+        <select id="fTipo"><option value="correctivo">Correctivo</option><option value="preventivo">Preventivo</option></select>
+      </label>
+      <label>Descripción <textarea id="fDesc" rows="2" placeholder="Diagnóstico / trabajo a realizar"></textarea></label>
+      <label>Horómetro de apertura <input id="fHorA" type="number" step="0.1"></label>
+      <label>Técnico responsable <input id="fTec" placeholder="Nombre"></label>
+      <button class="btn" id="fSubmitOrder">Abrir orden</button>
+    </div>`;
+  document.getElementById('fSubmitOrder').addEventListener('click', async ()=>{
+    const body = {
+      activo: currentActivo,
+      tipo: document.getElementById('fTipo').value,
+      descripcion: document.getElementById('fDesc').value || null,
+      horometro_apertura: document.getElementById('fHorA').value ? parseFloat(document.getElementById('fHorA').value) : null,
+      tecnico: document.getElementById('fTec').value || null,
+    };
+    await fetch(API+'/d1/activos-fijos/orden', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    document.getElementById('dForm').innerHTML = '<div class="banner"><b>Orden abierta.</b> El activo pasó a estado de taller/espera.</div>';
+    openDrawer(currentActivo); loadTable(); loadOrdenes();
+  });
+});
+
+document.getElementById('tabs').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+btn.dataset.view).classList.add('active');
+  if(btn.dataset.view==='mantenimiento') loadOrdenes();
+  if(btn.dataset.view==='movimientos') loadMovimientos();
+});
+
+let searchTimer;
+document.getElementById('searchBox').addEventListener('input', e=>{
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(()=>{
+    currentQuery = e.target.value.trim();
+    currentOffset = 0;
+    if(currentQuery && document.getElementById('detailPanel').style.display === 'none'){
+      // buscar desde cualquier resumen: salta directo al detalle con resultados
+      currentClase = '';
+      currentDescripcion = '';
+      showLevel('detalle');
+      document.getElementById('detailTitle').textContent = 'Resultados de búsqueda';
+      refreshKpis();
+    }
+    if(!currentQuery && !currentClase && !currentDescripcion){
+      showLevel('clase');
+      refreshKpis();
+      return;
+    }
+    loadTable();
+  }, 300);
+});
+
+document.getElementById('btnPrev').addEventListener('click', ()=>{
+  if(currentOffset === 0) return;
+  currentOffset = Math.max(0, currentOffset - PAGE_SIZE);
+  loadTable();
+});
+document.getElementById('btnNext').addEventListener('click', ()=>{
+  if(lastPageLength < PAGE_SIZE) return;
+  currentOffset += PAGE_SIZE;
+  loadTable();
+});
+
+// ── Carga de Excel SAP ──────────────────────────────────────────────
+function normHeader(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim(); }
+function excelDateToStr(v){
+  if(v instanceof Date) return v.toISOString().slice(0,10);
+  if(typeof v === 'number'){ const d = XLSX.SSF.parse_date_code(v); if(d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`; }
+  return v ? String(v) : null;
+}
+function parseWorkbook(data){
+  const wb = XLSX.read(data, {type:'array', cellDates:true});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+  const headerIdx = rows.findIndex(r => r.some(c => normHeader(c).includes('activo fijo')));
+  if(headerIdx === -1) throw new Error('No se encontró la columna "Activo fijo".');
+  const headers = rows[headerIdx].map(normHeader);
+  const col = name => headers.findIndex(h => h.includes(name));
+  const idx = {
+    activo: col('activo fijo'),
+    // OJO: en el SAP de Naturisa la columna "Clase" (exacta) trae el texto descriptivo
+    // (EQUIPOS Y SISTEMAS DE AIREACION...) y "Clase activos fijos" trae el código numérico —
+    // al revés de lo que sugieren los nombres. Se prioriza el match exacto de "clase".
+    clase: headers.findIndex(h=>h==='clase')!==-1 ? headers.findIndex(h=>h==='clase') : col('clase'),
+    claseCodigo: col('clase activos fijos'),
+    fecha: col('capitalizado'),
+    fechaBaja: col('descapitalizacion'),
+    desc: headers.findIndex(h=>h.includes('descripcion del activo'))!==-1 ? headers.findIndex(h=>h.includes('descripcion del activo')) : col('descripcion'),
+    denominacion: col('denominacion'),
+    finca: col('finca'),
+    emplazamiento: (()=>{ const m=[]; headers.forEach((h,i)=>{ if(h.includes('emplazamiento')) m.push(i); }); return m.length?m[m.length-1]:-1; })(),
+    marca: col('marca'),
+    serie: col('numero de serie'),
+  };
+  if(idx.activo === -1) throw new Error('No se pudo mapear la columna de Activo fijo.');
+  const out = [];
+  for(let i=headerIdx+1;i<rows.length;i++){
+    const r = rows[i];
+    if(!r || r[idx.activo] == null) continue;
+    out.push({
+      activo: r[idx.activo],
+      clase: idx.clase!==-1 ? r[idx.clase] : null,
+      clase_codigo: idx.claseCodigo!==-1 ? String(r[idx.claseCodigo] ?? '') : null,
+      fecha_capitalizacion: idx.fecha!==-1 ? excelDateToStr(r[idx.fecha]) : null,
+      fecha_baja: idx.fechaBaja!==-1 ? excelDateToStr(r[idx.fechaBaja]) : null,
+      descripcion: idx.desc!==-1 ? r[idx.desc] : null,
+      denominacion: idx.denominacion!==-1 ? r[idx.denominacion] : null,
+      finca: idx.finca!==-1 ? r[idx.finca] : null,
+      emplazamiento: idx.emplazamiento!==-1 ? r[idx.emplazamiento] : null,
+      marca: idx.marca!==-1 ? String(r[idx.marca] ?? '') : null,
+      serie: idx.serie!==-1 ? String(r[idx.serie] ?? '') : null,
+    });
+  }
+  return out;
+}
+
+document.getElementById('fileInput').addEventListener('change', async e=>{
+  const file = e.target.files[0]; if(!file) return;
+  const btn = document.getElementById('uploadBtn'); const status = document.getElementById('uploadStatus');
+  btn.classList.add('busy'); status.style.display = ''; status.className = 'hdr-dd-status';
+  status.textContent = 'Leyendo '+file.name+'…';
+  try{
+    const buf = await file.arrayBuffer();
+    const parsed = parseWorkbook(buf);
+    if(!parsed.length) throw new Error('El archivo no tiene filas de datos reconocibles.');
+    const CHUNK = 400;
+    let importados = 0;
+    for(let i=0;i<parsed.length;i+=CHUNK){
+      const chunk = parsed.slice(i, i+CHUNK);
+      status.textContent = `Subiendo ${Math.min(i+CHUNK,parsed.length).toLocaleString()} / ${parsed.length.toLocaleString()}…`;
+      const r = await fetch(API+'/d1/activos-fijos/import', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(chunk)});
+      if(!r.ok) throw new Error('Error subiendo lote '+(i/CHUNK+1)+' (HTTP '+r.status+')');
+      const j = await r.json();
+      importados += j.importados || 0;
+    }
+    status.textContent = `${importados.toLocaleString()} activos importados desde ${file.name}`;
+    await loadResumen(); await loadTable();
+  }catch(err){
+    status.className = 'hdr-dd-status err';
+    status.textContent = 'Error: '+err.message;
+  }finally{
+    btn.classList.remove('busy'); e.target.value='';
+  }
+});
+
+async function init(){
+  try{ await loadResumen(); }
+  catch(err){ document.getElementById('scopeSub').textContent = 'Error conectando al backend: '+err.message; }
+}
+
+if(getToken()){
+  applyLoginUI(true, localStorage.getItem('nat_name') || localStorage.getItem('nat_user') || 'Usuario');
+  init();
+} else {
+  applyLoginUI(false);
+}
+</script>
+</body>
+</html>

@@ -18,3 +18,6 @@ build/
 
 # Repositorio propio (github.com/jparraga-naturisa/control-usuarios)
 /control-usuarios/
+
+# Respaldos locales de cupos de diesel (datos, no codigo)
+cupos-diesel/respaldo-*.json

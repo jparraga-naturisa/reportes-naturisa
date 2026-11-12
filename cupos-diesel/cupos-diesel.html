@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cupos de diésel — Naturisa</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --navy:#17375e; --navy-2:#1d4675; --navy-3:#102a48; --link:#1565c0; --link-2:#1e78d6;
+  --success:#1e7e46; --warning:#b45309; --warning-bg:#fff8e8; --warning-bd:#f2d591; --danger:#d32f2f;
+  --bg:#f2f4f7; --card:#ffffff; --text:#20262e; --muted:#6b7684; --border:#dfe3e9; --line:#e9ecf1; --hover:#f3f7fb;
+  --fill:#fffdf5;
+  --shadow:0 1px 3px rgba(23,55,94,.10);
+  --side:200px;
+}
+*{box-sizing:border-box;}
+html,body{ margin:0; height:100%; }
+body{ font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+
+/* ── Estructura: barra lateral + contenido ── */
+.app{ display:flex; height:100vh; overflow:hidden; }
+.side{ width:var(--side); flex:0 0 var(--side); background:var(--navy); color:#fff; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; }
+.side-top{ display:flex; align-items:center; gap:8px; padding:9px 14px; border-bottom:1px solid rgba(255,255,255,.10); }
+.side-top .marca{ font-size:15.5px; font-weight:700; letter-spacing:.2px; }
+.side-top svg{ flex:none; opacity:.95; }
+.nav{ padding:6px 0; overflow-y:auto; }
+.nav-tit{ font-size:9.5px; font-weight:700; letter-spacing:.9px; text-transform:uppercase; color:rgba(255,255,255,.45); padding:9px 16px 5px; }
+.nav button{ all:unset; box-sizing:border-box; display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px;
+  font-size:13px; color:rgba(255,255,255,.82); cursor:pointer; border-left:3px solid transparent; }
+.nav button svg{ flex:none; opacity:.8; }
+.nav button:hover{ background:rgba(255,255,255,.07); color:#fff; }
+.nav button.on{ background:var(--navy-2); color:#fff; font-weight:600; border-left-color:#fff; }
+.nav button.on svg{ opacity:1; }
+.content{ flex:1; min-width:0; display:flex; flex-direction:column; min-height:0; }
+
+/* ── Barra superior ── */
+.top{ display:flex; align-items:center; gap:12px; padding:5px 14px; background:var(--navy); color:#fff; }
+.top .crumb{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:rgba(255,255,255,.65); }
+.top .crumb b{ color:#fff; font-weight:600; }
+.top .spacer{ flex:1; }
+.hdr-user{ font-size:12px; color:rgba(255,255,255,.75); }
+.estado{ font-size:12px; color:rgba(255,255,255,.65); font-weight:500; }
+.estado .ok{ color:#7ee2a8; }
+.estado .fallo{ color:#ff9b9b; }
+
+/* ── Cuerpo ── */
+.main{ flex:1; min-height:0; display:flex; flex-direction:column; padding:9px 14px 10px; max-width:1680px; width:100%; }
+.page{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+.page h1{ margin:0; font-size:15.5px; font-weight:700; color:var(--navy); letter-spacing:-.2px; }
+.page .acciones{ margin-left:auto; display:flex; gap:8px; }
+
+.btn{ all:unset; cursor:pointer; background:var(--link); color:#fff; font-weight:600; font-size:12px; padding:5px 11px;
+  border-radius:6px; display:inline-flex; align-items:center; gap:7px; transition:background .12s; }
+.btn:hover{ background:var(--link-2); }
+.btn.ghost{ background:#fff; color:var(--link); border:1px solid #c6d4e4; }
+.btn.ghost:hover{ background:#eef4fb; border-color:var(--link); }
+.btn:disabled{ opacity:.45; pointer-events:none; }
+.btn[hidden]{ display:none; }
+
+/* Sub-pestañas (Data Maestra) */
+.tabs.sub{ display:inline-flex; gap:0; margin-bottom:8px; border:1px solid var(--border); border-radius:6px; overflow:hidden; background:#fff; box-shadow:var(--shadow); }
+.tabs.sub[hidden]{ display:none; }
+.tabs.sub button{ all:unset; cursor:pointer; padding:6px 14px; font-size:12px; font-weight:600; color:var(--muted); border-right:1px solid var(--border); }
+.tabs.sub button:last-child{ border-right:0; }
+.tabs.sub button:hover{ background:var(--hover); color:var(--navy); }
+.tabs.sub button.on{ background:var(--navy); color:#fff; }
+
+.toolbar{ display:flex; gap:7px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+.search{ display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--border); border-radius:6px;
+  padding:5px 9px; min-width:190px; flex:0 1 250px; color:var(--muted); box-shadow:var(--shadow); }
+.search:focus-within{ border-color:var(--link); color:var(--link); }
+.search input{ all:unset; flex:1; font-size:13px; color:var(--text); }
+select.sel{ padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:#fff; font-size:12px;
+  color:var(--text); box-shadow:var(--shadow); cursor:pointer; }
+select.sel:hover{ border-color:#c6d4e4; }
+.toolbar .spacer{ flex:1; }
+td .ok{ color:var(--success); font-weight:600; font-size:12px; white-space:nowrap; }
+.aviso{ background:var(--warning-bg); border:1px solid var(--warning-bd); border-left:4px solid var(--warning); color:#7a5200;
+  border-radius:4px; padding:7px 12px; font-size:12.5px; margin-bottom:9px; line-height:1.45; }
+.aviso[hidden]{ display:none; }
+
+/* ── Tabla estilo Data Maestra ── */
+.card{ background:var(--card); border:1px solid var(--border); border-radius:4px; box-shadow:var(--shadow); overflow:auto; flex:1; min-height:160px; }
+.card::-webkit-scrollbar{ width:11px; height:11px; }
+.card::-webkit-scrollbar-thumb{ background:#c3cdd9; border-radius:999px; border:3px solid #fff; }
+.card::-webkit-scrollbar-track{ background:#f2f4f7; }
+table{ border-collapse:separate; border-spacing:0; font-size:13px; min-width:100%; }
+th{ position:sticky; top:0; z-index:2; background:var(--navy); color:#fff; font-size:11.5px; font-weight:600;
+  padding:6px 8px; text-align:center; line-height:1.3; border-right:1px solid rgba(255,255,255,.14); white-space:nowrap; }
+th:last-child{ border-right:0; }
+th .u{ display:block; font-size:10px; font-weight:400; opacity:.65; }
+th.uso{ min-width:88px; max-width:110px; white-space:normal; }
+th.tot{ background:var(--navy-3); }
+/* Primera columna fija al desplazarse en horizontal */
+th:first-child, td.suc{ position:sticky; left:0; z-index:1; text-align:left; }
+th:first-child{ z-index:3; padding-left:12px; }
+td{ border-bottom:1px solid var(--line); border-right:1px solid var(--line); padding:1px 8px; vertical-align:middle; font-size:12px; line-height:1.25; }
+td:last-child{ border-right:0; }
+td.suc{ background:#fff; padding-left:12px; font-weight:600; white-space:nowrap; min-width:150px; border-right:1px solid var(--border); }
+td.suc .d{ display:block; font-size:11px; font-weight:400; color:var(--muted); }
+td.num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.tot{ background:#eef3f9; color:var(--navy); text-align:right; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.txt{ font-size:12.5px; color:var(--muted); white-space:nowrap; }
+td.falta{ color:var(--danger); font-weight:600; }
+#tb tr:not(.grupo):not(.total):hover td{ background:var(--hover); }
+#tb tr:not(.grupo):not(.total):hover td.suc{ background:var(--hover); }
+#tb tr:not(.grupo):not(.total):hover td.tot{ background:#e3ecf7; }
+tr.grupo td{ background:#e8eef6; font-size:11px; font-weight:700; color:var(--navy); padding:3px 12px; border-bottom:1px solid #d3dce8; }
+tr.grupo td.suc{ background:#e8eef6; }
+tr.grupo td.num, tr.grupo td.tot{ font-size:12.5px; }
+tr.sintq td{ background:#fff5f5; }
+tr.sintq td.suc{ background:#fff5f5; color:var(--danger); }
+tr.total td{ position:sticky; bottom:0; background:var(--navy); color:#fff; font-weight:700; text-align:right;
+  padding:5px 8px; font-variant-numeric:tabular-nums; border-right-color:rgba(255,255,255,.14); }
+tr.total td.suc{ background:var(--navy); z-index:2; padding-left:12px; text-align:left; }
+
+/* Controles dentro de la tabla */
+td select.dm-e{ padding:2px 5px; border:1px solid var(--border); border-radius:5px; background:#fff; font:inherit; font-size:12.5px; max-width:175px; cursor:pointer; }
+td select.dm-e:hover{ border-color:var(--link); }
+td select.cfg-add{ appearance:none; -webkit-appearance:none; width:26px; max-width:26px; padding:4px 0; text-align:center;
+  border-radius:5px; font-weight:700; color:var(--link); border-color:#c6d4e4; cursor:pointer; }
+td select.cfg-add:hover{ background:#eef4fb; }
+.chip{ display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; background:#fdf0d5; color:#8a5300; margin-left:6px; vertical-align:middle; }
+.chip.azul{ background:#e7f0fb; color:var(--link); border:1px solid #cfe0f5; margin-left:0; margin-right:4px; }
+.chip a{ color:inherit; text-decoration:none; font-weight:700; margin-left:4px; opacity:.65; }
+.chip a:hover{ opacity:1; }
+a.dm-res{ font-size:11.5px; color:var(--link); }
+.pill{ border:1px solid var(--warning-bd); background:var(--warning-bg); color:#8a5300; border-radius:6px; padding:5px 11px;
+  font:inherit; font-size:12px; font-weight:600; cursor:pointer; box-shadow:var(--shadow); }
+.pill:hover{ background:#fdf0d5; }
+.pill.on{ background:#8a5300; color:#fff; border-color:#8a5300; }
+input.n{ width:100%; padding:2px 6px; border:1px solid var(--border); border-radius:4px; background:var(--fill); font-size:12px;
+  color:var(--text); font-family:inherit; text-align:right; font-variant-numeric:tabular-nums; min-width:70px; }
+input.n::placeholder{ color:#c3cad3; }
+input.n:hover{ border-color:#c6d4e4; }
+input.n:focus{ outline:none; border-color:var(--link); background:#fff; box-shadow:0 0 0 2px rgba(21,101,192,.14); }
+input.n.err{ border-color:var(--danger); }
+input.n.vacio{ background:#fafbfc; }
+button.tq{ all:unset; box-sizing:border-box; display:block; width:100%; max-width:180px; margin-top:1px; padding:1px 5px;
+  border:1px solid var(--border); border-radius:3px; background:#fff; font-size:10.5px; color:var(--text); cursor:pointer;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+button.tq::before{ content:'▾'; float:right; color:var(--muted); margin-left:4px; }
+button.tq:hover{ border-color:var(--link); color:var(--link); }
+button.tq.pend{ color:var(--muted); border-style:dashed; background:#fcfcfd; }
+.n + .sin-tq{ margin-top:4px; }
+
+/* Panel para elegir uno o varios tanques de una casilla */
+.pop{ position:fixed; z-index:500; width:335px; max-height:70vh; overflow:auto; background:#fff; border-radius:6px;
+  box-shadow:0 14px 38px rgba(16,42,72,.22); border:1px solid var(--border); font-size:13px; }
+.pop[hidden]{ display:none; }
+.pop-tit{ background:var(--navy); color:#fff; font-weight:600; padding:11px 15px; font-size:13.5px; }
+.pop-sub{ color:var(--muted); font-size:12px; padding:10px 15px 6px; }
+.bk-fila{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 15px; border-top:1px solid var(--line); }
+.bk-fila:hover{ background:var(--hover); }
+.bk-fila span{ color:var(--txt); font-size:12.5px; }
+.bk-vacio, .bk-pie{ padding:12px 15px; color:var(--muted); font-size:12.5px; border-top:1px solid var(--line); }
+.pop-fila{ display:flex; align-items:center; gap:9px; padding:8px 15px; border-top:1px solid var(--line); cursor:pointer; }
+.pop-fila:hover{ background:var(--hover); }
+.pop-fila input[type=checkbox]{ accent-color:var(--link); width:15px; height:15px; }
+.pop-nom{ flex:1; line-height:1.35; }
+.pop-nom em{ color:var(--muted); font-style:normal; font-size:11.5px; }
+.pop-btns{ display:flex; gap:8px; justify-content:flex-end; padding:11px 15px; border-top:1px solid var(--line); background:#fafbfd; }
+.pop-btns .btn{ padding:7px 15px; font-size:12.5px; }
+.sin-tq{ font-size:11px; color:var(--danger); text-align:left; }
+.vacio-msg{ padding:40px; text-align:center; color:var(--muted); }
+
+/* Login QA */
+.login{ max-width:360px; margin:44px auto; text-align:left; }
+.login h3{ margin:0 0 4px; color:var(--navy); font-size:17px; }
+.login p{ margin:0 0 16px; font-size:13px; color:var(--muted); }
+.login label{ display:block; font-size:11.5px; font-weight:600; color:var(--muted); margin-bottom:5px; }
+.login input{ width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:5px; font-size:14px; margin-bottom:12px; }
+.login input:focus{ outline:none; border-color:var(--link); box-shadow:0 0 0 2px rgba(21,101,192,.14); }
+.login .btn{ width:100%; justify-content:center; display:flex; }
+.login .status{ text-align:center; margin-top:10px; font-size:13px; color:var(--danger); min-height:16px; }
+
+@media (max-width:1100px){
+  :root{ --side:62px; }
+  .side-top .marca, .nav button span, .nav-tit{ display:none; }
+  .nav button{ justify-content:center; padding:13px 0; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="side-top">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M2 22h12"/><path d="M13 10h3a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/><path d="M5 10h6"/></svg>
+      <span class="marca">Naturisa</span>
+    </div>
+    <nav class="nav">
+      <div class="nav-tit">Cupos de diésel</div>
+      <button data-tab="usos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg><span>Cupos por uso</span></button>
+      <button data-tab="tanques"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M2 22h12M5 10h6"/><path d="M13 10h3a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg><span>Tanques</span></button>
+      <button data-tab="dm"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg><span>Data Maestra</span></button>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <header class="top">
+      <div class="crumb">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        Cupos de diésel › <b id="crumb">Cupos por uso</b>
+      </div>
+      <div class="spacer"></div>
+      <span class="hdr-user" id="qaUser"></span>
+      <span class="estado" id="estado"></span>
+    </header>
+
+    <main class="main">
+      <div class="page">
+        <h1 id="titulo">Cupos por uso</h1>
+        <div class="acciones">
+          <button class="btn ghost" id="impBtn" title="Cargar el presupuesto (hoja Diésel) o una matriz descargada de aquí">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+            Importar
+          </button>
+          <button class="btn" id="excelBtn" title="Descargar en Excel">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            Excel
+          </button>
+          <button class="btn ghost" id="bkBtn" title="Copias automáticas de los cupos guardados en este equipo">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/></svg>
+            Respaldos
+          </button>
+          <input type="file" id="impFile" accept=".xlsx,.xls" hidden>
+        </div>
+      </div>
+
+      <div class="tabs sub" id="dmTabs" hidden>
+        <button data-v="tq" class="on">Tanques</button>
+        <button data-v="camp">Campamentos</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="q" placeholder="Buscar sucursal o tanque…">
+        </div>
+        <select class="sel" id="fCluster"><option value="">Todos los clusters</option></select>
+        <select class="sel" id="fEstado">
+          <option value="">Todas</option>
+          <option value="con">Con cupo</option>
+          <option value="sin">Sin cupo</option>
+          <option value="pend">Sin tanque elegido</option>
+        </select>
+        <button class="pill" id="pend" hidden title="Ver solo las sucursales con cupos sin tanque elegido"></button>
+        <button class="btn ghost" id="recargarTq" hidden>Recargar tanques</button>
+      </div>
+
+      <div class="aviso" id="aviso" hidden></div>
+
+      <div class="card">
+        <table>
+          <thead id="th"></thead>
+          <tbody id="tb"><tr><td class="vacio-msg">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="pop" id="pop" hidden></div>
+
+<script>
+// Solo local: las sucursales vienen de D1 (vía comun/server.py en localhost) y los cupos
+// se guardan en localStorage de este equipo. Para compartir: Excel ⇄ Importar.
+// Los tanques salen de Data Maestra QA (structure/fuel_tanks aún no está en producción):
+// comun/server.py (en local) y el worker (en la web) reenvían /bff-qa/* a qa-gateway.naturisa.com.ec.
+const LOCAL = window.location.hostname === 'localhost';
+const WORKER = LOCAL ? '' : 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const QA = WORKER + '/bff-qa';
+const AUTH_URL = QA + '/web/ap1/security/api/auth';
+const TANQUES_URL = QA + '/web/datamaestra/backoffice/api/structure/fuel_tanks?status=ACTIVO&status=MANTENIMIENTO' +
+  '&includeUsage=true&includeSubsidiary=true&includeWarehouse=true&includeUnitMeasure=true&includeItem=true&PageSize=1000';
+const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
+// Clusters de /db/sucursales que no son granjas
+const NO_GRANJA = ['Acopio', 'Oficina'];
+// Clusters cuyas sucursales llevan un solo cupo (columna Cupo total), como Otros; van antes de Otros
+const UN_TOTAL = ['Laboratorio'];
+// El cupo se asigna por uso; esa cantidad se recibe en los tanques de la sucursal que tienen ese uso.
+// claves: comienzos de palabra con que se reconoce el uso en el Excel de presupuesto y en Data Maestra
+const USOS = [
+  ['Aireación', ['aireac']],
+  ['Bombeo', ['bombe']],
+  ['Vehículos y Equipos Menores', ['vehic', 'equipos menores', 'eq. menores']],
+  ['Maquinaria', ['maquin']],
+  ['Proyectos', ['proyect']],
+  ['Gasolina', ['gasolina']],
+].map(([nombre, claves]) => ({ nombre, claves }));
+// La columna Gasolina se recibe en tanques de gasolina; el resto, en tanques de diésel
+const combustibleDe = uso => uso === 'Gasolina' ? 'gasolina' : 'diesel';
+// Usos que no son de una sucursal: van como filas del grupo "Otros" con un solo cupo (columna Cupo total),
+// que se reparte entre todos los tanques que tengan ese uso, sin importar la sucursal.
+// uso: nombre con que se reconoce en Data Maestra; cluster / sucursal: limita los tanques a ese cluster o sucursal.
+const OTROS = [
+  [-101, 'Draga', ['drag']],
+  [-102, 'Embarcaciones', ['embarc']],
+  [-103, 'Generación Eléctrica Golfomar', ['generac', 'generador'], 'Generación Eléctrica', null, 'Golfomar'],
+  [-104, 'Subestación Eléctrica Josefina Norte', ['subestac'], 'Subestación Eléctrica', 'Josefina Norte'],
+  [-105, 'Subestación Eléctrica Josefina Sur', ['subestac'], 'Subestación Eléctrica', 'Josefina Sur'],
+].map(([id, nombre, claves, uso, cluster, sucursal]) => ({ id, nombre, claves, uso: uso || nombre, cluster, sucursal }));
+const TOT = 'Cupo total';
+// Presupuesto_combustible_2026-11-04.xlsx, hoja Diésel (gal/sem), por sub_id de D1. Se usa mientras
+// este equipo no tenga una matriz guardada. AL-FI (Aquanaturisa) va en la fila unificada, id -1.
+const CUPOS_INICIALES = {"1":{"Vehículos y Equipos Menores":110,"Maquinaria":340},"2":{"Vehículos y Equipos Menores":30,"Maquinaria":10},"3":{"Vehículos y Equipos Menores":110,"Maquinaria":260},"4":{"Aireación":740,"Vehículos y Equipos Menores":60,"Maquinaria":260},"5":{"Bombeo":1400,"Aireación":300,"Vehículos y Equipos Menores":80,"Maquinaria":440},"7":{"Vehículos y Equipos Menores":120,"Maquinaria":260},"8":{"Vehículos y Equipos Menores":140,"Maquinaria":260},"9":{"Vehículos y Equipos Menores":140,"Maquinaria":190},"6":{"Vehículos y Equipos Menores":90,"Maquinaria":20},"10":{"Bombeo":3200,"Aireación":3400,"Vehículos y Equipos Menores":110,"Maquinaria":320},"11":{"Bombeo":1200,"Aireación":2400,"Vehículos y Equipos Menores":140,"Maquinaria":140},"10041":{"Bombeo":1300,"Aireación":2500,"Vehículos y Equipos Menores":120,"Maquinaria":400},"10040":{"Bombeo":1400,"Aireación":4000,"Vehículos y Equipos Menores":120,"Maquinaria":300},"12":{"Bombeo":1600,"Aireación":5600,"Vehículos y Equipos Menores":460,"Maquinaria":260},"15":{"Bombeo":5800,"Aireación":9200,"Vehículos y Equipos Menores":440,"Maquinaria":260},"17":{"Bombeo":15000,"Aireación":15000,"Vehículos y Equipos Menores":480,"Maquinaria":500},"20":{"Bombeo":1000,"Aireación":5800,"Vehículos y Equipos Menores":420,"Maquinaria":80},"19":{"Bombeo":5800,"Aireación":4200,"Vehículos y Equipos Menores":520,"Maquinaria":240},"21":{"Bombeo":4200,"Aireación":8200,"Vehículos y Equipos Menores":420,"Maquinaria":320},"18":{"Bombeo":4800,"Aireación":4400,"Vehículos y Equipos Menores":600,"Maquinaria":240},"16":{"Bombeo":800,"Aireación":3450,"Vehículos y Equipos Menores":60,"Maquinaria":90},"10034":{"Bombeo":1600,"Aireación":3800,"Vehículos y Equipos Menores":60,"Maquinaria":400},"10035":{"Bombeo":600,"Aireación":600,"Vehículos y Equipos Menores":20,"Maquinaria":20}};
+// Presupuesto_combustible, hoja Gasolina (gal/sem). AL-FI va dividido entre sus 3 campamentos.
+const GASOLINA_INICIAL = {"1": 105, "2": 60, "3": 110, "4": 80, "5": 160, "7": 100, "8": 80, "9": 100, "6": 60, "10": 160, "11": 140, "10041": 60, "10040": 60, "12": 320, "15": 420, "17": 320, "20": 160, "19": 140, "21": 140, "18": 280, "16": 120, "10034": 50, "10035": 10, "13": 40, "28": 40, "14": 40};
+// Se carga una sola vez sobre la matriz guardada, sin pisar lo que ya tenga escrito
+function cargarGasolina(){
+  for(const [id, gal] of Object.entries(GASOLINA_INICIAL)) if(fila(id)['Gasolina'] == null) (M.cupos[id] ??= {})['Gasolina'] = gal;
+  M.gasolina = true;
+}
+const KEY = 'cupos_diesel_uso';            // { cupos: { sub_id: { uso: gal/sem } }, tanque, actualizado }
+const SUC_KEY = 'cupos_diesel_sucursales'; // última lista de sucursales, por si D1 no responde
+const TAB_KEY = 'cupos_diesel_tab';
+const CFG_KEY = 'cupos_diesel_tanques_cfg';   // { id tanque: { uso, item, recibe } } correcciones locales (no tocan QA)
+const COMPARTE_KEY = 'cupos_diesel_comparte'; // { sub_id: [ids de sucursales en cuyos tanques también recibe] }
+const HIST_KEY = 'cupos_diesel_hist';      // últimas copias de los cupos, por si algo se pierde
+const TOKEN_KEY = 'nat_token_qa';
+
+// ── Estado ──
+// Clusters que tienen un solo cupo para todos sus campamentos: una sola fila (id negativo) que agrupa
+// a sus sucursales; sus tanques se suman en esa fila.
+// Aquanaturisa (Acualit 1, Acualit 2, Fincacua) fue una sola fila (id -1) hasta 2026-11-11; ahora va por campamento.
+const UNIFICADOS = {};
+const ID_AQUANATURISA = -1;
+// AL-FI del presupuesto (un solo cupo para Aquanaturisa), dividido en partes iguales entre sus 3 campamentos
+const ALFI = { 'Bombeo': 3000, 'Aireación': 9200, 'Vehículos y Equipos Menores': 240, 'Maquinaria': 233.33 };
+const CAMPAMENTOS_AQUA = [13, 28, 14];   // Acualit 1, Acualit 2, Fincacua
+// En galones enteros: 9.200 → 3.067 + 3.067 + 3.066
+function partesEnteras(gal, n){
+  const tot = Math.round(gal), base = Math.floor(tot / n);
+  return Array.from({ length: n }, (_, i) => base + (i < tot - base * n ? 1 : 0));
+}
+function dividirAquanaturisa(){
+  const base = M.cupos[ID_AQUANATURISA] || ALFI;
+  for(const [uso, gal] of Object.entries(base)){
+    const partes = partesEnteras(gal, CAMPAMENTOS_AQUA.length);
+    CAMPAMENTOS_AQUA.forEach((id, i) => (M.cupos[id] ??= {})[uso] = partes[i]);
+  }
+  M.aquaPor3 = true;
+}
+// Los cupos van en galones enteros. Matrices guardadas con decimales: Aquanaturisa se vuelve a dividir
+// (si sus 3 campamentos siguen sumando el AL-FI) y el resto se redondea.
+function galonesEnteros(){
+  for(const [uso, gal] of Object.entries(ALFI)){
+    const vals = CAMPAMENTOS_AQUA.map(id => fila(id)[uso]);
+    if(vals.every(v => v > 0) && Math.abs(vals.reduce((a, v) => a + v, 0) - gal) < 0.05){
+      const partes = partesEnteras(gal, CAMPAMENTOS_AQUA.length);
+      CAMPAMENTOS_AQUA.forEach((id, i) => M.cupos[id][uso] = partes[i]);
+    }
+  }
+  for(const f of Object.values(M.cupos)) for(const u of Object.keys(f)) f[u] = Math.round(f[u]);
+  M.enteros = true;
+}
+let SUCURSALES = [];   // [{id, codigo, nombre, cluster, miembros:[sub_id], codigos:[codigo]}]
+let M = { cupos: {}, tanque: {}, actualizado: null };   // tanque: { 'sub_id|uso': id de tanque }
+let TANQUES = null;    // [{...normalizado}] o null si no se han traído
+let CAMPO_RECIBE = true, CAMPOS_TANQUE = [];
+let SUCURSALES_D1 = [];  // sucursales sin unificar, para mostrar el campamento de cada tanque
+let TANQUES_RAW = null;
+let TANQUES_TODOS = [];  // todos los tanques de Data Maestra, antes de filtrar (para explicar por qué falta uno)
+let TANQUES_ERR = '';
+let CFG = {}, COMPARTE = {};   // se cargan en cargar()
+let TAB = 'usos';
+let DM_VISTA = 'tq';   // sub-pestaña de Data Maestra: 'tq' tanques, 'camp' campamentos
+
+const leer = (k, def) => { try{ return JSON.parse(localStorage.getItem(k)) ?? def; }catch(e){ return def; } };
+const grabar = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } };
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const fmt = n => n ? n.toLocaleString('es-EC', { maximumFractionDigits: 2 }) : '—';
+const norm = t => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+const usoDe = texto => { const t = norm(texto); return [...USOS, ...OTROS.map(o => ({ nombre: o.uso, claves: o.claves }))].find(u => u.claves.some(c => t.startsWith(c) || t.includes(' ' + c)))?.nombre; };
+const fila = id => M.cupos[id] || {};
+const esOtro = id => OTROS.some(o => o.id === id);
+const unTotal = id => esOtro(id) || !!SUCURSALES.find(x => x.id === id)?.unTotal;
+const totalSuc = id => unTotal(id) ? fila(id)[TOT] || 0 : USOS.reduce((a, u) => a + (fila(id)[u.nombre] || 0), 0);
+// Lee una propiedad sin importar mayúsculas (QA responde "Data"/"Code", producción "data"/"code")
+const g = (o, ...ks) => {
+  if(!o || typeof o !== 'object') return undefined;
+  for(const k of ks){
+    const hit = Object.keys(o).find(x => x.toLowerCase() === k.toLowerCase());
+    if(hit !== undefined && o[hit] != null) return o[hit];
+  }
+};
+
+// Historial: antes de pisar lo guardado, se conserva una copia. Así nada se pierde por un error.
+function respaldar(){
+  const previo = leer(KEY, null);
+  if(!previo || !Object.keys(previo.cupos || {}).length) return;
+  const h = leer(HIST_KEY, []);
+  const ult = h[0];
+  if(ult && JSON.stringify(ult.m) === JSON.stringify(previo)) return;
+  h.unshift({ t: previo.actualizado || new Date().toISOString(), m: previo });
+  while(h.length > 30 || JSON.stringify(h).length > 1500000) h.pop();
+  grabar(HIST_KEY, h);
+}
+function guardarLocal(){
+  respaldar();
+  M.actualizado = new Date().toISOString();
+  const ok = grabar(KEY, M);
+  pintarEstado(ok ? '' : 'No se pudo guardar en este equipo');
+}
+function abrirRespaldos(){
+  const h = leer(HIST_KEY, []);
+  const cuenta = m => Object.values(m.cupos || {}).reduce((a, v) => a + Object.keys(v || {}).length, 0);
+  const fecha = t => new Date(t).toLocaleString('es-EC', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  const filas = h.length
+    ? h.map((x, i) => `<div class="bk-fila"><span>${esc(fecha(x.t))} · ${cuenta(x.m)} cupos · ${Object.keys(x.m.tanque || {}).length} con tanque</span>` +
+        `<a href="#" class="bk-res" data-i="${i}">restaurar</a></div>`).join('')
+    : '<div class="bk-vacio">Todavía no hay copias. Se guarda una cada vez que cambias algo.</div>';
+  const pop = document.getElementById('pop');
+  pop.innerHTML = `<div class="pop-tit">Respaldos de este equipo</div>${filas}` +
+    `<div class="bk-pie"><a href="#" id="bkPegar">Restaurar desde un texto que yo pegue…</a></div>`;
+  pop.hidden = false;
+  const b = document.getElementById('bkBtn').getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(b.left, innerWidth - pop.offsetWidth - 8)) + 'px';
+  pop.style.top = (b.bottom + 6) + 'px';
+}
+function restaurarM(m){
+  respaldar();
+  M = { ...M, ...m };
+  M.tanque ||= {};
+  grabar(KEY, M);
+  document.getElementById('pop').hidden = true;
+  render();
+  pintarEstado('');
+}
+function pintarEstado(err){
+  const el = document.getElementById('estado');
+  if(err){ el.innerHTML = `<span class="fallo">${esc(err)}</span>`; return; }
+  el.innerHTML = M.actualizado
+    ? `<span class="ok">✓</span> Guardado ${new Date(M.actualizado).toLocaleString('es-EC', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}`
+    : '';
+}
+function avisar(html){
+  const el = document.getElementById('aviso');
+  el.hidden = !html;
+  el.innerHTML = html || '';
+}
+
+// ── Datos ──
+async function cargar(){
+  CFG = leer(CFG_KEY, {});
+  COMPARTE = leer(COMPARTE_KEY, {});
+  if(!COMPARTE._v2){
+    for(const k of Object.keys(COMPARTE)) if(Array.isArray(COMPARTE[k]) && +k > 0 && !COMPARTE[k].includes(+k)) COMPARTE[k] = [+k, ...COMPARTE[k]];
+    COMPARTE._v2 = true;
+    grabar(COMPARTE_KEY, COMPARTE);
+  }
+  M = { ...M, ...leer(KEY, {}) };
+  M.tanque ||= {};
+  if(!Object.keys(M.cupos || {}).length) M.cupos = structuredClone(CUPOS_INICIALES);
+  if(!M.aquaPor3){ dividirAquanaturisa(); if(!M.cupos[ID_AQUANATURISA]) guardarLocal(); }
+  if(!M.enteros){ galonesEnteros(); guardarLocal(); }
+  if(!M.gasolina){ cargarGasolina(); guardarLocal(); }
+  let lista;
+  try{
+    const r = await fetch(`${WORKER}/db/sucursales`);
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    // Sin cluster = sucursales que ya no existen (Coaque NC, Naturisa Biofina, Naturisa Biosuper…)
+    lista = ((await r.json()).data || []).filter(s => s.cluster && !NO_GRANJA.includes(s.cluster))
+      .map(s => ({ id: s.id, codigo: s.codigo || '', nombre: s.nombre, cluster: s.cluster }));
+    grabar(SUC_KEY, lista);
+  }catch(e){
+    lista = leer(SUC_KEY, []).filter(s => s.cluster && s.cluster !== 'Sin cluster');
+    if(!lista.length){
+      document.getElementById('tb').innerHTML = `<tr><td class="vacio-msg">No se pudieron cargar las sucursales (${esc(e.message)}). Abre la pantalla con iniciar.bat.</td></tr>`;
+      return;
+    }
+  }
+  SUCURSALES_D1 = lista;
+  const unif = {};
+  lista = lista.flatMap(s => {
+    const u = UNIFICADOS[s.cluster];
+    if(!u) return [{ ...s, miembros: [s.id], codigos: [s.codigo] }];
+    const fila = unif[s.cluster] ??= { ...u, cluster: s.cluster, miembros: [], codigos: [u.codigo], partes: [] };
+    fila.miembros.push(s.id); fila.codigos.push(s.codigo); fila.partes.push(s.nombre);
+    return fila.miembros.length === 1 ? [fila] : [];
+  });
+  SUCURSALES = lista.map(s => UN_TOTAL.includes(s.cluster) ? { ...s, unTotal: true } : s)
+    .sort((a, b) => !!a.unTotal - !!b.unTotal || a.nombre.localeCompare(b.nombre))
+    .concat(OTROS.map(o => ({ id: o.id, codigo: '', nombre: o.nombre, cluster: 'Otros', miembros: [], codigos: [], otro: true, unTotal: true })));
+  document.getElementById('fCluster').innerHTML = '<option value="">Todos los clusters</option>' +
+    [...new Set(SUCURSALES.map(s => s.cluster))].map(c => `<option>${esc(c)}</option>`).join('');
+  cambiarTab(leer(TAB_KEY, 'usos'));
+  pintarEstado();
+  // La lista de tanques de cada casilla necesita los tanques de QA
+  if(TAB === 'usos' && tokenQA()) cargarTanques();
+}
+
+function filtradas(){
+  const q = norm(document.getElementById('q').value);
+  const cl = document.getElementById('fCluster').value;
+  const est = document.getElementById('fEstado').value;
+  return SUCURSALES.filter(s =>
+    (!q || norm(s.nombre).includes(q) || (TAB === 'tanques' && tanquesDe(s.id).some(t => norm(t.nombre + ' ' + t.codigo).includes(q)))) &&
+    (!cl || s.cluster === cl) &&
+    (!est || (est === 'pend' ? tienePend(s) : (est === 'con') === (totalSuc(s.id) > 0))));
+}
+const tienePend = s => !!TANQUES && (s.unTotal ? [TOT] : USOS.map(u => u.nombre)).some(u => fila(s.id)[u] > 0 && !cuadra(s.id, u));
+function render(){ TAB === 'tanques' ? renderTanques() : TAB === 'dm' ? renderDM() : renderUsos(); }
+
+// ── Pestaña 1: matriz sucursal × uso ──
+function sumar(lista){
+  const col = USOS.map(u => lista.reduce((a, s) => a + (fila(s.id)[u.nombre] || 0), 0));
+  return { col, tot: lista.reduce((a, s) => a + totalSuc(s.id), 0) };
+}
+const celdasSuma = ({ col, tot }) => col.map(v => `<td class="num">${fmt(v)}</td>`).join('') + `<td class="tot">${fmt(tot)}</td>`;
+
+function renderUsos(){
+  document.getElementById('th').innerHTML = `<tr><th>Sucursal</th>` +
+    USOS.map(u => `<th class="uso">${esc(u.nombre)}<span class="u">gal/sem</span></th>`).join('') +
+    `<th class="tot">Cupo total<span class="u">gal/sem</span></th></tr>`;
+
+  const lista = filtradas();
+  if(!lista.length){
+    document.getElementById('tb').innerHTML = `<tr><td colspan="${USOS.length + 2}" class="vacio-msg">No hay sucursales con ese filtro</td></tr>`;
+    return;
+  }
+  let html = '';
+  const filaDe = s => {
+    const f = fila(s.id);
+    return `<tr class="fila" data-id="${s.id}"><td class="suc">${esc(s.nombre)}${s.partes ? `<span class="d">${esc(s.partes.join(', '))}</span>` : ''}</td>` +
+      (s.unTotal
+        ? USOS.map(() => '<td></td>').join('') +
+          `<td class="tot"><input class="n${f[TOT] == null ? ' vacio' : ''}" inputmode="decimal" data-i="tot" placeholder="—" value="${f[TOT] ?? ''}">${btnTanque(s, TOT, 'tot')}</td></tr>`
+        : USOS.map((u, i) =>
+            `<td><input class="n${f[u.nombre] == null ? ' vacio' : ''}" inputmode="decimal" data-i="${i}" placeholder="—" value="${f[u.nombre] ?? ''}">${btnTanque(s, u.nombre, i)}</td>`).join('') +
+          `<td class="tot">${fmt(totalSuc(s.id))}</td></tr>`);
+  };
+  // Sucursales por orden alfabético, sin agrupar por cluster; Laboratorios y Otros al final
+  html += lista.filter(s => !s.unTotal).map(filaDe).join('');
+  for(const [titulo, del] of [['Laboratorios', lista.filter(s => s.unTotal && !s.otro)], ['Otros', lista.filter(s => s.otro)]]){
+    if(!del.length) continue;
+    html += `<tr class="grupo"><td class="suc">${titulo}</td><td colspan="${USOS.length + 1}"></td></tr>` + del.map(filaDe).join('');
+  }
+  html += `<tr class="total"><td class="suc">Total${lista.length < SUCURSALES.length ? ' (filtro)' : ''}</td>${celdasSuma(sumar(lista))}</tr>`;
+  document.getElementById('tb').innerHTML = html;
+  avisoUsos();
+}
+
+// Tanques que reciben el cupo de una casilla (sucursal × uso, o el Cupo total de una fila de Otros):
+// M.tanque['sub_id|uso'] = { id de tanque: galones }. Una casilla puede ir a varios tanques.
+const claveTq = (id, uso) => `${id}|${uso}`;
+const r2 = n => Math.round(n * 100) / 100;
+const fmtN = n => (n || 0).toLocaleString('es-EC', { maximumFractionDigits: 2 });
+function repartoDe(id, uso){
+  const r = M.tanque[claveTq(id, uso)];
+  if(r == null) return {};
+  return typeof r === 'object' ? r : { [r]: fila(id)[uso] || 0 };   // formato anterior: un solo tanque
+}
+function grabarReparto(id, uso, r){
+  if(Object.keys(r).length) M.tanque[claveTq(id, uso)] = r; else delete M.tanque[claveTq(id, uso)];
+}
+// [{ t, gal }] de los tanques elegidos que siguen existiendo en Data Maestra. Cada tanque recibe el cupo
+// completo de la casilla: no se divide entre los tanques.
+const destinosDe = (id, uso) => Object.keys(repartoDe(id, uso))
+  .map(tid => ({ t: (TANQUES || []).find(t => String(t.id) === tid), gal: fila(id)[uso] || 0 })).filter(d => d.t);
+const cuadra = (id, uso) => destinosDe(id, uso).length > 0;
+// Con el nombre de la sucursal cuando el tanque no es de la fila (Otros, o tanques compartidos)
+const nombreTq = (t, s) => (t.nombre || t.codigo) +
+  (s === true || s?.otro || (s && t.subId !== s.id) ? ` · ${SUCURSALES.find(x => x.id === t.subId)?.nombre || t.subTexto}` : '');
+// Valores por defecto de "dónde recibe": clusters (o sucursales) que también usan tanques de otra sucursal.
+// Lo que se configure en la pestaña Data Maestra (COMPARTE) manda sobre esto.
+const TANQUES_COMPARTIDOS = { 'Josefina Norte': 'Naturisa', 'Josefina Sur': 'Naturisa', 'Larviquest 4': 'Larviquest 3', 'Acualit 2': 'Fincacua' };
+// Ids de las sucursales en cuyos tanques recibe la fila s: lo configurado en Data Maestra › Campamentos.
+// Por defecto: el propio campamento más el compartido fijo de arriba; en una fila de Otros, las sucursales
+// de su cluster o sucursal (Draga y Embarcaciones, sin restricción: todas).
+function comparteDe(s){
+  if(Array.isArray(COMPARTE[s.id])) return COMPARTE[s.id].filter(id => SUCURSALES.some(x => x.id === id));
+  const o = OTROS.find(x => x.id === s.id);
+  const nom = TANQUES_COMPARTIDOS[o ? o.cluster : s.nombre] ?? TANQUES_COMPARTIDOS[s.cluster];
+  const d = nom && SUCURSALES.find(x => norm(x.nombre) === norm(nom));
+  const propios = o
+    ? SUCURSALES.filter(x => !x.otro && (!o.cluster || x.cluster === o.cluster) && (!o.sucursal || norm(x.nombre) === norm(o.sucursal))).map(x => x.id)
+    : [s.id];
+  return [...new Set([...propios, ...(d ? [d.id] : [])])];
+}
+// Igual que comparteDe pero para la gasolina (clave "g<id>"); por defecto, solo el propio campamento
+function comparteGasDe(s){
+  if(Array.isArray(COMPARTE['g' + s.id])) return COMPARTE['g' + s.id].filter(id => SUCURSALES.some(x => x.id === id));
+  const o = OTROS.find(x => x.id === s.id);
+  return o
+    ? SUCURSALES.filter(x => !x.otro && (!o.cluster || x.cluster === o.cluster) && (!o.sucursal || norm(x.nombre) === norm(o.sucursal))).map(x => x.id)
+    : [s.id];
+}
+// Tanques que se ofrecen: los de la sucursal; en Otros, los del cluster o sucursal de esa fila (o todos);
+// más los de la sucursal compartida de su cluster. Primero los que tienen ese uso en Data Maestra.
+function candidatos(s, uso){
+  const o = OTROS.find(x => x.id === s.id);
+  // Solo los tanques de las sucursales configuradas en Data Maestra › Campamentos, del combustible de la columna
+  const ids = comparteDe(s);
+  const comb = combustibleDe(o ? '' : uso);
+  const idsComb = comb === 'gasolina' ? comparteGasDe(s) : ids;
+  const lista = (TANQUES || []).filter(t => idsComb.includes(t.subId) && (!t.item || norm(t.item).includes(comb)));
+  const u = o ? o.uso : uso;
+  return lista.map(t => ({ t, tiene: (s.unTotal && !o) || t.usos.includes(u) || (u === 'Gasolina' && norm(t.item || '').includes('gasolina')) }))
+    .sort((a, b) => b.tiene - a.tiene || String(a.t.nombre).localeCompare(String(b.t.nombre)));
+}
+// Por qué una sucursal no tiene tanques para elegir: no tiene en Data Maestra, o los tiene pero se descartaron
+function motivoSinTanques(s, uso){
+  const comb = combustibleDe(uso);
+  const ids = comb === 'gasolina' ? comparteGasDe(s) : comparteDe(s);
+  const suyos = TANQUES_TODOS.filter(t => ids.includes(t.subId));
+  if(!suyos.length) return 'Sin tanques en Data Maestra';
+  if(!suyos.some(t => !t.item || norm(t.item).includes(comb))) return `Sin tanques de ${comb === 'gasolina' ? 'gasolina' : 'diésel'}`;
+  const n = (f, txt) => { const k = suyos.filter(f).length; return k ? `${k} ${txt}` : ''; };
+  const razones = [
+    n(t => CAMPO_RECIBE && !t.recibe, 'no recibe(n) de proveedor'),
+    n(t => t.usosTexto.some(u => norm(u).startsWith('tanquero')), 'es/son tanquero'),
+  ].filter(Boolean).join(', ');
+  return razones ? `Sin tanques que reciban: ${razones}` : 'Sin tanques disponibles';
+}
+function btnTanque(s, uso, dataI){
+  if(!TANQUES || !(fila(s.id)[uso] > 0)) return '';
+  if(!candidatos(s, uso).length) return `<div class="sin-tq">${esc(motivoSinTanques(s, uso))}</div>`;
+  const ds = destinosDe(s.id, uso);
+  const txt = !ds.length ? 'Elegir tanque' : ds.length === 1 ? nombreTq(ds[0].t, s) : `${ds.length} tanques`;
+  const cls = !ds.length ? ' pend' : '';
+  const tip = ds.map(d => `${nombreTq(d.t, s)}: ${fmtN(d.gal)} gal`).join('\n');
+  return `<button type="button" class="tq${cls}" data-i="${dataI}" title="${esc(tip)}">${esc(txt)}</button>`;
+}
+const pendientesTq = () => SUCURSALES.reduce((a, s) =>
+  a + (s.unTotal ? [TOT] : USOS.map(u => u.nombre)).filter(u => fila(s.id)[u] > 0 && !cuadra(s.id, u)).length, 0);
+function avisoUsos(){
+  pintarPend();
+  if(TAB !== 'usos') return;
+  if(!tokenQA()) return avisar('Para elegir el tanque que recibe cada cupo, ingresa a Data Maestra QA en la pestaña <b>Tanques</b>.');
+  if(TANQUES_ERR) return avisar(`No se pudieron traer los tanques: ${esc(TANQUES_ERR)}`);
+  if(!TANQUES) return;
+  avisar('');
+}
+// Pastilla con los cupos sin tanque elegido; al tocarla se filtra la matriz
+function pintarPend(){
+  const el = document.getElementById('pend');
+  const n = TAB === 'usos' && TANQUES ? pendientesTq() : 0;
+  el.hidden = !n;
+  if(n) el.textContent = `${n} sin tanque`;
+  el.classList.toggle('on', document.getElementById('fEstado').value === 'pend');
+}
+document.getElementById('pend').addEventListener('click', () => {
+  const f = document.getElementById('fEstado');
+  f.value = f.value === 'pend' ? '' : 'pend';
+  render();
+});
+
+// Recalcula totales sin repintar la tabla (no se pierde el foco de la casilla siguiente)
+function actualizarTotales(tr){
+  const id = +tr.dataset.id;
+  if(!unTotal(id)) tr.querySelector('td.tot').textContent = fmt(totalSuc(id));
+  const lista = filtradas();
+  const tot = document.querySelector('tr.total');
+  tot.innerHTML = `<td class="suc">${tot.firstElementChild.textContent}</td>${celdasSuma(sumar(lista))}`;
+}
+
+// Cada casilla se guarda al salir de ella, en galones enteros. Acepta "12000", "12.000", "12,000" o "233.33" (→ 233).
+const numero = raw => {
+  const v = String(raw).trim().replace(/[.,\s](?=\d{3}\b)/g, '').replace(',', '.');
+  return v === '' ? null : /^\d+(\.\d+)?$/.test(v) ? Math.round(parseFloat(v)) : NaN;
+};
+document.getElementById('tb').addEventListener('change', e => {
+  const inp = e.target.closest('input.n');
+  if(!inp) return;
+  const tr = inp.closest('tr.fila');
+  const id = +tr.dataset.id, uso = inp.dataset.i === 'tot' ? TOT : USOS[+inp.dataset.i].nombre;
+  const v = numero(inp.value);
+  inp.classList.toggle('err', Number.isNaN(v));
+  if(Number.isNaN(v)){ pintarEstado('Solo números (galones)'); return; }
+  const f = { ...fila(id) };
+  if(!v) delete f[uso]; else f[uso] = v;
+  if(Object.keys(f).length) M.cupos[id] = f; else delete M.cupos[id];
+  inp.value = f[uso] ?? '';
+  inp.classList.toggle('vacio', f[uso] == null);
+  if(f[uso] == null) delete M.tanque[claveTq(id, uso)];
+  refrescarCelda(id, inp.dataset.i);
+  guardarLocal();
+  actualizarTotales(tr);
+  avisoUsos();
+});
+function refrescarCelda(id, dataI){
+  const td = document.querySelector(`tr.fila[data-id="${id}"] input.n[data-i="${dataI}"]`)?.closest('td');
+  if(!td) return;
+  td.querySelector('button.tq, .sin-tq')?.remove();
+  td.insertAdjacentHTML('beforeend', btnTanque(SUCURSALES.find(x => x.id === id), dataI === 'tot' ? TOT : USOS[+dataI].nombre, dataI));
+}
+
+// ── Panel de tanques de una casilla: se marcan uno o varios; cada uno recibe el cupo completo ──
+let POP = null;   // { s, uso, dataI }
+document.getElementById('tb').addEventListener('click', e => {
+  const b = e.target.closest('button.tq');
+  if(!b) return;
+  const s = SUCURSALES.find(x => x.id === +b.closest('tr.fila').dataset.id);
+  POP = { s, uso: b.dataset.i === 'tot' ? TOT : USOS[+b.dataset.i].nombre, dataI: b.dataset.i };
+  pintarPop();
+  const el = document.getElementById('pop'), rc = b.getBoundingClientRect();
+  el.style.left = Math.max(8, Math.min(rc.left, innerWidth - el.offsetWidth - 8)) + 'px';
+  el.style.top = (rc.bottom + 4 + el.offsetHeight > innerHeight ? Math.max(8, rc.top - el.offsetHeight - 4) : rc.bottom + 4) + 'px';
+});
+function pintarPop(){
+  const el = document.getElementById('pop');
+  if(!POP){ el.hidden = true; return; }
+  const { s, uso } = POP, cupo = fila(s.id)[uso] || 0, r = repartoDe(s.id, uso);
+  el.innerHTML = `<div class="pop-tit">${esc(s.unTotal ? s.nombre : `${s.nombre} · ${uso}`)}</div>` +
+    `<div class="pop-sub">Cupo ${fmtN(cupo)} gal/sem · marca uno o varios tanques; cada uno recibe la cantidad completa</div>` +
+    candidatos(s, uso).map(({ t, tiene }) => {
+      const on = r[t.id] != null;
+      return `<label class="pop-fila"><input type="checkbox" data-t="${esc(t.id)}"${on ? ' checked' : ''}>` +
+        `<span class="pop-nom">${esc(nombreTq(t, s))}${tiene ? '' : ' <em>(otro uso)</em>'}</span></label>`;
+    }).join('') +
+    `<div class="pop-btns"><button type="button" class="btn" data-acc="cerrar">Listo</button></div>`;
+  el.hidden = false;
+}
+function cambioPop(r){
+  const { s, uso, dataI } = POP;
+  grabarReparto(s.id, uso, r);
+  guardarLocal();
+  refrescarCelda(s.id, dataI);
+  avisoUsos();
+  pintarPop();
+}
+document.getElementById('pop').addEventListener('change', e => {
+  if(!POP) return;
+  const { s, uso } = POP, r = { ...repartoDe(s.id, uso) };
+  const tid = e.target.dataset.t;
+  if(e.target.type !== 'checkbox') return;
+  if(e.target.checked) r[tid] = 1; else delete r[tid];
+  cambioPop(r);
+});
+document.getElementById('pop').addEventListener('click', e => {
+  const acc = e.target.closest('[data-acc]')?.dataset.acc;
+  if(!acc || !POP) return;
+  if(acc === 'cerrar'){ POP = null; return pintarPop(); }
+});
+document.addEventListener('mousedown', e => {
+  if(POP && !e.target.closest('#pop') && !e.target.closest('button.tq')){ POP = null; pintarPop(); }
+  else if(!POP && !e.target.closest('#pop') && !e.target.closest('#bkBtn')) document.getElementById('pop').hidden = true;
+});
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  if(POP){ POP = null; pintarPop(); } else document.getElementById('pop').hidden = true;
+});
+document.querySelector('.card').addEventListener('scroll', () => { if(POP){ POP = null; pintarPop(); } });
+
+// Enter baja a la misma columna de la siguiente sucursal (como en Excel)
+document.getElementById('tb').addEventListener('keydown', e => {
+  if(e.key !== 'Enter' || !e.target.matches('input.n')) return;
+  e.preventDefault();
+  const i = e.target.dataset.i;
+  const todas = [...document.querySelectorAll(`input.n[data-i="${i}"]`)];
+  const sig = todas[todas.indexOf(e.target) + (e.shiftKey ? -1 : 1)];
+  if(sig){ sig.focus(); sig.select(); } else e.target.blur();
+});
+
+// ── Pestaña 2: tanques de Data Maestra (QA) y el cupo que recibe cada uno ──
+const tokenQA = () => localStorage.getItem(TOKEN_KEY) || '';
+
+// "¿Recibe de proveedor?" de Data Maestra = isForSupplierReceipt. undefined = el tanque no trae ese campo.
+function recibeProveedor(t){
+  const k = Object.keys(t).find(x => x.toLowerCase() === 'isforsupplierreceipt');
+  if(k === undefined) return undefined;
+  const v = t[k];
+  return v === true || v === 1 || /^(true|1|s|si|sí|yes|y)$/i.test(String(v).trim());
+}
+
+function normalizarTanque(t){
+  const sub = g(t, 'subsidiary') || {};
+  const bod = g(t, 'warehouse') || {};
+  const um = g(t, 'unitMeasure') || {};
+  const item = g(t, 'item') || {};
+  // El uso puede venir como objeto, lista de objetos o lista de relaciones {usage:{...}}
+  // Data Maestra QA trae un solo uso plano (usageName: General, Estación de Bombeo, Tanquero…)
+  let usos = g(t, 'usages', 'usage', 'fuelTankUsages', 'uses', 'fuelUsages', 'usageName') ?? [];
+  if(!Array.isArray(usos)) usos = [usos];
+  const textos = usos.map(u => typeof u === 'string' ? u
+    : g(u, 'name', 'description') ?? g(g(u, 'usage', 'fuelUsage') || {}, 'name', 'description') ?? '').filter(Boolean);
+  const subId = g(sub, 'id', 'idSubsidiary') ?? g(t, 'subsidiaryId', 'idSubsidiary');
+  const subCodigo = g(sub, 'code') ?? g(t, 'subsidiaryCode') ?? '';
+  const subNombre = g(sub, 'name', 'description') ?? g(t, 'subsidiaryName') ?? '';
+  const s = SUCURSALES.find(x => x.miembros.includes(+subId))
+    || (subCodigo && SUCURSALES.find(x => x.codigos.some(c => norm(c) === norm(subCodigo))))
+    || (subNombre && SUCURSALES.find(x => norm(x.nombre) === norm(subNombre) || (x.partes || []).some(n => norm(n) === norm(subNombre))))
+    || (subNombre && SUCURSALES.filter(x => !x.otro && new RegExp(`\\b${norm(x.nombre).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(norm(subNombre)))
+      .sort((a, b) => b.nombre.length - a.nombre.length)[0]);
+  return {
+    id: g(t, 'id', 'idFuelTank'),
+    codigo: g(t, 'code') ?? '',
+    nombre: g(t, 'name', 'description') ?? '',
+    capacidad: +(g(t, 'capacity', 'maxCapacity', 'capacityGallons', 'totalCapacity', 'size') ?? 0) || 0,
+    unidad: g(um, 'abbreviation', 'symbol', 'code', 'name') ?? g(t, 'unitMeasureName') ?? '',
+    estado: g(t, 'status') ?? '',
+    bodega: [g(bod, 'code') ?? g(t, 'warehouseCode'), g(bod, 'name', 'description') ?? g(t, 'warehouseName')].filter(Boolean).join(' · '),
+    item: g(item, 'name', 'description') ?? g(t, 'itemName') ?? '',
+    usosTexto: textos,
+    usos: [...new Set(textos.map(usoDe).filter(Boolean))],
+    subId: s ? s.id : null,
+    // Sucursal real del tanque (en una fila unificada como Aquanaturisa, el campamento)
+    subOrig: s ? (s.miembros.includes(+subId) ? +subId : s.miembros.length === 1 ? s.miembros[0] : null) : null,
+    subTexto: subNombre || subCodigo || String(subId ?? ''),
+    recibe: recibeProveedor(t),
+  };
+}
+
+async function cargarTanques(){
+  TANQUES_ERR = '';
+  if(!tokenQA()){ TANQUES = null; render(); return; }
+  if(TAB !== 'usos') document.getElementById('tb').innerHTML = `<tr><td class="vacio-msg">Trayendo tanques de Data Maestra (QA)…</td></tr>`;
+  else avisar('Trayendo tanques de Data Maestra (QA)…');
+  try{
+    const r = await fetch(TANQUES_URL, { headers: { Authorization: `Bearer ${tokenQA()}`, Accept: 'application/json' } });
+    if(r.status === 401){ salirQA('Tu sesión de QA venció, vuelve a ingresar'); return; }
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    TANQUES_RAW = await r.json();
+    let arr = Array.isArray(TANQUES_RAW) ? TANQUES_RAW : g(TANQUES_RAW, 'data') ?? [];
+    if(!Array.isArray(arr)) arr = g(arr, 'items', 'results', 'data') ?? [];
+    const todos = arr.map(normalizarTanque);
+    TANQUES_TODOS = todos;
+    // Solo los tanques que reciben de proveedor (columna "Recibe de proveedor" de Data Maestra). Si la
+    // respuesta no trae ese campo no se filtra, y el aviso muestra los campos para identificarlo.
+    CAMPO_RECIBE = todos.some(t => t.recibe !== undefined);
+    CAMPOS_TANQUE = arr[0] ? Object.keys(arr[0]) : [];
+    filtrarTanques();
+    separarAquanaturisa();
+    acualit2ConTanquesFincacua();
+    asignarGasolinaAuto();
+  }catch(e){
+    TANQUES = null;
+    TANQUES_ERR = e.message;
+  }
+  render();
+}
+// Corrección local de un tanque (pestaña Data Maestra): pisa uso / combustible / recibe sin tocar QA
+function aplicarCfg(t){
+  const c = CFG[t.id];
+  if(!c) return t;
+  const n = { ...t };
+  if(c.uso != null){ n.usosTexto = c.uso ? [c.uso] : []; n.usos = [usoDe(c.uso)].filter(Boolean); }
+  if(c.item != null) n.item = c.item;
+  if(c.recibe != null) n.recibe = c.recibe;
+  return n;
+}
+// Qué tanques se pueden usar: reciben de proveedor, son de diésel y no son tanqueros repartidores,
+// con las correcciones locales ya aplicadas
+function filtrarTanques(){
+  const efect = TANQUES_TODOS.map(aplicarCfg);
+  CAMPO_RECIBE = efect.some(t => t.recibe !== undefined);
+  TANQUES = (CAMPO_RECIBE ? efect.filter(t => t.recibe) : efect)
+    .filter(t => (!t.item || norm(t.item).includes('diesel') || norm(t.item).includes('gasolina')) && !t.usosTexto.some(u => norm(u).startsWith('tanquero')));
+}
+// Los cupos de gasolina recién cargados toman el tanque que les corresponde según Data Maestra › Campamentos.
+// Si el campamento tiene un solo tanque de gasolina, se elige solo; con varios se deja para elegir a mano.
+function asignarGasolinaAuto(){
+  if(M.gasolinaTq) return;
+  for(const s of SUCURSALES){
+    if(s.unTotal || !(fila(s.id)['Gasolina'] > 0) || Object.keys(repartoDe(s.id, 'Gasolina')).length) continue;
+    const cs = candidatos(s, 'Gasolina');
+    if(cs.length === 1) grabarReparto(s.id, 'Gasolina', { [cs[0].t.id]: 1 });
+  }
+  M.gasolinaTq = true;
+  guardarLocal();
+}
+const LAB = 'Laboratorio';   // columna de la pestaña Tanques para el cupo de los laboratorios
+// Los tanques elegidos en la fila única de Aquanaturisa pasan a la casilla del mismo uso de su campamento
+// (el cupo ya se dividió entre los 3 en dividirAquanaturisa).
+function separarAquanaturisa(){
+  const viejo = M.cupos[ID_AQUANATURISA];
+  if(!viejo) return;
+  for(const uso of Object.keys(viejo)){
+    for(const tid of Object.keys(repartoDe(ID_AQUANATURISA, uso))){
+      const t = TANQUES.find(x => String(x.id) === tid);
+      if(t?.subId == null || !(fila(t.subId)[uso] > 0)) continue;
+      M.tanque[claveTq(t.subId, uso)] = { ...repartoDe(t.subId, uso), [tid]: 1 };
+    }
+  }
+  delete M.cupos[ID_AQUANATURISA];
+  for(const k of Object.keys(M.tanque)) if(k.startsWith(ID_AQUANATURISA + '|')) delete M.tanque[k];
+  guardarLocal();
+}
+// Acualit 2 recibe en los tanques de Fincacua: la primera vez, sus casillas sin tanque toman los de Fincacua
+function acualit2ConTanquesFincacua(){
+  if(M.a2Fincacua) return;
+  for(const u of USOS.map(x => x.nombre)){
+    const r = repartoDe(14, u);
+    if(fila(28)[u] > 0 && !Object.keys(repartoDe(28, u)).length && Object.keys(r).length) grabarReparto(28, u, { ...r });
+  }
+  M.a2Fincacua = true;
+  guardarLocal();
+}
+const tanquesDe = subId => (TANQUES || []).filter(t => t.subId === subId);
+
+// Lo que recibe cada tanque: la suma de los galones que se le asignaron en "Cupos por uso"
+function asignaciones(){
+  const porTanque = new Map();   // tanque → { uso: gal, Otros: gal }
+  const sinTanque = {};          // sub_id → { uso | Cupo total: gal }
+  for(const s of SUCURSALES){
+    for(const u of s.unTotal ? [TOT] : USOS.map(x => x.nombre)){
+      const cupo = fila(s.id)[u] || 0;
+      if(!cupo) continue;
+      const k = s.otro ? 'Otros' : s.unTotal ? LAB : u;
+      for(const { t, gal } of destinosDe(s.id, u)){
+        const r = porTanque.get(t) || {};
+        r[k] = (r[k] || 0) + gal;
+        // De qué fila de Otros viene (Draga, Embarcaciones…), para mostrarlo en la columna Otros
+        if(s.otro){ r.detOtros ??= {}; r.detOtros[s.nombre] = (r.detOtros[s.nombre] || 0) + gal; }
+        porTanque.set(t, r);
+      }
+      const resto = cuadra(s.id, u) ? 0 : cupo;
+      if(resto > 0) (sinTanque[s.id] ??= {})[u] = resto;
+    }
+  }
+  return { porTanque, sinTanque };
+}
+
+function renderTanques(){
+  const cols = USOS.length;
+  // Una columna por cada fila de Otros (Draga, Embarcaciones…) que tenga algo asignado a un tanque
+  const { porTanque, sinTanque } = asignaciones();
+  const otrosCols = OTROS.filter(o => [...porTanque.values()].some(r => r.detOtros?.[o.nombre]));
+  const colLab = [...porTanque.values()].some(r => r[LAB]);
+  document.getElementById('th').innerHTML = `<tr><th>Sucursal / tanque</th><th>Uso</th><th>Capacidad<span class="u">galones</span></th>` +
+    USOS.map(u => `<th class="uso">${esc(u.nombre)}<span class="u">gal/sem</span></th>`).join('') +
+    (colLab ? `<th class="uso">${LAB}<span class="u">gal/sem</span></th>` : '') +
+    otrosCols.map(o => `<th class="uso">${esc(o.nombre)}<span class="u">gal/sem</span></th>`).join('') +
+    `<th class="tot">Recibe<span class="u">gal/sem</span></th></tr>`;
+  const tb = document.getElementById('tb');
+  const ancho = cols + 4 + otrosCols.length + colLab;
+
+  if(!tokenQA()) return pintarLogin(tb, ancho);
+  if(TANQUES_ERR){ tb.innerHTML = `<tr><td colspan="${ancho}" class="vacio-msg">No se pudieron traer los tanques: ${esc(TANQUES_ERR)}</td></tr>`; return; }
+  if(!TANQUES){ cargarTanques(); return; }
+
+  const lista = filtradas();
+  avisar('');
+
+  // Solo los tanques con algo programado (galones asignados en "Cupos por uso"), agrupados por su sucursal
+  const granSin = Object.values(sinTanque).reduce((a, f) => a + Object.values(f).reduce((b, v) => b + v, 0), 0);
+  let html = '', gran = Array(cols).fill(0), granO = otrosCols.map(() => 0), granLab = 0, granCap = 0;
+  for(const s of lista.filter(x => !x.otro)){
+    const tqs = tanquesDe(s.id).filter(t => porTanque.has(t));
+    if(!tqs.length) continue;
+    granCap += tqs.reduce((a, t) => a + t.capacidad, 0);
+    // La fila de la sucursal suma los cupos asignados a sus tanques, contando cada cupo UNA vez
+    // aunque esté en varios tanques (cada tanque recibe la cantidad completa).
+    const setT = new Set(tqs), cup = {};
+    for(const s2 of SUCURSALES){
+      for(const u of s2.unTotal ? [TOT] : USOS.map(x => x.nombre)){
+        const cupo = fila(s2.id)[u] || 0;
+        if(!cupo || !destinosDe(s2.id, u).some(d => setT.has(d.t))) continue;
+        const k = s2.otro ? s2.nombre : s2.unTotal ? LAB : u;
+        cup[k] = (cup[k] || 0) + cupo;
+      }
+    }
+    html += `<tr class="grupo"><td class="suc">${esc(s.nombre)}</td>` +
+      `<td></td><td></td>` +
+      USOS.map(u => `<td class="num">${fmt(cup[u.nombre])}</td>`).join('') +
+      (colLab ? `<td class="num">${fmt(cup[LAB])}</td>` : '') +
+      otrosCols.map(o => `<td class="num">${fmt(cup[o.nombre])}</td>`).join('') +
+      `<td class="tot">${fmt(Object.values(cup).reduce((a, v) => a + v, 0))}</td></tr>`;
+    for(const t of tqs){
+      const rec = porTanque.get(t), otro = (rec.Otros || 0) + (rec[LAB] || 0);
+      const tot = USOS.reduce((a, u) => a + (rec[u.nombre] || 0), 0) + otro;
+      USOS.forEach((u, i) => gran[i] += rec[u.nombre] || 0);
+      granLab += rec[LAB] || 0;
+      otrosCols.forEach((o, i) => granO[i] += rec.detOtros?.[o.nombre] || 0);
+      html += `<tr><td class="suc">${esc(t.nombre || t.codigo)}${t.estado && norm(t.estado) !== 'activo' ? `<span class="chip">${esc(t.estado)}</span>` : ''}` +
+        '</td>' +
+        `<td class="txt">${esc(t.usosTexto.join(', ')) || '—'}</td>` +
+        `<td class="num">${fmt(t.capacidad)}</td>` +
+        USOS.map(u => `<td class="num">${fmt(rec[u.nombre])}</td>`).join('') +
+        (colLab ? `<td class="num">${fmt(rec[LAB])}</td>` : '') + otrosCols.map(o => `<td class="num">${fmt(rec.detOtros?.[o.nombre])}</td>`).join('') + `<td class="tot">${fmt(tot)}</td></tr>`;
+    }
+  }
+  if(!html) html = `<tr><td colspan="${ancho}" class="vacio-msg">Todavía no hay tanques con programado. Elige los tanques en la pestaña Cupos por uso.</td></tr>`;
+  else html += `<tr class="total"><td class="suc">Total programado${granSin ? ` (falta asignar: ${fmt(granSin)})` : ''}</td><td></td><td>${fmt(granCap)}</td>` +
+    gran.map(v => `<td>${fmt(v)}</td>`).join('') + (colLab ? `<td>${fmt(granLab)}</td>` : '') + granO.map(v => `<td>${fmt(v)}</td>`).join('') +
+    `<td>${fmt(gran.reduce((a, v) => a + v, 0) + granLab + granO.reduce((a, v) => a + v, 0))}</td></tr>`;
+  tb.innerHTML = html;
+}
+
+function pintarLogin(tb, ancho){
+  tb.innerHTML = `<tr><td colspan="${ancho}"><div class="login">
+    <h3>Ingresar a Data Maestra QA</h3>
+    <p>Los tanques se leen del ambiente de QA. Usa tu usuario de QA.</p>
+    <label>Usuario</label><input id="qaUserIn" autocomplete="username">
+    <label>Contraseña</label><input id="qaPassIn" type="password" autocomplete="current-password">
+    <button class="btn" id="qaLoginBtn">Ingresar</button>
+    <div class="status" id="qaStatus">${esc(TANQUES_ERR)}</div>
+    <p style="margin:18px 0 6px">¿Tu usuario no entra aquí? Abre Data Maestra QA en el navegador, F12 › Red (Network),
+      recarga, clic en cualquier consulta a <b>qa-gateway</b> › Encabezados › copia el valor de <b>Authorization</b> y pégalo:</p>
+    <input id="qaTokenIn" placeholder="Bearer eyJ…">
+    <button class="btn ghost" id="qaTokenBtn">Usar token</button></div></td></tr>`;
+  document.getElementById('qaPassIn').addEventListener('keydown', e => { if(e.key === 'Enter') loginQA(); });
+  document.getElementById('qaLoginBtn').addEventListener('click', loginQA);
+  document.getElementById('qaTokenBtn').addEventListener('click', () => {
+    const tok = document.getElementById('qaTokenIn').value.trim().replace(/^bearer\s+/i, '');
+    if(!tok) return;
+    localStorage.setItem(TOKEN_KEY, tok);
+    localStorage.setItem(TOKEN_KEY + '_user', 'token pegado');
+    pintarUsuario();
+    cargarTanques();
+  });
+}
+
+// ── Pestaña 3: la tabla de tanques tal como está en Data Maestra, para revisar configuraciones ──
+function renderDM(){
+  document.querySelectorAll('#dmTabs button').forEach(b => b.classList.toggle('on', b.dataset.v === DM_VISTA));
+  if(DM_VISTA === 'camp') return renderDMCamp();
+  document.getElementById('th').innerHTML = `<tr><th>Código</th><th>Nombre</th><th>Sucursal</th><th>Uso</th>` +
+    `<th>Combustible</th><th>Capacidad<span class="u">galones</span></th><th>Recibe de proveedor</th><th>Estado</th></tr>`;
+  const tb = document.getElementById('tb');
+  if(!tokenQA()) return pintarLogin(tb, 8);
+  if(TANQUES_ERR){ tb.innerHTML = `<tr><td colspan="8" class="vacio-msg">No se pudieron traer los tanques: ${esc(TANQUES_ERR)}</td></tr>`; return; }
+  if(!TANQUES){ cargarTanques(); return; }
+  const q = norm(document.getElementById('q').value);
+  const lista = TANQUES_TODOS.filter(t => !q || norm(`${t.nombre} ${t.codigo} ${t.subTexto} ${SUCURSALES.find(x => x.id === t.subId)?.nombre || ''}`).includes(q))
+    .sort((a, b) => String(a.subTexto).localeCompare(String(b.subTexto)) || String(a.nombre).localeCompare(String(b.nombre)));
+  const usosDM = [...new Set([...TANQUES_TODOS.flatMap(t => t.usosTexto), 'General', 'Estacion de Bombeo', 'Tanquero Repartidor'])].sort();
+  const itemsDM = [...new Set([...TANQUES_TODOS.map(t => t.item).filter(Boolean), 'Diésel', 'Gasolina Extra'])].sort();
+  const opciones = (lista2, actual) => lista2.map(x => `<option${norm(x) === norm(actual) ? ' selected' : ''}>${esc(x)}</option>`).join('');
+  let html = lista.map(t => {
+    const ef = aplicarCfg(t), editado = !!CFG[t.id];
+    return `<tr><td class="txt">${esc(t.codigo)}</td><td class="suc">${esc(t.nombre)}</td>` +
+      `<td class="txt">${esc(SUCURSALES.find(x => x.id === t.subId)?.nombre || t.subTexto)}</td>` +
+      `<td><select class="dm-e" data-t="${esc(t.id)}" data-f="uso">${opciones(usosDM, ef.usosTexto[0] || '')}</select></td>` +
+      `<td><select class="dm-e" data-t="${esc(t.id)}" data-f="item">${opciones(itemsDM, ef.item || '')}</select></td>` +
+      `<td class="num">${fmt(t.capacidad)}</td>` +
+      `<td><select class="dm-e" data-t="${esc(t.id)}" data-f="recibe">` +
+        `<option value="1"${ef.recibe ? ' selected' : ''}>Sí</option><option value="0"${ef.recibe ? '' : ' selected'}>No</option></select></td>` +
+      `<td class="txt">${esc(t.estado) || '—'}` +
+      `${editado ? ` <span class="chip azul">corregido aquí</span> <a href="#" class="dm-res" data-t="${esc(t.id)}">restaurar</a>` : ''}</td></tr>`;
+  }).join('');
+  if(!html) html = `<tr><td colspan="8" class="vacio-msg">No hay tanques con ese filtro</td></tr>`;
+  tb.innerHTML = html;
+  avisar('');
+}
+
+// ── Data Maestra › Campamentos: en qué tanques recibe cada uno ──
+function renderDMCamp(){
+  document.getElementById('th').innerHTML = `<tr><th>Campamento</th><th>Recibe el diésel en los tanques de…</th><th>Recibe la gasolina en los tanques de…</th></tr>`;
+  const tb = document.getElementById('tb');
+  if(!tokenQA()) return pintarLogin(tb, 3);
+  if(TANQUES_ERR){ tb.innerHTML = `<tr><td colspan="3" class="vacio-msg">No se pudieron traer los tanques: ${esc(TANQUES_ERR)}</td></tr>`; return; }
+  if(!TANQUES){ cargarTanques(); return; }
+  const q = norm(document.getElementById('q').value);
+  const celda = (su, ids, g) =>
+    ids.map(id => `<span class="chip azul">${esc(SUCURSALES.find(x => x.id === id)?.nombre || id)}` +
+      ` <a href="#" class="cfg-del" data-id="${su.id}" data-sub="${id}"${g ? ' data-g="1"' : ''} title="Quitar">×</a></span>`).join(' ') +
+    ` <select class="dm-e cfg-add" data-id="${su.id}"${g ? ' data-g="1"' : ''}><option value="">+</option>` +
+    SUCURSALES.filter(x => !x.otro && !ids.includes(x.id))
+      .map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('') +
+    `</select>`;
+  const html = SUCURSALES.filter(x => !q || norm(x.nombre).includes(q)).map(su => {
+    const nTq = tanquesDe(su.id).length;
+    return `<tr><td class="suc">${esc(su.nombre)}<span class="d">${nTq} tanque(s) propio(s)</span></td>` +
+      `<td>${celda(su, comparteDe(su), false)}</td>` +
+      // Laboratorios y Otros llevan un solo cupo de diésel: no reciben gasolina
+      `<td class="txt">${su.unTotal ? 'No recibe gasolina' : celda(su, comparteGasDe(su), true)}</td></tr>`;
+  }).join('');
+  tb.innerHTML = html || `<tr><td colspan="3" class="vacio-msg">No hay campamentos con ese filtro</td></tr>`;
+  avisar('');
+}
+document.getElementById('dmTabs').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if(!b) return;
+  DM_VISTA = b.dataset.v;
+  render();
+});
+
+// Cambios en la pestaña Data Maestra: correcciones de tanque y "dónde recibe"
+document.getElementById('tb').addEventListener('change', e => {
+  const sel = e.target.closest('select.dm-e');
+  if(!sel || TAB !== 'dm') return;
+  if(sel.classList.contains('cfg-add')){
+    if(!sel.value) return;
+    const id = +sel.dataset.id, su = SUCURSALES.find(x => x.id === id), g = !!sel.dataset.g;
+    COMPARTE[g ? 'g' + id : id] = [...(g ? comparteGasDe(su) : comparteDe(su)), +sel.value];
+    grabar(COMPARTE_KEY, COMPARTE);
+    render();
+    return;
+  }
+  const t = TANQUES_TODOS.find(x => String(x.id) === sel.dataset.t);
+  if(!t) return;
+  const f = sel.dataset.f, c = { ...(CFG[sel.dataset.t] || {}) };
+  if(f === 'recibe') c.recibe = sel.value === '1'; else c[f] = sel.value;
+  // Si vuelve a dejarlo como está en Data Maestra, la corrección se quita
+  const dm = f === 'uso' ? (t.usosTexto[0] || '') : f === 'item' ? (t.item || '') : !!t.recibe;
+  if(f === 'recibe' ? c.recibe === dm : norm(c[f]) === norm(dm)) delete c[f];
+  if(Object.keys(c).length) CFG[sel.dataset.t] = c; else delete CFG[sel.dataset.t];
+  grabar(CFG_KEY, CFG);
+  filtrarTanques();
+  renderDM();
+});
+document.getElementById('tb').addEventListener('click', e => {
+  if(TAB !== 'dm') return;
+  const res = e.target.closest('a.dm-res');
+  if(res){
+    e.preventDefault();
+    delete CFG[res.dataset.t];
+    grabar(CFG_KEY, CFG);
+    filtrarTanques();
+    renderDM();
+    return;
+  }
+  const del = e.target.closest('a.cfg-del');
+  if(del){
+    e.preventDefault();
+    const id = +del.dataset.id, su = SUCURSALES.find(x => x.id === id), g = !!del.dataset.g;
+    COMPARTE[g ? 'g' + id : id] = (g ? comparteGasDe(su) : comparteDe(su)).filter(x => x !== +del.dataset.sub);
+    grabar(COMPARTE_KEY, COMPARTE);
+    render();
+  }
+});
+
+async function loginQA(){
+  const user = document.getElementById('qaUserIn').value.trim();
+  const pass = document.getElementById('qaPassIn').value;
+  const status = document.getElementById('qaStatus');
+  const btn = document.getElementById('qaLoginBtn');
+  if(!user || !pass){ status.textContent = 'Ingresa usuario y contraseña'; return; }
+  btn.textContent = 'Ingresando…'; btn.disabled = true; status.textContent = '';
+  try{
+    const res = await fetch(AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/plain, */*' },
+      body: JSON.stringify({ userName: user, password: pass, codeApplication: CODE_APP, includeUserInfo: true })
+    });
+    // Un 404 sin JSON = el comun/server.py que está corriendo es anterior a la ruta /bff-qa
+    if(res.status === 404 && !(res.headers.get('content-type') || '').includes('json')){
+      status.textContent = 'El servidor local está desactualizado: cierra la ventana negra de Cupos de Diesel y vuelve a abrir el acceso directo.';
+      return;
+    }
+    const json = await res.json().catch(() => ({}));
+    const data = g(json, 'data') || {};
+    const token = g(data, 'token');
+    if(g(json, 'code') === 200 && token){
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(TOKEN_KEY + '_user', user);
+      pintarUsuario();
+      cargarTanques();
+    } else {
+      const msg = g(json, 'message');
+      const det = g(json, 'data');
+      status.textContent = Array.isArray(det) ? det.join(' ') : (msg || `QA respondió HTTP ${res.status}`);
+    }
+  }catch(e){
+    status.textContent = 'Error de conexión: ' + e.message;
+  }finally{
+    btn.textContent = 'Ingresar'; btn.disabled = false;
+  }
+}
+function salirQA(msg){
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_KEY + '_user');
+  TANQUES = null;
+  TANQUES_ERR = msg || '';
+  pintarUsuario();
+  render();
+}
+function pintarUsuario(){
+  const u = localStorage.getItem(TOKEN_KEY + '_user');
+  const conQA = TAB === 'tanques' || TAB === 'dm';
+  document.getElementById('recargarTq').hidden = !conQA || !tokenQA();
+  const el = document.getElementById('qaUser');
+  el.innerHTML = u && conQA ? `QA: ${esc(u)} · <a href="#" id="qaSalir" style="color:#fff">salir</a>` : '';
+  document.getElementById('qaSalir')?.addEventListener('click', e => { e.preventDefault(); salirQA(); });
+}
+
+function cambiarTab(tab){
+  TAB = ['tanques', 'dm'].includes(tab) ? tab : 'usos';
+  grabar(TAB_KEY, TAB);
+  document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === TAB));
+  const tit = { usos: 'Cupos por uso', tanques: 'Tanques', dm: 'Data Maestra' }[TAB];
+  document.getElementById('titulo').textContent = tit;
+  document.getElementById('crumb').textContent = tit;
+  avisar('');
+  pintarPend();
+  pintarUsuario();
+  document.getElementById('dmTabs').hidden = TAB !== 'dm';
+  render();
+}
+document.querySelector('.nav').addEventListener('click', e => { const b = e.target.closest('button'); if(b) cambiarTab(b.dataset.tab); });
+document.getElementById('recargarTq').addEventListener('click', cargarTanques);
+['q', 'fCluster', 'fEstado'].forEach(id => document.getElementById(id).addEventListener('input', render));
+
+// ── Excel: hoja de cupos por uso y, si ya se trajeron, hoja de tanques ──
+document.getElementById('excelBtn').addEventListener('click', () => {
+  const colUso = u => `${u.nombre} (gal/sem)`;
+  const filas = SUCURSALES.map(s => {
+    const f = fila(s.id), o = { 'Sub ID': s.id, 'Unidad': s.codigo, 'Cluster': s.cluster, 'Sucursal': s.nombre };
+    const tq = u => destinosDe(s.id, u).map(d => `${nombreTq(d.t, s)}: ${d.gal}`).join('; ');
+    USOS.forEach(u => { o[colUso(u)] = s.unTotal ? '' : f[u.nombre] ?? ''; o[`${u.nombre} · tanque`] = s.unTotal ? '' : tq(u.nombre); });
+    o['Cupo total (gal/sem)'] = totalSuc(s.id);
+    o['Cupo total · tanque'] = s.unTotal ? tq(TOT) : '';
+    return o;
+  });
+  const t = sumar(SUCURSALES), tot = { 'Sub ID': '', 'Unidad': '', 'Cluster': '', 'Sucursal': 'TOTAL' };
+  USOS.forEach((u, i) => { tot[colUso(u)] = t.col[i]; tot[`${u.nombre} · tanque`] = ''; });
+  tot['Cupo total (gal/sem)'] = t.tot;
+  filas.push(tot);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(filas);
+  ws['!cols'] = [8, 8, 16, 22, ...USOS.flatMap(u => [Math.max(12, u.nombre.length + 10), 20]), 18, 20].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Cupos por uso');
+
+  if(TANQUES){
+    const r2 = (n) => n ? Math.round(n * 100) / 100 : '';   // vacío en vez de 0 en el Excel
+    const filasT = [], { porTanque, sinTanque } = asignaciones();
+    const base = (suc, tq) => ({ 'Sucursal': suc, 'Código tanque': tq?.codigo ?? '', 'Tanque': tq ? tq.nombre : 'SIN TANQUE ELEGIDO',
+      'Estado': tq?.estado ?? '', 'Uso Data Maestra': tq ? tq.usosTexto.join(', ') : '', 'Capacidad': tq?.capacidad || '' });
+    for(const s of SUCURSALES.filter(x => !x.otro)){
+      for(const tq of tanquesDe(s.id).filter(t => porTanque.has(t))){
+        const rec = porTanque.get(tq) || {}, o = base(s.nombre, tq);
+        USOS.forEach(u => o[colUso(u)] = r2(rec[u.nombre]));
+        o[`${LAB} (gal/sem)`] = r2(rec[LAB]);
+        OTROS.forEach(x => o[`${x.nombre} (gal/sem)`] = r2(rec.detOtros?.[x.nombre]));
+        o['Recibe (gal/sem)'] = r2(USOS.reduce((a, u) => a + (rec[u.nombre] || 0), 0) + (rec[LAB] || 0) + (rec.Otros || 0));
+        filasT.push(o);
+      }
+      const sin = sinTanque[s.id];
+      if(sin){
+        const o = base(s.nombre, null);
+        USOS.forEach(u => o[colUso(u)] = r2(sin[u.nombre]));
+        o[`${LAB} (gal/sem)`] = r2(sin[TOT]);
+        OTROS.forEach(x => o[`${x.nombre} (gal/sem)`] = '');
+        o['Recibe (gal/sem)'] = r2(Object.values(sin).reduce((a, v) => a + v, 0));
+        filasT.push(o);
+      }
+    }
+    for(const s of SUCURSALES.filter(x => x.otro && sinTanque[x.id])){
+      const o = base(`Otros · ${s.nombre}`, null);
+      USOS.forEach(u => o[colUso(u)] = '');
+      o[`${LAB} (gal/sem)`] = '';
+      OTROS.forEach(x => o[`${x.nombre} (gal/sem)`] = x.id === s.id ? sinTanque[s.id][TOT] : '');
+      o['Recibe (gal/sem)'] = sinTanque[s.id][TOT];
+      filasT.push(o);
+    }
+    const ws2 = XLSX.utils.json_to_sheet(filasT);
+    ws2['!cols'] = [16, 14, 24, 13, 24, 11, ...USOS.map(u => Math.max(12, u.nombre.length + 10)), 18, ...OTROS.map(x => x.nombre.length + 10), 16].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, ws2, 'Tanques');
+  }
+  XLSX.writeFile(wb, `Cupos_diesel_${new Date().toISOString().slice(0, 10)}.xlsx`);
+});
+
+// ── Importar: el Excel de presupuesto (hoja "Diésel", columna Unidad = código de sucursal)
+// o una matriz descargada de aquí (Sub ID / Sucursal). Las columnas de uso se reconocen por nombre.
+document.getElementById('impBtn').addEventListener('click', () => document.getElementById('impFile').click());
+
+document.getElementById('bkBtn').addEventListener('click', e => { e.stopPropagation(); abrirRespaldos(); });
+document.getElementById('pop').addEventListener('click', e => {
+  const res = e.target.closest('.bk-res');
+  if(res){
+    e.preventDefault();
+    const x = leer(HIST_KEY, [])[+res.dataset.i];
+    if(x && confirm('¿Reemplazar los cupos actuales por esta copia? Lo de ahora queda respaldado.')) restaurarM(x.m);
+    return;
+  }
+  if(e.target.id === 'bkPegar'){
+    e.preventDefault();
+    const txt = prompt('Pega aquí el contenido del respaldo (JSON):');
+    if(!txt) return;
+    let o; try{ o = JSON.parse(txt); }catch(err){ alert('Ese texto no es un respaldo válido.'); return; }
+    if(!o || typeof o.cupos !== 'object'){ alert('Ese texto no es un respaldo válido.'); return; }
+    restaurarM(o);
+  }
+});
+document.getElementById('impFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  try{
+    const wb = XLSX.read(await file.arrayBuffer());
+    const hoja = wb.SheetNames.find(n => norm(n) === 'diesel') || wb.SheetNames.find(n => norm(n) === 'cupos por uso') || wb.SheetNames[0];
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[hoja], { header: 1, defval: '' });
+    const hIdx = aoa.findIndex(r => r.some(c => ['unidad', 'sucursal'].includes(norm(c))));
+    if(hIdx < 0) throw new Error(`la hoja "${hoja}" no tiene columna Unidad o Sucursal`);
+    const hdr = aoa[hIdx].map(norm);
+    const cSub = hdr.indexOf('sub id'), cUni = hdr.indexOf('unidad');
+    const cNom = hdr.findIndex(h => h === 'sucursal' || h === 'campamento');
+    const cTot = hdr.findIndex(h => h.startsWith('cupo total') && !h.includes('tanque'));
+    const cols = hdr.map((h, i) => [i, h.includes('tanque') ? null : usoDe(h)]).filter(([, u]) => u);
+    if(!cols.length) throw new Error('no hay columnas de uso (Aireación, Bombeo, …)');
+
+    const cupos = {}, noEncontradas = [];
+    for(const r of aoa.slice(hIdx + 1)){
+      const uni = cUni >= 0 ? String(r[cUni]).trim() : '';
+      const nom = cNom >= 0 ? String(r[cNom]).trim() : '';
+      if(!uni && !nom) continue;
+      if(norm(uni) === 'total' || norm(nom) === 'total') continue;
+      const s = SUCURSALES.find(x => cSub >= 0 && x.id === +r[cSub])
+        || (uni && SUCURSALES.find(x => norm(x.codigo) === norm(uni)))
+        || (nom && SUCURSALES.find(x => norm(x.nombre) === norm(nom)));
+      if(!s){ noEncontradas.push(uni && nom ? `${uni} (${nom})` : uni || nom); continue; }
+      const val = i => { const v = typeof r[i] === 'number' ? Math.round(r[i]) : numero(r[i]); return v && !Number.isNaN(v) ? v : 0; };
+      if(s.unTotal){
+        const v = cTot >= 0 && val(cTot) || (s.otro ? 0 : cols.reduce((a, [i]) => a + val(i), 0));
+        if(v) cupos[s.id] = { [TOT]: v };
+        continue;
+      }
+      const f = { ...(cupos[s.id] || {}) };
+      for(const [i, u] of cols){
+        const v = val(i);
+        if(!v) continue;
+        // Draga / Embarcaciones / Generación por sucursal (Excel de presupuesto) se suman a su fila de Otros
+        const o = OTROS.find(x => x.uso === u && (!x.cluster || x.cluster === s.cluster) && (!x.sucursal || norm(x.sucursal) === norm(s.nombre)))
+          || OTROS.find(x => x.uso === u);
+        if(o){ const fo = cupos[o.id] ??= {}; fo[TOT] = (fo[TOT] || 0) + v; }
+        else f[u] = v;
+      }
+      if(Object.keys(f).length) cupos[s.id] = f;
+    }
+    const n = Object.keys(cupos).length;
+    if(!confirm(`Hoja "${hoja}": se cargarán cupos de ${n} sucursal(es) y reemplazarán la matriz actual.` +
+      (noEncontradas.length ? `\n\nNo se encontraron en D1 (llénalas a mano): ${noEncontradas.join(', ')}` : '') + '\n\n¿Continuar?')) return;
+    M.cupos = cupos;
+    guardarLocal();
+    if(noEncontradas.length) avisar(`Del Excel no se cargaron (no coinciden con una sucursal de D1): ${esc(noEncontradas.join(', '))}.`);
+    render();
+  }catch(err){
+    pintarEstado(`No se pudo importar: ${err.message}`);
+  }
+});
+
+cargar();
+</script>
+</body>
+</html>

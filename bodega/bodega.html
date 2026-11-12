@@ -1,0 +1,2826 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bodega — Naturisa</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --primary:#1a3a5c; --primary-light:#2d6a9f; --accent:#00b4d8;
+  --success:#10b981; --warning:#f59e0b; --danger:#ef4444;
+  --bg:#f5f5f7; --card:#ffffff; --text:#1d1d1f; --muted:#6e6e73; --border:#e5e5ea;
+  --bal:#b45309; --bal-bg:#fef3c7; --fer:#047857; --fer-bg:#d1fae5;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.05); --shadow-md:0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --radius:10px;
+}
+*{box-sizing:border-box;}
+html,body{ height:100%; margin:0; }
+body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); overflow:hidden; }
+.mono{ font-variant-numeric:tabular-nums; }
+.num{ text-align:right; font-variant-numeric:tabular-nums; }
+
+/* ── Sidebar ── */
+.sidebar{ position:fixed; top:0; left:0; bottom:0; width:190px; background:var(--primary); display:flex; flex-direction:column; z-index:200; }
+.sb-logo{ padding:16px 18px 12px; border-bottom:1px solid rgba(255,255,255,.1); }
+.sb-logo .accent{ color:var(--accent); font-size:16px; font-weight:800; letter-spacing:.3px; }
+.sb-logo .sub{ font-size:11px; color:rgba(255,255,255,.55); margin-top:2px; }
+.sb-nav{ flex:1; padding:10px 0; overflow-y:auto; }
+.sb-nav-item{ display:flex; align-items:center; gap:11px; width:100%; padding:10px 18px; background:none; border:none; border-left:3px solid transparent; color:rgba(255,255,255,.6); font-size:13.5px; font-weight:500; cursor:pointer; text-align:left; transition:color .15s,background .15s,border-color .15s; }
+.sb-nav-item:hover{ background:rgba(255,255,255,.07); color:rgba(255,255,255,.9); }
+.sb-nav-item.active{ background:rgba(255,255,255,.1); color:#fff; border-left-color:var(--accent); font-weight:700; }
+.sb-nav-icon{ width:18px; height:18px; flex-shrink:0; opacity:.85; }
+.sb-footer{ border-top:1px solid rgba(255,255,255,.1); padding:12px 14px; position:relative; }
+.hdr-user-btn{ display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2); border-radius:20px; padding:5px 10px 5px 5px; cursor:pointer; color:#fff; font-size:12px; font-weight:600; width:100%; }
+.hdr-user-btn:hover{ background:rgba(255,255,255,.2); }
+.hdr-user-av{ width:28px; height:28px; border-radius:50%; background:var(--accent); color:#0a2540; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:800; flex-shrink:0; }
+.hdr-user-name{ flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hdr-user-dd{ position:absolute; bottom:calc(100% + 6px); left:14px; right:14px; background:#fff; border-radius:10px; box-shadow:var(--shadow-md),0 8px 24px rgba(0,0,0,.18); overflow:hidden; display:none; z-index:300; border:1px solid var(--border); }
+.hdr-user-dd.open{ display:block; }
+.hdr-dd-head{ padding:11px 14px; font-size:12.5px; font-weight:700; color:var(--text); background:#fafafa; border-bottom:1px solid var(--border); }
+.hdr-dd-item{ display:flex; align-items:center; gap:9px; width:100%; padding:9px 14px; background:none; border:none; font-size:12.5px; font-weight:500; color:var(--text); cursor:pointer; text-align:left; }
+.hdr-dd-item:hover{ background:#f5f5f7; }
+.hdr-dd-item.danger{ color:#dc2626; }
+.hdr-dd-item.danger:hover{ background:#fef2f2; }
+
+/* ── Content ── */
+.content-wrap{ position:fixed; left:190px; top:0; right:0; bottom:0; display:flex; flex-direction:column; overflow:hidden; }
+.topbar{ display:flex; align-items:center; gap:12px; padding:14px 22px; border-bottom:1px solid var(--border); background:var(--card); flex-shrink:0; flex-wrap:wrap; }
+.topbar h1{ font-size:17px; margin:0; font-weight:700; }
+.topbar .scope{ font-size:11.5px; color:var(--muted); margin-top:1px; }
+.topbar .spacer{ flex:1; }
+.search{ display:flex; align-items:center; gap:7px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:6px 10px; min-width:220px; }
+.search input{ all:unset; flex:1; font-size:13px; }
+.search svg{ flex-shrink:0; color:var(--muted); }
+.seg{ display:flex; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:2px; gap:2px; }
+.seg button{ all:unset; cursor:pointer; padding:5px 11px; border-radius:6px; font-size:12.5px; font-weight:600; color:var(--muted); white-space:nowrap; }
+.seg button:hover{ color:var(--text); }
+.seg button.active{ background:#fff; color:var(--text); box-shadow:var(--shadow-md); }
+select.sel{ padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:#fff; font-size:12.5px; font-weight:600; color:var(--text); }
+
+.main{ padding:16px 22px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:14px; min-width:0; }
+.view{ display:none; flex-direction:column; gap:14px; }
+.view.active{ display:flex; }
+
+/* KPI cards */
+.kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(170px,1fr)); gap:12px; }
+.kpi-card{ background:#fff; border-radius:var(--radius); padding:12px 14px; box-shadow:var(--shadow-sm); border:1px solid var(--border); display:flex; align-items:center; gap:12px; min-width:0; }
+.kpi-icon{ width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.kpi-icon.bal{ background:var(--bal-bg); color:var(--bal); }
+.kpi-icon.fer{ background:var(--fer-bg); color:var(--fer); }
+.kpi-icon.ins{ background:#e0f2fe; color:#0369a1; }
+.kpi-icon.blue{ background:#dbeafe; color:#2563eb; }
+.kpi-label{ font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.kpi-value{ font-size:20px; font-weight:700; color:var(--text); line-height:1.2; }
+.kpi-sub{ font-size:11px; color:var(--muted); }
+
+/* Panels / tables */
+.panel{ background:#fff; border-radius:var(--radius); box-shadow:var(--shadow-sm); border:1px solid var(--border); overflow:hidden; }
+.panel-head{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border); gap:10px; flex-wrap:wrap; }
+.panel-head h2{ font-size:14px; margin:0; font-weight:700; }
+.panel-head .hint{ font-size:11.5px; color:var(--muted); }
+.table-wrap{ overflow-x:auto; }
+table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+thead th{ text-align:left; padding:8px 12px; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:#334155; font-weight:700; border-bottom:1px solid var(--border); background:#f8fafc; white-space:nowrap; position:sticky; top:0; }
+thead th.num{ text-align:right; }
+tbody td{ padding:8px 12px; border-bottom:1px solid #f1f1f3; white-space:nowrap; }
+tbody tr.row{ cursor:pointer; }
+tbody tr.row:hover td{ background:#f8fafc; }
+tr.grp td{ background:#f1f5f9; font-weight:700; font-size:12px; color:#334155; border-bottom:1px solid var(--border); }
+tr.grp td .cnt{ font-weight:500; color:var(--muted); margin-left:6px; }
+.code{ color:var(--muted); font-size:11px; }
+.zero{ color:#c7c7cc; }
+.chip{ display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:600; white-space:nowrap; }
+.chip.bal{ background:var(--bal-bg); color:var(--bal); }
+.chip.fer{ background:var(--fer-bg); color:var(--fer); }
+.chip.ins{ background:#e0f2fe; color:#0369a1; }
+.chip.ini{ background:#dcfce7; color:#15803d; }
+.chip.eng{ background:#fef3c7; color:#b45309; }
+tr.bod td{ background:#f1f5f9; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.dif{ font-weight:600; font-variant-numeric:tabular-nums; }
+.dif.ok{ color:var(--success); }
+.dif.mas{ color:#b45309; }
+.dif.menos{ color:var(--danger); }
+.dias{ font-weight:600; font-variant-numeric:tabular-nums; }
+.dias.ok{ color:var(--success); }
+.dias.mas{ color:#b45309; }
+.dias.menos{ color:var(--danger); }
+td.sep, th.sep{ border-left:1px solid var(--border); }
+.abast{ display:inline-block; margin-left:6px; padding:1px 8px; border-radius:99px; background:#e0f2fe; color:#0369a1; font-size:10.5px; font-weight:600; }
+.solo-islas{ display:none !important; }
+body.sec-islas .solo-islas{ display:flex !important; }
+body.sec-islas .solo-bal{ display:none !important; }
+.solo-plan:not(.solo-bal){ display:none !important; }
+body.sec-plan .solo-bal{ display:none !important; }
+body.sec-plan .solo-plan{ display:flex !important; }
+body.sec-config .solo-bal, body.sec-config .solo-plan, body.sec-config .solo-islas, body.sec-config #exportBtn{ display:none !important; }
+body.sec-plan .solo-rep, body.sec-config .solo-rep{ display:none !important; }
+body.sec-sug .solo-bal:not(.solo-plan), body.sec-sug .solo-islas, body.sec-sug #waBtn{ display:none !important; }
+/* ── Sugerido de ingreso ── */
+.sug-cfg{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--muted); }
+.sug-cfg label{ display:flex; align-items:center; gap:5px; }
+.sug-cfg input[type=number]{ width:52px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; font:inherit; color:var(--text); text-align:right; }
+table.sug th.dia{ min-width:62px; text-transform:none; font-size:10.5px; color:#1e293b; font-weight:700; }
+table.sug th.dia .hoy{ display:inline-block; margin-top:2px; padding:0 6px; border-radius:99px; background:#2563eb; color:#fff; font-size:9px; }
+table.sug td.cel{ padding:3px 4px; vertical-align:middle; }
+table.sug td.cel.ed{ background:#fffbeb; }
+table.sug .sug-in{ width:54px; padding:3px 4px; border:1px solid transparent; border-radius:6px; background:transparent; font:inherit; font-weight:700; font-size:12px; text-align:center; color:#cbd2db; font-variant-numeric:tabular-nums; }
+table.sug .sug-in.con{ background:#dbeafe; color:#1d4ed8; }
+table.sug td.ed .sug-in{ background:#fde68a; color:#92400e; }
+table.sug .sug-in.lim{ box-shadow:inset 0 0 0 1px #f59e0b; }
+table.sug .sug-in:hover{ border-color:#93c5fd; background:#f8fbff; }
+table.sug .sug-in:not(.con){ border-color:#eef1f5; }
+table.sug .sug-in:focus{ outline:none; border-color:#2563eb; background:#fff; color:#1e293b; }
+table.sug .pend{ font-size:9.5px; font-weight:700; color:#047857; line-height:1.1; }
+table.sug .fin{ font-size:9.5px; font-weight:700; line-height:1.2; margin-top:1px; }
+table.sug .fin.menos{ color:#b91c1c; } table.sug .fin.mas{ color:#b45309; } table.sug .fin.ok{ color:#15803d; } table.sug .fin.sc{ color:#94a3b8; }
+table.sug .fin.neg{ display:inline-block; padding:0 4px; border-radius:4px; background:#fee2e2; color:#b91c1c; }
+table.sug .fin sup{ font-size:8px; color:#64748b; }
+table.sug td.ocd{ padding:3px 4px; line-height:1.15; }
+table.sug .pal{ font-size:10.5px; font-weight:700; color:#1e293b; }
+table.sug .oc{ font-size:9.5px; font-weight:700; }
+table.sug .oc.ok{ color:#15803d; } table.sug .oc.mas{ color:#b45309; } table.sug .oc.menos{ color:#b91c1c; }
+table.sug .sin-cap{ color:#b45309; font-weight:600; }
+table.sug .gab{ display:inline-block; padding:0 6px; border-radius:99px; font-size:9.5px; font-weight:800; margin:1px 0; }
+table.sug .gab.cargill{ background:#dbeafe; color:#1d4ed8; } table.sug .gab.haid{ background:#fce7f3; color:#be185d; }
+table.sug .gab.espera{ background:#fef3c7; color:#b45309; }
+table.sug th.dia.dom{ background:#e2e8f0 !important; color:#64748b; }
+table.sug th.dia .nocarga{ font-size:8.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.03em; }
+table.sug td.dom{ background:#f8fafc; }
+table.sug td.dom .sug-in{ background:transparent; border-color:transparent; }
+table.sug-m{ font-size:12px; }
+table.sug-m th, table.sug-m td{ padding:3px 4px; }
+table.sug-m th.prod{ min-width:74px; }
+table.sug-m .col-c{ min-width:190px; max-width:230px; white-space:normal; }
+table.sug-m tr.bodm td{ background:#f1f5f9; border-top:2px solid #cbd5e1; padding-top:6px; padding-bottom:6px; }
+table.sug-m tr.bodm td.col-c{ background:#f1f5f9; }
+table.sug-m td.sub-l{ font-size:10px; color:var(--muted); font-weight:600; line-height:1.2; }
+table.sug-m td.dia-c{ font-size:11.5px; font-weight:700; color:#334155; padding-left:16px !important; white-space:nowrap; }
+table.sug-m .hoy{ display:inline-block; padding:0 6px; border-radius:99px; background:#2563eb; color:#fff; font-size:9px; vertical-align:1px; }
+table.sug-m .nocarga{ font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase; }
+table.sug-m tr.dom td{ background:#f1f5f9 !important; }
+table.sug-m tr.dom .sug-in{ background:transparent; border-color:transparent; }
+table.sug-m tr.lunes td{ border-top:2px solid #93c5fd; }
+table.sug-m tr.totm td{ background:#fcfcfd; font-size:11px; color:#334155; border-top:1px solid #dbe2ea; }
+table.sug-m tr.totm td.col-c{ font-weight:700; padding-left:16px !important; }
+table.sug-m .sug-in{ width:52px; }
+table.sug .gab-cfg{ font-size:10px; color:var(--muted); margin-top:3px; display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+table.sug .gab-in{ width:46px; padding:1px 4px; border:1px solid var(--border); border-radius:5px; font:inherit; font-weight:700; color:#1e293b; text-align:right; }
+table.sug .abast.desde{ background:#ede9fe; color:#6d28d9; }
+table.sug .dias{ display:inline-block; min-width:30px; padding:1px 5px; border-radius:6px; font-size:11px; font-weight:700; text-align:center; }
+table.sug .dias.menos{ background:#fee2e2; color:#b91c1c; } table.sug .dias.mas{ background:#fef3c7; color:#b45309; } table.sug .dias.ok{ background:#dcfce7; color:#15803d; }
+/* ── Tabla Planificado ── */
+#tblPlan{ max-height:calc(100vh - 300px); overflow:auto; }
+table.plan{ font-size:12px; border-collapse:separate; border-spacing:0; }
+table.plan th, table.plan td{ white-space:nowrap; padding:5px 6px; border-bottom:1px solid #eef1f5; }
+table.plan thead th{ position:sticky; z-index:3; background:#f8fafc; vertical-align:bottom; border-bottom:1px solid var(--border); }
+table.plan thead tr:first-child th{ top:0; height:44px; }
+table.plan thead tr:nth-child(2) th{ top:44px; }
+table.plan .col-prod{ position:sticky; left:0; z-index:2; background:#fff; min-width:205px; width:218px; max-width:218px; white-space:normal; box-shadow:1px 0 0 var(--border); }
+table.plan thead .col-prod{ z-index:4; background:#f8fafc; }
+table.plan th.sem-h{ text-align:center; padding:7px 6px 5px; }
+table.plan .sem-n{ font-size:11px; font-weight:800; color:#1e293b; letter-spacing:.04em; }
+table.plan .sem-h .sub, table.plan .grp-h .sub{ font-size:10px; color:var(--muted); font-weight:600; text-transform:none; letter-spacing:0; margin-top:2px; }
+table.plan th.sub{ font-size:9.5px; color:var(--muted); padding-top:5px; padding-bottom:5px; }
+table.plan .en-curso{ display:inline-block; margin-left:4px; padding:1px 6px; border-radius:99px; background:#2563eb; color:#fff; font-size:9px; letter-spacing:.03em; vertical-align:1px; }
+table.plan .wsep{ border-left:1px solid #dbe2ea !important; }
+/* semanas alternadas y la semana en curso */
+table.plan .w-alt{ background:#fafbfd; }
+table.plan thead th.w-alt{ background:#f1f4f9; }
+table.plan .w-actual{ background:#eff6ff; }
+table.plan thead th.w-actual{ background:#dbeafe; }
+table.plan td.w-pasada{ color:#475569; }
+/* bloque inventario y cobertura */
+table.plan .w-inv{ background:#fcfcfd; }
+table.plan thead th.w-inv{ background:#eef2f7; }
+table.plan th.grp-h{ text-align:center; }
+table.plan .grp-n{ font-size:11px; font-weight:800; color:#1e293b; letter-spacing:.04em; }
+/* filas */
+table.plan tr.bod td{ background:#f1f5f9; border-top:1px solid #dbe2ea; padding-top:7px; padding-bottom:7px; }
+table.plan tr.bod td.col-prod{ background:#f1f5f9; }
+table.plan tr.tipo:hover td{ background:#f8fbff; }
+table.plan tr.tipo:hover td.col-prod{ background:#f8fbff; }
+table.plan .prod{ display:flex; align-items:flex-start; gap:6px; }
+table.plan .prod-n{ color:#1e293b; font-weight:500; white-space:normal; line-height:1.25; }
+table.plan .prod-sub{ font-size:10px; color:var(--muted); margin-top:1px; display:flex; gap:6px; align-items:center; }
+table.plan .etq{ flex-shrink:0; width:16px; height:16px; border-radius:4px; font-size:9.5px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; }
+table.plan .etq.ini{ background:#dcfce7; color:#15803d; } table.plan .etq.eng{ background:#fef3c7; color:#b45309; }
+/* valores */
+table.plan .pct{ display:inline-block; min-width:34px; padding:1px 4px; border-radius:6px; font-weight:700; font-size:11px; font-variant-numeric:tabular-nums; text-align:center; }
+table.plan .pct.ok{ background:#dcfce7; color:#15803d; } table.plan .pct.mas{ background:#fef3c7; color:#b45309; } table.plan .pct.menos{ background:#fee2e2; color:#b91c1c; }
+table.plan .falta{ color:#1d4ed8; font-weight:700; }
+table.plan .ingresa{ color:#047857; font-weight:700; cursor:help; }
+table.plan .fec{ color:#047857; font-weight:600; white-space:nowrap; font-size:11px; }
+table.plan .fec.ruta{ color:#1d4ed8; }
+table.plan .fec-atrasada{ color:var(--danger); font-weight:700; white-space:nowrap; font-size:11px; }
+table.plan .est{ font-size:10px; font-weight:600; opacity:.8; text-transform:none; }
+table.plan .falta-bod{ display:inline-block; padding:0 6px; border-radius:99px; background:#fef3c7; color:#b45309; font-size:9.5px; font-weight:700; cursor:help; }
+table.plan .mas-bod{ color:#b45309; font-weight:800; margin-left:1px; }
+table.plan .alc{ display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+table.plan .alc.menos{ background:#fee2e2; color:#b91c1c; } table.plan .alc.mas{ background:#fef3c7; color:#b45309; } table.plan .alc.ok{ background:#dcfce7; color:#15803d; }
+table.plan .alc .code{ font-weight:600; color:inherit; opacity:.75; }
+table.plan .saldo-neg{ display:inline-block; padding:2px 8px; border-radius:6px; background:#fee2e2; color:#b91c1c; font-weight:700; }
+table.plan .saldo-pos{ color:#1e293b; font-weight:600; }
+table.plan .zero{ color:#cbd2db; }
+/* ── Tablas Balanceado (mismo formato que Reporte / Planificado) ── */
+#tblBodegas, #tblProductos, #tblDetalle{ max-height:calc(100vh - 290px); overflow:auto; }
+table.bal{ font-size:12px; border-collapse:separate; border-spacing:0; }
+table.bal th, table.bal td{ white-space:nowrap; padding:6px 8px; border-bottom:1px solid #eef1f5; }
+table.bal thead th{ position:sticky; z-index:3; background:#f8fafc; vertical-align:bottom; border-bottom:1px solid var(--border); }
+table.bal thead tr:first-child th{ top:0; }
+table.bal thead tr:nth-child(2) th{ top:var(--h1, 40px); }
+table.bal .col-p{ position:sticky; left:0; z-index:2; background:#fff; min-width:260px; max-width:330px; white-space:normal; box-shadow:1px 0 0 var(--border); }
+table.bal thead .col-p{ z-index:4; background:#f8fafc; }
+table.bal th.grp{ text-align:center; padding:7px 6px 4px; }
+table.bal .g-n{ font-size:11px; font-weight:800; color:#1e293b; letter-spacing:.04em; }
+table.bal .g-s{ font-size:9.5px; color:var(--muted); font-weight:600; text-transform:none; letter-spacing:0; margin-top:1px; }
+table.bal th.sub{ font-size:9.5px; color:var(--muted); padding-top:4px; padding-bottom:4px; }
+table.bal .g-l{ border-left:1px solid #dbe2ea !important; }
+table.bal .g-sal{ background:#fcfcfd; } table.bal thead th.g-sal{ background:#eef2f7; }
+table.bal .g-con{ background:#fff; }
+table.bal .g-pla{ background:#f5f9ff; } table.bal thead th.g-pla{ background:#dbeafe; }
+table.bal tr.bod td{ background:#f1f5f9; border-top:1px solid #dbe2ea; }
+table.bal tr.bod td.col-p{ background:#f1f5f9; }
+table.bal tbody tr.row:hover td{ background:#f8fbff; }
+table.bal tbody tr.row:hover td.col-p{ background:#f8fbff; }
+table.bal .prod{ display:flex; align-items:flex-start; gap:6px; }
+table.bal .prod-n{ color:#1e293b; font-weight:500; line-height:1.25; }
+table.bal .etq{ flex-shrink:0; width:16px; height:16px; border-radius:4px; font-size:9.5px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; }
+table.bal .etq.ini{ background:#dcfce7; color:#15803d; } table.bal .etq.eng{ background:#fef3c7; color:#b45309; }
+table.bal .dias{ display:inline-block; min-width:34px; padding:1px 6px; border-radius:6px; font-size:11px; font-weight:700; text-align:center; }
+table.bal .dias.menos{ background:#fee2e2; color:#b91c1c; } table.bal .dias.mas{ background:#fef3c7; color:#b45309; } table.bal .dias.ok{ background:#dcfce7; color:#15803d; }
+table.bal .zero{ color:#cbd2db; }
+table.bal td .code{ font-size:10.5px; }
+table.islas.bal-m th, table.islas.bal-m td{ padding-left:2px; padding-right:2px; }
+table.islas.bal-m td.sac{ padding-left:4px; }
+.con-plan{ cursor:pointer; }
+table.islas.bal-m .dias{ min-width:0; padding:1px 4px; font-size:10.5px; }
+table.islas.bal-m .p-fam{ width:66px; }
+table.islas.bal-m{ width:100%; }
+table.islas.bal-m .col-c{ min-width:130px; white-space:nowrap; padding-left:8px !important; }
+table.islas.bal-m td.camp b{ font-size:12.5px; }
+table.islas.bal-m td.camp .code{ display:block; font-size:10px; line-height:1.1; }
+table.bal-m .ok-ap1{ color:#16a34a; font-weight:800; cursor:help; }
+table.bal-m .no-ap1{ display:inline-block; width:16px; height:16px; line-height:16px; border-radius:50%; background:#fee2e2; color:#b91c1c; font-weight:800; font-size:11px; cursor:help; }
+table.bal-m tbody tr.row{ cursor:pointer; }
+/* ── Tabla Reporte ── */
+#tblIslas{ max-height:calc(100vh - 300px); overflow:auto; }
+#tblIslasCaptura table.islas .col-c{ min-width:150px; }
+table.islas{ font-size:12px; border-collapse:separate; border-spacing:0; }
+table.islas th, table.islas td{ white-space:nowrap; padding:5px 5px; border-bottom:1px solid #eef1f5; }
+table.islas thead th{ position:sticky; z-index:3; background:#f8fafc; vertical-align:bottom; border-bottom:1px solid var(--border); }
+table.islas thead tr:first-child th{ top:0; }
+table.islas thead tr:nth-child(2) th{ top:var(--h1, 52px); }
+table.islas .col-c{ position:sticky; left:0; z-index:2; background:#fff; min-width:140px; box-shadow:1px 0 0 var(--border); }
+table.islas thead .col-c{ z-index:4; background:#f8fafc; }
+table.islas th.ctr, table.islas td.ctr{ text-align:center; }
+table.islas th.prod{ border-left:1px solid #dbe2ea; text-align:center; padding:6px 4px 4px; line-height:1.15; border-top:3px solid transparent; }
+table.islas th.prod.ini{ border-top-color:#22c55e; } table.islas th.prod.eng{ border-top-color:#f59e0b; }
+table.islas .p-mm{ font-size:12px; font-weight:800; color:#1e293b; letter-spacing:0; text-transform:none; }
+table.islas .p-fam{ font-size:9.5px; font-weight:600; color:#475569; text-transform:none; letter-spacing:0; width:76px; margin:2px auto 0; white-space:normal; line-height:1.2; }
+table.islas th.sub{ font-size:9px; color:var(--muted); padding-top:4px; padding-bottom:4px; }
+table.islas.bal-m th.sub{ font-size:10px; font-weight:800; color:#1e293b; letter-spacing:.02em; padding-left:5px; padding-right:5px; }
+table.islas .g-l{ border-left:1px solid #dbe2ea; }
+table.islas .g-alt{ background:#fafbfd; }
+/* Haid: grupo aparte al final */
+table.islas th.prod.haid{ border-top-color:#ec4899; }
+table.islas th.prod.haid-ini, table.islas td.haid-ini.g-l, table.islas th.haid-ini.g-l, table.sug-m td.haid-ini{ border-left:3px solid #f9a8d4 !important; }
+table.islas thead th.g-alt{ background:#f1f4f9; }
+table.islas .w-bod{ background:#fcfcfd; }
+table.islas thead th.w-bod{ background:#eef2f7; }
+table.islas tbody tr:not(.sector):hover td{ background:#f8fbff; }
+table.islas td.sac{ color:#334155; }
+table.islas .dias{ display:inline-block; min-width:28px; padding:1px 4px; border-radius:6px; font-size:11px; font-weight:700; text-align:center; }
+table.islas .dias.sc{ background:#e2e8f0; color:#475569; }
+table.islas .dias.menos{ background:#fee2e2; color:#b91c1c; } table.islas .dias.mas{ background:#fef3c7; color:#b45309; } table.islas .dias.ok{ background:#dcfce7; color:#15803d; }
+table.islas .zero{ color:#cbd2db; }
+table.islas td.camp b{ color:#1e293b; }
+table.islas tr.bod td{ background:#f1f5f9; border-top:1px solid #dbe2ea; }
+table.islas tr.bod td.col-c{ background:#f1f5f9; }
+table.islas .ocup{ min-width:96px; gap:6px; }
+table.cfg td{ padding:6px 10px; vertical-align:middle; }
+.cfg-in{ padding:6px 8px; border:1.5px solid var(--border); border-radius:7px; font-size:13px; color:var(--text); background:#fff; font-family:inherit; }
+.cfg-in:focus{ outline:none; border-color:var(--primary-light); }
+.cfg-in.num{ width:84px; text-align:right; font-variant-numeric:tabular-nums; }
+.cfg-in.notas{ width:220px; }
+table.cfg tr.sucio td{ background:#fffbeb; }
+.cfg-guardar{ padding:5px 12px; font-size:12px; }
+.cfg-msg{ margin-left:8px; font-size:11.5px; color:var(--muted); }
+.cfg-msg.ok{ color:var(--success); } .cfg-msg.err{ color:var(--danger); }
+.alc{ display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; white-space:nowrap; }
+.alc.menos{ background:#fee2e2; color:#b91c1c; } .alc.mas{ background:#fef3c7; color:#b45309; } .alc.ok{ background:#dcfce7; color:#15803d; }
+.alc .code{ font-weight:600; color:inherit; opacity:.75; }
+tr.sector td{ background:var(--primary); color:#fff; font-weight:700; font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:6px 12px; }
+.edit-btn{ all:unset; cursor:pointer; color:var(--muted); font-size:13px; padding:0 4px; }
+.edit-btn:hover{ color:var(--primary-light); }
+.ocup{ display:flex; align-items:center; gap:8px; min-width:120px; }
+.ocup .bar{ flex:1; }
+.ocup .bar > span.ok{ background:var(--success); } .ocup .bar > span.mas{ background:#d97706; } .ocup .bar > span.menos{ background:var(--danger); }
+.panel-foot{ padding:10px 16px; border-top:1px solid var(--border); }
+.form-prm{ display:flex; flex-direction:column; gap:14px; padding:18px 20px; }
+.form-prm label{ display:flex; flex-direction:column; gap:5px; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+.form-prm input, .form-prm select{ padding:9px 11px; border:1.5px solid var(--border); border-radius:8px; font-size:13.5px; color:var(--text); text-transform:none; font-weight:500; }
+.form-acc{ display:flex; align-items:center; gap:12px; }
+.kpi-icon.red{ background:#fee2e2; color:#dc2626; }
+tr.tipo .chip{ font-size:10px; padding:1px 7px; margin-left:4px; }
+tr.tipo td{ font-size:12px; color:#3a3a3c; padding-top:5px; padding-bottom:5px; }
+.bar{ height:6px; border-radius:3px; background:#eef2f7; overflow:hidden; min-width:60px; }
+.bar > span{ display:block; height:100%; border-radius:3px; }
+.empty{ padding:40px 16px; text-align:center; color:var(--muted); font-size:13px; }
+
+/* Loading */
+.loading{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:70px 16px; color:var(--muted); font-size:13px; }
+.spinner{ width:30px; height:30px; border:3px solid var(--border); border-top-color:var(--primary-light); border-radius:50%; animation:spin .8s linear infinite; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.err{ color:var(--danger); }
+
+/* Drawer */
+.overlay{ position:fixed; inset:0; background:rgba(15,23,42,.4); opacity:0; pointer-events:none; transition:opacity .18s ease; z-index:400; }
+.overlay.show{ opacity:1; pointer-events:auto; }
+.drawer{ position:fixed; top:0; right:0; height:100%; width:520px; max-width:94vw; background:#fff; box-shadow:-16px 0 40px -20px rgba(0,0,0,.35); transform:translateX(100%); transition:transform .2s ease; z-index:401; display:flex; flex-direction:column; }
+.drawer.show{ transform:translateX(0); }
+.drawer-head{ padding:18px 20px 14px; border-bottom:1px solid var(--border); display:flex; gap:14px; align-items:flex-start; }
+.drawer-head .ttl{ font-size:15px; font-weight:700; }
+.drawer-head .code{ font-size:12px; margin-top:2px; }
+.drawer-close{ all:unset; cursor:pointer; margin-left:auto; color:var(--muted); padding:4px; }
+.drawer-body{ overflow-y:auto; flex:1; }
+.drawer-sum{ display:flex; gap:18px; padding:12px 20px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.drawer-sum div{ font-size:11px; color:var(--muted); text-transform:uppercase; font-weight:700; letter-spacing:.4px; }
+.drawer-sum b{ display:block; font-size:16px; color:var(--text); text-transform:none; letter-spacing:0; }
+
+.btn{ all:unset; cursor:pointer; background:var(--primary); color:#fff; font-weight:600; font-size:13px; padding:8px 14px; border-radius:8px; text-align:center; display:inline-flex; align-items:center; gap:6px; }
+.btn:hover{ background:var(--primary-light); }
+.btn.ghost{ background:var(--bg); color:var(--text); border:1px solid var(--border); }
+.btn.ghost:hover{ background:#e9e9ec; }
+.btn:disabled{ opacity:.45; pointer-events:none; }
+.btn.wa{ background:#25d366; color:#fff; }
+.btn.wa:hover{ background:#1ebe5b; }
+#toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#1e293b; color:#fff; padding:11px 18px; border-radius:10px;
+  font-size:13px; box-shadow:0 10px 30px rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:all .2s; z-index:600; }
+#toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+.wa-modal{ position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:500; display:none; align-items:center; justify-content:center; padding:24px; }
+.wa-modal.show{ display:flex; }
+.wa-card{ background:#fff; border-radius:14px; width:min(1200px, 96vw); max-height:92vh; display:flex; flex-direction:column; box-shadow:0 24px 64px rgba(0,0,0,.35); }
+.wa-head{ display:flex; align-items:center; padding:14px 18px; border-bottom:1px solid var(--border); font-size:14px; }
+.wa-prev{ flex:1; overflow:auto; padding:14px; background:#f1f5f9; }
+.wa-prev img{ display:block; max-width:100%; margin:0 auto; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,.12); }
+.wa-pie{ display:flex; align-items:center; gap:12px; padding:12px 18px; border-top:1px solid var(--border); flex-wrap:wrap; }
+.wa-acc{ margin-left:auto; display:flex; gap:8px; }
+/* copia de la tabla para la imagen: sin posiciones fijas ni barras de desplazamiento */
+.captura{ position:fixed; left:-20000px; top:0; background:#fff; padding:22px 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#1d1d1f; }
+.captura .cap-tit{ font-size:20px; font-weight:800; color:#1a3a5c; }
+.captura .cap-sub{ font-size:12px; color:#6e6e73; margin:3px 0 12px; }
+.captura .cap-ley{ display:flex; gap:14px; font-size:11.5px; color:#475569; margin-bottom:10px; align-items:center; }
+.captura table th, .captura table td{ position:static !important; box-shadow:none !important; }
+.captura .edit-btn{ display:none; }
+.captura .cap-ley .dias.menos{ background:#fee2e2; } .captura .cap-ley .dias.mas{ background:#fef3c7; }
+.captura .cap-ley .dias.ok{ background:#dcfce7; } .captura .cap-ley .dias.sc{ background:#e2e8f0; }
+
+/* Login */
+.login-modal{ position:fixed; inset:0; background:#0f172a; z-index:999; display:flex; align-items:center; justify-content:center; }
+.login-card{ background:#fff; border-radius:18px; padding:48px 40px; width:390px; max-width:92vw; box-shadow:0 24px 64px rgba(0,0,0,.45); }
+.login-card .brand-lockup{ text-align:center; margin-bottom:28px; }
+.login-card .brand-icon{ width:56px; height:56px; border-radius:16px; background:var(--primary); color:var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; }
+.login-card .brand-lockup .mark{ font-size:20px; font-weight:700; color:var(--muted); letter-spacing:1.5px; }
+.login-card .brand-lockup .sub{ font-size:19px; color:var(--primary); font-weight:800; margin-top:4px; }
+.login-card label{ display:block; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px; }
+.login-card input{ width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; margin-bottom:14px; background:#fff; color:var(--text); }
+.login-card input:focus{ outline:none; border-color:var(--primary-light); }
+.pass-wrap{ position:relative; }
+.pass-wrap input{ padding-right:2.6rem; margin-bottom:0; }
+.pass-toggle{ all:unset; cursor:pointer; position:absolute; right:.8rem; top:50%; transform:translateY(-50%); display:flex; align-items:center; color:var(--muted); }
+.login-card .status{ text-align:center; margin-top:14px; font-size:13px; color:var(--danger); min-height:18px; }
+.login-card .login-submit{ width:100%; margin-top:12px; justify-content:center; display:flex; }
+
+@media (max-width:1280px){
+  .sidebar{ width:150px; }
+  .content-wrap{ left:150px; }
+  .topbar{ padding:12px 16px; gap:8px; }
+  .main{ padding:14px 16px; }
+  .search{ min-width:0; flex:1 1 140px; }
+  .kpi-grid{ grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:8px; }
+  .kpi-value{ font-size:17px; }
+}
+@media (max-width:900px){
+  .sidebar{ width:60px; }
+  .sb-logo .accent, .sb-logo .sub{ display:none; }
+  .sb-nav-item{ justify-content:center; padding:12px; }
+  .sb-nav-item span{ display:none; }
+  .content-wrap{ left:60px; }
+  .hdr-user-name{ display:none; }
+  .topbar .scope{ display:none; }
+}
+@media (max-width:640px){
+  .search{ order:3; flex-basis:100%; }
+  .kpi-grid{ grid-template-columns:repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="login-modal" id="loginModal">
+  <div class="login-card">
+    <div class="brand-lockup">
+      <div class="brand-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21V9l9-6 9 6v12"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg>
+      </div>
+      <div class="mark">NATURISA</div>
+      <div class="sub">Bodega</div>
+    </div>
+    <label>Usuario</label>
+    <input type="text" id="loginUser" autocomplete="username" placeholder="Tu usuario">
+    <label>Contraseña</label>
+    <div class="pass-wrap" style="margin-bottom:14px;">
+      <input type="password" id="loginPass" autocomplete="current-password" placeholder="Tu contraseña"
+        onkeydown="if(event.key==='Enter') document.getElementById('loginBtn').click()">
+      <button type="button" class="pass-toggle" id="passToggle" title="Mostrar contraseña" aria-label="Mostrar contraseña">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+    <button class="btn login-submit" id="loginBtn">Ingresar</button>
+    <div class="status" id="loginStatus"></div>
+  </div>
+</div>
+
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="accent">NATURISA</div>
+    <div class="sub">Bodega</div>
+  </div>
+  <nav class="sb-nav" id="tabs">
+    <button class="sb-nav-item active" data-sec="bal">
+      <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h12l-1 4 2 12H5L7 8z"/><path d="M7 8h10"/></svg>
+      <span>Balanceado</span>
+    </button>
+    <button class="sb-nav-item" data-sec="islas">
+      <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="1"/><path d="M3 11h18M8 7V4h8v3"/></svg>
+      <span>Reporte</span>
+    </button>
+    <button class="sb-nav-item" data-sec="plan">
+      <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+      <span>Planificado</span>
+    </button>
+    <button class="sb-nav-item" data-sec="sug">
+      <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h13v10H3z"/><path d="M16 10h4l1 3v4h-5"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+      <span>Sugerido ingreso</span>
+    </button>
+    <button class="sb-nav-item" data-sec="config">
+      <svg class="sb-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Configuración</span>
+    </button>
+  </nav>
+  <div class="sb-footer">
+    <button class="hdr-user-btn" id="userBtn">
+      <div class="hdr-user-av" id="userAv">?</div>
+      <div class="hdr-user-name" id="userName">Usuario</div>
+    </button>
+    <div class="hdr-user-dd" id="userDd">
+      <div class="hdr-dd-head" id="userFullName">Usuario</div>
+      <button class="hdr-dd-item danger" id="logoutBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+        Cerrar sesión
+      </button>
+    </div>
+  </div>
+</aside>
+
+<div class="content-wrap">
+  <div class="topbar">
+    <div>
+      <h1 id="viewTitle">Balanceado por bodega</h1>
+      <div class="scope" id="scopeSub">Saldos SAP (libre utilización) en vivo</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="seg solo-rep" id="sectorSeg">
+      <button data-sector="" class="active">Todos</button>
+      <button data-sector="Acopios">Acopios</button>
+      <button data-sector="Islas">Islas</button>
+      <button data-sector="Isla Josefina">Isla Josefina</button>
+      <button data-sector="Continente">Continente</button>
+    </div>
+    <button class="btn wa solo-rep" id="waBtn" disabled title="Copia la tabla que estás viendo como imagen para pegarla en WhatsApp con Ctrl+V · clic derecho: vista previa y descargar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.08 1.76-.72 2.01-1.42.25-.7.25-1.29.17-1.42-.07-.12-.27-.2-.57-.35zM12.04 21.5h-.01a9.45 9.45 0 0 1-4.82-1.32l-.35-.21-3.58.94.96-3.49-.23-.36a9.43 9.43 0 0 1-1.45-5.04c0-5.22 4.25-9.47 9.48-9.47a9.4 9.4 0 0 1 6.7 2.78 9.4 9.4 0 0 1 2.77 6.7c0 5.23-4.25 9.47-9.47 9.47zm8.06-17.53A11.34 11.34 0 0 0 12.04.63C5.76.63.65 5.74.65 12.02c0 2.01.52 3.97 1.52 5.7L.55 23.62l6.04-1.58a11.36 11.36 0 0 0 5.44 1.39h.01c6.28 0 11.39-5.11 11.39-11.39 0-3.04-1.18-5.9-3.33-8.05z"/></svg>
+      Copiar para WhatsApp
+    </button>
+    <div class="seg solo-islas" id="islasVistaSeg">
+      <button data-iv="resumen" class="active">Resumen</button>
+      <button data-iv="detalle">Detalle</button>
+    </div>
+    <div class="seg solo-plan" id="planUnidadSeg">
+      <button data-pu="sacos" class="active">Sacos</button>
+      <button data-pu="kg">Kg</button>
+    </div>
+    <div class="seg solo-bal" id="vistaSeg">
+      <button data-vista="bodegas" class="active">Resumen</button>
+      <button data-vista="detalle">Detalle</button>
+    </div>
+    <select class="sel solo-bal solo-plan" id="campSel"><option value="">Todos los campamentos</option></select>
+    <div class="search solo-bal solo-plan">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="q" placeholder="Buscar bodega, producto o código">
+    </div>
+    <button class="btn ghost" id="refreshBtn" title="Actualiza stock, saldos y plan · Shift+clic: recarga todo (catálogo incluido)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Actualizar
+    </button>
+    <button class="btn" id="exportBtn" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+      Excel
+    </button>
+  </div>
+
+  <div class="main">
+    <div class="kpi-grid" id="kpis"></div>
+
+    <div class="view active" id="view-bodegas">
+      <div class="panel">
+        <div class="table-wrap" id="tblBodegas"></div>
+      </div>
+    </div>
+
+    <div class="view" id="view-detalle">
+      <div class="panel">
+        <div class="table-wrap" id="tblDetalle"></div>
+      </div>
+    </div>
+
+    <div class="view" id="view-islas">
+      <div class="panel">
+        <div class="table-wrap" id="tblIslas"></div>
+        <div class="panel-foot code" id="islasNota"></div>
+      </div>
+    </div>
+
+    <div class="view" id="view-plan">
+      <div class="panel">
+        <div class="table-wrap" id="tblPlan"></div>
+        <div class="panel-foot code" id="planNota"></div>
+      </div>
+    </div>
+
+    <div class="view" id="view-sug">
+      <div class="panel">
+        <div class="panel-head">
+          <div style="display:flex; align-items:center; gap:12px">
+            <h2>Ingreso sugerido por día</h2>
+            <div class="seg" id="sugVistaSeg"><button data-sv="matriz" class="active">Resumen</button><button data-sv="lista">Detalle</button></div>
+          </div>
+          <div class="sug-cfg">
+            <label title="Si el stock al cierre del día cubre menos de estos días del plan, se sugiere ingreso">Cobertura mínima <input type="number" id="sugMin" min="0.5" step="0.5"> días</label>
+            <label title="El ingreso sugerido lleva el stock a estos días del plan">Objetivo <input type="number" id="sugObj" min="1" step="0.5"> días</label>
+            <label title="Redondea el sugerido a pallets completos de 66 sacos"><input type="checkbox" id="sugPallet"> Pallets completos</label>
+            <button class="btn ghost" id="sugReset" disabled>Sin ediciones</button>
+          </div>
+        </div>
+        <div class="table-wrap" id="tblSug"></div>
+        <div class="panel-foot code" id="sugNota"></div>
+      </div>
+    </div>
+
+    <div class="view" id="view-config">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Parámetros de las bodegas de balanceado</h2>
+          <div style="display:flex; align-items:center; gap:10px">
+            <span class="hint">Capacidad en pallets (66 sacos), montacargas, sector y notas · se guardan con tu usuario AP1</span>
+            <button class="btn" id="cfgGuardarTodo" disabled>Sin cambios</button>
+          </div>
+        </div>
+        <div class="table-wrap" id="tblConfig"></div>
+      </div>
+    </div>
+
+    <div class="view" id="view-productos">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Productos con stock</h2>
+          <span class="hint" id="hintProductos"></span>
+        </div>
+        <div class="table-wrap" id="tblProductos"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<div class="wa-modal" id="waModal">
+  <div class="wa-card">
+    <div class="wa-head">
+      <b>Imagen del reporte</b>
+      <button class="drawer-close" id="waCerrar" aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="wa-prev" id="waPrev"><div class="loading"><div class="spinner"></div>Generando imagen…</div></div>
+    <div class="wa-pie">
+      <span class="code" id="waMsg">Copia la imagen y pégala con Ctrl+V, o descárgala.</span>
+      <div class="wa-acc">
+        <button class="btn ghost" id="waTexto">Enviar como texto</button>
+        <button class="btn ghost" id="waDescargar" disabled>Descargar imagen</button>
+        <button class="btn" id="waCopiar" disabled>Copiar imagen</button>
+      </div>
+    </div>
+  </div>
+</div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div>
+      <div class="ttl" id="dTitle"></div>
+      <div class="code" id="dSub"></div>
+    </div>
+    <button class="drawer-close" id="dClose" aria-label="Cerrar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="drawer-sum" id="dSum"></div>
+  <div class="drawer-body" id="dBody"></div>
+</aside>
+
+<script>
+// ── Origen de datos ──
+// Portal de requisiciones (mismo token del login AP1). Ver inventario-laboratorios/reporte_inventario.py.
+// En localhost pasa por comun/server.py (/bff/* → gateway) para evitar CORS.
+const LOCAL = window.location.hostname === 'localhost';
+// Fuera de localhost (GitHub Pages) se pasa por el proxy transparente del Worker: el login de AP1 no acepta CORS desde github.io
+const GATEWAY = LOCAL ? '' : 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const AUTH_URL = GATEWAY + '/bff/web/ap1/security/api/auth';
+const PORTAL = GATEWAY + '/bff/web/portal/backoffice/api';
+const AP1 = GATEWAY + '/bff/web/ap1/backoffice/api';
+const FEED = GATEWAY + '/bff/mobile/feedcontrol/balanceado/api';
+// Worker (D1): parámetros de bodega. Para probar contra uno local:
+// ?worker=http://localhost:8787 o localStorage.bodega_worker = 'http://localhost:8787'
+const WORKER = new URLSearchParams(location.search).get('worker')
+  || (() => { try{ return localStorage.getItem('bodega_worker'); }catch(e){ return null; } })()
+  || 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const CODE_APP = '55ab9cb4-c887-4f42-98ec-b90470be6613';
+
+// Clasificación del catálogo SAP:
+//   Balanceado = itemTypeId 1 (ZBAL) → grupo 97 Camaronera, 98 Laboratorio, 191 Finca
+//   Insumos    = itemTypeId 18 (ZINP Insumos de producción) → fertilizantes, químicos, probióticos…
+//   (la sección Insumos está apagada por ahora: solo se trabaja con balanceado)
+// Por ahora no se trabaja con laboratorios: fuera las bodegas de Larviquest (sucursales 23-26) y los
+// insumos/químicos de laboratorio (grupo 115). El balanceado NO se filtra por grupo: en SAP productos
+// de camaronera aparecen en "Balanceado Laborator" (98), p. ej. Haid Speed Pro (oct-2026).
+const SECCIONES = { bal: { nombre: 'Balanceado' }, ins: { nombre: 'Insumos' } };
+const SECCIONES_ACTIVAS = ['bal'];
+const GRUPOS_LAB = [115];
+function seccion(item){
+  if(GRUPOS_LAB.includes(item.itemGroupId)) return null;
+  if(item.itemTypeId === 1) return 'bal';
+  if(item.itemTypeId === 18) return 'ins';
+  return null;
+}
+const seccionActiva = item => SECCIONES_ACTIVAS.includes(seccion(item));
+// Unidad base SAP → kg o L (lo demás se deja tal cual)
+const UNIDAD = { KG:['kg',1], KGS:['kg',1], G:['kg',.001], GR:['kg',.001], LB:['kg',.45359237],
+                 L:['L',1], LT:['L',1], ML:['L',.001], GAL:['L',3.78541], GLN:['L',3.78541] };
+function normalizar(qty, um){
+  const u = UNIDAD[String(um||'').trim().toUpperCase()];
+  return u ? { qty: qty*u[1], um: u[0] } : { qty, um: um || '' };
+}
+// Los nombres de grupo SAP vienen en mayúsculas o mezclados ("BALANCEADO FINCA")
+const titulo = s => String(s||'').toLowerCase().replace(/(^|[\s/.(])\p{L}/gu, m => m.toUpperCase());
+const SUCURSALES_LAB = [23, 24, 25, 26];   // Larviquest 1-4
+// Bodegas XX09 (Producción / muro) no se muestran
+const excluirBodega = code => /09$/.test(code);
+
+const CACHE_KEY = 'bodega_catalogo_v12';
+const CACHE_HORAS = 12;
+
+// ── Estado ──
+let STOCK = [];        // [{sec, codigoSap, producto, qty (SAP kg), ap1 (kg | null si la bodega no está en AP1), bodega}]
+let FECHA_AP1 = null, PERIODO_CONSUMO = '', BODEGAS_POR_CODIGO = {};
+let sec = 'bal', vista = 'bodegas', camp = '', q = '';
+let cargando = false;
+
+// ── Login con usuario AP1 (mismo esquema que los demás dashboards) ──
+function getToken(){ return localStorage.getItem('nat_token') || ''; }
+
+function applyLoginUI(on, nombre){
+  document.getElementById('loginModal').style.display = on ? 'none' : 'flex';
+  if(on){
+    const words = (nombre||'').split(' ').filter(Boolean);
+    const firstName = words[0] || '';
+    const firstLast = words[Math.floor(words.length/2)] || '';
+    const shortName = firstLast ? `${firstName} ${firstLast}` : firstName;
+    document.getElementById('userAv').textContent = `${firstName[0]||''}${firstLast[0]||''}`.toUpperCase();
+    document.getElementById('userName').textContent = shortName || 'Usuario';
+    document.getElementById('userFullName').textContent = nombre || 'Usuario';
+  }
+}
+
+async function doLogin(){
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
+  const status = document.getElementById('loginStatus');
+  const btn = document.getElementById('loginBtn');
+  if(!user || !pass){ status.textContent = 'Ingresa usuario y contraseña'; return; }
+  btn.textContent = 'Ingresando…'; btn.disabled = true; status.textContent = '';
+  try{
+    const res = await fetch(AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/plain, */*' },
+      body: JSON.stringify({ userName: user, password: pass, codeApplication: CODE_APP, includeUserInfo: true })
+    });
+    const json = await res.json();
+    if(json.code === 200 && json.data?.token){
+      localStorage.setItem('nat_token', json.data.token);
+      localStorage.setItem('nat_user', user);
+      const u = json.data.usuario;
+      const fullName = u ? `${u.firstNames} ${u.lastNames}`.trim() : user;
+      localStorage.setItem('nat_name', fullName);
+      applyLoginUI(true, fullName);
+      cargar();
+    } else {
+      status.textContent = 'Usuario o contraseña incorrectos';
+    }
+  }catch(e){
+    status.textContent = 'Error de conexión: '+e.message;
+  }finally{
+    btn.textContent = 'Ingresar'; btn.disabled = false;
+  }
+}
+function logout(){
+  localStorage.removeItem('nat_token');
+  localStorage.removeItem('nat_user');
+  localStorage.removeItem('nat_name');
+  applyLoginUI(false);
+}
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('passToggle').addEventListener('click', ()=>{
+  const input = document.getElementById('loginPass');
+  input.type = input.type === 'text' ? 'password' : 'text';
+});
+document.getElementById('logoutBtn').addEventListener('click', logout);
+document.getElementById('userBtn').addEventListener('click', e=>{
+  e.stopPropagation();
+  document.getElementById('userDd').classList.toggle('open');
+});
+document.addEventListener('click', ()=> document.getElementById('userDd').classList.remove('open'));
+
+// ── API ──
+class SesionVencida extends Error {}
+// El gateway devuelve 500 de vez en cuando: se reintenta hasta 3 veces antes de fallar.
+const espera = ms => new Promise(r => setTimeout(r, ms));
+async function apiGet(url, opts = {}){
+  const nombre = url.split('?')[0].split('/api/').pop();
+  for(let intento = 1; ; intento++){
+    let res;
+    try{
+      res = await fetch(url, {
+        ...opts,
+        headers: { Accept: 'application/json', Authorization: 'Bearer ' + getToken(),
+                   ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+      });
+    }catch(e){
+      if(intento < 3){ await espera(1000 * intento * intento); continue; }
+      throw new Error(`${nombre} → ${e.message}`);
+    }
+    if(res.status === 401 || res.status === 403) throw new SesionVencida('Sesión vencida');
+    if(res.status >= 500 && intento < 3){ await espera(1000 * intento * intento); continue; }
+    if(!res.ok) throw new Error(`${nombre} → HTTP ${res.status}`);
+    return res.json();
+  }
+}
+// Ejecuta las tareas con a lo sumo n en paralelo (para no saturar AP1)
+async function enParalelo(tareas, n = 5){
+  const out = new Array(tareas.length); let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, tareas.length) }, async () => {
+    while(i < tareas.length){ const k = i++; out[k] = await tareas[k](); }
+  }));
+  return out;
+}
+const api = (path, opts) => apiGet(PORTAL + path, opts);
+const lista = j => Array.isArray(j?.data) ? j.data : (j?.data?.data || []);
+const normNombre = s => String(s||'').toLowerCase().replace(/\s+/g, ' ').trim();
+
+function leerCache(){
+  try{
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    if(c && Date.now() - c.ts < CACHE_HORAS*3600e3 && c.items?.length && c.bodegas?.length && c.ap1Subs?.length && c.codigoPorIdWh) return c;
+  }catch(e){}
+  return null;
+}
+function guardarCache(c){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify(c)); }catch(e){}
+}
+
+// Caché del día: datos que no cambian hasta mañana (consumo de días cerrados, real de semanas pasadas,
+// abastecimiento). Se guardan con la fecha en la clave; al cambiar el día se descartan.
+const PREFIJO_DIA = 'bodega_dia_';
+async function cacheDia(nombre, fn, forzar){
+  const clave = `${PREFIJO_DIA}${nombre}_${fechaISO(new Date())}`;
+  if(!forzar){
+    try{ const v = localStorage.getItem(clave); if(v) return JSON.parse(v); }catch(e){}
+  }
+  const datos = await fn();
+  try{
+    for(let i = localStorage.length - 1; i >= 0; i--){
+      const k = localStorage.key(i);
+      if(k && k.startsWith(`${PREFIJO_DIA}${nombre}_`) && k !== clave) localStorage.removeItem(k);
+    }
+    localStorage.setItem(clave, JSON.stringify(datos));
+  }catch(e){}
+  return datos;
+}
+
+// Catálogo: el endpoint /item ignora filtros y paginación, hay que traerlo completo (~19k, ~16 s)
+// y quedarse con balanceado. Se cachea porque cambia poco.
+// De AP1 salen: bodegas (código SAP → campamento), campamentos y productos (id AP1 → código SAP).
+async function cargarCatalogo(forzar){
+  const cache = forzar ? null : leerCache();
+  if(cache) return cache;
+  setLoading('Descargando catálogo de artículos y bodegas (SAP y AP1)… (la primera vez tarda ~20 s)');
+  const [jItems, jWh, jGrupos, jAp1Wh, jAp1Subs, jAp1Prod] = await Promise.all([
+    api('/item?companyId=3&PageSize=50000'),
+    api('/warehouse?PageSize=1000'),
+    api('/item_group?PageSize=1000'),
+    apiGet(AP1 + '/warehouses?warehouseTypeCodes=21&warehouseTypeCodes=22&warehouseTypeCodes=23&status=ACTIVO&pageSize=1000'),
+    apiGet(AP1 + '/subsidiaries?pageSize=1000'),
+    apiGet(AP1 + '/products?pageSize=1000'),
+  ]);
+  const nombreGrupo = Object.fromEntries(lista(jGrupos).map(g => [g.idItemGroup, titulo(g.name)]));
+  const items = lista(jItems)
+    .filter(i => i.status === 'ACTIVO' && String(i.codeSap||'').trim() && seccionActiva(i))
+    .map(i => ({ id:i.idItem, codigoSap:String(i.codeSap).trim(), nombre:String(i.name||'').trim(),
+                 um:i.baseUnitMsrAb, sec:seccion(i), grupoId:i.itemGroupId,
+                 grupo:nombreGrupo[i.itemGroupId] || `Grupo ${i.itemGroupId}` }));
+
+  const ap1Subs = lista(jAp1Subs)
+    .filter(s => s.status === 'ACTIVO' && !SUCURSALES_LAB.includes(s.idSubsidiary))
+    .map(s => ({ id:s.idSubsidiary, nombre:String(s.name||'').trim() }));
+  const nombreSub = Object.fromEntries(ap1Subs.map(s => [s.id, s.nombre]));
+  // En AP1 cada campamento tiene una bodega de balanceado (XX01, acopios AN01/AR01, matriz NM01)
+  const ap1SubPorCodigo = {}, acopios = new Set();
+  for(const w of lista(jAp1Wh)) if(w.code && !excluirBodega(w.code)){
+    ap1SubPorCodigo[w.code] = w.subsidiaryId;
+    if(w.warehouseTypeId === 29) acopios.add(w.code);   // BA Pesjoya, BA Rio Nilo, Matriz Naturisa
+  }
+  const ap1ProdSap = Object.fromEntries(lista(jAp1Prod).filter(p => p.codeSap).map(p => [p.idItem, String(p.codeSap).trim()]));
+
+  const activas = lista(jWh).filter(w => w.status === 'ACTIVO' && w.code && !excluirBodega(w.code) && !SUCURSALES_LAB.includes(w.branchOfficeId));
+  // Respaldo para bodegas que no están en AP1: las "BF/BM/BA <Campamento>" traen el nombre
+  const campPorSucursal = {};
+  for(const w of activas){
+    const m = /^(BF|BM|BA)\s+(.+)$/.exec(w.name || '');
+    if(m && !campPorSucursal[w.branchOfficeId]) campPorSucursal[w.branchOfficeId] = m[2].trim();
+    else if(w.warehouseTypeId === 29 && !campPorSucursal[w.branchOfficeId]) campPorSucursal[w.branchOfficeId] = w.name;
+  }
+  // El saldo es por código de almacén; varias filas del portal comparten código (p. ej. LA01 =
+  // "LA Balanceado" y "BF Lanconor"). Se deja una por código, prefiriendo la de nombre "XX Balanceado/
+  // Insumos/Producción" (tipos 1, 3, 10).
+  const porCodigo = {};
+  for(const w of activas){
+    const prev = porCodigo[w.code];
+    const pref = [1,3,10].includes(w.warehouseTypeId);
+    if(!prev || (pref && !prev.pref)) porCodigo[w.code] = { pref, w };
+  }
+  const bodegas = Object.values(porCodigo).map(({ w }) => {
+    const ap1Sub = ap1SubPorCodigo[w.code] ?? null;
+    return {
+      id: w.idWarehouse, code: w.code, name: String(w.name||'').trim(), companyId: w.companyId, centerId: w.centerId,
+      ap1Sub, acopio: acopios.has(w.code), sucursal: w.branchOfficeId,
+      campamento: nombreSub[ap1Sub ?? w.branchOfficeId] || campPorSucursal[w.branchOfficeId] || String(w.name||'').trim(),
+    };
+  });
+  // Los despachos de proveedor (supplier_transfer) traen el id de bodega destino, que puede ser cualquiera de
+  // las filas del portal que comparten código (p. ej. 608 "BF Lanconor" = LA01)
+  const codigoPorIdWh = {};
+  for(const w of [...lista(jWh), ...lista(jAp1Wh)]) if(w.idWarehouse && w.code) codigoPorIdWh[w.idWarehouse] = w.code;
+  const c = { ts: Date.now(), items, bodegas, ap1Subs, ap1ProdSap, codigoPorIdWh };
+  guardarCache(c);
+  return c;
+}
+
+async function cargarStock(items, todas){
+  // El balanceado solo se guarda en las bodegas de balanceado que maneja AP1 (XX01, acopios AN01/AR01, matriz NM01):
+  // consultar las ~370 bodegas SAP era 15 veces más lento sin aportar nada.
+  const bodegas = todas.filter(b => b.ap1Sub != null);
+  // Cada consulta debe llevar bodegas de un solo centro SAP: si se mezclan centros el portal
+  // devuelve 0 en silencio para casi todas. Por eso los lotes se arman por empresa+centro.
+  const porCentro = new Map();
+  for(const b of bodegas){
+    const k = `${b.companyId}-${b.centerId}`;
+    if(!porCentro.has(k)) porCentro.set(k, []);
+    porCentro.get(k).push(b);
+  }
+  const LOTE = 5000;
+  const lotes = [];
+  for(const grupo of porCentro.values()){
+    const pares = [];
+    for(const it of items) for(const b of grupo) pares.push({ it, b });
+    for(let k = 0; k < pares.length; k += LOTE) lotes.push(pares.slice(k, k + LOTE));
+  }
+  let hechos = 0;
+  avance('SAP stock', 0, lotes.length);
+  // La respuesta no trae el almacén: viene en el mismo orden que la consulta.
+  const resultados = await Promise.all(lotes.map(async lote => {
+    const j = await api('/item/stock', { method:'POST',
+      body: JSON.stringify(lote.map(p => ({ itemId:p.it.id, warehouseId:p.b.id, warehouseCode:p.b.code }))) });
+    hechos++;
+    avance('SAP stock', hechos, lotes.length);
+    const data = j?.data || [];
+    return lote.map((p, i) => ({ p, z: data[i] }));
+  }));
+  const out = [];
+  for(const r of resultados) for(const { p, z } of r){
+    if(!z || !z.quantity) continue;
+    if(z.itemId !== p.it.id) throw new Error('El portal devolvió los saldos en otro orden');
+    const n = normalizar(z.quantity, p.it.um);
+    out.push({ sec:p.it.sec, grupoId:p.it.grupoId, grupo:p.it.grupo, codigoSap:p.it.codigoSap, producto:p.it.nombre,
+               qty:n.qty, um:n.um, ap1:null, bodega:p.b });
+  }
+  return out;
+}
+
+// ── Saldo Bodega de AP1 (feedcontrol feeding_general, businessTypes=WarehouseBalance) ──
+// Viene por campamento; con groupBy=product da el detalle por tipo de balanceado, pero solo
+// respeta un groupBy: se pide el total por campamento y luego el detalle de cada uno con saldo.
+const fechaISO = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+async function saldoAp1(fecha, subIds, groupBy){
+  const p = new URLSearchParams({ initDate:fecha, endDate:fecha, timeGranularity:'day', valueOptions:'kg',
+                                  businessTypes:'WarehouseBalance', groupBy, PageSize:'1000' });
+  for(const s of subIds) p.append('subsidiaryIds', s);
+  return lista(await apiGet(`${FEED}/report/feeding_general?${p}`));
+}
+async function cargarAp1(ap1Subs){
+  avance('AP1 saldo', 0, 1);
+  const ids = ap1Subs.map(s => s.id);
+  let fecha = new Date(), totales = await saldoAp1(fechaISO(fecha), ids, 'subsidiary');
+  if(!totales.length){   // temprano en el día puede no haber corte todavía
+    fecha = new Date(Date.now() - 864e5);
+    totales = await saldoAp1(fechaISO(fecha), ids, 'subsidiary');
+  }
+  const conSaldo = totales.filter(t => t.kilograms).map(t => t.groupKey);
+  const detalle = await enParalelo(conSaldo.map(sub => async () =>
+    (await saldoAp1(fechaISO(fecha), [sub], 'product')).map(r => ({ sub, productoId:r.groupKey, producto:r.groupValue, kg:r.kilograms }))));
+  return { fecha, filas: detalle.flat() };
+}
+
+// Consumo de AP1 (Consumption = consumo tolva + voleo) de los últimos DIAS_CONSUMO días completos
+// (hasta ayer), por campamento y tipo de balanceado. Una llamada por campamento con groupBy=product.
+const DIAS_CONSUMO = 15;
+async function cargarConsumo(ap1Subs){
+  const fin = new Date(Date.now() - 864e5), ini = new Date(fin.getTime() - (DIAS_CONSUMO - 1) * 864e5);
+  const consulta = async sub => {
+    const p = new URLSearchParams({ initDate:fechaISO(ini), endDate:fechaISO(fin), timeGranularity:'day', valueOptions:'kg',
+                                    businessTypes:'Consumption', groupBy:'product', PageSize:'5000' });
+    p.append('subsidiaryIds', sub);
+    const filas = lista(await apiGet(`${FEED}/report/feeding_general?${p}`));
+    // Viene un registro por día y producto: se suma el periodo
+    const porProd = new Map(), desde7 = fechaISO(new Date(fin.getTime() - 6 * 864e5));
+    for(const r of filas){
+      const x = porProd.get(r.groupKey) || { sub, productoId:r.groupKey, producto:r.groupValue, kg:0, kg7:0 };
+      x.kg += r.kilograms;
+      if(String(r.periodStart).slice(0, 10) >= desde7) x.kg7 += r.kilograms;
+      porProd.set(r.groupKey, x);
+    }
+    return [...porProd.values()];
+  };
+  const res = await enParalelo(ap1Subs.map(s => () => consulta(s.id)));
+  return { ini:fechaISO(ini), fin:fechaISO(fin), filas: res.flat() };
+}
+
+// Qué bodega abastece a cada campamento: AP1 "Egreso a Muro" (DistributedWall) agrupado por destino,
+// consultado desde cada campamento origen. Varios campamentos no tienen bodega propia y su balanceado
+// sale de la bodega de otro (p. ej. Naturisa → Maricultura, Kamaclusa; Marchena → Camino Real, Biorey;
+// Fincacua → Acualit 2). Devuelve { destinoSub: origenSub } con el origen que más entregó en 30 días.
+async function cargarAbastecimiento(ap1Subs){
+  const fin = new Date(Date.now() - 864e5), ini = new Date(fin.getTime() - 29 * 864e5);
+  const consulta = async sub => {
+    const p = new URLSearchParams({ initDate:fechaISO(ini), endDate:fechaISO(fin), timeGranularity:'day', valueOptions:'kg',
+                                    businessTypes:'DistributedWall', groupBy:'destination', PageSize:'5000' });
+    p.append('subsidiaryIds', sub);
+    return lista(await apiGet(`${FEED}/report/feeding_general?${p}`)).map(r => ({ origen:sub, destino:r.groupKey, kg:r.kilograms }));
+  };
+  const filas = (await enParalelo(ap1Subs.map(s => () => consulta(s.id)))).flat();
+  const kg = {};
+  for(const r of filas) (kg[r.destino] ??= {})[r.origen] = ((kg[r.destino] ??= {})[r.origen] || 0) + r.kg;
+  const origenDe = {};
+  for(const [d, porOrigen] of Object.entries(kg)){
+    const [o] = Object.entries(porOrigen).sort((a, b) => b[1] - a[1])[0];
+    origenDe[d] = Number(o);
+  }
+  return origenDe;
+}
+
+// Cruza AP1 (saldo y consumo) con SAP por bodega (código ↔ campamento AP1) y tipo de balanceado.
+// El consumo de cada campamento se carga a la bodega que lo abastece (abastecimiento); si no se sabe,
+// a su propia bodega, y si no tiene, a una bodega "Sin bodega propia".
+function cruzarAp1(stock, ap1, consumo, items, bodegas, ap1ProdSap, ap1Subs, abastecimiento = {}){
+  const itemPorSap = Object.fromEntries(items.map(i => [i.codigoSap, i]));
+  const itemPorNombre = Object.fromEntries(items.map(i => [normNombre(i.nombre), i]));
+  const nombreSub = Object.fromEntries(ap1Subs.map(s => [s.id, s.nombre]));
+  const bodegaPorSub = {};
+  for(const b of bodegas) if(b.ap1Sub != null) bodegaPorSub[b.ap1Sub] = b;
+  const sinBodega = {};
+  const bodegaDe = sub => bodegaPorSub[sub] || (sinBodega[sub] ??= {
+    code:`SB-${sub}`, name:'Sin bodega propia', campamento:nombreSub[sub] || `Campamento ${sub}`, ap1Sub:null, sinBodega:true });
+  // Bodegas que AP1 controla: lo que no tenga saldo AP1 cuenta como 0
+  for(const f of stock){ f.cons = 0; f.cons7 = 0; if(f.bodega.ap1Sub != null) f.ap1 = 0; }
+  const idx = new Map(stock.map(f => [`${f.bodega.code}|${f.codigoSap}`, f]));
+  const fila = (b, r) => {
+    const item = itemPorSap[ap1ProdSap[r.productoId]] || itemPorNombre[normNombre(r.producto)];
+    const codigo = item?.codigoSap || `AP1-${r.productoId}`;
+    const k = `${b.code}|${codigo}`;
+    let f = idx.get(k);
+    if(!f){
+      f = { sec:'bal', grupoId:item?.grupoId ?? null, grupo:item?.grupo || 'Balanceado', codigoSap:item?.codigoSap || '',
+            producto:item?.nombre || r.producto, qty:0, um:'kg', ap1:b.ap1Sub != null ? 0 : null, cons:0, cons7:0, bodega:b };
+      idx.set(k, f); stock.push(f);
+    }
+    return f;
+  };
+  for(const r of ap1.filas){
+    const b = bodegaPorSub[r.sub];
+    if(!b){ console.warn('Campamento AP1 con saldo sin bodega SAP:', r.sub); continue; }
+    fila(b, r).ap1 += r.kg;
+  }
+  for(const b of bodegas) b.abastece = [];
+  for(const r of consumo.filas) if(r.kg){
+    const origen = abastecimiento[r.sub];
+    const b = (origen != null && bodegaPorSub[origen]) || bodegaDe(r.sub);
+    if(!b.sinBodega && b.ap1Sub !== r.sub){
+      const nombre = nombreSub[r.sub] || `Campamento ${r.sub}`;
+      if(!b.abastece.includes(nombre)) b.abastece.push(nombre);
+    }
+    const f = fila(b, r); f.cons += r.kg / DIAS_CONSUMO; f.cons7 += r.kg7 || 0;
+  }
+  for(const b of bodegas) b.abastece.sort((x, y) => x.localeCompare(y, 'es'));
+  return stock;
+}
+
+// Progreso de la carga: un resumen de los pasos en curso en lugar del último mensaje
+const PASOS = {};
+function avance(paso, hechos, total){
+  PASOS[paso] = { hechos, total };
+  const txt = Object.entries(PASOS).map(([p, v]) => `${p} ${v.hechos >= v.total ? '✓' : `${v.hechos}/${v.total}`}`).join(' · ');
+  setLoading(`Cargando… ${txt}`);
+}
+const conAvance = (paso, promesa) => { avance(paso, 0, 1); return promesa.then(r => { avance(paso, 1, 1); return r; }); };
+
+async function cargar(forzar = false){
+  if(cargando) return;
+  cargando = true;
+  document.getElementById('refreshBtn').disabled = true;
+  document.getElementById('exportBtn').disabled = true;
+  try{
+    const { items, bodegas, ap1Subs, ap1ProdSap, codigoPorIdWh } = await cargarCatalogo(forzar);
+    for(const k in PASOS) delete PASOS[k];
+    // Si AP1 falla (después de los reintentos) igual se muestran los saldos SAP
+    const errAp1 = [];
+    const opcional = (p, que) => p.catch(e => { if(e instanceof SesionVencida) throw e; errAp1.push(`${que}: ${e.message}`); return null; });
+    const [stock, ap1, consAbast, params, planCrudo, ingresos] = await Promise.all([
+      cargarStock(items, bodegas), opcional(conAvance('AP1 saldo', cargarAp1(ap1Subs)), 'saldo AP1'),
+      opcional(conAvance('AP1 consumo', Promise.all([cacheDia('consumo', () => cargarConsumo(ap1Subs), forzar),
+                            cacheDia('abastecimiento', () => cargarAbastecimiento(ap1Subs), forzar)])), 'consumo AP1'),
+      cargarParametros().catch(e => { console.warn(e); return {}; }),
+      opcional(conAvance('AP1 plan', cargarPlan(ap1Subs, forzar)), 'planificado AP1'),
+      opcional(conAvance('AP1 ingresos', cargarPorIngresar()), 'despachos de proveedor')]);
+    PARAMS = params;
+    const [consumo, abastecimiento] = consAbast || [null, {}];
+    BODEGAS_POR_CODIGO = Object.fromEntries(bodegas.map(b => [b.code, b]));
+    STOCK = cruzarAp1(stock, ap1 || { filas:[] }, consumo || { filas:[] }, items, bodegas, ap1ProdSap, ap1Subs, abastecimiento);
+    PLAN = planCrudo ? completarPlanConStock(agregarIngresos(armarPlan(planCrudo, items, bodegas, ap1ProdSap, ap1Subs, abastecimiento),
+      ingresos || [], items, codigoPorIdWh)) : null;
+    PLAN_IDX = null;
+    prepararPlan();
+    if(!ap1) for(const f of STOCK) f.ap1 = null;
+    FECHA_AP1 = ap1?.fecha || null;
+    const fechaTxt = f => new Date(f + 'T00:00:00').toLocaleDateString('es-EC', { day:'2-digit', month:'2-digit' });
+    PERIODO_CONSUMO = consumo ? `${fechaTxt(consumo.ini)}–${fechaTxt(consumo.fin)}` : '';
+    llenarFiltros();
+    const ahora = new Date();
+    document.getElementById('scopeSub').innerHTML = esc(
+      `SAP libre utilización en vivo · ${FECHA_AP1 ? `AP1 Saldo Bodega al ${FECHA_AP1.toLocaleDateString('es-EC')}` : 'sin saldo AP1'} · ` +
+      `${consumo ? `consumo promedio ${DIAS_CONSUMO} días (${PERIODO_CONSUMO})` : 'sin consumo AP1'} · actualizado ${ahora.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})}`) +
+      (errAp1.length ? ` · <span class="err" title="${esc(errAp1.join(' | '))}">AP1 no respondió, pulsa Actualizar</span>` : '');
+    document.getElementById('exportBtn').disabled = false;
+    document.getElementById('waBtn').disabled = false;
+    render();
+  }catch(e){
+    if(e instanceof SesionVencida){ logout(); document.getElementById('loginStatus').textContent = 'Tu sesión venció, vuelve a ingresar'; }
+    else setLoading('No se pudo cargar: ' + e.message, true);
+  }finally{
+    cargando = false;
+    document.getElementById('refreshBtn').disabled = false;
+  }
+}
+
+function setLoading(msg, error){
+  document.getElementById('kpis').innerHTML = '';
+  const html = error
+    ? `<div class="loading err">${esc(msg)}</div>`
+    : `<div class="loading"><div class="spinner"></div>${esc(msg)}</div>`;
+  document.getElementById('tblBodegas').innerHTML = html;
+  document.getElementById('tblProductos').innerHTML = html;
+  document.getElementById('tblIslas').innerHTML = html;
+  document.getElementById('tblPlan').innerHTML = html;
+  document.getElementById('tblConfig').innerHTML = html;
+}
+
+// ── Helpers ──
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (n, d = 0) => n.toLocaleString('es-EC', { minimumFractionDigits:d, maximumFractionDigits:d });
+function kgTxt(n){
+  if(n == null) return '<span class="zero" title="Bodega no registrada en AP1">n/a</span>';
+  if(!n) return '<span class="zero">—</span>';
+  return `${fmt(n, Math.abs(n) < 10 ? 2 : 0)} <span class="code">kg</span>`;
+}
+const sumSap = filas => filas.reduce((s, f) => s + (f.um === 'kg' ? f.qty : 0), 0);
+function sumAp1(filas){
+  const c = filas.filter(f => f.ap1 != null);
+  return c.length ? c.reduce((s, f) => s + f.ap1, 0) : null;
+}
+// Diferencia SAP − AP1. Menos de 1 saco (25 kg) se considera cuadrado.
+function difTxt(sap, ap1){
+  if(ap1 == null) return '<span class="zero">—</span>';
+  const d = sap - ap1;
+  if(Math.abs(d) < 25) return '<span class="dif ok">✓</span>';
+  return `<span class="dif ${d > 0 ? 'mas' : 'menos'}">${d > 0 ? '+' : '−'}${fmt(Math.abs(d))} <span class="code">kg</span></span>`;
+}
+const abasteceHtml = b => b.abastece?.length ? ` <span class="abast" title="Su consumo se suma a esta bodega">también abastece a ${esc(b.abastece.join(', '))}</span>` : '';
+const sumCons = filas => filas.reduce((s, f) => s + (f.cons || 0), 0);
+// Días de cobertura = saldo SAP ÷ consumo diario. Rojo < 7 días, naranja < 15.
+// Si la bodega entera está en cero (se abastece de un acopio) no se muestran días.
+// Días de inventario: rojo 0–1,59 · naranja 1,60–2,99 · verde 3 o más. Sobre 31 días se muestra "31+".
+const DIAS_TOPE = 31;
+const claseDias = d => d < 1.6 ? 'menos' : d < 3 ? 'mas' : 'ok';
+const textoDias = d => d > DIAS_TOPE ? `${DIAS_TOPE}+` : d < 10 ? fmt(Math.floor(d * 100) / 100, 2) : fmt(Math.floor(d), 0);   // sin redondear hacia arriba: 1,599 es 1,59 (rojo)
+
+function diasTxt(saldo, cons, sinBodega, saldoBodega = saldo){
+  if(!cons || sinBodega) return '<span class="zero">—</span>';
+  if(!saldoBodega) return '<span class="zero">sin saldo</span>';
+  const d = saldo / cons;
+  return `<span class="dias ${claseDias(d)}" title="${fmt(d, 1)} días">${textoDias(d)}</span>`;
+}
+const esSinBodega = filas => filas.every(f => f.bodega.sinBodega);
+const celdas = (filas, saldoBodega) => { const s = sumSap(filas), a = sumAp1(filas), c = sumCons(filas);
+  return `<td class="num g-l g-sal">${kgTxt(s)}</td><td class="num g-sal">${kgTxt(a)}</td><td class="num g-sal">${difTxt(s, a)}</td>` +
+         `<td class="num sep g-l g-con">${kgTxt(c)}</td><td class="num g-con">${diasTxt(s, c, esSinBodega(filas), saldoBodega ?? s)}</td>` +
+         celdasPlan(filas); };
+// Encabezado agrupado de las tablas de Balanceado (Saldo | Consumo | Semana en curso)
+function cabBalanceado(primera, extraIni = '', extraFin = ''){
+  const nIni = (extraIni.match(/<th/g) || []).length, nFin = (extraFin.match(/<th/g) || []).length;
+  return `<thead><tr><th rowspan="2" class="col-p">${primera}</th>${nIni ? `<th rowspan="2" colspan="${nIni}" class="sub"></th>` : ''}
+      <th colspan="3" class="grp g-l g-sal"><div class="g-n">Saldo</div><div class="g-s">SAP en vivo vs AP1</div></th>
+      <th colspan="2" class="grp g-l g-con"><div class="g-n">Consumo</div><div class="g-s">promedio ${DIAS_CONSUMO} días</div></th>
+      <th colspan="1" class="grp g-l g-pla"><div class="g-n">Semana en curso</div><div class="g-s">toca para ver el plan</div></th>
+      ${nFin ? `<th rowspan="2" colspan="${nFin}" class="sub g-l">${extraFin.replace(/<\/?th[^>]*>/g, '')}</th>` : ''}</tr>
+    <tr><th class="num sub g-l g-sal">SAP</th><th class="num sub g-sal">AP1</th><th class="num sub g-sal">Diferencia</th>
+      <th class="num sub g-l g-con">Por día</th><th class="num sub g-con">Días</th>
+      <th class="sub g-l g-pla" title="Día en que se acaba el stock: stock SAP + ingresos pendientes − plan día por día. Tócalo para ver el plan de la semana">Alcanza hasta</th></tr></thead>`;
+}
+const TH_CONS = '<th class="num sep">Consumo/día</th><th class="num">Días</th>' +
+  '<th class="num sep" title="Planificado en AP1 para la semana en curso (en acopios incluye lo que les falta a sus bodegas)">Plan sem. en curso</th>' +
+  '<th title="Día en que se acaba el stock: stock SAP + ingresos pendientes − plan día por día (en la bodega: el primer producto que se acaba)">Alcanza hasta</th>';
+
+// Plan de la semana en curso y alcance para filas de Balanceado (bodega + producto), usando las filas de PLAN
+// Detalle del alcance (plan de la semana, stock, por ingresar) para mostrar al tocar la etiqueta
+function detallePlanTexto(pfs){
+  if(!PLAN || !pfs.length) return '';
+  const act = PLAN.semanas.find(x => x.actual), finAct = fechaISO(act.fin), hoy = fechaISO(new Date());
+  const sum = fn => pfs.reduce((a, f) => a + fn(f), 0);
+  const plan = sum(f => (f.plan[act.key] || 0) + Object.entries(f.demandaDia || {}).filter(([d]) => d >= act.key && d <= finAct).reduce((x, [, kg]) => x + kg, 0));
+  const falta = sum(f => Object.entries(sumarDias2(f.planDia, f.demandaDia)).filter(([d]) => d >= hoy && d <= finAct).reduce((x, [, kg]) => x + kg, 0));
+  const ing = sum(f => (f.ingresos || []).reduce((x, r) => x + r.kg, 0));
+  const stock = sum(f => f.stock || 0);
+  const sac = kg => `${fmt(kg / KG_SACO)} sacos`;
+  const l = [`Plan semana ${act.iso}: ${sac(plan)} (faltan ${sac(falta)} de hoy al domingo)`, `Stock SAP: ${sac(stock)}`];
+  if(ing) l.push(`Por ingresar: ${sac(ing)}`);
+  const cortos = pfs.filter(f => f.alcance?.corto).sort((a, b) => a.alcance.hasta - b.alcance.hasta);
+  if(cortos.length) l.push(`Se acaba el ${ddmm(cortos[0].alcance.hasta)}${pfs.length > 1 ? ` (${nombreCorto(cortos[0].producto)})` : ''}`);
+  else if(pfs.length === 1 && pfs[0].alcance) l.push(`Cubre el plan cargado; sobran ${sac(pfs[0].alcance.sobra)}`);
+  return l.join('\n');
+}
+// Al tocar una etiqueta de alcance se muestra su detalle (en pantallas táctiles no hay "pasar el mouse")
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-plan]');
+  if(!el) return;
+  e.stopPropagation();
+  aviso(el.dataset.plan.replace(/\n/g, ' · '), 9000);
+}, true);
+
+function celdasPlan(filas){
+  if(!PLAN || !PLAN_IDX) return '<td class="g-l g-pla"><span class="zero">—</span></td>';
+  const act = PLAN.semanas.find(x => x.actual), finAct = fechaISO(act.fin);
+  const claves = [...new Set(filas.map(f => `${f.bodega.code}|${f.codigoSap}`))];
+  const pf = claves.map(k => PLAN_IDX.get(k)).filter(Boolean);
+  const plan = pf.reduce((a, f) => a + (f.plan[act.key] || 0)
+    + Object.entries(f.demandaDia || {}).filter(([d]) => d >= act.key && d <= finAct).reduce((x, [, kg]) => x + kg, 0), 0);
+  // el que se acaba primero; si ninguno se acaba, "cubre" (si es un solo producto, con el sobrante)
+  const cortos = pf.filter(f => f.alcance?.corto).sort((a, b) => a.alcance.hasta - b.alcance.hasta);
+  let alc;
+  const unProducto = new Set(pf.map(f => f.codigoSap)).size === 1;
+  if(cortos.length) alc = alcanceHtml(cortos[0].alcance, cortos[0].stock) + (pf.length > 1
+    ? (unProducto ? `<div class="code">en ${esc(cortos[0].bodega.campamento)} (${esc(cortos[0].bodega.code)})</div>`
+                  : `<div class="code" title="${esc(cortos[0].producto)}">${esc(nombreCorto(cortos[0].producto))}</div>`) : '');
+  else if(pf.length === 1) alc = alcanceHtml(pf[0].alcance, pf[0].stock, false);
+  else alc = pf.some(f => f.alcance) ? '<span class="alc ok">cubre</span>' : '<span class="zero">—</span>';
+  const det = detallePlanTexto(pf);
+  return `<td class="g-l g-pla">${det ? `<span class="con-plan" data-plan="${esc(det)}" title="${esc(det)}">${alc}</span>` : alc}</td>`;
+}
+
+// Etapa por tamaño de partícula del nombre (mismo criterio que balanceado_tipos en D1):
+// <=1.2 mm iniciador, >=1.6 mm engorde
+function etapa(f){
+  const m = /(\d+(?:[.,]\d+)?)\s*mm\b/i.exec(f.producto);
+  if(!m) return null;
+  const mm = parseFloat(m[1].replace(',', '.'));
+  if(mm <= 1.2) return { txt:'Iniciador', cls:'ini' };
+  if(mm >= 1.6) return { txt:'Engorde', cls:'eng' };
+  return null;
+}
+const chip = f => { const et = etapa(f); return et ? `<span class="chip ${et.cls}">${et.txt}</span>` : ''; };
+const tituloVista = () => ({ bodegas:'Balanceado por bodega', detalle:'Balanceado por bodega · detalle', productos:'Balanceado por producto' })[vista];
+
+function filtradas(){
+  const t = q.trim().toLowerCase();
+  return STOCK.filter(f =>
+    f.sec === 'bal' &&
+    (!camp || f.bodega.campamento === camp) &&
+    (!islasSector || sectorDe(f.bodega) === islasSector) &&
+    (!t || [f.producto, f.codigoSap, f.bodega.code, f.bodega.name, f.bodega.campamento].some(s => s.toLowerCase().includes(t))));
+}
+
+function llenarFiltros(){
+  const camps = [...new Set(STOCK.filter(f => f.sec === 'bal').map(f => f.bodega.campamento))].sort((a,b) => a.localeCompare(b, 'es'));
+  if(camp && !camps.includes(camp)) camp = '';
+  document.getElementById('campSel').innerHTML = '<option value="">Todos los campamentos</option>' +
+    camps.map(c => `<option${c === camp ? ' selected' : ''}>${esc(c)}</option>`).join('');
+}
+
+// ── Render ──
+function render(){
+  if(sec === 'islas'){ document.getElementById('viewTitle').textContent = 'Reporte de bodegas'; renderIslas(); return; }
+  if(sec === 'plan'){ document.getElementById('viewTitle').textContent = 'Planificado de alimento por semana'; renderPlan(); return; }
+  if(sec === 'config'){ document.getElementById('viewTitle').textContent = 'Configuración'; renderConfig(); return; }
+  if(sec === 'sug'){ document.getElementById('viewTitle').textContent = 'Sugerido de ingreso de balanceado'; renderSugerido(); return; }
+  document.getElementById('viewTitle').textContent = tituloVista();
+  const filas = filtradas();
+  renderKpis(filas);
+  renderBodegas(filas);
+  renderDetalle(filas);
+  prepararImagenWhatsapp();
+}
+
+function renderKpis(filas){
+  const ton = kg => Math.abs(kg) >= 1000 ? `${fmt(kg/1000, 1)} t` : `${fmt(kg, 0)} kg`;
+  const enAp1 = filas.filter(f => f.ap1 != null);
+  const sapAp1 = sumSap(enAp1), ap1 = sumAp1(enAp1) || 0, dif = sapAp1 - ap1;
+  const nBod = new Set(filas.filter(f => f.qty > 0).map(f => f.bodega.code)).size;
+  const cons = sumCons(filas), saldo = sumSap(filas), cob = cons ? saldo / cons : 0;
+  const nDif = (() => { const m = new Map();
+    for(const f of enAp1){ const k = f.bodega.code; m.set(k, (m.get(k) || 0) + f.qty - f.ap1); }
+    return [...m.values()].filter(d => Math.abs(d) >= 25).length; })();
+  const card = (cls, icon, label, value, sub) => `
+    <div class="kpi-card"><div class="kpi-icon ${cls}">${icon}</div>
+      <div style="min-width:0"><div class="kpi-label">${label}</div><div class="kpi-value mono">${value}</div>${sub ? `<div class="kpi-sub">${sub}</div>` : ''}</div></div>`;
+  const ic = p => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${p}</svg>`;
+  const saco = ic('<path d="M6 4h12l-1 4 2 12H5L7 8z"/><path d="M7 8h10"/>');
+  document.getElementById('kpis').innerHTML =
+    card('bal', saco, 'Saldo SAP', ton(sumSap(filas)), `${fmt(nBod)} bodegas con saldo`) +
+    card('blue', saco, 'Saldo AP1', FECHA_AP1 ? ton(ap1) : '—', FECHA_AP1 ? `al ${FECHA_AP1.toLocaleDateString('es-EC')}` : 'AP1 no respondió') +
+    card(!FECHA_AP1 ? 'blue' : Math.abs(dif) < 25 ? 'fer' : 'red', ic('<path d="M7 7h10M7 12h10M7 17h6"/>'), 'Diferencia SAP − AP1',
+         FECHA_AP1 ? `${dif > 0 ? '+' : dif < 0 ? '−' : ''}${ton(Math.abs(dif))}` : '—', FECHA_AP1 ? `${nDif} bodega${nDif === 1 ? '' : 's'} con diferencia` : '') +
+    card('blue', ic('<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>'), 'Consumo diario', PERIODO_CONSUMO ? ton(cons) : '—',
+         PERIODO_CONSUMO ? `promedio ${DIAS_CONSUMO} días (${PERIODO_CONSUMO})` : 'AP1 no respondió') +
+    card({ menos:'red', mas:'bal', ok:'fer' }[claseDias(cob)], ic('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'), 'Cobertura', cons ? `${fmt(cob, 1)} días` : '—', 'saldo SAP ÷ consumo diario');
+}
+
+// Sector de una bodega: acopios aparte; el resto según los parámetros (D1) de su campamento
+const ORDEN_SECTOR = { 'Acopios':0, 'Islas':1, 'Isla Josefina':2, 'Continente':3, 'Otros campamentos':4 };
+const sectorDe = b => b.acopio ? 'Acopios' : (PARAMS[b.ap1Sub]?.sector || 'Otros campamentos');
+const ordenarPorSector = grupos => grupos.sort((x, y) =>
+  ORDEN_SECTOR[sectorDe(x.b)] - ORDEN_SECTOR[sectorDe(y.b)] || x.b.campamento.localeCompare(y.b.campamento, 'es'));
+// Inserta la franja del sector cuando cambia
+function franjaSector(b, estado, columnas){
+  const sct = sectorDe(b);
+  if(sct === estado.actual) return '';
+  estado.actual = sct;
+  return `<tr class="sector"><td colspan="${columnas}">${esc(sct)}</td></tr>`;
+}
+
+// La 2ª fila del encabezado queda fija debajo de la 1ª: se mide la altura real
+function ajustarCabecera(id){
+  const cont = document.getElementById(id), th = cont?.querySelector('thead tr:first-child th:not([rowspan])');
+  if(th) cont.querySelector('table').style.setProperty('--h1', th.offsetHeight + 'px');
+  ajustarAltos();
+}
+// Las tablas ocupan todo el alto disponible de la ventana (con su propio desplazamiento)
+const TABLAS_ALTO = ['tblBodegas', 'tblDetalle', 'tblProductos', 'tblIslas', 'tblPlan', 'tblSug'];
+function ajustarAltos(){
+  for(const id of TABLAS_ALTO){
+    const c = document.getElementById(id);
+    if(!c || !c.offsetParent) continue;
+    c.style.maxHeight = Math.max(300, window.innerHeight - c.getBoundingClientRect().top - window.scrollY - 24) + 'px';
+  }
+}
+window.addEventListener('resize', ajustarAltos);
+document.addEventListener('click', e => { if(e.target.closest('[data-vista],[data-sec],[data-sector],.seg button')) setTimeout(ajustarAltos, 50); });
+
+function renderBodegas(filas){
+  // Matriz como el Reporte: bodegas en filas y los balanceados como columnas (Sacos SAP | Alcanza hasta)
+  const porBod = new Map();
+  for(const f of filas){
+    if(f.bodega.sinBodega) continue;
+    if(!porBod.has(f.bodega.code)) porBod.set(f.bodega.code, { b:f.bodega, filas:[] });
+    porBod.get(f.bodega.code).filas.push(f);
+  }
+  if(!porBod.size){ document.getElementById('tblBodegas').innerHTML = '<div class="empty">Sin stock con los filtros actuales</div>'; return; }
+  const grupos = ordenarPorSector([...porBod.values()]);
+
+  // columnas: balanceados con stock, saldo AP1 o plan en alguna bodega visible
+  const conPlan = f => { const pf = PLAN_IDX?.get(`${f.bodega.code}|${f.codigoSap}`); return pf && Object.keys(pf.planDia).length; };
+  const colsMap = new Map();
+  for(const g of grupos) for(const f of g.filas) if(f.qty || f.ap1 || conPlan(f)) colsMap.set(f.codigoSap || f.producto, f.producto);
+  const cols = [...colsMap.entries()].sort((a, b) => ordenProd(a[1], b[1])).map(([k, nombre]) => ({ k, nombre }));
+  const alt = i => (i % 2 === 1 ? ' g-alt' : '') + altHaid(cols, i);
+  const sacos = kg => kg ? fmt(kg / KG_SACO) : '<span class="zero">0</span>';
+  const hoyD = new Date(fechaISO(new Date()) + 'T00:00:00');
+  const alcPill = pf => {
+    if(!pf || !pf.alcance) return pf && pf.stock ? '<span class="dias sc" title="Sin plan cargado desde hoy">s/p</span>' : '<span class="zero">—</span>';
+    const det = esc(detallePlanTexto([pf]));
+    if(!pf.alcance.corto) return `<span class="dias ok con-plan" data-plan="${det}" title="${det}">cubre</span>`;
+    const d = Math.round((pf.alcance.hasta - hoyD) / 864e5);
+    return `<span class="dias ${claseDias(d)} con-plan" data-plan="${det}" title="${det}">${ddmm(pf.alcance.hasta)}</span>`;
+  };
+  const cab = c => { const m = /(\d+(?:[.,]\d+)?)\s*mm/i.exec(c.nombre), et = etapa({ producto:c.nombre });
+    return { mm: m ? `${m[1]} mm` : '', cls: et ? et.cls : '' }; };
+  const act = PLAN?.semanas.find(x => x.actual);
+  // ✓ cuadra (diferencia menor a 1 saco) · ✗ no cuadra; el detalle en el tooltip
+  const cuadraHtml = (sap, ap1) => {
+    if(ap1 == null) return '<span class="zero" title="No registrado en AP1">—</span>';
+    const d = sap - ap1;
+    return Math.abs(d) < 25 ? `<span class="ok-ap1" title="SAP y AP1 cuadran: ${fmt(sap / KG_SACO)} sacos">✓</span>`
+      : `<span class="no-ap1" title="No cuadra · SAP ${fmt(sap / KG_SACO)} · AP1 ${fmt(ap1 / KG_SACO)} · dif. ${d > 0 ? '+' : '−'}${fmt(Math.abs(d) / KG_SACO)} sacos">✗</span>`;
+  };
+
+  let html = `<table class="islas resumen bal-m"><thead>
+    <tr><th rowspan="2" class="col-c">Bodega</th>${cols.map((c, i) => { const h = cab(c);
+        return `<th colspan="3" class="prod ${h.cls}${alt(i)}" title="${esc(c.nombre)}"><div class="p-mm">${esc(h.mm)}</div><div class="p-fam">${esc(c.nombre)}</div></th>`; }).join('')}</tr>
+    <tr>${cols.map((c, i) => `<th class="num sub g-l${alt(i)}" title="Saldo SAP en sacos">Stock</th><th class="ctr sub${alt(i)}" title="✓ SAP y AP1 cuadran · ✗ no cuadran">Cuadra</th><th class="sub${alt(i)}" title="Día en que se acaba según plan e ingresos · tócalo para ver el plan de la semana">Alcanza</th>`).join('')}</tr>
+
+    </thead><tbody>`;
+  const est = { actual:null };
+  for(const g of grupos){
+    html += franjaSector(g.b, est, cols.length * 3 + 1);
+    const porProd = new Map(g.filas.map(f => [f.codigoSap || f.producto, f]));
+    html += `<tr class="row" data-bodega="${esc(g.b.code)}"><td class="camp col-c" title="${esc(g.b.name)}"><b>${esc(g.b.campamento)}</b><span class="code">${esc(g.b.code)}</span></td>`;
+    cols.forEach((c, i) => {
+      const f = porProd.get(c.k);
+      const pf = PLAN_IDX?.get(`${g.b.code}|${f?.codigoSap ?? c.k}`);
+      if(!f && !pf){ html += `<td class="num zero g-l${alt(i)}">—</td><td class="ctr zero${alt(i)}">—</td><td class="zero${alt(i)}">—</td>`; return; }
+      html += `<td class="num sac g-l${alt(i)}">${sacos(f?.qty || 0)}</td>
+        <td class="ctr${alt(i)}">${cuadraHtml(f?.qty || 0, f ? f.ap1 : null)}</td>
+        <td class="${alt(i).trim()}">${alcPill(pf)}</td>`;
+    });
+    html += '</tr>';
+  }
+  document.getElementById('tblBodegas').innerHTML = html + '</tbody></table>';
+  ajustarCabecera('tblBodegas');
+}
+
+
+// Detalle: cada bodega con sus balanceados en filas (Saldo | Consumo | Semana en curso)
+function renderDetalle(filas){
+  const porBod = new Map();
+  for(const f of filas){
+    if(!porBod.has(f.bodega.code)) porBod.set(f.bodega.code, { b:f.bodega, filas:[] });
+    porBod.get(f.bodega.code).filas.push(f);
+  }
+  const cont = document.getElementById('tblDetalle');
+  if(!porBod.size){ cont.innerHTML = '<div class="empty">Sin stock con los filtros actuales</div>'; return; }
+  const grupos = ordenarPorSector([...porBod.values()]);
+  const est = { actual:null };
+  let html = `<table class="bal">${cabBalanceado('Bodega / tipo de balanceado')}<tbody>`;
+  for(const g of grupos){
+    html += franjaSector(g.b, est, 7);
+    html += `<tr class="row bod" data-bodega="${esc(g.b.code)}">
+      <td class="col-p"><b>${esc(g.b.name)}</b> <span class="code">${esc(g.b.code)} · ${esc(g.b.campamento)}</span>${abasteceHtml(g.b)}</td>${celdas(g.filas)}</tr>`;
+    for(const f of [...g.filas].sort((a, b) => Math.max(b.qty, b.ap1 || 0) - Math.max(a.qty, a.ap1 || 0))){
+      const et = etapa(f);
+      html += `<tr class="row tipo" data-bodega="${esc(g.b.code)}">
+        <td class="col-p" style="padding-left:20px"><div class="prod">${et ? `<span class="etq ${et.cls}" title="${et.txt}">${et.txt[0]}</span>` : '<span class="etq"></span>'}<span class="prod-n">${esc(f.producto)}</span></div></td>${celdas([f], sumSap(g.filas))}</tr>`;
+    }
+  }
+  cont.innerHTML = html + '</tbody></table>';
+  ajustarCabecera('tblDetalle');
+}
+
+function renderProductos(filas){
+  const porProd = new Map();
+  for(const f of filas){
+    const k = f.codigoSap || f.producto;
+    if(!porProd.has(k)) porProd.set(k, { k, producto:f.producto, codigoSap:f.codigoSap, filas:[] });
+    porProd.get(k).filas.push(f);
+  }
+  const prods = [...porProd.values()].sort((a, b) => sumSap(b.filas) - sumSap(a.filas));
+  document.getElementById('hintProductos').textContent = `${prods.length} tipos de balanceado · clic en uno para ver en qué bodegas está`;
+  if(!prods.length){ document.getElementById('tblProductos').innerHTML = '<div class="empty">Sin stock con los filtros actuales</div>'; return; }
+  let html = `<table class="bal">${cabBalanceado('Tipo de balanceado', '', '<th>Bodegas</th>')}<tbody>`;
+  for(const p of prods){
+    const et = etapa(p);
+    html += `<tr class="row" data-producto="${esc(p.k)}">
+      <td class="col-p"><div class="prod">${et ? `<span class="etq ${et.cls}" title="${et.txt}">${et.txt[0]}</span>` : '<span class="etq"></span>'}<span class="prod-n">${esc(p.producto)}<div class="code">${esc(p.codigoSap)}</div></span></div></td>
+      ${celdas(p.filas)}
+      <td class="num g-l">${new Set(p.filas.filter(f => f.qty > 0).map(f => f.bodega.code)).size}</td></tr>`;
+  }
+  document.getElementById('tblProductos').innerHTML = html + '</tbody></table>';
+  ajustarCabecera('tblProductos');
+}
+
+// ── Drawer de detalle ──
+function abrirDrawer(titulo, sub, resumen, cuerpo){
+  document.getElementById('dTitle').innerHTML = titulo;
+  document.getElementById('dSub').innerHTML = sub;
+  document.getElementById('dSum').innerHTML = resumen;
+  document.getElementById('dBody').innerHTML = cuerpo;
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('drawer').classList.add('show');
+}
+function cerrarDrawer(){
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('drawer').classList.remove('show');
+}
+document.getElementById('overlay').addEventListener('click', cerrarDrawer);
+document.getElementById('dClose').addEventListener('click', cerrarDrawer);
+document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarDrawer(); });
+
+const resumenDrawer = filas => { const s = sumSap(filas), a = sumAp1(filas);
+  return `<div>SAP<b class="mono">${kgTxt(s)}</b></div><div>AP1<b class="mono">${kgTxt(a)}</b></div><div>Diferencia<b class="mono">${difTxt(s, a)}</b></div>`; };
+
+function detalleBodega(code){
+  const filas = filtradas().filter(f => f.bodega.code === code).sort((a, b) => b.qty - a.qty);
+  if(!filas.length) return;
+  const b = filas[0].bodega;
+  const cuerpo = `<table><thead><tr><th>Tipo de balanceado</th><th class="num">SAP</th><th class="num">AP1</th><th class="num">Dif.</th>${TH_CONS}</tr></thead><tbody>` +
+    filas.map(f => `<tr><td style="white-space:normal">${esc(f.producto)} ${chip(f)}<br><span class="code">${esc(f.codigoSap)}</span></td>${celdas([f], sumSap(filas))}</tr>`).join('') +
+    '</tbody></table>';
+  abrirDrawer(`${esc(b.name)} · ${esc(b.code)}`, `<span class="code">${esc(b.campamento)}</span>`, resumenDrawer(filas), cuerpo);
+}
+
+function detalleProducto(k){
+  const filas = filtradas().filter(f => (f.codigoSap || f.producto) === k).sort((a, b) => b.qty - a.qty);
+  if(!filas.length) return;
+  const f0 = filas[0];
+  const cuerpo = `<table><thead><tr><th>Bodega</th><th>Campamento</th><th class="num">SAP</th><th class="num">AP1</th><th class="num">Dif.</th>${TH_CONS}</tr></thead><tbody>` +
+    filas.map(f => `<tr><td>${f.bodega.sinBodega ? '<i class="code">Sin bodega propia</i>' : `<b>${esc(f.bodega.name)}</b> <span class="code">${esc(f.bodega.code)}</span>`}</td>
+      <td>${esc(f.bodega.campamento)}</td>${celdas([f])}</tr>`).join('') + '</tbody></table>';
+  abrirDrawer(esc(f0.producto), `<span class="code">${esc(f0.codigoSap)}</span> ${chip(f0)}`, resumenDrawer(filas), cuerpo);
+}
+
+document.getElementById('tblDetalle').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-bodega]'); if(tr) detalleBodega(tr.dataset.bodega);
+});
+document.getElementById('tblBodegas').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-bodega]'); if(tr) detalleBodega(tr.dataset.bodega);
+});
+document.getElementById('tblProductos').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-producto]'); if(tr) detalleProducto(tr.dataset.producto);
+});
+
+// ── Sección (menú lateral) ──
+function mostrarVistas(){
+  document.body.classList.toggle('sec-islas', sec === 'islas');
+  document.body.classList.toggle('sec-plan', sec === 'plan');
+  document.body.classList.toggle('sec-config', sec === 'config');
+  document.body.classList.toggle('sec-sug', sec === 'sug');
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active',
+    ['islas', 'plan', 'config', 'sug'].includes(sec) ? v.id === 'view-' + sec : v.id === 'view-' + vista));
+}
+document.getElementById('tabs').addEventListener('click', e => {
+  const btn = e.target.closest('[data-sec]'); if(!btn) return;
+  sec = btn.dataset.sec;
+  document.querySelectorAll('#tabs .sb-nav-item').forEach(b => b.classList.toggle('active', b === btn));
+  mostrarVistas();
+  if(STOCK.length) render();
+  else document.getElementById('viewTitle').textContent = sec === 'islas' ? 'Reporte de bodegas' : sec === 'plan' ? 'Planificado de alimento por semana' : sec === 'sug' ? 'Sugerido de ingreso de balanceado' : sec === 'config' ? 'Configuración' : tituloVista();
+});
+
+// ── Vista y filtros ──
+document.getElementById('vistaSeg').addEventListener('click', e => {
+  const btn = e.target.closest('[data-vista]'); if(!btn) return;
+  vista = btn.dataset.vista;
+  document.querySelectorAll('#vistaSeg button').forEach(b => b.classList.toggle('active', b === btn));
+  mostrarVistas();
+  document.getElementById('viewTitle').textContent = tituloVista();
+  if(STOCK.length) prepararImagenWhatsapp();   // la imagen para WhatsApp es la de la vista que se está viendo
+});
+document.getElementById('campSel').addEventListener('change', e => { camp = e.target.value; if(STOCK.length) render(); });
+let tBusq;
+document.getElementById('q').addEventListener('input', e => {
+  clearTimeout(tBusq);
+  tBusq = setTimeout(() => { q = e.target.value; if(STOCK.length) render(); }, 150);
+});
+// Actualizar: vuelve a consultar lo vivo (stock SAP, saldo AP1, plan). Shift+clic renueva también el
+// catálogo y la caché del día.
+document.getElementById('refreshBtn').addEventListener('click', e => cargar(e.shiftKey));
+
+// ── Exportar a Excel ──
+document.getElementById('exportBtn').addEventListener('click', () => {
+  if(sec === 'islas') return exportarIslas();
+  if(sec === 'plan') return exportarPlan();
+  if(sec === 'sug') return exportarSugerido();
+  const r3 = n => n == null ? '' : Math.round(n * 1000) / 1000;
+  const filas = filtradas().sort((a, b) => a.bodega.campamento.localeCompare(b.bodega.campamento, 'es') ||
+    a.bodega.code.localeCompare(b.bodega.code) || b.qty - a.qty);
+  const datos = filas.map(f => ({
+    'Campamento': f.bodega.campamento, 'Almacén': f.bodega.code, 'Bodega': f.bodega.name,
+    'Código SAP': f.codigoSap, 'Tipo de balanceado': f.producto, 'Etapa': etapa(f)?.txt || '',
+    'SAP (kg)': r3(f.qty), 'AP1 (kg)': r3(f.ap1), 'Diferencia (kg)': f.ap1 == null ? '' : r3(f.qty - f.ap1),
+    [`Consumo diario (kg, prom. ${DIAS_CONSUMO} días)`]: r3(f.cons || 0),
+    'Días cobertura': f.cons && !f.bodega.sinBodega ? Math.round(f.qty / f.cons * 10) / 10 : '',
+  }));
+  const ws = XLSX.utils.json_to_sheet(datos);
+  ws['!cols'] = [{wch:20},{wch:9},{wch:24},{wch:11},{wch:44},{wch:10},{wch:12},{wch:12},{wch:14},{wch:16},{wch:12}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'SAP vs AP1');
+  const d = new Date();
+  XLSX.writeFile(wb, `Bodega_Balanceado_SAP_AP1_${fechaISO(d).replace(/-/g, '')}.xlsx`);
+});
+
+// ── Reporte (antes "Reporte Islas": cubre Islas, Isla Josefina, Continente y acopios) ──
+// Replica "REPORTE ISLAS.xlsx" sin archivos: stock SAP en vivo, consumo AP1 de los últimos 7 días,
+// y parámetros manuales en D1. Sacos de 25 kg y pallets de 66 sacos. El peróxido (que el Excel incluía)
+// queda fuera: es un insumo y va en la sección de insumos.
+const KG_SACO = 25, SACOS_PALLET = 66;
+let PARAMS = {};               // sub_id -> fila de bodega_parametros
+let islasVista = 'resumen', islasSector = '';
+
+async function cargarParametros(){
+  const j = await fetch(`${WORKER}/d1/bodega/parametros`).then(r => { if(!r.ok) throw new Error(`parámetros → HTTP ${r.status}`); return r.json(); });
+  return Object.fromEntries((j.data || []).map(p => [p.sub_id, p]));
+}
+
+
+const subDe = b => b.ap1Sub ?? b.sucursal;
+const mmDe = nombre => { const m = /(\d+(?:[.,]\d+)?)\s*mm\b/i.exec(nombre || ''); return m ? parseFloat(m[1].replace(',', '.')) : 99; };
+// Orden de los balanceados: Cargill por tamaño y Haid al final, como grupo aparte
+const esHaid = nombre => NO_PASA_POR_ACOPIO(nombre);
+const ordenProd = (x, y) => esHaid(x) - esHaid(y) || mmDe(x) - mmDe(y) || String(x).localeCompare(String(y));
+const altHaid = (cols, i) => !esHaid(cols[i]?.nombre) ? '' : i === cols.findIndex(c => esHaid(c.nombre)) ? ' haid haid-ini' : ' haid';
+const nombreCorto = n => String(n).replace(/^Cargill\s+|^Carg\s+/i, '').replace(/^Aquaxcel\s+|^Aqax\s+/i, '').replace(/\s+Ext\b/i, '').replace(/(\d)Mm\b/i, '$1 mm');
+function diasCob(stockKg, consSemanaKg){
+  if(!consSemanaKg) return null;
+  return stockKg / (consSemanaKg / 7);
+}
+function diasHtml(d, hayStock){
+  if(d == null) return hayStock ? '<span class="dias sc" title="Sin consumo en la última semana: hay stock pero no se usó">s/c</span>' : '<span class="zero">—</span>';
+  return `<span class="dias ${claseDias(d)}" title="${fmt(d, 1)} días">${textoDias(d)}</span>`;
+}
+
+// Arma los datos por campamento a partir de STOCK (ya cruzado con AP1)
+function datosIslas(){
+  const camps = new Map();
+  const camp = (sub, nombre) => {
+    if(!camps.has(sub)) camps.set(sub, { sub, nombre, productos:new Map() });
+    return camps.get(sub);
+  };
+  for(const f of STOCK){
+    const b = f.bodega;
+    if(b.sinBodega) continue;
+    const sub = subDe(b);
+    if(sub == null) continue;
+    if(f.sec === 'bal'){
+      if(b.ap1Sub == null) continue;          // balanceado: solo la bodega de balanceado del campamento (XX01)
+      if(!f.qty && !f.cons7 && !PARAMS[sub]) continue;
+      const c = camp(sub, b.campamento);
+      c.bodega = b;
+      const k = f.codigoSap || f.producto;
+      const p = c.productos.get(k) || { codigoSap:f.codigoSap, producto:f.producto, stock:0, cons7:0 };
+      p.stock += f.qty; p.cons7 += f.cons7 || 0;
+      c.productos.set(k, p);
+    }
+  }
+  // Campamentos con parámetros que no tuvieron movimiento igual se muestran
+  for(const p of Object.values(PARAMS)) if(!camps.has(p.sub_id)) camp(p.sub_id, p.campamento);
+  for(const c of camps.values()){
+    const prm = PARAMS[c.sub] || {};
+    c.sector = c.bodega?.acopio ? 'Acopios' : (prm.sector || 'Otros campamentos');   // acopios: AN01, AR01, NM01
+    c.capacidad = prm.capacidad_pallets ?? null;
+    c.montacargas = prm.montacargas ?? null;
+    c.montacargasOp = prm.montacargas_operativos ?? null;
+    c.notas = prm.notas || '';
+    c.palletsBal = [...c.productos.values()].reduce((s, p) => s + p.stock / KG_SACO / SACOS_PALLET, 0);
+    c.ocupacion = c.capacidad ? c.palletsBal / c.capacidad : null;
+    c.minDias = Math.min(...[...c.productos.values()].map(p => diasCob(p.stock, p.cons7)).filter(d => d != null), Infinity);
+  }
+  const orden = { 'Acopios':0, 'Islas':1, 'Isla Josefina':2, 'Continente':3, 'Otros campamentos':4 };
+  // Solo campamentos con balanceado en su bodega o con parámetros registrados (los que tienen la bodega vacía
+  // porque se abastecen de un acopio no aplican)
+  return [...camps.values()]
+    .filter(c => PARAMS[c.sub] || [...c.productos.values()].some(p => p.stock > 0))
+    .filter(c => !islasSector || c.sector === islasSector)
+    .sort((a, b) => orden[a.sector] - orden[b.sector] || a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+function columnasIslas(camps){
+  const cols = new Map();
+  for(const c of camps) for(const [k, p] of c.productos) if(p.stock || p.cons7) cols.set(k, p.producto);
+  return [...cols.entries()].sort((a, b) => ordenProd(a[1], b[1])).map(([k, nombre]) => ({ k, nombre }));
+}
+
+// Ocupación de la bodega: la alerta es la bodega vacía (rojo < 25%, naranja < 50%); sobre 100% también se marca
+// porque hay más pallets que la capacidad registrada.
+const claseOcupacion = pct => pct < 25 ? 'menos' : pct < 50 ? 'mas' : pct > 100 ? 'mas' : 'ok';
+function ocupHtml(c){
+  if(c.ocupacion == null) return '<span class="zero">—</span>';
+  const pct = c.ocupacion * 100;
+  const cls = claseOcupacion(pct);
+  return `<div class="ocup"><div class="bar"><span style="width:${Math.min(100, pct)}%" class="${cls}"></span></div><span class="dias ${cls}">${fmt(pct, 0)}%</span></div>`;
+}
+const montHtml = c => c.montacargas == null ? '<span class="zero">—</span>'
+  : `<span class="${c.montacargasOp < c.montacargas ? 'dias menos' : ''}">${c.montacargasOp ?? '?'} / ${c.montacargas}</span>`;
+const editBtn = c => `<button class="edit-btn" data-editar="${c.sub}" title="Editar capacidad, montacargas y sector">✎</button>`;
+
+function renderIslas(){
+  const camps = datosIslas();
+  const cont = document.getElementById('tblIslas');
+  renderKpisIslas(camps);
+  if(!camps.length){ cont.innerHTML = '<div class="empty">Sin campamentos</div>'; return; }
+  const cols = columnasIslas(camps);
+  let html;
+  if(islasVista === 'resumen'){
+    // Encabezado por producto: tamaño grande arriba, familia abajo y barra de color por etapa
+    const cab = c => { const m = /(\d+(?:[.,]\d+)?)\s*mm/i.exec(c.nombre), et = etapa({ producto:c.nombre });
+      return { mm: m ? `${m[1]} mm` : '', fam: c.nombre, cls: et ? et.cls : '' }; };
+    const alt = i => (i % 2 === 1 ? ' g-alt' : '') + altHaid(cols, i);
+    html = `<table class="islas resumen"><thead>
+      <tr><th rowspan="2" class="col-c">Campamento</th>${cols.map((c, i) => { const h = cab(c);
+          return `<th colspan="2" class="prod ${h.cls}${alt(i)}" title="${esc(c.nombre)}"><div class="p-mm">${esc(h.mm)}</div><div class="p-fam">${esc(h.fam)}</div></th>`; }).join('')}
+        <th colspan="4" class="ctr g-l w-bod"><div class="p-mm">Bodega</div><div class="p-fam">pallets de 66 sacos</div></th></tr>
+      <tr>${cols.map((c, i) => `<th class="num sub g-l${alt(i)}">Sacos</th><th class="num sub${alt(i)}" title="Días de cobertura = stock ÷ consumo diario de la última semana">Días</th>`).join('')}
+        <th class="num sub g-l w-bod">Pallets</th><th class="num sub w-bod">Capac.</th><th class="sub w-bod">Ocupación</th><th class="ctr sub w-bod">Montac.</th></tr>
+      </thead><tbody>`;
+    let sector = null;
+    for(const c of camps){
+      if(c.sector !== sector){ sector = c.sector; html += `<tr class="sector"><td colspan="${cols.length * 2 + 5}">${esc(sector)}</td></tr>`; }
+      html += `<tr><td class="camp col-c"><b>${esc(c.nombre)}</b> ${editBtn(c)}</td>`;
+      cols.forEach((col, i) => {
+        const p = c.productos.get(col.k);
+        if(!p || (!p.stock && !p.cons7)){ html += `<td class="num zero g-l${alt(i)}">—</td><td class="num zero${alt(i)}">—</td>`; return; }
+        html += `<td class="num sac g-l${alt(i)}">${p.stock ? fmt(p.stock / KG_SACO) : '<span class="zero">0</span>'}</td><td class="num${alt(i)}">${diasHtml(diasCob(p.stock, p.cons7), p.stock > 0)}</td>`;
+      });
+      html += `<td class="num g-l w-bod"><b>${fmt(c.palletsBal, 0)}</b></td><td class="num w-bod">${c.capacidad ?? '<span class="zero">—</span>'}</td>
+        <td class="w-bod">${ocupHtml(c)}</td><td class="ctr w-bod">${montHtml(c)}</td></tr>`;
+    }
+    html += '</tbody></table>';
+  }else{
+    html = `<table class="islas detalle"><thead><tr><th class="col-c">Campamento / producto</th><th class="num g-l">Consumo 7 días (kg)</th><th class="num">Consumo (sacos)</th>
+      <th class="num g-l w-bod">Stock (kg)</th><th class="num w-bod">Stock (sacos)</th><th class="num w-bod">Pallets</th><th class="g-l">Días cobertura / ocupación</th></tr></thead><tbody>`;
+    let sector = null;
+    for(const c of camps){
+      if(c.sector !== sector){ sector = c.sector; html += `<tr class="sector"><td colspan="7">${esc(sector)}</td></tr>`; }
+      html += `<tr class="bod"><td class="col-c"><b>${esc(c.nombre)}</b> ${editBtn(c)}
+          <span class="code">capacidad ${c.capacidad ?? '—'} pallets · montacargas ${c.montacargas == null ? '—' : `${c.montacargasOp}/${c.montacargas}`}${c.notas ? ' · ' + esc(c.notas) : ''}</span></td>
+        <td class="g-l"></td><td></td><td class="g-l"></td><td></td><td class="num"><b>${fmt(c.palletsBal, 1)}</b></td><td class="g-l">${ocupHtml(c)}</td></tr>`;
+      const prods = [...c.productos.values()].filter(p => p.stock || p.cons7).sort((a, b) => ordenProd(a.producto, b.producto));
+      for(const p of prods){
+        html += `<tr class="tipo"><td class="col-c" style="padding-left:20px" >${esc(p.producto)} ${chip(p)}</td>
+          <td class="num g-l">${p.cons7 ? fmt(p.cons7) : '<span class="zero">—</span>'}</td><td class="num">${p.cons7 ? fmt(p.cons7 / KG_SACO) : '<span class="zero">—</span>'}</td>
+          <td class="num g-l w-bod">${p.stock ? fmt(p.stock) : '<span class="zero">—</span>'}</td><td class="num w-bod">${p.stock ? fmt(p.stock / KG_SACO) : '<span class="zero">—</span>'}</td>
+          <td class="num w-bod">${p.stock ? fmt(p.stock / KG_SACO / SACOS_PALLET, 1) : '<span class="zero">—</span>'}</td>
+          <td class="g-l">${diasHtml(diasCob(p.stock, p.cons7), p.stock > 0)}</td></tr>`;
+      }
+    }
+    html += '</tbody></table>';
+  }
+  cont.innerHTML = html;
+  const h1 = cont.querySelector('thead tr:first-child th:not([rowspan])')?.offsetHeight;   // la de "Campamento" ocupa las dos filas
+  if(h1) cont.querySelector('table').style.setProperty('--h1', h1 + 'px');
+  prepararImagenWhatsapp();
+  document.getElementById('islasNota').textContent =
+    `Stock SAP en vivo · consumo AP1 últimos 7 días · días de cobertura = stock ÷ (consumo semanal ÷ 7)` +
+    ` · sacos de ${KG_SACO} kg, pallets de ${SACOS_PALLET} sacos`;
+}
+
+function renderKpisIslas(camps){
+  const card = (cls, label, value, sub) => `
+    <div class="kpi-card"><div class="kpi-icon ${cls}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="1"/><path d="M3 11h18M8 7V4h8v3"/></svg></div>
+      <div style="min-width:0"><div class="kpi-label">${label}</div><div class="kpi-value mono">${value}</div>${sub ? `<div class="kpi-sub">${sub}</div>` : ''}</div></div>`;
+  const pallets = camps.reduce((s, c) => s + c.palletsBal, 0);
+  const cap = camps.reduce((s, c) => s + (c.capacidad || 0), 0);
+  const capPal = camps.filter(c => c.capacidad).reduce((s, c) => s + c.palletsBal, 0);
+  const criticos = camps.filter(c => c.minDias < 3);
+  const mont = camps.reduce((s, c) => s + (c.montacargas || 0), 0), montOp = camps.reduce((s, c) => s + (c.montacargasOp || 0), 0);
+  document.getElementById('kpis').innerHTML =
+    card('bal', 'Stock balanceado', `${fmt(pallets, 0)} pallets`, `${fmt(pallets * SACOS_PALLET)} sacos · ${camps.length} campamentos`) +
+    (() => { const pct = cap ? capPal / cap * 100 : null;
+       const vacias = camps.filter(c => c.ocupacion != null && c.ocupacion < 0.25).map(c => c.nombre);
+       return card(pct == null ? 'blue' : { menos:'red', mas:'bal', ok:'fer' }[claseOcupacion(pct)], 'Ocupación de bodegas', pct == null ? '—' : `${fmt(pct, 0)}%`,
+         cap ? `${fmt(capPal, 0)} de ${fmt(cap)} pallets${vacias.length ? ` · bajo 25%: ${vacias.map(esc).join(', ')}` : ''}` : 'sin capacidad registrada'); })() +
+    card(!criticos.length ? 'fer' : criticos.some(c => c.minDias < 1.6) ? 'red' : 'bal', 'Producto con menos de 3 días', fmt(criticos.length), criticos.length ? criticos.map(c => esc(c.nombre)).join(', ') : 'ningún campamento') +
+    card(montOp < mont ? 'red' : 'fer', 'Montacargas operativos', mont ? `${montOp} / ${mont}` : '—', mont ? `${fmt(montOp / mont * 100, 0)}% disponibilidad` : '');
+}
+
+// Editar parámetros del campamento (capacidad, montacargas, sector, notas) → D1
+function editarParametros(sub){
+  const c = datosIslas().find(x => x.sub === sub) || { sub, nombre: PARAMS[sub]?.campamento || `Campamento ${sub}` };
+  const p = PARAMS[sub] || {};
+  const cuerpo = `<form class="form-prm" id="formPrm">
+      <label>Sector<select name="sector"><option value="">Otros campamentos</option>
+        ${['Islas','Isla Josefina','Continente'].map(s => `<option${p.sector === s ? ' selected' : ''}>${s}</option>`).join('')}</select></label>
+      <label>Capacidad de bodega (pallets)<input name="capacidad_pallets" type="number" min="0" step="1" value="${p.capacidad_pallets ?? ''}"></label>
+      <label>Montacargas<input name="montacargas" type="number" min="0" step="1" value="${p.montacargas ?? ''}"></label>
+      <label>Montacargas operativos<input name="montacargas_operativos" type="number" min="0" step="1" value="${p.montacargas_operativos ?? ''}"></label>
+      <label>Notas<input name="notas" maxlength="500" value="${esc(p.notas || '')}" placeholder="p. ej. No solicitar 2.0 mm"></label>
+      <div class="form-acc"><button type="submit" class="btn">Guardar</button><span class="err" id="prmMsg"></span></div>
+      ${p.actualizado_por ? `<div class="code">Última edición: ${esc(p.actualizado_por)} · ${esc(String(p.actualizado_en || '').slice(0, 16).replace('T', ' '))}</div>` : ''}
+    </form>`;
+  abrirDrawer(esc(c.nombre), '<span class="code">Parámetros de la bodega de balanceado</span>', '', cuerpo);
+  document.getElementById('formPrm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const datos = Object.fromEntries(new FormData(e.target));
+    const msg = document.getElementById('prmMsg');
+    msg.textContent = 'Guardando…';
+    try{
+      const r = await fetch(`${WORKER}/d1/bodega/parametros`, { method:'PUT',
+        headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + getToken() },
+        body: JSON.stringify({ sub_id:sub, campamento:c.nombre, ...datos }) });
+      const j = await r.json().catch(() => ({}));
+      if(!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      PARAMS[sub] = j.data;
+      cerrarDrawer();
+      renderIslas();
+    }catch(err){ msg.textContent = 'No se pudo guardar: ' + err.message; }
+  });
+}
+document.getElementById('tblIslas').addEventListener('click', e => {
+  const b = e.target.closest('[data-editar]'); if(b) editarParametros(Number(b.dataset.editar));
+});
+document.getElementById('islasVistaSeg').addEventListener('click', e => {
+  const b = e.target.closest('[data-iv]'); if(!b) return;
+  islasVista = b.dataset.iv;
+  document.querySelectorAll('#islasVistaSeg button').forEach(x => x.classList.toggle('active', x === b));
+  if(STOCK.length) renderIslas();
+});
+document.getElementById('sectorSeg').addEventListener('click', e => {
+  const b = e.target.closest('[data-sector]'); if(!b) return;
+  islasSector = b.dataset.sector;
+  document.querySelectorAll('#sectorSeg button').forEach(x => x.classList.toggle('active', x === b));
+  if(STOCK.length) render();
+});
+
+// ── WhatsApp: resumen del reporte para enviar a un grupo ──
+// Por bodega: ocupación y solo los productos en alerta (rojo < 1,6 días, naranja < 3); el resto se cuenta.
+function textoWhatsappReporte(){
+  const camps = datosIslas();
+  const ahora = new Date();
+  const emo = d => d == null ? '⚪' : { menos:'🔴', mas:'🟠', ok:'🟢' }[claseDias(d)];
+  const l = [];
+  l.push(`*📦 REPORTE DE BODEGAS DE BALANCEADO*`);
+  l.push(`${ahora.toLocaleDateString('es-EC')} ${ahora.toLocaleTimeString('es-EC', { hour:'2-digit', minute:'2-digit' })}${islasSector ? ` · ${islasSector}` : ''}`);
+  l.push(`Días de inventario = stock SAP ÷ consumo AP1 de la última semana`);
+  l.push(`🔴 menos de 1,6 días · 🟠 1,6 a 3 · 🟢 3 o más`);
+  let sector = null, alertas = 0;
+  for(const c of camps){
+    if(c.sector !== sector){ sector = c.sector; l.push('', `*━━ ${sector.toUpperCase()} ━━*`); }
+    const prods = [...c.productos.values()].filter(p => p.stock || p.cons7);
+    const conDias = prods.map(p => ({ p, d: diasCob(p.stock, p.cons7) }));
+    const alerta = conDias.filter(x => x.d != null && x.d < 3).sort((a, b) => a.d - b.d);
+    const verdes = conDias.filter(x => x.d != null && x.d >= 3).length;
+    const ocup = c.ocupacion == null ? '' : ` · ocupación ${fmt(c.ocupacion * 100, 0)}%${c.ocupacion < 0.25 ? ' ⚠️' : ''}`;
+    l.push(`*${c.nombre}* · ${fmt(c.palletsBal, 0)} pallets${ocup}`);
+    for(const { p, d } of alerta){
+      alertas++;
+      l.push(`${emo(d)} ${nombreCorto(p.producto)}: ${fmt(p.stock / KG_SACO)} sacos · ${textoDias(d)} d`);
+    }
+    if(verdes) l.push(`🟢 ${verdes} producto${verdes > 1 ? 's' : ''} con 3 días o más`);
+    if(!alerta.length && !verdes) l.push(`⚪ sin consumo en la semana`);
+  }
+  l.push('', alertas ? `*${alertas} productos en alerta*` : '*Sin productos en alerta* ✅');
+  return l.join('\n');
+}
+
+function enviarWhatsappTexto(){
+  const texto = textoWhatsappReporte();
+  navigator.clipboard?.writeText(texto).catch(() => {});
+  window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(texto)}`, 'whatsapp');
+}
+
+// Imagen de la tabla del Reporte (igual que en pantalla) para pegar en WhatsApp Web
+let waBlob = null;
+function cargarHtml2canvas(){
+  if(window.html2canvas) return Promise.resolve();
+  return new Promise((ok, mal) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    sc.onload = ok; sc.onerror = () => mal(new Error('no se pudo cargar html2canvas'));
+    document.head.appendChild(sc);
+  });
+}
+async function generarImagenReporte(){
+  await cargarHtml2canvas();
+  const idTabla = sec === 'islas' ? 'tblIslas' : { bodegas:'tblBodegas', detalle:'tblDetalle', productos:'tblProductos' }[vista];
+  const tabla = document.querySelector(`#${idTabla} table`);
+  if(!tabla) throw new Error('no hay tabla');
+  const titulo = sec === 'islas' ? 'Reporte de bodegas de balanceado' : tituloVista();
+  const nota = sec === 'islas' ? 'días = stock ÷ consumo AP1 de la última semana · sacos de 25 kg'
+    : 'saldo SAP vs AP1 (✓ cuadra · ✗ no cuadra) · alcanza = día en que se acaba según el plan AP1 e ingresos';
+  const ahora = new Date();
+  const cap = document.createElement('div');
+  cap.className = 'captura';
+  const leyenda = (cls, txt) => `<span><span class="dias ${cls}" style="display:inline-block;min-width:22px;padding:1px 6px;border-radius:6px;font-weight:700;font-size:11px">&nbsp;</span> ${txt}</span>`;
+  cap.innerHTML = `<div class="cap-tit">${esc(titulo)}</div>
+    <div class="cap-sub">${ahora.toLocaleDateString('es-EC')} ${ahora.toLocaleTimeString('es-EC', { hour:'2-digit', minute:'2-digit' })}
+      ${islasSector ? ' · ' + esc(islasSector) : ''}${camp ? ' · ' + esc(camp) : ''} · stock SAP en vivo · ${nota}</div>
+    <div class="cap-ley">${leyenda('menos', 'menos de 1,6 días')}${leyenda('mas', '1,6 a 3 días')}${leyenda('ok', '3 días o más')}${sec === 'islas' ? leyenda('sc', 's/c: sin consumo') : leyenda('sc', 's/p: sin plan cargado')}</div>`;
+  const copia = tabla.cloneNode(true);
+  cap.appendChild(copia);
+  // los estilos de la tabla dependen de #tblIslas: se envuelve con ese id temporalmente
+  const env = document.createElement('div');
+  env.id = 'tblIslasCaptura';
+  env.appendChild(cap);
+  document.body.appendChild(env);
+  try{
+    const canvas = await html2canvas(cap, { scale:2, backgroundColor:'#ffffff', logging:false });
+    return await new Promise(r => canvas.toBlob(r, 'image/png'));
+  }finally{ env.remove(); }
+}
+async function abrirWhatsapp(){
+  const modal = document.getElementById('waModal');
+  modal.classList.add('show');
+  document.getElementById('waPrev').innerHTML = '<div class="loading"><div class="spinner"></div>Generando imagen…</div>';
+  document.getElementById('waCopiar').disabled = document.getElementById('waDescargar').disabled = true;
+  try{
+    waBlob = await generarImagenReporte();
+    document.getElementById('waPrev').innerHTML = `<img src="${URL.createObjectURL(waBlob)}" alt="Reporte">`;
+    document.getElementById('waCopiar').disabled = document.getElementById('waDescargar').disabled = false;
+  }catch(e){
+    document.getElementById('waPrev').innerHTML = `<div class="loading err">No se pudo generar la imagen: ${esc(e.message)}. Usa "Enviar como texto".</div>`;
+  }
+}
+// La imagen se genera por detrás al pintar el Reporte, así el clic es inmediato (compartir exige el gesto del usuario)
+let waTimer = null, waPromesa = null;
+function prepararImagenWhatsapp(){
+  waBlob = null; clearTimeout(waTimer);
+  waPromesa = new Promise(ok => { waTimer = setTimeout(() => generarImagenReporte().then(b => { waBlob = b; ok(b); }).catch(() => ok(null)), 600); });
+}
+function aviso(txt, ms = 6000){
+  let t = document.getElementById('toast');
+  if(!t){ t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+  t.textContent = txt; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), ms);
+}
+// Pie de foto: fecha, sector y cantidad de productos en alerta
+function tituloWhatsapp(){
+  const camps = datosIslas(), ahora = new Date();
+  let rojos = 0, naranjas = 0;
+  for(const c of camps) for(const p of c.productos.values()){
+    const d = diasCob(p.stock, p.cons7);
+    if(d != null && d < 1.6) rojos++; else if(d != null && d < 3) naranjas++;
+  }
+  return `📦 *Reporte de bodegas de balanceado* · ${ahora.toLocaleDateString('es-EC')} ${ahora.toLocaleTimeString('es-EC', { hour:'2-digit', minute:'2-digit' })}` +
+    `${islasSector ? ' · ' + islasSector : ''}
+🔴 ${rojos} con menos de 1,6 días · 🟠 ${naranjas} entre 1,6 y 3 días`;
+}
+
+async function enviarImagenWhatsapp(){
+  const btn = document.getElementById('waBtn');
+  let blob = waBlob;
+  if(!blob){ btn.disabled = true; aviso('Preparando la imagen…', 3000); blob = await (waPromesa || generarImagenReporte()); btn.disabled = false; }
+  if(!blob){ aviso('No se pudo generar la imagen; se envía como texto.'); return enviarWhatsappTexto(); }
+  const archivo = `Reporte_Bodegas_${fechaISO(new Date()).replace(/-/g, '')}.png`;
+  // Copia la imagen al portapapeles para pegarla con Ctrl+V donde se quiera (WhatsApp, correo…)
+  try{
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    aviso('✓ Imagen copiada: en WhatsApp abre el grupo y pégala con Ctrl+V.');
+  }catch(e){
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = archivo; a.click();
+    aviso('El navegador no dejó copiar: la imagen se descargó.');
+  }
+}
+document.getElementById('waBtn').addEventListener('click', enviarImagenWhatsapp);
+// Clic derecho: vista previa con más opciones (descargar, enviar como texto)
+document.getElementById('waBtn').addEventListener('contextmenu', e => { e.preventDefault(); abrirWhatsapp(); });
+document.getElementById('waCerrar').addEventListener('click', () => document.getElementById('waModal').classList.remove('show'));
+document.getElementById('waTexto').addEventListener('click', enviarWhatsappTexto);
+document.getElementById('waDescargar').addEventListener('click', () => {
+  if(!waBlob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(waBlob); a.download = `Reporte_Bodegas_${fechaISO(new Date()).replace(/-/g, '')}.png`; a.click();
+});
+document.getElementById('waCopiar').addEventListener('click', async () => {
+  const msg = document.getElementById('waMsg');
+  try{
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': waBlob })]);
+    msg.textContent = '✓ Imagen copiada: pégala con Ctrl+V.';
+  }catch(e){
+    msg.textContent = 'El navegador no permitió copiar la imagen: usa "Descargar imagen".';
+  }
+});
+
+function exportarIslas(){
+  const camps = datosIslas(), filas = [];
+  for(const c of camps){
+    const base = { 'Sector': c.sector, 'Campamento': c.nombre, 'Capacidad (pallets)': c.capacidad ?? '',
+                   'Ocupación %': c.ocupacion == null ? '' : Math.round(c.ocupacion * 1000) / 10,
+                   'Montacargas': c.montacargas ?? '', 'Montacargas operativos': c.montacargasOp ?? '' };
+    for(const p of [...c.productos.values()].filter(p => p.stock || p.cons7).sort((a, b) => ordenProd(a.producto, b.producto))){
+      const d = diasCob(p.stock, p.cons7);
+      filas.push({ ...base, 'Producto': p.producto, 'Consumo 7 días (kg)': Math.round(p.cons7), 'Consumo (sacos)': Math.round(p.cons7 / KG_SACO),
+        'Stock (kg)': Math.round(p.stock), 'Stock (sacos)': Math.round(p.stock / KG_SACO), 'Pallets': Math.round(p.stock / KG_SACO / SACOS_PALLET * 10) / 10,
+        'Días cobertura': d == null ? '' : Math.round(d * 10) / 10 });
+    }
+  }
+  const ws = XLSX.utils.json_to_sheet(filas);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
+  XLSX.writeFile(wb, `Reporte_Bodegas_${fechaISO(new Date()).replace(/-/g, '')}.xlsx`);
+}
+
+// ── Planificado (AP1 PlannedConsumption) por semana calendario ──
+// Semanas de lunes a domingo (ISO, igual que AP1). Se trae por día y se agrupa aquí: plan de 2 semanas
+// atrás a SEMANAS_ADELANTE adelante, y el consumo real de las semanas pasadas para comparar.
+// El plan de cada campamento se carga a la bodega que lo abastece (mismo criterio que el consumo).
+const SEMANAS_ATRAS = 3, SEMANAS_ADELANTE = 1;   // 5 semanas: 3 atrás, la presente y 1 adelante
+let PLAN = null;   // { semanas:[{key, ini, fin, iso}], filas:[{bodegaCode, codigoSap, producto, plan:{key:kg}, real:{key:kg}, planDia:{fecha:kg}}] }
+let planUnidad = 'sacos';
+
+const lunesDe = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+const semanaIso = d => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const dia = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - dia); const a = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - a) / 864e5 + 1) / 7); };
+const sumarDias = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const ddmm = d => d.toLocaleDateString('es-EC', { day:'2-digit', month:'2-digit' });
+
+async function cargarPlan(ap1Subs, forzar){
+  const lunesHoy = lunesDe(new Date());
+  const ini = sumarDias(lunesHoy, -7 * SEMANAS_ATRAS), fin = sumarDias(lunesHoy, 7 * (SEMANAS_ADELANTE + 1) - 1);
+  const ayer = new Date(Date.now() - 864e5);
+  const consulta = async (sub, bt, hasta) => {
+    const p = new URLSearchParams({ initDate:fechaISO(ini), endDate:fechaISO(hasta), timeGranularity:'day', valueOptions:'kg',
+                                    businessTypes:bt, groupBy:'product', PageSize:'10000' });
+    p.append('subsidiaryIds', sub);
+    return lista(await apiGet(`${FEED}/report/feeding_general?${p}`))
+      .map(r => ({ sub, productoId:r.groupKey, producto:r.groupValue, fecha:String(r.periodStart).slice(0, 10), kg:r.kilograms }));
+  };
+  const [plan, real] = await Promise.all([
+    enParalelo(ap1Subs.map(s => () => consulta(s.id, 'PlannedConsumption', fin)), 6).then(r => r.flat()),
+    cacheDia(`real_semanas${SEMANAS_ATRAS}`, () => enParalelo(ap1Subs.map(s => () => consulta(s.id, 'Consumption', ayer)), 6).then(r => r.flat()), forzar),
+  ]);
+  const semanas = [];
+  for(let i = 0; i < SEMANAS_ATRAS + 1 + SEMANAS_ADELANTE; i++){
+    const l = sumarDias(ini, 7 * i);
+    semanas.push({ key:fechaISO(l), ini:l, fin:sumarDias(l, 6), iso:semanaIso(l), actual: fechaISO(l) === fechaISO(lunesHoy) });
+  }
+  return { semanas, plan, real };
+}
+
+// Cruza el plan/real de AP1 con las bodegas (abastecimiento) y los productos SAP
+function armarPlan(crudo, items, bodegas, ap1ProdSap, ap1Subs, abastecimiento){
+  const itemPorId = Object.fromEntries(items.map(i => [i.id, i]));
+  const itemPorSap = Object.fromEntries(items.map(i => [i.codigoSap, i]));
+  const itemPorNombre = Object.fromEntries(items.map(i => [normNombre(i.nombre), i]));
+  const bodegaPorSub = {};
+  for(const b of bodegas) if(b.ap1Sub != null) bodegaPorSub[b.ap1Sub] = b;
+  const nombreSub = Object.fromEntries(ap1Subs.map(s => [s.id, s.nombre]));
+  const filas = new Map();
+  const fila = r => {
+    const origen = abastecimiento[r.sub];
+    const b = (origen != null && bodegaPorSub[origen]) || bodegaPorSub[r.sub]
+      || { code:`SB-${r.sub}`, name:'Sin bodega propia', campamento:nombreSub[r.sub] || `Campamento ${r.sub}`, sinBodega:true };
+    const item = itemPorId[r.productoId] || itemPorSap[ap1ProdSap[r.productoId]] || itemPorNombre[normNombre(r.producto)];
+    const codigo = item?.codigoSap || `AP1-${r.productoId}`;
+    const k = `${b.code}|${codigo}`;
+    if(!filas.has(k)) filas.set(k, { bodega:b, codigoSap:item?.codigoSap || '', producto:item?.nombre || r.producto, plan:{}, real:{}, planDia:{} });
+    return filas.get(k);
+  };
+  const semanaDe = fecha => fechaISO(lunesDe(new Date(fecha + 'T00:00:00')));
+  for(const r of crudo.plan) if(r.kg){ const f = fila(r), s = semanaDe(r.fecha); f.plan[s] = (f.plan[s] || 0) + r.kg; f.planDia[r.fecha] = (f.planDia[r.fecha] || 0) + r.kg; }
+  for(const r of crudo.real) if(r.kg){ const f = fila(r), s = semanaDe(r.fecha); f.real[s] = (f.real[s] || 0) + r.kg; }
+  return { semanas: crudo.semanas, filas: [...filas.values()] };
+}
+// Agrega al plan los productos que tienen stock en una bodega pero no tienen plan ni consumo
+function completarPlanConStock(plan){
+  const ya = new Set(plan.filas.map(f => `${f.bodega.code}|${f.codigoSap}`));
+  for(const f of STOCK){
+    if(f.sec !== 'bal' || !f.qty || f.bodega.sinBodega) continue;
+    const k = `${f.bodega.code}|${f.codigoSap}`;
+    if(ya.has(k)) continue;
+    ya.add(k);
+    plan.filas.push({ bodega:f.bodega, codigoSap:f.codigoSap, producto:f.producto, plan:{}, real:{}, planDia:{} });
+  }
+  return plan;
+}
+
+// ── Por ingresar: despachos de proveedores (Cargill, Haid…) a las bodegas, de AP1 feedcontrol ──
+// report/supplier_transfer = cabeceras (bodega destino, fecha asignada, estado); supplier_transfers/{id} = sus productos
+// con lo ya recibido. Solo se leen los que van a ingresar: ASIGNADO y EN RUTA (entregados, recibidos y cancelados no).
+const FEED_WEB = GATEWAY + '/bff/web/feedcontrol/balanceado/api';
+const PROVEEDORES_BALANCEADO = [208, 7849, 186, 3766, 535];
+const ESTADOS_PENDIENTES = ['ASIGNADO', 'EN RUTA'];
+async function cargarPorIngresar(){
+  const p = new URLSearchParams({ InitDate:fechaISO(new Date(Date.now() - 30 * 864e5)), EndDate:fechaISO(new Date(Date.now() + 45 * 864e5)), PageSize:'2000' });
+  for(const id of PROVEEDORES_BALANCEADO) p.append('supplierIds', id);
+  const cabeceras = lista(await apiGet(`${FEED_WEB}/report/supplier_transfer?${p}`))
+    .filter(t => ESTADOS_PENDIENTES.includes(String(t.status || '').toUpperCase()));
+  const detalles = await enParalelo(cabeceras.map(t => async () => {
+    const d = (await apiGet(`${FEED_WEB}/supplier_transfers/${t.idSupplierTransfer}`))?.data || {};
+    return (d.supplierTransferDetails || []).filter(x => x.status !== 'INACTIVO').map(x => {
+      const kg = x.equivalenceKilograms || 0, sacos = x.equivalenceSacks || 0;
+      const recibidoKg = x.equivalenceReceivedKilograms ?? (sacos ? (x.equivalenceReceivedSacks || 0) * kg / sacos : 0);
+      return { whId:t.destinationWarehouseId, whNombre:t.destinationWarehouseName, productoId:x.productId, producto:x.productName,
+               kg:Math.max(0, kg - recibidoKg), fecha:String(t.assignedDate).slice(0, 10), estado:t.status,
+               proveedor:String(t.originSupplierName || '').split(' ')[0], viaje:t.supplierTripId, despacho:t.idSupplierTransfer };
+    }).filter(x => x.kg > 0);
+  }), 6);
+  return detalles.flat();
+}
+
+// Suma los ingresos pendientes a las filas del plan (bodega destino + producto). Lo atrasado cuenta como de hoy.
+function agregarIngresos(plan, ingresos, items, codigoPorIdWh){
+  const itemPorId = Object.fromEntries(items.map(i => [i.id, i]));
+  const itemPorNombre = Object.fromEntries(items.map(i => [normNombre(i.nombre), i]));
+  const idx = new Map(plan.filas.map(f => [`${f.bodega.code}|${f.codigoSap}`, f]));
+  const hoy = fechaISO(new Date());
+  for(const r of ingresos){
+    const b = BODEGAS_POR_CODIGO[codigoPorIdWh[r.whId]];
+    if(!b){ console.warn('Despacho a bodega desconocida:', r.whId, r.whNombre); continue; }
+    const item = itemPorId[r.productoId] || itemPorNombre[normNombre(r.producto)];
+    const codigo = item?.codigoSap || `AP1-${r.productoId}`;
+    const k = `${b.code}|${codigo}`;
+    let f = idx.get(k);
+    if(!f){ f = { bodega:b, codigoSap:item?.codigoSap || '', producto:item?.nombre || r.producto, plan:{}, real:{}, planDia:{} }; idx.set(k, f); plan.filas.push(f); }
+    const fecha = r.fecha < hoy ? hoy : r.fecha;
+    f.ingresoDia ??= {}; f.ingresos ??= [];
+    f.ingresoDia[fecha] = (f.ingresoDia[fecha] || 0) + r.kg;
+    f.ingresos.push(r);
+  }
+  return plan;
+}
+
+// ── Acopios: lo que les va a faltar a las bodegas que abastecen ──
+// Para cada bodega abastecida se simula día a día stock + ingresos − plan; cuando se queda corta, ese faltante
+// lo tiene que despachar el acopio ese día (se repone a 0 y sigue). La suma por producto es la demanda del acopio.
+const ACOPIO_ABASTECE = {
+  AN01: ['JO01', 'NA01', 'MH01', 'MG01'],   // Acopio Pesjoya → Josefina, Naturisa, Marchena, Margolfo
+  AR01: ['RN01'],                           // Acopio Río Nilo → Río Nilo
+};
+// Haid despacha directo a las bodegas de los campamentos (no pasa por los acopios): no genera demanda al acopio
+const NO_PASA_POR_ACOPIO = nombre => String(nombre || '').trim().toLowerCase().startsWith('haid ');
+const sumarDias2 = (a = {}, b = {}) => { const r = { ...a }; for(const [d, kg] of Object.entries(b)) r[d] = (r[d] || 0) + kg; return r; };
+
+function faltantesPorDia(stock, planDia, ingresoDia = {}){
+  const hoy = fechaISO(new Date());
+  const dias = [...new Set([...Object.keys(planDia), ...Object.keys(ingresoDia)])].filter(d => d >= hoy).sort();
+  let restante = stock; const falta = {};
+  for(const d of dias){
+    restante += (ingresoDia[d] || 0) - (planDia[d] || 0);
+    if(restante < 0){ falta[d] = -restante; restante = 0; }
+  }
+  return falta;
+}
+
+function calcularDemandaAcopios(stockDe){
+  PLAN.filas = PLAN.filas.filter(f => !f.soloDemanda);
+  const lunesHoy = fechaISO(lunesDe(new Date()));
+  for(const f of PLAN.filas){ f.stock = stockDe.get(`${f.bodega.code}|${f.codigoSap}`) || 0; f.demandaDia = {}; f.demandaDet = []; f.realBod = {}; f.planBod = {}; }
+  for(const [acopio, bodegas] of Object.entries(ACOPIO_ABASTECE)){
+    const bAcopio = BODEGAS_POR_CODIGO[acopio];
+    if(!bAcopio) continue;
+    const idx = new Map(PLAN.filas.filter(f => f.bodega.code === acopio).map(f => [f.codigoSap || f.producto, f]));
+    for(const f of PLAN.filas){
+      if(!bodegas.includes(f.bodega.code) || NO_PASA_POR_ACOPIO(f.producto)) continue;
+      const falta = faltantesPorDia(f.stock, f.planDia, f.ingresoDia);
+      const total = Object.values(falta).reduce((a, kg) => a + kg, 0);
+      const pasado = Object.keys(f.real).length || Object.keys(f.plan).some(k => k < lunesHoy);
+      if(!total && !pasado) continue;
+      const k = f.codigoSap || f.producto;
+      let fa = idx.get(k);
+      if(!fa){ fa = { bodega:bAcopio, codigoSap:f.codigoSap, producto:f.producto, plan:{}, real:{}, planDia:{}, stock:stockDe.get(`${acopio}|${f.codigoSap}`) || 0,
+                      demandaDia:{}, demandaDet:[], realBod:{}, planBod:{}, soloDemanda:true };
+               idx.set(k, fa); PLAN.filas.push(fa); }
+      // consumo real de la bodega abastecida (todas las semanas) y su plan completo en las semanas pasadas
+      for(const [wk, kg] of Object.entries(f.real)) fa.realBod[wk] = (fa.realBod[wk] || 0) + kg;
+      for(const [wk, kg] of Object.entries(f.plan)) if(wk < lunesHoy) fa.planBod[wk] = (fa.planBod[wk] || 0) + kg;
+      if(!total) continue;
+      fa.demandaDia = sumarDias2(fa.demandaDia, falta);
+      const primero = Object.keys(falta).sort()[0];
+      fa.demandaDet.push({ bodega:f.bodega, kg:total, desde:primero });
+    }
+  }
+}
+
+// Hasta qué día alcanza el stock consumiendo lo planificado desde hoy
+function alcanceSegunPlan(stock, planDia, ingresoDia = {}){
+  const fechas = Object.keys(planDia).filter(f => f >= fechaISO(new Date())).sort();
+  if(!fechas.length) return null;
+  let restante = stock;
+  // ingresos que llegan después del último día con plan suman al sobrante
+  const ultimo = fechas[fechas.length - 1];
+  for(const f of fechas){
+    restante += ingresoDia[f] || 0;
+    restante -= planDia[f];
+    if(restante < 0) return { hasta: new Date(f + 'T00:00:00'), corto:true };
+  }
+  for(const [f, kg] of Object.entries(ingresoDia)) if(f > ultimo) restante += kg;
+  return { hasta: new Date(ultimo + 'T00:00:00'), corto:false, sobra: restante };
+}
+
+function valorPlan(kg){
+  if(!kg) return '<span class="zero">—</span>';
+  return planUnidad === 'sacos' ? fmt(kg / KG_SACO) : fmt(kg);
+}
+function alcanceHtml(a, stock, conSobrante = true){
+  if(!a) return stock ? '<span class="code" title="Sin plan cargado desde hoy">sin plan</span>' : '<span class="zero">—</span>';
+  const dias = Math.round((a.hasta - new Date(fechaISO(new Date()) + 'T00:00:00')) / 864e5);
+  if(a.corto) return `<span class="alc ${claseDias(dias)}" title="El stock se acaba ese día según el plan">${ddmm(a.hasta)} <span class="code">· ${dias > DIAS_TOPE ? DIAS_TOPE + '+' : dias} d</span></span>`;
+  return `<span class="alc ok" title="El stock (con los ingresos) cubre todo el plan cargado; sobran ${fmt(a.sobra / KG_SACO)} sacos (${fmt(a.sobra)} kg)">cubre${conSobrante ? ` <span class="code">+${valorPlan(a.sobra)}</span>` : ''}</span>`;
+}
+
+let PLAN_IDX = null;
+function prepararPlan(){
+  if(!PLAN) return;
+  const stockDe = new Map();
+  for(const f of STOCK) if(f.sec === 'bal') stockDe.set(`${f.bodega.code}|${f.codigoSap}`, (stockDe.get(`${f.bodega.code}|${f.codigoSap}`) || 0) + f.qty);
+  calcularDemandaAcopios(stockDe);
+  for(const f of PLAN.filas) f.alcance = alcanceSegunPlan(f.stock, sumarDias2(f.planDia, f.demandaDia), f.ingresoDia);
+  PLAN_IDX = new Map(PLAN.filas.map(f => [`${f.bodega.code}|${f.codigoSap}`, f]));
+}
+
+function renderPlan(){
+  const cont = document.getElementById('tblPlan');
+  if(!PLAN){ cont.innerHTML = '<div class="empty">No se pudo cargar el planificado de AP1</div>'; document.getElementById('kpis').innerHTML = ''; return; }
+  const sem = PLAN.semanas;
+  prepararPlan();   // antes de filtrar: crea filas del acopio para productos que piden sus bodegas
+  const t = q.trim().toLowerCase();
+  const filas = PLAN.filas.filter(f => (!camp || f.bodega.campamento === camp) &&
+    (!t || [f.producto, f.codigoSap, f.bodega.code, f.bodega.name, f.bodega.campamento].some(s => String(s).toLowerCase().includes(t))));
+  renderKpisPlan(filas, sem);
+
+  const porBod = new Map();
+  for(const f of filas){ if(!porBod.has(f.bodega.code)) porBod.set(f.bodega.code, { b:f.bodega, filas:[] }); porBod.get(f.bodega.code).filas.push(f); }
+  const grupos = ordenarPorSector([...porBod.values()]);
+  const est = { actual:null };
+  const hoyKey = fechaISO(lunesDe(new Date())), hoyIso = fechaISO(new Date());
+  // Saldo al cierre de la semana en curso: stock + ingresos hasta el domingo − plan de hoy al domingo
+  const actualSem = sem.find(s => s.actual), finActual = fechaISO(actualSem.fin);
+  const saldoFinSemana = f => f.stock
+    + Object.entries(f.ingresoDia || {}).filter(([d]) => d <= finActual).reduce((a, [, kg]) => a + kg, 0)
+    - Object.entries(f.planDia).filter(([d]) => d >= hoyIso && d <= finActual).reduce((a, [, kg]) => a + kg, 0)
+    - Object.entries(f.demandaDia || {}).filter(([d]) => d <= finActual).reduce((a, [, kg]) => a + kg, 0);
+  const faltaBodegasHtml = f => {
+    const kg = Object.values(f.demandaDia || {}).reduce((a, x) => a + x, 0);
+    if(!kg) return '<span class="zero">—</span>';
+    const det = f.demandaDet.map(d => `${d.bodega.campamento} (${d.bodega.code}): ${fmt(d.kg / KG_SACO)} sacos desde ${d.desde.slice(8, 10)}/${d.desde.slice(5, 7)}`).join(String.fromCharCode(10));
+    return `<span class="falta-bod" title="Incluido en el plan del acopio:${String.fromCharCode(10)}${esc(det)}">+ bodegas ${valorPlan(kg)}</span>`;
+  };
+  const saldoHtml = kg => {
+    if(Math.abs(kg) < 1) return '<span class="zero">0</span>';
+    return `<span class="${kg < 0 ? 'saldo-neg' : 'saldo-pos'}">${kg < 0 ? '−' : ''}${valorPlan(Math.abs(kg))}</span>`;
+  };
+  const visibles = sem;
+  const tipo = s => s.actual ? 'actual' : s.key < hoyKey ? 'pasada' : 'futura';
+  const colsDe = s => ({ pasada:['plan','real','pct'], actual:['plan','real','falta'], futura:['plan'] })[tipo(s)];
+  const TIT = { plan:'Plan', real:'Real', pct:'%', falta:'Faltan', ing:'Ingresa', fec:'Fecha ingreso' };
+  const AYUDA = { plan:'Planificado en AP1', real:'Consumo real AP1', pct:'Real ÷ plan', falta:'Plan de hoy al domingo',
+                  ing:'Despachos de proveedor ASIGNADOS o EN RUTA en AP1; lo atrasado cuenta en la semana en curso',
+                  fec:'Fecha asignada de llegada en AP1 (en rojo: ya pasó y no ha ingresado)' };
+  const ingresosSem = fs => fs.flatMap(f => f.ingresos || []);
+  // Fecha de ingreso y estado AP1 de cada despacho (una línea por fecha+estado). Atrasado = ASIGNADO con fecha pasada:
+  // en AP1 sigue pendiente; si ya llegó hay que marcarlo ENTREGADO allá y deja de contar.
+  const fechasHtml = fs => {
+    const grupos = new Map();
+    for(const r of ingresosSem(fs)){ const k = `${r.fecha}|${r.estado}`; grupos.set(k, (grupos.get(k) || 0) + 1); }
+    if(!grupos.size) return '<span class="zero">—</span>';
+    return [...grupos.entries()].sort().map(([k, n]) => {
+      const [f, est] = k.split('|'), atr = f < hoyIso;
+      const ruta = est === 'EN RUTA';
+      return `<div class="${atr ? 'fec-atrasada' : ruta ? 'fec ruta' : 'fec'}" title="${n} despacho${n > 1 ? 's' : ''} ${est}${atr ? ' con fecha pasada: si ya llegó, marcarlo ENTREGADO en AP1' : ''}">${ruta ? '🚚 ' : ''}${f.slice(8, 10)}/${f.slice(5, 7)}${n > 1 ? `<span class="est"> ×${n}</span>` : ''}${atr ? '<span class="est"> atrasado</span>' : ''}</div>`;
+    }).join('');
+  };
+  // En los acopios el plan incluye lo que les va a faltar a las bodegas que abastecen (demandaDia)
+  const planTotalDia = f => sumarDias2(f.planDia, f.demandaDia);
+  const demandaSem = (f, s) => Object.entries(f.demandaDia || {}).filter(([d]) => d >= s.key && d <= fechaISO(s.fin)).reduce((x, [, kg]) => x + kg, 0);
+  const pendiente = (fs, s) => fs.reduce((a, f) => a + Object.entries(planTotalDia(f))
+    .filter(([d]) => d >= hoyIso && d <= fechaISO(s.fin)).reduce((x, [, kg]) => x + kg, 0), 0);
+  const sumaSem = (fs, campo, key) => fs.reduce((a, f) => a + (f[campo][key] || 0)
+    + (campo === 'plan' ? demandaSem(f, sem.find(x => x.key === key)) + ((f.planBod || {})[key] || 0) : ((f.realBod || {})[key] || 0)), 0);
+  const pctHtml = (real, plan) => {
+    if(!plan) return '<span class="zero">—</span>';
+    const p = (real || 0) / plan * 100;
+    return `<span class="pct ${p >= 90 && p <= 110 ? 'ok' : p >= 75 && p <= 125 ? 'mas' : 'menos'}">${fmt(p, 0)}%</span>`;
+  };
+  const altDe = s => (!s.actual && visibles.indexOf(s) % 2 === 1) ? ' w-alt' : '';
+  const celdas = (fs, s) => colsDe(s).map((c, i) => {
+    const cls = `num w-${tipo(s)}${altDe(s)}${i === 0 ? ' wsep' : ''}`;
+    const plan = sumaSem(fs, 'plan', s.key), real = sumaSem(fs, 'real', s.key);
+    const dem = c === 'plan' ? fs.reduce((a, f) => a + demandaSem(f, s), 0) : 0;
+    const pbod = c === 'plan' ? fs.reduce((a, f) => a + ((f.planBod || {})[s.key] || 0), 0) : 0;
+    const rbod = c === 'real' ? fs.reduce((a, f) => a + ((f.realBod || {})[s.key] || 0), 0) : 0;
+    const marca = (txt, val) => `<span title="${txt}">${valorPlan(val)}<span class="mas-bod">*</span></span>`;
+    const v = c === 'plan' && dem ? marca(`Incluye ${fmt(dem / KG_SACO)} sacos que les faltan a las bodegas que abastece`, plan)
+      : c === 'plan' && pbod ? marca(`Incluye ${fmt(pbod / KG_SACO)} sacos del plan de las bodegas que abastece`, plan)
+      : c === 'real' && rbod ? marca(`Incluye ${fmt(rbod / KG_SACO)} sacos de consumo real de las bodegas que abastece`, real)
+      : c === 'plan' ? valorPlan(plan) : c === 'real' ? valorPlan(real) : c === 'pct' ? pctHtml(real, plan)
+      : (() => { const p = pendiente(fs, s); return p ? `<span class="falta">${valorPlan(p)}</span>` : '<span class="zero">—</span>'; })();
+    return `<td class="${cls}">${v}</td>`;
+  }).join('');
+
+  let html = `<table class="plan"><thead>
+    <tr><th rowspan="2" class="col-prod">Bodega / tipo de balanceado</th>
+      ${visibles.map(s => `<th colspan="${colsDe(s).length}" class="ctr wsep w-${tipo(s)}${altDe(s)} sem-h">
+        <div class="sem-n">Semana ${s.iso}${s.actual ? ' <span class="en-curso">en curso</span>' : ''}</div><div class="sub">${ddmm(s.ini)} – ${ddmm(s.fin)}</div></th>`).join('')}
+      <th colspan="5" class="wsep w-inv grp-h"><div class="grp-n">Inventario y cobertura</div><div class="sub">stock SAP en vivo · despachos AP1</div></th></tr>
+    <tr>${visibles.map(s => colsDe(s).map((c, i) => `<th class="num sub w-${tipo(s)}${altDe(s)}${i === 0 ? ' wsep' : ''}" title="${AYUDA[c]}">${TIT[c]}</th>`).join('')).join('')}
+      <th class="num sub w-inv wsep">Stock</th>
+      <th class="num sub w-inv" title="${AYUDA.ing}">Por ingresar</th>
+      <th class="sub w-inv" title="${AYUDA.fec} · verde: asignado · 🚚 azul: en ruta">Ingreso</th>
+      <th class="sub w-inv" title="Día en que se acaba el stock (con ingresos) según el plan">Alcanza hasta</th>
+      <th class="num sub w-inv" title="Stock SAP + ingresos hasta el domingo − plan que falta de hoy al domingo">Saldo dom. ${ddmm(actualSem.fin)}</th></tr>
+    </thead><tbody>`;
+  for(const g of grupos){
+    const st = g.filas.reduce((a, f) => a + f.stock, 0);
+    html += franjaSector(g.b, est, 1 + visibles.reduce((n, s) => n + colsDe(s).length, 0) + 5);
+    // Fila de la bodega solo como título (sin totales): los datos van por producto
+    html += `<tr class="bod"><td class="col-prod">${g.b.sinBodega
+        ? `<b>${esc(g.b.campamento)}</b> <i class="code">sin bodega propia</i>`
+        : `<b>${esc(g.b.campamento)}</b> <span class="code">${esc(g.b.code)} · ${esc(g.b.name)}</span>`}${abasteceHtml(g.b) ? `<div style="margin-top:2px">${abasteceHtml(g.b)}</div>` : ''}</td>
+      <td colspan="${visibles.reduce((n, s) => n + colsDe(s).length, 0) + 5}"></td></tr>`;
+    for(const f of g.filas.sort((a, b) => ordenProd(a.producto, b.producto))){
+      const et = etapa(f);
+      html += `<tr class="tipo"><td class="col-prod" style="padding-left:20px" title="${esc(f.producto)}">
+          <div class="prod">${et ? `<span class="etq ${et.cls}" title="${et.txt}">${et.txt[0]}</span>` : '<span class="etq"></span>'}<span class="prod-n">${esc(f.producto)}</span></div>
+          ${f.codigoSap || Object.keys(f.demandaDia || {}).length ? `<div class="prod-sub" style="padding-left:22px">${esc(f.codigoSap)}${Object.keys(f.demandaDia || {}).length ? ' ' + faltaBodegasHtml(f) : ''}</div>` : ''}</td>
+        ${visibles.map(s => celdas([f], s)).join('')}
+        <td class="num wsep w-inv"><b>${valorPlan(f.stock)}</b></td>
+        <td class="num w-inv">${(() => { const kg = (f.ingresos || []).reduce((a, r) => a + r.kg, 0);
+          return kg ? `<span class="ingresa" title="${esc((f.ingresos || []).map(r => `${r.fecha.slice(8, 10)}/${r.fecha.slice(5, 7)} ${r.estado} · ${r.proveedor} · ${fmt(r.kg / KG_SACO)} sacos`).join(String.fromCharCode(10)))}">+${valorPlan(kg)}</span>` : '<span class="zero">—</span>'; })()}</td>
+        <td class="w-inv">${fechasHtml([f])}</td>
+        <td class="w-inv">${alcanceHtml(f.alcance, f.stock)}</td>
+        <td class="num w-inv">${saldoHtml(saldoFinSemana(f))}</td></tr>`;
+    }
+  }
+  cont.innerHTML = html + '</tbody></table>';
+  document.getElementById('planNota').textContent =
+    `Planificado y consumo real de AP1 en ${planUnidad} (${KG_SACO} kg) · semanas de lunes a domingo · el plan de los campamentos sin bodega se suma a la bodega que los abastece · "Ingresa" = despachos de proveedor pendientes en AP1 (pase el mouse para ver el detalle) · "Alcanza hasta" parte del stock SAP, suma los ingresos en su fecha y descuenta el plan día por día desde hoy · Acopios: además descuentan lo que les va a faltar a las bodegas que abastecen y eso va en su plan (marcado con *; Pesjoya → Josefina, Naturisa, Marchena, Margolfo; Río Nilo → Río Nilo), sin Haid (va directo a las bodegas)`;
+}
+
+function renderKpisPlan(filas, sem){
+  const t = kg => kg >= 1000 ? `${fmt(kg / 1000, 1)} t` : `${fmt(kg)} kg`;
+  const act = sem.find(s => s.actual), sig = sem[sem.indexOf(act) + 1], ant = sem[sem.indexOf(act) - 1];
+  const tot = (campo, key) => filas.reduce((a, f) => a + (f[campo][key] || 0), 0);
+  // plan de la semana actual hasta ayer, para comparar con el real a la fecha
+  const ayer = fechaISO(new Date(Date.now() - 864e5));
+  const planALaFecha = filas.reduce((a, f) => a + Object.entries(f.planDia).filter(([d]) => d >= act.key && d <= ayer).reduce((s, [, kg]) => s + kg, 0), 0);
+  const realAct = tot('real', act.key), cumpl = planALaFecha ? realAct / planALaFecha * 100 : null;
+  const cumplAnt = tot('plan', ant.key) ? tot('real', ant.key) / tot('plan', ant.key) * 100 : null;
+  const finSig = fechaISO(sig.fin);
+  const noAlcanzan = new Set(filas.filter(f => f.alcance?.corto && fechaISO(f.alcance.hasta) <= finSig).map(f => f.bodega.campamento));
+  const card = (cls, label, value, sub) => `<div class="kpi-card"><div class="kpi-icon ${cls}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></div>
+    <div style="min-width:0"><div class="kpi-label">${label}</div><div class="kpi-value mono">${value}</div>${sub ? `<div class="kpi-sub">${sub}</div>` : ''}</div></div>`;
+  document.getElementById('kpis').innerHTML =
+    card('blue', `Plan semana ${act.iso}`, t(tot('plan', act.key)),
+         `${ddmm(act.ini)} – ${ddmm(act.fin)} · faltan ${t(filas.reduce((a, f) => a + Object.entries(f.planDia).filter(([d]) => d >= fechaISO(new Date()) && d <= fechaISO(act.fin)).reduce((x, [, kg]) => x + kg, 0), 0))} (hoy a domingo)`) +
+    card(cumpl == null ? 'blue' : cumpl >= 90 ? 'fer' : 'bal', 'Real vs plan a la fecha', cumpl == null ? '—' : `${fmt(cumpl, 0)}%`,
+         `${t(realAct)} de ${t(planALaFecha)} · sem ${ant.iso}: ${cumplAnt == null ? '—' : fmt(cumplAnt, 0) + '%'}`) +
+    card('blue', `Plan semana ${sig.iso}`, t(tot('plan', sig.key)), tot('plan', sig.key) < tot('plan', act.key) * 0.8 ? 'parece incompleto: AP1 aún lo está cargando' : `${ddmm(sig.ini)} – ${ddmm(sig.fin)}`) +
+    (() => { const ing = filas.flatMap(f => f.ingresos || []); const kg = ing.reduce((a, r) => a + r.kg, 0);
+       const viajes = new Set(ing.map(r => r.despacho)).size, atrasados = new Set(ing.filter(r => r.fecha < fechaISO(new Date())).map(r => r.despacho)).size;
+       const prox = [...new Set(ing.filter(r => r.fecha >= fechaISO(new Date())).map(r => r.fecha))].sort()[0];
+       return card('fer', 'Por ingresar', t(kg), `${viajes} despachos asignados o en ruta${prox ? ` · próximo ${prox.slice(8, 10)}/${prox.slice(5, 7)}` : ''}${atrasados ? ` · ${atrasados} atrasados` : ''}`); })() +
+    card(noAlcanzan.size ? 'red' : 'fer', `No alcanzan a fin de sem ${sig.iso}`, fmt(noAlcanzan.size), noAlcanzan.size ? [...noAlcanzan].map(esc).join(', ') : 'todas las bodegas cubren el plan');
+}
+
+document.getElementById('planUnidadSeg').addEventListener('click', e => {
+  const b = e.target.closest('[data-pu]'); if(!b) return;
+  planUnidad = b.dataset.pu;
+  document.querySelectorAll('#planUnidadSeg button').forEach(x => x.classList.toggle('active', x === b));
+  if(STOCK.length) renderPlan();
+});
+
+function exportarPlan(){
+  if(!PLAN) return;
+  const filas = [];
+  for(const f of PLAN.filas){
+    const o = { 'Campamento': f.bodega.campamento, 'Bodega': f.bodega.sinBodega ? 'Sin bodega propia' : `${f.bodega.name} (${f.bodega.code})`,
+                'Código SAP': f.codigoSap, 'Producto': f.producto };
+    for(const s of PLAN.semanas){
+      o[`Plan sem ${s.iso} (kg)`] = Math.round((f.plan[s.key] || 0) + ((f.planBod || {})[s.key] || 0)
+        + Object.entries(f.demandaDia || {}).filter(([d]) => d >= s.key && d <= fechaISO(s.fin)).reduce((x, [, kg]) => x + kg, 0));
+      if(s.actual || s.key < fechaISO(lunesDe(new Date()))) o[`Real sem ${s.iso} (kg)`] = Math.round((f.real[s.key] || 0) + ((f.realBod || {})[s.key] || 0));
+    }
+    o['Por ingresar (kg)'] = Math.round((f.ingresos || []).reduce((a, r) => a + r.kg, 0));
+    o['Fechas ingreso'] = [...new Set((f.ingresos || []).map(r => r.fecha))].sort().join(', ');
+    o['Plan incluye falta en bodegas (kg)'] = Math.round(Object.values(f.demandaDia || {}).reduce((a, x) => a + x, 0));
+    o['Stock SAP (kg)'] = Math.round(f.stock || 0);
+    o['Alcanza hasta'] = f.alcance ? (f.alcance.corto ? fechaISO(f.alcance.hasta) : 'cubre el plan') : '';
+    { const act = PLAN.semanas.find(s => s.actual), fin = fechaISO(act.fin), hoy = fechaISO(new Date());
+      o[`Saldo fin sem ${act.iso} (kg)`] = Math.round((f.stock || 0)
+        + Object.entries(f.ingresoDia || {}).filter(([d]) => d <= fin).reduce((a, [, kg]) => a + kg, 0)
+        - Object.entries(f.planDia).filter(([d]) => d >= hoy && d <= fin).reduce((a, [, kg]) => a + kg, 0)
+        - Object.entries(f.demandaDia || {}).filter(([d]) => d <= fin).reduce((a, [, kg]) => a + kg, 0)); }
+    filas.push(o);
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Planificado');
+  XLSX.writeFile(wb, `Planificado_Balanceado_${fechaISO(new Date()).replace(/-/g, '')}.xlsx`);
+}
+
+// ── Sugerido de ingreso: cuánto debería entrar de cada balanceado por día, según plan y capacidad ──
+// Para cada bodega se simula día a día (hoy → domingo de la semana siguiente):
+//   stock final = stock inicial + despachos AP1 pendientes + ingreso sugerido (o editado) − plan del día.
+// Si el stock final queda bajo la cobertura mínima (días del plan de los 7 días siguientes), se sugiere un ingreso
+// que lo lleve a la cobertura objetivo, redondeado a pallets si se pide. La capacidad (pallets, Configuración)
+// limita lo que entra al día contra el stock al cierre (inicial + entradas − salidas del día; en acopios las salidas
+// incluyen lo que despachan a sus bodegas): primero se asegura el mínimo de los productos más cortos y luego el resto.
+// Salidas del día = plan AP1; si el producto no tiene plan cargado esa semana, se usa su consumo promedio diario
+// de los últimos 7 días (incluye los campamentos que abastece).
+// Las bodegas abastecidas por un acopio reciben desde el acopio: lo sugerido para ellas es demanda del acopio
+// (Haid va directo del proveedor). Las ediciones se guardan en este navegador.
+const SUG_KEY = 'bodega_sugerido_v1';
+let SUG_CFG = { min:3, obj:5, pallet:true, gab:{} };
+// Islas: el balanceado llega en gabarra y la gabarra va completa. Cargill y Haid llegan en gabarras separadas,
+// cada una con su tamaño (sacos) por bodega. Se guarda en este navegador hasta pasarlo a Configuración (D1).
+const GABARRA_INICIAL = { GO01:{ cargill:4620 } };
+const provDe = producto => NO_PASA_POR_ACOPIO(producto) ? 'haid' : 'cargill';
+const gabDe = code => ({ ...(GABARRA_INICIAL[code] || {}), ...((SUG_CFG.gab || {})[code] || {}) });
+let SUG_ED = {};   // `${bodega}|${codigo}|${fecha}` -> sacos editados
+try{ const g = JSON.parse(localStorage.getItem(SUG_KEY) || '{}'); Object.assign(SUG_CFG, g.cfg || {}); SUG_ED = g.ed || {}; }catch(e){}
+function guardarSug(){
+  // las ediciones de días que ya pasaron se descartan
+  const hoy = fechaISO(new Date());
+  for(const k of Object.keys(SUG_ED)) if(k.slice(-10) < hoy) delete SUG_ED[k];
+  try{ localStorage.setItem(SUG_KEY, JSON.stringify({ cfg:SUG_CFG, ed:SUG_ED })); }catch(e){}
+}
+const ORIGEN_ACOPIO = Object.fromEntries(Object.entries(ACOPIO_ABASTECE).flatMap(([a, bs]) => bs.map(b => [b, a])));
+
+function diasSugerido(){
+  const hoy = new Date(fechaISO(new Date()) + 'T00:00:00');
+  const fin = sumarDias(lunesDe(hoy), 13);
+  const dias = [];
+  for(let d = hoy; d <= fin; d = sumarDias(d, 1)) dias.push(fechaISO(d));
+  return dias;
+}
+
+let SUG = null;
+function calcularSugerido(){
+  if(!PLAN) return null;
+  prepararPlan();
+  const dias = diasSugerido();
+  const lunesSig = fechaISO(sumarDias(lunesDe(new Date()), 7));
+  const kgPallet = KG_SACO * SACOS_PALLET;
+  const stockDe = new Map(), consDe = new Map();
+  for(const f of STOCK) if(f.sec === 'bal'){
+    const k = `${f.bodega.code}|${f.codigoSap}`;
+    stockDe.set(k, (stockDe.get(k) || 0) + f.qty);
+    consDe.set(k, (consDe.get(k) || 0) + (f.cons7 || 0) / 7);
+  }
+
+  // productos por bodega (solo bodegas reales)
+  const bods = new Map();
+  const prodDe = (b, codigo, producto) => {
+    if(!bods.has(b.code)) bods.set(b.code, { b, prods:new Map() });
+    const g = bods.get(b.code), k = codigo || producto;
+    if(!g.prods.has(k)) g.prods.set(k, { codigoSap:codigo, producto, stock:stockDe.get(`${b.code}|${codigo}`) || 0, cons:consDe.get(`${b.code}|${codigo}`) || 0,
+      planDia:{}, plan:{}, ingresoDia:{}, ingresos:[], dem:{}, est:{}, pend:{}, sug:{}, ent:{}, fin:{}, cob:{}, limitado:{} });
+    return g.prods.get(k);
+  };
+  for(const f of PLAN.filas){
+    if(f.bodega.sinBodega || f.soloDemanda) continue;
+    const p = prodDe(f.bodega, f.codigoSap, f.producto);
+    p.planDia = sumarDias2(p.planDia, f.planDia);
+    for(const [wk, kg] of Object.entries(f.plan)) p.plan[wk] = (p.plan[wk] || 0) + kg;
+    p.ingresoDia = sumarDias2(p.ingresoDia, f.ingresoDia || {});
+    p.ingresos.push(...(f.ingresos || []));
+  }
+  // las bodegas abastecidas se resuelven antes que su acopio
+  const orden = [...bods.values()].sort((x, y) => (ACOPIO_ABASTECE[x.b.code] ? 1 : 0) - (ACOPIO_ABASTECE[y.b.code] ? 1 : 0));
+  for(const g of orden){
+    const b = g.b, acopio = ACOPIO_ABASTECE[b.code];
+    // demanda del acopio = lo que entra a sus bodegas desde él
+    if(acopio) for(const code of acopio){
+      const gb = bods.get(code); if(!gb) continue;
+      for(const pb of gb.prods.values()){
+        if(NO_PASA_POR_ACOPIO(pb.producto)) continue;
+        const pa = prodDe(b, pb.codigoSap, pb.producto);
+        for(const d of dias) if(pb.ent[d]) pa.demBod = { ...(pa.demBod || {}), [d]:((pa.demBod || {})[d] || 0) + pb.ent[d] };
+      }
+    }
+    const prods = [...g.prods.values()];
+    for(const p of prods){
+      for(const d of dias){
+        const conPlan = p.plan[fechaISO(lunesDe(new Date(d + 'T00:00:00')))] > 0;
+        let kg = conPlan ? (p.planDia[d] || 0) : p.cons;
+        if(!conPlan && kg) p.est[d] = true;
+        p.dem[d] = kg + ((p.demBod || {})[d] || 0);
+        p.pend[d] = p.ingresoDia[d] || 0;
+      }
+    }
+    const prm = PARAMS[subDe(b)] || {};
+    const capKg = prm.capacidad_pallets ? prm.capacidad_pallets * kgPallet : null;
+    g.capacidad = prm.capacidad_pallets || null;
+    g.ocup = {}; g.limitado = {}; g.entPal = {}; g.gabDia = {};
+    const gabs = gabDe(b.code); g.gab = gabs;
+    const actual = new Map(prods.map(p => [p, p.stock]));
+    const redondeo = kg => SUG_CFG.pallet ? Math.ceil(kg / kgPallet - 0.05) * kgPallet : Math.ceil(kg / KG_SACO) * KG_SACO;
+    dias.forEach((d, i) => {
+      // demanda promedio de los 7 días siguientes (para las coberturas)
+      const prom = p => { const v = dias.slice(i + 1, i + 8).map(x => p.dem[x]); return v.length ? v.reduce((a, x) => a + x, 0) / v.length : p.dem[d]; };
+      const nec = [];
+      // el domingo no se carga: ese día no hay ingreso sugerido y el sábado cubre también la salida del domingo
+      const domingo = new Date(d + 'T00:00:00').getDay() === 0;
+      const sig = dias[i + 1], sigDomingo = sig && new Date(sig + 'T00:00:00').getDay() === 0;
+      for(const p of prods){
+        const k = `${b.code}|${p.codigoSap || p.producto}|${d}`;
+        const base = actual.get(p) + p.pend[d] - p.dem[d] + (sigDomingo ? p.pend[sig] - p.dem[sig] : 0);
+        const pr = prom(p);
+        p.prom = p.prom ?? pr;
+        if(k in SUG_ED){ p.sug[d] = SUG_ED[k] * KG_SACO; p.editado = { ...(p.editado || {}), [d]:true }; continue; }
+        p.sug[d] = 0;
+        if(domingo || !pr || base >= SUG_CFG.min * pr) continue;
+        const min = Math.max(0, SUG_CFG.min * pr - base), obj = Math.max(min, SUG_CFG.obj * pr - base);
+        nec.push({ p, min:redondeo(min), obj:redondeo(obj), minRaw:min, objRaw:obj, cob:base / pr });
+      }
+      if(nec.length){
+        let libre = capKg == null ? Infinity
+          : capKg - prods.reduce((a, p) => a + Math.max(0, actual.get(p) + p.pend[d] + p.sug[d] - p.dem[d]), 0);
+        nec.sort((x, y) => x.cob - y.cob);
+        for(const prov of ['cargill', 'haid']){
+          const grupo = nec.filter(n => provDe(n.p.producto) === prov);
+          if(!grupo.length) continue;
+          const G = gabs[prov];
+          if(!G){
+            for(const n of grupo){ const q = Math.max(0, Math.min(n.min, libre)); n.p.sug[d] = q; libre -= q; }
+            for(const n of grupo){ const q = Math.max(0, Math.min(n.obj - n.p.sug[d], libre)); n.p.sug[d] += q; libre -= q; }
+            if(SUG_CFG.pallet) for(const n of grupo) n.p.sug[d] = Math.floor(n.p.sug[d] / kgPallet + 1e-6) * kgPallet;
+            for(const n of grupo) if(n.p.sug[d] < n.obj - 1){ n.p.limitado[d] = true; g.limitado[d] = true; }
+            continue;
+          }
+          // gabarra completa: se reparte primero el mínimo, luego el objetivo y lo que sobra según la salida diaria
+          const Gkg = G * KG_SACO, U = (SUG_CFG.pallet && G % SACOS_PALLET === 0 ? SACOS_PALLET : 1) * KG_SACO;
+          const delProv = prods.filter(p => provDe(p.producto) === prov);
+          const editados = delProv.filter(p => p.editado?.[d]).reduce((a, p) => a + p.sug[d], 0);
+          const nGab = Math.max(1, Math.ceil((grupo.reduce((a, n) => a + n.minRaw, 0) + editados) / Gkg - 1e-9));
+          let resto = Math.round((nGab * Gkg - editados) / U);
+          const da = new Map();
+          const dar = (p, u) => { u = Math.max(0, Math.min(u, resto)); da.set(p, (da.get(p) || 0) + u); resto -= u; };
+          for(const n of grupo) dar(n.p, Math.ceil(n.minRaw / U - 1e-9));
+          for(const n of grupo) dar(n.p, Math.ceil(n.objRaw / U - 1e-9) - (da.get(n.p) || 0));
+          const cand = delProv.filter(p => !p.editado?.[d] && prom(p) > 0);
+          const sumPr = cand.reduce((a, p) => a + prom(p), 0);
+          if(resto > 0 && sumPr){
+            const base = resto;
+            for(const p of cand) dar(p, Math.floor(base * prom(p) / sumPr));
+            for(const p of [...cand].sort((x, y) => prom(y) - prom(x))){ if(resto <= 0) break; dar(p, 1); }
+          }
+          let totGab = 0;
+          for(const [p, u] of da) totGab += u * U;
+          for(const [p, u] of da) p.sug[d] = u * U;
+          if(totGab > libre){ for(const p of da.keys()) p.limitado[d] = true; g.limitado[d] = true; }
+          libre -= totGab;
+          g.gabDia[d] = { ...(g.gabDia[d] || {}), [prov]:nGab };
+        }
+      }
+      let total = 0, entra = 0;
+      for(const p of prods){
+        p.ent[d] = p.sug[d];
+        const ini = actual.get(p);
+        const fin = ini + p.pend[d] + p.sug[d] - p.dem[d];
+        p.fin[d] = fin;
+        const pr = prom(p);
+        p.cob[d] = pr ? Math.max(0, fin) / pr : null;
+        actual.set(p, fin);
+        total += Math.max(0, fin);
+        entra += p.pend[d] + p.sug[d];
+      }
+      g.ocup[d] = capKg ? total / capKg : null;
+      g.entPal[d] = entra / kgPallet;
+    });
+    g.prods = new Map(prods.filter(p => p.stock || dias.some(d => p.dem[d] || p.pend[d] || p.sug[d])).map(p => [p.codigoSap || p.producto, p]));
+  }
+  SUG = { dias, lunesSig, bods:[...bods.values()].filter(g => g.prods.size) };
+  return SUG;
+}
+
+function renderSugerido(){
+  const cont = document.getElementById('tblSug');
+  if(!PLAN){ cont.innerHTML = '<div class="empty">No se pudo cargar el planificado de AP1</div>'; document.getElementById('kpis').innerHTML = ''; return; }
+  const scroll = [cont.scrollTop, cont.scrollLeft];
+  const s = calcularSugerido();
+  const t = q.trim().toLowerCase();
+  const grupos = ordenarPorSector(s.bods.filter(g => (!camp || g.b.campamento === camp) && (!islasSector || sectorDe(g.b) === islasSector)
+    && (!t || [g.b.code, g.b.name, g.b.campamento, ...[...g.prods.values()].flatMap(p => [p.producto, p.codigoSap])].some(x => String(x).toLowerCase().includes(t)))));
+  renderKpisSug(grupos, s);
+  document.getElementById('sugMin').value = SUG_CFG.min;
+  document.getElementById('sugObj').value = SUG_CFG.obj;
+  document.getElementById('sugPallet').checked = SUG_CFG.pallet;
+  document.getElementById('sugReset').disabled = !Object.keys(SUG_ED).length;
+  document.getElementById('sugReset').textContent = Object.keys(SUG_ED).length ? `Quitar ediciones (${Object.keys(SUG_ED).length})` : 'Sin ediciones';
+  if(!grupos.length){ cont.innerHTML = '<div class="empty">Sin bodegas con los filtros actuales</div>'; return; }
+  if(sugVista === 'matriz'){ renderSugMatriz(grupos, s, cont, scroll); return; }
+  const DIAS_SEM = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const hoy = s.dias[0];
+  const sac = kg => fmt(Math.round(kg / KG_SACO));
+  const wk = d => d >= s.lunesSig ? 'sig' : 'act';
+  const nCols = 1 + 3 + s.dias.length + 2;
+  const semH = (cual, n) => n ? `<th colspan="${n}" class="ctr wsep sem-h w-${cual === 'act' ? 'actual' : 'futura'}"><div class="sem-n">${cual === 'act' ? `Semana ${semanaIso(new Date())} <span class="en-curso">en curso</span>` : `Semana ${semanaIso(new Date(s.lunesSig + 'T00:00:00'))}`}</div><div class="sub">${cual === 'act' ? 'de hoy al domingo' : 'siguiente · proyectada'}</div></th>` : '';
+  const nAct = s.dias.filter(d => wk(d) === 'act').length, nSig = s.dias.length - nAct;
+  let html = `<table class="plan sug"><thead>
+    <tr><th rowspan="2" class="col-prod">Bodega / tipo de balanceado</th>
+      <th rowspan="2" class="num sub wsep" title="Stock SAP en vivo">Stock<br>hoy</th>
+      <th rowspan="2" class="num sub" title="Salida promedio por día de los próximos 7 días: plan AP1, o consumo promedio si no hay plan (en acopios incluye lo que despachan a sus bodegas)">Salida<br>/día</th>
+      <th rowspan="2" class="num sub" title="Días que cubre el stock de hoy">Cob.</th>
+      ${semH('act', nAct)}${semH('sig', nSig)}
+      <th colspan="2" class="ctr wsep sem-h w-inv"><div class="sem-n">Total sugerido</div><div class="sub">sacos</div></th></tr>
+    <tr>${s.dias.map((d, i) => { const x = new Date(d + 'T00:00:00');
+      return `<th class="ctr sub dia w-${wk(d) === 'act' ? 'actual' : 'futura'}${i === 0 || d === s.lunesSig ? ' wsep' : ''}${x.getDay() === 0 ? ' dom' : ''}"${x.getDay() === 0 ? ' title="El domingo no se carga"' : ''}>${DIAS_SEM[x.getDay()]} ${ddmm(x)}${d === hoy ? '<div class="hoy">hoy</div>' : ''}${x.getDay() === 0 ? '<div class="nocarga">no se carga</div>' : ''}</th>`; }).join('')}
+      <th class="num sub wsep w-inv">Sem. ${semanaIso(new Date())}</th><th class="num sub w-inv">Sem. ${semanaIso(new Date(s.lunesSig + 'T00:00:00'))}</th></tr>
+    </thead><tbody>`;
+  const est = { actual:null };
+  for(const g of grupos){
+    html += franjaSector(g.b, est, nCols);
+    const acopio = ACOPIO_ABASTECE[g.b.code], origen = ORIGEN_ACOPIO[g.b.code];
+    const tag = acopio ? `<span class="abast">despacha a ${esc(acopio.map(c => BODEGAS_POR_CODIGO[c]?.campamento || c).join(', '))}</span>`
+      : origen ? `<span class="abast desde">recibe de ${esc(BODEGAS_POR_CODIGO[origen]?.campamento || origen)}</span>` : '';
+    html += `<tr class="bod"><td class="col-prod"><b>${esc(g.b.campamento)}</b> <span class="code">${esc(g.b.code)}</span>
+        <div class="prod-sub">${g.capacidad ? `capacidad ${fmt(g.capacidad)} pallets` : '<span class="sin-cap">sin capacidad en Configuración</span>'} ${tag}</div>
+        ${sectorDe(g.b) === 'Islas' || g.gab.cargill || g.gab.haid ? `<div class="gab-cfg" title="Sacos por gabarra: entra completa; Cargill y Haid llegan en gabarras separadas · vacío = sin gabarra">gabarra
+          Cargill <input class="gab-in" data-code="${esc(g.b.code)}" data-prov="cargill" value="${g.gab.cargill || ''}" inputmode="numeric">
+          Haid <input class="gab-in" data-code="${esc(g.b.code)}" data-prov="haid" value="${g.gab.haid || ''}" inputmode="numeric"> sacos</div>` : ''}</td>
+      <td class="wsep" colspan="3"></td>
+      ${s.dias.map((d, i) => { const o = g.ocup[d], pal = g.entPal[d];
+        const cls = o == null ? '' : o > 1.0001 ? 'menos' : o > 0.9 ? 'mas' : 'ok';
+        return `<td class="ctr ocd${i === 0 || d === s.lunesSig ? ' wsep' : ''}" title="${pal ? `Entran ${fmt(pal, 1)} pallets` : 'No entra nada'}${o == null ? '' : ` · ocupación al cierre del día ${fmt(o * 100, 0)}% (stock + entradas − salidas)`}${g.limitado[d] ? ' · limitado por capacidad' : ''}">
+          ${g.espera?.[d] && !g.gabDia[d] ? '<div class="gab espera">espera espacio</div>' : ''}${g.gabDia[d] ? Object.entries(g.gabDia[d]).map(([pv, n]) => `<div class="gab ${pv}">${n > 1 ? n + ' ' : ''}gab. ${pv === 'haid' ? 'Haid' : 'Cargill'}</div>`).join('') : pal ? `<div class="pal">${fmt(pal, pal < 10 ? 1 : 0)} pal</div>` : '<div class="pal zero">—</div>'}${o == null ? '' : `<div class="oc ${cls}">${fmt(o * 100, 0)}%${g.limitado[d] ? ' ⚠' : ''}</div>`}</td>`; }).join('')}
+      <td class="wsep w-inv" colspan="2"></td></tr>`;
+    const prods = [...g.prods.values()].sort((a, b) => ordenProd(a.producto, b.producto));
+    for(const p of prods){
+      const et = etapa(p), k0 = `${g.b.code}|${p.codigoSap || p.producto}`;
+      const directo = origen && NO_PASA_POR_ACOPIO(p.producto);
+      const cob0 = p.prom ? p.stock / p.prom : null;
+      const totSem = cual => s.dias.filter(d => wk(d) === cual).reduce((a, d) => a + p.sug[d], 0);
+      html += `<tr class="tipo"><td class="col-prod" style="padding-left:20px" title="${esc(p.producto)}">
+          <div class="prod">${et ? `<span class="etq ${et.cls}" title="${et.txt}">${et.txt[0]}</span>` : '<span class="etq"></span>'}<span class="prod-n">${esc(p.producto)}</span></div>
+          <div class="prod-sub" style="padding-left:22px">${esc(p.codigoSap)}${directo ? ' <span class="abast">directo del proveedor</span>' : ''}</div></td>
+        <td class="num wsep"><b>${sac(p.stock)}</b></td>
+        <td class="num">${p.prom ? sac(p.prom) : '<span class="zero">—</span>'}</td>
+        <td class="num">${cob0 == null ? '<span class="zero">—</span>' : `<span class="dias ${claseDias(cob0)}">${textoDias(cob0)}</span>`}</td>
+        ${s.dias.map((d, i) => {
+          const k = `${k0}|${d}`, ed = k in SUG_ED, v = p.sug[d], cob = p.cob[d], fin = p.fin[d];
+          const tip = [`Salida del día: ${sac(p.dem[d])} sacos ${p.est[d] ? `(sin plan en AP1 esa semana: consumo promedio últimos 7 días)` : '(plan AP1)'}`,
+            p.pend[d] ? `Despacho AP1 pendiente: ${sac(p.pend[d])} sacos` : '',
+            `Stock al cierre: ${fin < 0 ? '−' : ''}${sac(Math.abs(fin))} sacos${cob != null ? ` (${textoDias(cob)} días)` : ''}`,
+            p.limitado[d] ? 'No alcanza el objetivo por la capacidad de la bodega' : '', p.espera?.[d] ? 'La gabarra no cabe hoy: espera al siguiente día con espacio' : '',
+            new Date(d + 'T00:00:00').getDay() === 0 ? 'El domingo no se carga' : '', ed ? 'Editado por ti' : ''].filter(Boolean).join(String.fromCharCode(10));
+          const dom = new Date(d + 'T00:00:00').getDay() === 0;
+          return `<td class="ctr cel${i === 0 || d === s.lunesSig ? ' wsep' : ''}${ed ? ' ed' : ''}${dom ? ' dom' : ''}" title="${esc(tip)}">
+            ${p.pend[d] ? `<div class="pend">+${sac(p.pend[d])} AP1</div>` : ''}
+            <input class="sug-in${v ? ' con' : ''}${p.limitado[d] ? ' lim' : ''}" data-k="${esc(k)}" value="${ed ? SUG_ED[k] : v ? Math.round(v / KG_SACO) : ''}" placeholder="" inputmode="numeric"${dom ? ' disabled' : ''}>
+            <div class="fin ${fin < -1 ? 'neg' : cob == null ? 'sc' : claseDias(cob)}">${fin < -1 ? 'falta ' + sac(-fin) : cob == null ? '' : textoDias(cob) + ' d'}${p.est[d] ? '<sup>*</sup>' : ''}</div></td>`; }).join('')}
+        <td class="num wsep w-inv">${totSem('act') ? `<b>${sac(totSem('act'))}</b>` : '<span class="zero">—</span>'}</td>
+        <td class="num w-inv">${totSem('sig') ? `<b>${sac(totSem('sig'))}</b>` : '<span class="zero">—</span>'}</td></tr>`;
+    }
+  }
+  cont.innerHTML = html + '</tbody></table>';
+  [cont.scrollTop, cont.scrollLeft] = scroll;
+  ajustarAltos();
+  document.getElementById('sugNota').textContent =
+    `Sacos de ${KG_SACO} kg · pallets de ${SACOS_PALLET} sacos · cada celda: ingreso sugerido (editable; vacío = vuelve al sugerido, 0 = no ingresa) y abajo los días que cubre el stock al cierre · "+N AP1" = despacho de proveedor ya asignado o en ruta · ` +
+    `se sugiere ingreso cuando el stock al cierre baja de ${SUG_CFG.min} días de salida y se lleva a ${SUG_CFG.obj} días, sin pasar la capacidad de la bodega con el stock al cierre del día (entradas − salidas; ⚠ = limitado) · ` +
+    `salidas = plan AP1 del día; * = sin plan cargado esa semana: se usa el consumo promedio de los últimos 7 días · los acopios suman como demanda lo que entra a sus bodegas (sin Haid) · el domingo no se carga (el sábado cubre el domingo) · islas con gabarra: entra la gabarra completa (Cargill y Haid por separado) y se reparte primero a lo más corto · las ediciones se guardan en este navegador`;
+}
+
+// Resumen: balanceados en columnas (como Balanceado y Reporte); por bodega una fila de stock de hoy y una por día
+let sugVista = 'matriz';
+function renderSugMatriz(grupos, s, cont, scroll){
+  const DIAS_SEM = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const sac = kg => fmt(Math.round(kg / KG_SACO));
+  const colsMap = new Map();
+  for(const g of grupos) for(const [k, p] of g.prods) colsMap.set(k, p.producto);
+  const cols = [...colsMap.entries()].sort((a, b) => ordenProd(a[1], b[1])).map(([k, nombre]) => ({ k, nombre }));
+  const alt = i => (i % 2 === 1 ? ' g-alt' : '') + altHaid(cols, i);
+  const cab = c => { const m = /(\d+(?:[.,]\d+)?)\s*mm/i.exec(c.nombre), et = etapa({ producto:c.nombre });
+    return { mm: m ? `${m[1]} mm` : '', cls: et ? et.cls : '' }; };
+  const nCols = 3 + cols.length;
+  let html = `<table class="islas sug sug-m"><thead>
+    <tr><th class="col-c">Bodega / día</th><th class="ctr sub" title="Gabarras o pallets que entran ese día (sugerido + despachos AP1)">Entra</th>
+      <th class="ctr sub" title="Ocupación de la bodega al cierre del día (stock + entradas − salidas)">Ocup.</th>
+      ${cols.map((c, i) => { const h = cab(c);
+        return `<th class="prod ${h.cls}${alt(i)}" title="${esc(c.nombre)}"><div class="p-mm">${esc(h.mm)}</div><div class="p-fam">${esc(c.nombre)}</div></th>`; }).join('')}</tr>
+    </thead><tbody>`;
+  const est = { actual:null };
+  for(const g of grupos){
+    html += franjaSector(g.b, est, nCols);
+    const acopio = ACOPIO_ABASTECE[g.b.code], origen = ORIGEN_ACOPIO[g.b.code];
+    const tag = acopio ? `<span class="abast">despacha a ${esc(acopio.map(c => BODEGAS_POR_CODIGO[c]?.campamento || c).join(', '))}</span>`
+      : origen ? `<span class="abast desde">recibe de ${esc(BODEGAS_POR_CODIGO[origen]?.campamento || origen)}</span>` : '';
+    // fila de la bodega: stock de hoy y cobertura por balanceado
+    html += `<tr class="bodm"><td class="col-c"><b>${esc(g.b.campamento)}</b> <span class="code">${esc(g.b.code)}</span>
+        <div class="prod-sub">${g.capacidad ? `capacidad ${fmt(g.capacidad)} pallets` : '<span class="sin-cap">sin capacidad</span>'} ${tag}</div>
+        ${sectorDe(g.b) === 'Islas' || g.gab.cargill || g.gab.haid ? `<div class="gab-cfg" title="Sacos por gabarra: entra completa; Cargill y Haid llegan en gabarras separadas · vacío = sin gabarra">gabarra
+          Cargill <input class="gab-in" data-code="${esc(g.b.code)}" data-prov="cargill" value="${g.gab.cargill || ''}" inputmode="numeric">
+          Haid <input class="gab-in" data-code="${esc(g.b.code)}" data-prov="haid" value="${g.gab.haid || ''}" inputmode="numeric"></div>` : ''}</td>
+      <td class="ctr sub-l" colspan="2">stock hoy<br><span class="code">sacos · días</span></td>
+      ${cols.map((c, i) => { const p = g.prods.get(c.k);
+        if(!p) return `<td class="ctr zero${alt(i)}">—</td>`;
+        const cob = p.prom ? p.stock / p.prom : null;
+        return `<td class="ctr${alt(i)}" title="Salida promedio ${p.prom ? sac(p.prom) : 0} sacos/día"><b>${sac(p.stock)}</b><div>${cob == null ? '<span class="zero">—</span>' : `<span class="dias ${claseDias(cob)}">${textoDias(cob)}</span>`}</div></td>`; }).join('')}</tr>`;
+    for(const d of s.dias){
+      const x = new Date(d + 'T00:00:00'), dom = x.getDay() === 0;
+      const o = g.ocup[d], pal = g.entPal[d];
+      const cls = o == null ? '' : o > 1.0001 ? 'menos' : o > 0.9 ? 'mas' : 'ok';
+      const entra = g.gabDia[d] ? Object.entries(g.gabDia[d]).map(([pv, n]) => `<div class="gab ${pv}">${n > 1 ? n + ' ' : ''}gab. ${pv === 'haid' ? 'Haid' : 'Cargill'}</div>`).join('')
+        : pal ? `<span class="pal">${fmt(pal, pal < 10 ? 1 : 0)} pal</span>` : '<span class="zero">—</span>';
+      html += `<tr class="diam${dom ? ' dom' : ''}${d === s.lunesSig ? ' lunes' : ''}"><td class="col-c dia-c">${DIAS_SEM[x.getDay()]} ${ddmm(x)}${d === s.dias[0] ? ' <span class="hoy">hoy</span>' : ''}${dom ? ' <span class="nocarga">no se carga</span>' : ''}</td>
+        <td class="ctr">${entra}</td>
+        <td class="ctr">${o == null ? '<span class="zero">—</span>' : `<span class="oc ${cls}">${fmt(o * 100, 0)}%${g.limitado[d] ? ' ⚠' : ''}</span>`}</td>
+        ${cols.map((c, i) => { const p = g.prods.get(c.k);
+          if(!p) return `<td class="zero${alt(i)}"></td>`;
+          const k = `${g.b.code}|${c.k}|${d}`, ed = k in SUG_ED, v = p.sug[d], cob = p.cob[d], fin = p.fin[d];
+          const tip = [`Salida del día: ${sac(p.dem[d])} sacos ${p.est[d] ? '(sin plan en AP1: consumo promedio últimos 7 días)' : '(plan AP1)'}`,
+            p.pend[d] ? `Despacho AP1 pendiente: ${sac(p.pend[d])} sacos` : '',
+            `Stock al cierre: ${fin < 0 ? '−' : ''}${sac(Math.abs(fin))} sacos${cob != null ? ` (${textoDias(cob)} días)` : ''}`,
+            p.limitado[d] ? 'No alcanza el objetivo por la capacidad de la bodega' : '', dom ? 'El domingo no se carga' : '', ed ? 'Editado por ti' : ''].filter(Boolean).join(String.fromCharCode(10));
+          return `<td class="ctr cel${ed ? ' ed' : ''}${alt(i)}" title="${esc(tip)}">${p.pend[d] ? `<div class="pend">+${sac(p.pend[d])} AP1</div>` : ''}<input class="sug-in${v ? ' con' : ''}${p.limitado[d] ? ' lim' : ''}" data-k="${esc(k)}" value="${ed ? SUG_ED[k] : v ? Math.round(v / KG_SACO) : ''}" inputmode="numeric"${dom ? ' disabled' : ''}><div class="fin ${fin < -1 ? 'neg' : cob == null ? 'sc' : claseDias(cob)}">${fin < -1 ? 'falta ' + sac(-fin) : cob == null ? '' : textoDias(cob) + ' d'}${p.est[d] ? '<sup>*</sup>' : ''}</div></td>`; }).join('')}</tr>`;
+    }
+    // total sugerido por balanceado de cada semana
+    const semTot = (p, sig) => s.dias.filter(d => (d >= s.lunesSig) === sig).reduce((a, d) => a + p.sug[d], 0);
+    for(const sig of [false, true]){
+      html += `<tr class="totm"><td class="col-c">Total sem. ${semanaIso(sig ? new Date(s.lunesSig + 'T00:00:00') : new Date())}</td><td colspan="2"></td>
+        ${cols.map((c, i) => { const p = g.prods.get(c.k), v = p ? semTot(p, sig) : 0;
+          return `<td class="ctr${alt(i)}">${v ? `<b>${sac(v)}</b>` : '<span class="zero">—</span>'}</td>`; }).join('')}</tr>`;
+    }
+  }
+  cont.innerHTML = html + '</tbody></table>';
+  [cont.scrollTop, cont.scrollLeft] = scroll;
+  ajustarAltos();
+}
+
+function renderKpisSug(grupos, s){
+  const t = kg => kg >= 1000 ? `${fmt(kg / 1000, 1)} t` : `${fmt(kg)} kg`;
+  // lo que entra a las bodegas abastecidas desde un acopio ya está en la demanda del acopio: no se suma dos veces
+  const delProveedor = (g, p) => !ORIGEN_ACOPIO[g.b.code] || NO_PASA_POR_ACOPIO(p.producto);
+  const tot = cual => grupos.reduce((a, g) => a + [...g.prods.values()].filter(p => delProveedor(g, p)).reduce((x, p) => x + s.dias.filter(d => (d >= s.lunesSig) === (cual === 'sig')).reduce((y, d) => y + p.sug[d], 0), 0), 0);
+  const limit = grupos.filter(g => Object.keys(g.limitado).length).map(g => g.b.campamento);
+  const faltan = new Set(grupos.filter(g => [...g.prods.values()].some(p => s.dias.some(d => p.fin[d] < -1))).map(g => g.b.campamento));
+  const sinCap = grupos.filter(g => !g.capacidad).length;
+  const card = (cls, label, value, sub) => `<div class="kpi-card"><div class="kpi-icon ${cls}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h13v10H3z"/><path d="M16 10h4l1 3v4h-5"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></div>
+    <div style="min-width:0"><div class="kpi-label">${label}</div><div class="kpi-value mono">${value}</div>${sub ? `<div class="kpi-sub">${sub}</div>` : ''}</div></div>`;
+  const a = tot('act'), b = tot('sig');
+  document.getElementById('kpis').innerHTML =
+    card('blue', `Sugerido semana ${semanaIso(new Date())}`, t(a), `${fmt(a / KG_SACO)} sacos · ${fmt(a / KG_SACO / SACOS_PALLET, 0)} pallets a pedir al proveedor (hoy al domingo)`) +
+    card('blue', `Sugerido semana ${semanaIso(new Date(s.lunesSig + 'T00:00:00'))}`, t(b), `${fmt(b / KG_SACO)} sacos · ${fmt(b / KG_SACO / SACOS_PALLET, 0)} pallets`) +
+    card(limit.length ? 'bal' : 'fer', 'Limitadas por capacidad', fmt(limit.length), limit.length ? limit.map(esc).join(', ') : 'todas tienen espacio') +
+    card(faltan.size ? 'red' : 'fer', 'Quedan sin stock', fmt(faltan.size), faltan.size ? [...faltan].map(esc).join(', ') : 'ningún producto se acaba') +
+    card(Object.keys(SUG_ED).length ? 'bal' : 'fer', 'Ediciones', fmt(Object.keys(SUG_ED).length), sinCap ? `${sinCap} bodegas sin capacidad registrada` : 'celdas cambiadas a mano');
+}
+
+document.getElementById('tblSug').addEventListener('change', e => {
+  const gi = e.target.closest('.gab-in');
+  if(gi){
+    const v = parseInt(gi.value.replace(/\D/g, ''), 10);
+    SUG_CFG.gab = SUG_CFG.gab || {};
+    SUG_CFG.gab[gi.dataset.code] = { ...gabDe(gi.dataset.code), [gi.dataset.prov]: v > 0 ? v : 0 };
+    guardarSug(); renderSugerido(); return;
+  }
+  const inp = e.target.closest('.sug-in'); if(!inp) return;
+  const v = inp.value.trim().replace(/\./g, '').replace(',', '.');
+  if(v === '') delete SUG_ED[inp.dataset.k];
+  else if(!isNaN(+v) && +v >= 0) SUG_ED[inp.dataset.k] = Math.round(+v);
+  guardarSug();
+  renderSugerido();
+});
+document.getElementById('tblSug').addEventListener('keydown', e => {
+  if(e.key !== 'Enter' || !e.target.matches('.sug-in, .gab-in')) return;
+  e.preventDefault(); e.target.blur();
+});
+document.getElementById('tblSug').addEventListener('focusin', e => { if(e.target.matches('.sug-in')) e.target.select(); });
+for(const id of ['sugMin', 'sugObj', 'sugPallet']) document.getElementById(id).addEventListener('change', () => {
+  const min = parseFloat(document.getElementById('sugMin').value), obj = parseFloat(document.getElementById('sugObj').value);
+  if(min > 0) SUG_CFG.min = min;
+  if(obj > 0) SUG_CFG.obj = Math.max(obj, SUG_CFG.min);
+  SUG_CFG.pallet = document.getElementById('sugPallet').checked;
+  guardarSug();
+  if(STOCK.length) renderSugerido();
+});
+document.getElementById('sugVistaSeg').addEventListener('click', e => {
+  const b = e.target.closest('[data-sv]'); if(!b) return;
+  sugVista = b.dataset.sv;
+  document.querySelectorAll('#sugVistaSeg button').forEach(x => x.classList.toggle('active', x === b));
+  if(STOCK.length) renderSugerido();
+});
+document.getElementById('sugReset').addEventListener('click', () => {
+  if(!confirm(`¿Quitar las ${Object.keys(SUG_ED).length} ediciones y volver al sugerido?`)) return;
+  SUG_ED = {}; guardarSug(); renderSugerido();
+});
+
+function exportarSugerido(){
+  if(!SUG) return;
+  const filas = [];
+  for(const g of ordenarPorSector([...SUG.bods])) for(const p of g.prods.values()) for(const d of SUG.dias){
+    if(!p.sug[d] && !p.pend[d]) continue;
+    filas.push({ 'Sector': sectorDe(g.b), 'Campamento': g.b.campamento, 'Bodega': g.b.code, 'Origen': ORIGEN_ACOPIO[g.b.code] && !NO_PASA_POR_ACOPIO(p.producto) ? (BODEGAS_POR_CODIGO[ORIGEN_ACOPIO[g.b.code]]?.campamento || ORIGEN_ACOPIO[g.b.code]) : 'Proveedor',
+      'Fecha': d, 'Código SAP': p.codigoSap, 'Producto': p.producto,
+      'Sugerido (sacos)': Math.round(p.sug[d] / KG_SACO), 'Editado': `${g.b.code}|${p.codigoSap || p.producto}|${d}` in SUG_ED ? 'sí' : '',
+      'Despacho AP1 pendiente (sacos)': Math.round(p.pend[d] / KG_SACO), 'Salida del día (sacos)': Math.round(p.dem[d] / KG_SACO), 'Origen salida': p.est[d] ? 'consumo promedio 7 días' : 'plan AP1',
+      'Stock al cierre (sacos)': Math.round(p.fin[d] / KG_SACO), 'Días de cobertura': p.cob[d] == null ? '' : Math.round(p.cob[d] * 10) / 10 });
+  }
+  const ws = XLSX.utils.json_to_sheet(filas);
+  ws['!cols'] = [{wch:14},{wch:18},{wch:8},{wch:16},{wch:11},{wch:11},{wch:42},{wch:14},{wch:8},{wch:16},{wch:14},{wch:14},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sugerido de ingreso');
+  XLSX.writeFile(wb, `Sugerido_Ingreso_Balanceado_${fechaISO(new Date()).replace(/-/g, '')}.xlsx`);
+}
+
+// ── Configuración: parámetros de las bodegas de balanceado (D1 bodega_parametros) ──
+// Una fila por bodega de balanceado de AP1 (XX01, acopios, matriz). Se edita en la tabla y se guarda por fila
+// o todo junto; cada cambio queda con el usuario AP1 que lo hizo.
+const SECTORES = ['Islas', 'Isla Josefina', 'Continente'];
+
+function filasConfig(){
+  const vistos = new Set(), filas = [];
+  for(const b of Object.values(BODEGAS_POR_CODIGO)){
+    if(b.ap1Sub == null || vistos.has(b.ap1Sub)) continue;
+    vistos.add(b.ap1Sub);
+    filas.push({ sub:b.ap1Sub, campamento:b.campamento, bodega:b, p:PARAMS[b.ap1Sub] || {} });
+  }
+  // parámetros de campamentos que hoy no tienen bodega en el catálogo igual se muestran
+  for(const p of Object.values(PARAMS)) if(!vistos.has(p.sub_id)) filas.push({ sub:p.sub_id, campamento:p.campamento, bodega:null, p });
+  return ordenarPorSector(filas.map(f => ({ ...f, b: f.bodega || { acopio:false, ap1Sub:f.sub, campamento:f.campamento } })));
+}
+
+function renderConfig(){
+  const filas = filasConfig();
+  const cont = document.getElementById('tblConfig');
+  const num = (campo, v, extra = '') => `<input class="cfg-in num" type="number" min="0" step="1" data-campo="${campo}" value="${v ?? ''}" ${extra}>`;
+  const est = { actual:null };
+  let html = `<table class="cfg"><thead><tr>
+      <th>Bodega / campamento</th><th>Sector</th><th class="num">Capacidad<br>(pallets)</th><th class="num">Ocupación<br>actual</th>
+      <th class="num">Montacargas</th><th class="num">Operativos</th><th>Notas</th><th>Última edición</th><th></th></tr></thead><tbody>`;
+  for(const f of filas){
+    html += franjaSector(f.b, est, 9);
+    const p = f.p;
+    // ocupación actual con el stock SAP de la bodega (sacos de 25 kg, pallets de 66)
+    const kg = f.bodega ? STOCK.filter(x => x.sec === 'bal' && x.bodega.code === f.bodega.code).reduce((a, x) => a + x.qty, 0) : 0;
+    const pallets = kg / KG_SACO / SACOS_PALLET;
+    const ocup = p.capacidad_pallets ? pallets / p.capacidad_pallets * 100 : null;
+    html += `<tr data-sub="${f.sub}" data-campamento="${esc(f.campamento)}">
+      <td><b>${esc(f.campamento)}</b> ${f.bodega ? `<span class="code">${esc(f.bodega.code)} · ${esc(f.bodega.name)}</span>` : '<span class="code">sin bodega en SAP</span>'}</td>
+      <td>${f.b.acopio ? '<span class="code">Acopios</span>'
+        : `<select class="cfg-in" data-campo="sector"><option value="">Otros campamentos</option>${SECTORES.map(s => `<option${p.sector === s ? ' selected' : ''}>${s}</option>`).join('')}</select>`}</td>
+      <td class="num">${num('capacidad_pallets', p.capacidad_pallets)}</td>
+      <td class="num">${ocup == null ? `<span class="code">${fmt(pallets, 0)} pallets</span>`
+        : `<span class="dias ${claseOcupacion(ocup)}">${fmt(ocup, 0)}%</span> <span class="code">${fmt(pallets, 0)} pal.</span>`}</td>
+      <td class="num">${num('montacargas', p.montacargas)}</td>
+      <td class="num">${num('montacargas_operativos', p.montacargas_operativos)}</td>
+      <td><input class="cfg-in notas" data-campo="notas" maxlength="500" value="${esc(p.notas || '')}" placeholder="—"></td>
+      <td class="code">${p.actualizado_por ? `${esc(p.actualizado_por)}<br>${esc(String(p.actualizado_en || '').slice(0, 16).replace('T', ' '))}` : '—'}</td>
+      <td><button class="btn ghost cfg-guardar" disabled>Guardar</button><span class="cfg-msg"></span></td></tr>`;
+  }
+  cont.innerHTML = html + '</tbody></table>';
+  document.getElementById('kpis').innerHTML = '';
+  actualizarBotonGuardarTodo();
+}
+
+function actualizarBotonGuardarTodo(){
+  const n = document.querySelectorAll('#tblConfig tr.sucio').length;
+  const btn = document.getElementById('cfgGuardarTodo');
+  btn.disabled = !n;
+  btn.textContent = n ? `Guardar ${n} cambio${n > 1 ? 's' : ''}` : 'Sin cambios';
+}
+
+async function guardarFilaConfig(tr){
+  const datos = { sub_id:Number(tr.dataset.sub), campamento:tr.dataset.campamento };
+  for(const el of tr.querySelectorAll('[data-campo]')) datos[el.dataset.campo] = el.value;
+  if(!('sector' in datos)) datos.sector = PARAMS[datos.sub_id]?.sector || null;   // acopios: se conserva
+  const msg = tr.querySelector('.cfg-msg'), btn = tr.querySelector('.cfg-guardar');
+  btn.disabled = true; msg.textContent = 'Guardando…'; msg.className = 'cfg-msg';
+  try{
+    const r = await fetch(`${WORKER}/d1/bodega/parametros`, { method:'PUT',
+      headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + getToken() }, body:JSON.stringify(datos) });
+    const j = await r.json().catch(() => ({}));
+    if(r.status === 401) throw new Error('sesión vencida, vuelve a ingresar');
+    if(!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    PARAMS[datos.sub_id] = j.data;
+    tr.classList.remove('sucio');
+    msg.textContent = '✓ guardado'; msg.className = 'cfg-msg ok';
+    return true;
+  }catch(e){
+    msg.textContent = e.message; msg.className = 'cfg-msg err'; btn.disabled = false;
+    return false;
+  }finally{ actualizarBotonGuardarTodo(); }
+}
+
+document.getElementById('tblConfig').addEventListener('input', e => {
+  const tr = e.target.closest('tr[data-sub]'); if(!tr || !e.target.matches('.cfg-in')) return;
+  tr.classList.add('sucio');
+  tr.querySelector('.cfg-guardar').disabled = false;
+  tr.querySelector('.cfg-msg').textContent = '';
+  actualizarBotonGuardarTodo();
+});
+document.getElementById('tblConfig').addEventListener('click', e => {
+  const b = e.target.closest('.cfg-guardar'); if(b) guardarFilaConfig(b.closest('tr'));
+});
+document.getElementById('cfgGuardarTodo').addEventListener('click', async () => {
+  for(const tr of [...document.querySelectorAll('#tblConfig tr.sucio')]) await guardarFilaConfig(tr);
+});
+
+// ── Arranque ──
+if(getToken()){
+  applyLoginUI(true, localStorage.getItem('nat_name') || localStorage.getItem('nat_user') || 'Usuario');
+  cargar();
+} else {
+  applyLoginUI(false);
+}
+</script>
+</body>
+</html>
