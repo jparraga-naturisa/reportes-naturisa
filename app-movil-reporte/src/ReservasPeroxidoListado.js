@@ -95,9 +95,9 @@ export default function ReservasPeroxidoListado({ token, onSesionExpirada }) {
           <View key={r.codigo} style={styles.tarjeta}>
             <View style={styles.tarjetaEncabezado}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.codigoTexto}>{r.codigo}</Text>
+                <Text style={styles.codigoTexto}>{r.codigo} · {fechaCorta(r.fecha)}</Text>
                 <Text style={styles.subTexto}>
-                  {r.sucursal} · {fechaCorta(r.fecha)} · {r.solicitante}
+                  {r.sucursal} · {r.solicitante}
                 </Text>
               </View>
               <Text style={styles.estadoTexto}>{r.estado}</Text>
@@ -109,8 +109,7 @@ export default function ReservasPeroxidoListado({ token, onSesionExpirada }) {
             {r.materiales.map((m, i) => (
               <View key={m.item + i} style={[styles.filaMaterial, i % 2 === 0 && styles.filaPar]}>
                 <View style={styles.itemCol}>
-                  <Text style={styles.itemTexto} numberOfLines={1}>{m.item}</Text>
-                  {m.codigoSap ? <Text style={styles.sapTexto} numberOfLines={1}>SAP {m.codigoSap}</Text> : null}
+                  <Text style={styles.itemTexto} numberOfLines={1}>{m.codigoSap || m.item}</Text>
                 </View>
                 <Text style={styles.piscinaTexto} numberOfLines={1}>{m.piscina}</Text>
                 <Text style={styles.almacenTexto}>{m.almacen}</Text>
@@ -143,7 +142,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: COLORES.tarjetaBorde, backgroundColor: 'rgba(59,130,246,0.1)',
   },
   codigoTexto: { color: COLORES.acento, fontWeight: 'bold', fontSize: 13 },
-  subTexto: { color: COLORES.textoMuted, fontSize: 10, marginTop: 1 },
+  subTexto: { color: COLORES.acento2, fontSize: 10, marginTop: 1 },
   estadoTexto: { color: COLORES.destacado, fontWeight: 'bold', fontSize: 10 },
   colIcono: { width: 30, alignItems: 'center' },
   filaMaterial: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12 },

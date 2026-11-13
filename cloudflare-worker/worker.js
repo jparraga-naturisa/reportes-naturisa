@@ -1056,6 +1056,7 @@ const RESERVA_TRACKING_PATH = '/bff/web/portal/backoffice/api/purchase_requisiti
 const RESERVATION_PATH = '/bff/web/portal/backoffice/api/reservation'
 const RESERVA_ESTADOS_PENDIENTES = ['APROBADO', 'RECIBIDO PARCIAL']
 const RESERVA_COMPANY_IDS = [1, 2, 3, 4, 5]
+const RESERVA_SUCURSALES_EXCLUIDAS = ['NATURISA BIOFINA', 'NATURISA BIOSUPER']
 
 async function handleDbAlertasReservasPeroxido(request) {
   if (request.method !== 'GET') return corsResponse('{"error":"method not allowed"}', 405, request)
@@ -1077,11 +1078,14 @@ async function handleDbAlertasReservasPeroxido(request) {
     const candidatas = (Array.isArray(filas) ? filas : []).filter((f) => {
       const nombre = String(f.itemName || '').toUpperCase()
       if (!nombre.includes('PEROXIDO') && !nombre.includes('PERÓXIDO')) return false
-      return String(f.warehouseCode || '').toUpperCase().endsWith('09')
+      if (!String(f.warehouseCode || '').toUpperCase().endsWith('09')) return false
+      const sucursal = String(f.branchOfficeName || '').toUpperCase().trim()
+      return !RESERVA_SUCURSALES_EXCLUIDAS.includes(sucursal)
     })
 
+    // Paso 1: codigo de reserva -> idReservation (la busqueda por code no trae items)
     const codigos = [...new Set(candidatas.map(f => f.reservationCode).filter(Boolean))]
-    const estadoReal = new Map()
+    const idPorCodigo = new Map()
     const CONCURRENCIA = 10
     for (let i = 0; i < codigos.length; i += CONCURRENCIA) {
       const lote = codigos.slice(i, i + CONCURRENCIA)
@@ -1091,13 +1095,30 @@ async function handleDbAlertasReservasPeroxido(request) {
       ))
       resultados.forEach((j, idx) => {
         const fila = j?.data?.data?.[0]
-        if (fila) estadoReal.set(lote[idx], fila.status)
+        if (fila) idPorCodigo.set(lote[idx], fila.idReservation)
       })
     }
-    console.log('DEBUG reservas-peroxido codigos:', codigos.length, 'estadoReal:', JSON.stringify([...estadoReal.entries()]))
+
+    // Paso 2: abrir el detalle de cada reserva (trae reservationItems con su
+    // propio estado por linea) y guardar el estado REAL de cada item por su
+    // erpCode, que es la misma clave que reservationCodeSAP en el tracking.
+    const idsUnicos = [...new Set([...idPorCodigo.values()].filter(Boolean))]
+    const estadoPorErpCode = new Map()
+    for (let i = 0; i < idsUnicos.length; i += CONCURRENCIA) {
+      const lote = idsUnicos.slice(i, i + CONCURRENCIA)
+      const resultados = await Promise.all(lote.map(id =>
+        fetch(GATEWAY + RESERVATION_PATH + '/' + id, { headers: request.headers })
+          .then(r => r.ok ? r.json() : null).catch(() => null)
+      ))
+      for (const j of resultados) {
+        for (const it of (j?.data?.reservationItems || [])) {
+          if (it.erpCode) estadoPorErpCode.set(it.erpCode, it.status)
+        }
+      }
+    }
 
     const alertas = candidatas
-      .map((f) => ({ ...f, estadoActual: estadoReal.get(f.reservationCode) || f.status }))
+      .map((f) => ({ ...f, estadoActual: estadoPorErpCode.get(f.reservationCodeSAP) || f.status }))
       .filter((f) => RESERVA_ESTADOS_PENDIENTES.includes(String(f.estadoActual || '').toUpperCase()))
       .map((f) => ({
         codigo: f.reservationCode || f.code, codigoSap: f.reservationCodeSAP, sucursal: f.branchOfficeName, solicitante: f.requesterName,
