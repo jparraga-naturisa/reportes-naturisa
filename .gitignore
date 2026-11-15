@@ -19,5 +19,8 @@ build/
 # Repositorio propio (github.com/jparraga-naturisa/control-usuarios)
 /control-usuarios/
 
+# Repositorio propio (github.com/jparraga-naturisa/narrador-videos)
+/narrador-videos/
+
 # Respaldos locales de cupos de diesel (datos, no codigo)
 cupos-diesel/respaldo-*.json
