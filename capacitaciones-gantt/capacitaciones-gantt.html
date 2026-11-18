@@ -303,7 +303,7 @@ tr.secc b{ margin-left:8px; font-size:11px; }
       <input type="text" id="q" placeholder="Buscar sucursal…" oninput="render()">
     </div>
     <button class="btn ghost sm" onclick="hoyScroll()">Hoy</button>
-    <button class="btn sm" onclick="irA('cfg')" title="Poner o cambiar las fechas de cada sucursal">Poner fechas</button>
+    <button class="btn sm" onclick="irA('cfg')">Poner fechas</button>
     <div class="spacer"></div>
   </div>
   <div class="card">
@@ -330,8 +330,8 @@ tr.secc b{ margin-left:8px; font-size:11px; }
           </div>
           <div class="estado" id="aEstado"></div>
           <div id="aFicha"></div>
-          <p class="avso" id="avisoLectura" hidden>Entraste sin sesión: para traer nombres de RRHH
-            <button class="btn sm" style="margin-left:6px" onclick="mostrarLogin()">Ingresar a AP1</button></p>
+          <p class="avso" id="avisoLectura" hidden>
+            <button class="btn sm" onclick="mostrarLogin()">Ingresar a AP1</button></p>
 
           <div class="sep">Datos de la visita</div>
           <div class="f"><label>Aplicaciones</label><div class="appschk" id="aApps"></div></div>
@@ -429,7 +429,6 @@ tr.secc b{ margin-left:8px; font-size:11px; }
       </div>
       <div class="mark">NATURISA</div>
       <div class="sub2">Capacitaciones</div>
-      <div class="hint2">Ingresa con tu usuario de AP1</div>
     </div>
     <div class="f"><label>Usuario</label><input type="text" id="lgUser" autocomplete="username"
       onkeydown="if(event.key==='Enter') document.getElementById('lgPass').focus()"></div>
@@ -679,8 +678,7 @@ function render(){
      <div class="rbody" style="width:${m.W}px;height:${nFilas*rowH()}px"><div class="grid">${m.grid}</div>${m.tl}${rh}</div>`;
 
   conectarDrag();
-  document.getElementById('hint').innerHTML =
-    (SRC_SUC === 'local' ? `<span class="warn">Sucursales del catálogo local</span>` : '');
+  document.getElementById('hint').innerHTML = '';
 }
 
 /* Primer día del cronograma: el lunes de la semana en que arranca el plan
@@ -1273,10 +1271,9 @@ function entrarSinSesion(){
   MODO_LECTURA = true;
   document.getElementById('login').hidden = true;
   pintarSesionHdr(); pintarAsis();
-  toast('Modo consulta: el cronograma se ve y se edita, pero RRHH necesita sesión');
 }
 function salir(){
-  if (!confirm('¿Cerrar la sesión? El cronograma y los asistentes guardados en este equipo no se borran.')) return;
+  if (!confirm('¿Cerrar la sesión?')) return;
   TOKEN = null; USUARIO = null; MODO_LECTURA = false;
   try{ localStorage.removeItem(LS_TK); sessionStorage.removeItem(SES_KEY); }catch(e){}
   document.getElementById('lgPass').value = '';
@@ -1319,11 +1316,10 @@ function pintarSesionHdr(){
 }
 
 /* Cuando RRHH no da la ficha, los datos se escriben a mano */
-function fichaManual(ced, titulo, motivo){
+function fichaManual(ced, titulo){
   FICHA = { ced, nombre:'', cargo:'', area:'', estado:'NO ENCONTRADO', origen:'manual' };
   document.getElementById('aFicha').innerHTML = `<div class="ficha no">
       <div class="nom">${esc(titulo)}</div>
-      <div class="ar">${esc(motivo)}</div>
       <div class="f" style="margin-top:9px"><label>Nombre y apellido</label><input type="text" id="fNom" placeholder="Nombre completo"
              onkeydown="if(event.key==='Enter'){event.preventDefault(); document.getElementById('fCargo').focus();}"></div>
       <div class="f" style="margin-bottom:0"><label>Cargo</label><input type="text" id="fCargo" placeholder="Cargo"
@@ -1342,7 +1338,7 @@ async function buscarCedula(){
   if (!cedulaValida(ced)){ st.className = 'estado err'; st.textContent = 'Ese número no pasa el dígito verificador: revísalo.'; return; }
   if (!TOKEN){
     st.textContent = '';
-    fichaManual(ced, 'Sin sesión de RRHH', 'Entra con tu usuario AP1 para traer el nombre, o escríbelo a mano aquí.');
+    fichaManual(ced, 'Sin sesión de RRHH');
     return;
   }
   st.textContent = '';
@@ -1354,9 +1350,7 @@ async function buscarCedula(){
     const r = regs.find(x => x.estado === 'ACTIVO') || regs[0] || null;
     if (!r){
       st.textContent = '';
-      fichaManual(ced, 'No está en RRHH',
-        j.rrhhDisponible === false ? 'RRHH no respondió. Escribe los datos a mano.'
-                                   : 'Esa cédula no tiene ficha de empleado. Escribe los datos a mano.');
+      fichaManual(ced, 'No está en RRHH');
       return;
     }
     const nombre = `${r.nombres} ${r.apellidos}`.trim();
@@ -1375,7 +1369,7 @@ async function buscarCedula(){
   }catch(e){
     st.className = 'estado err'; st.textContent = e.message;
     // aunque falle la consulta, la asistencia se puede anotar a mano
-    fichaManual(ced, 'No se pudo consultar RRHH', 'Escribe el nombre y el cargo para no perder el registro.');
+    fichaManual(ced, 'No se pudo consultar RRHH');
   }finally{
     const btn = document.getElementById('aBuscar');
     btn.disabled = false; btn.textContent = 'Buscar';
@@ -1549,7 +1543,7 @@ function toast(m, err){
 }
 function hoyScroll(){
   const w = document.getElementById('gwrap'), l = w.querySelector('.today');
-  if (!l){ toast('Hoy queda fuera del cronograma'); return; }
+  if (!l) return;
   w.scrollTo({ left:Math.max(0, l.offsetLeft - w.clientWidth/2), behavior:'smooth' });
 }
 function irA(v){
