@@ -17,6 +17,9 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3009',
   'http://localhost:3010',
   'http://localhost:3011',
+  'http://localhost:3012',
+  'http://localhost:3013',
+  'http://localhost:3014',   // Capacitaciones
   'http://localhost:9100',
 ]
 
@@ -4004,6 +4007,124 @@ function puedeVerSucursal(s, sid) {
   return s.adm || s.subs.includes(sid)
 }
 
+// ── Capacitaciones de las aplicaciones (pantalla capacitaciones-naturisa) ────
+// Usa la misma sesion que Control de Usuarios (POST /d1/usuarios/login).
+//   GET    /d1/capacitaciones              -> { plan:[...], asistentes:[...] }
+//   PUT    /d1/capacitaciones/plan         -> upsert de una o varias actividades { actividades:[...] }
+//   DELETE /d1/capacitaciones/plan?id=...  -> borra una actividad
+//   POST   /d1/capacitaciones/asistentes   -> inserta uno o varios asistentes { asistentes:[...] }
+//   DELETE /d1/capacitaciones/asistentes?id=...  (o ?cedula=&fecha=&lugar_id= para toda la visita)
+let _capTablas = false
+async function asegurarTablasCapacitaciones(env) {
+  if (_capTablas) return
+  await env.db.batch([
+    env.db.prepare(`CREATE TABLE IF NOT EXISTS capacitaciones_plan (
+      id TEXT PRIMARY KEY, app TEXT, etapa TEXT NOT NULL, sub_id INTEGER, sucursal TEXT,
+      nombre TEXT, responsable TEXT, dirigido_a TEXT, fecha_ini TEXT, fecha_fin TEXT,
+      avance INTEGER NOT NULL DEFAULT 0, notas TEXT, actualizado_por TEXT, actualizado_en TEXT)`),
+    env.db.prepare(`CREATE TABLE IF NOT EXISTS capacitaciones_asistentes (
+      id TEXT PRIMARY KEY, cedula TEXT NOT NULL, nombre TEXT NOT NULL, cargo TEXT, area TEXT,
+      estado_rrhh TEXT, origen TEXT NOT NULL, app TEXT NOT NULL, lugar_id TEXT, lugar TEXT,
+      fecha TEXT NOT NULL, instructor TEXT, registrado_por TEXT, registrado_en TEXT)`),
+    env.db.prepare(`CREATE INDEX IF NOT EXISTS idx_cap_plan_suc ON capacitaciones_plan(sub_id)`),
+    env.db.prepare(`CREATE INDEX IF NOT EXISTS idx_cap_asis_fecha ON capacitaciones_asistentes(fecha)`),
+    env.db.prepare(`CREATE INDEX IF NOT EXISTS idx_cap_asis_lugar ON capacitaciones_asistentes(lugar_id, fecha)`)
+  ])
+  _capTablas = true
+}
+
+async function handleCapacitaciones(request, url, env) {
+  const path = url.pathname
+  const json = (obj, status) => corsResponse(JSON.stringify(obj), status || 200, request)
+  try {
+    await asegurarTablasCapacitaciones(env)
+    const s = await leerSesionUsuarios(request, env)
+    if (!s) return json({ error: 'Sesión vencida, vuelve a ingresar' }, 401)
+    const ahora = new Date().toISOString()
+    const txt = (v, n) => v == null ? null : String(v).slice(0, n || 200)
+
+    // ── Todo lo que la pantalla necesita al abrir ──
+    if (path === '/d1/capacitaciones' && request.method === 'GET') {
+      const [plan, asis] = await Promise.all([
+        env.db.prepare('SELECT * FROM capacitaciones_plan').all(),
+        env.db.prepare('SELECT * FROM capacitaciones_asistentes ORDER BY fecha DESC, nombre').all()
+      ])
+      return json({ plan: plan.results || [], asistentes: asis.results || [] })
+    }
+
+    // ── Cronograma: se guarda la actividad completa (una o varias) ──
+    if (path === '/d1/capacitaciones/plan' && request.method === 'PUT') {
+      const b = await request.json().catch(() => ({}))
+      const filas = Array.isArray(b.actividades) ? b.actividades : (b.actividad ? [b.actividad] : [])
+      if (!filas.length) return json({ error: 'actividades requeridas' }, 400)
+      if (filas.length > 500) return json({ error: 'demasiadas actividades en una llamada' }, 400)
+      const stmt = env.db.prepare(
+        `INSERT INTO capacitaciones_plan (id, app, etapa, sub_id, sucursal, nombre, responsable, dirigido_a,
+            fecha_ini, fecha_fin, avance, notas, actualizado_por, actualizado_en)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         ON CONFLICT(id) DO UPDATE SET
+           app = excluded.app, etapa = excluded.etapa, sub_id = excluded.sub_id, sucursal = excluded.sucursal,
+           nombre = excluded.nombre, responsable = excluded.responsable, dirigido_a = excluded.dirigido_a,
+           fecha_ini = excluded.fecha_ini, fecha_fin = excluded.fecha_fin, avance = excluded.avance,
+           notas = excluded.notas, actualizado_por = excluded.actualizado_por, actualizado_en = excluded.actualizado_en`)
+      const avance = v => Math.max(0, Math.min(100, parseInt(v, 10) || 0))
+      await env.db.batch(filas.filter(f => f && f.id).map(f => stmt.bind(
+        txt(f.id, 60), txt(f.app, 20), txt(f.etapa, 10) || 'cap',
+        f.sub_id == null ? null : parseInt(f.sub_id, 10),
+        txt(f.sucursal, 80), txt(f.nombre, 120), txt(f.responsable, 80), txt(f.dirigido_a, 120),
+        txt(f.fecha_ini, 10) || '', txt(f.fecha_fin, 10) || '', avance(f.avance),
+        txt(f.notas, 500), s.u, ahora)))
+      return json({ ok: true, guardadas: filas.length })
+    }
+
+    if (path === '/d1/capacitaciones/plan' && request.method === 'DELETE') {
+      const id = url.searchParams.get('id')
+      if (!id) return json({ error: 'id requerido' }, 400)
+      await env.db.prepare('DELETE FROM capacitaciones_plan WHERE id = ?').bind(id).run()
+      return json({ ok: true })
+    }
+
+    // ── Asistentes ──
+    if (path === '/d1/capacitaciones/asistentes' && request.method === 'POST') {
+      const b = await request.json().catch(() => ({}))
+      const filas = Array.isArray(b.asistentes) ? b.asistentes : (b.asistente ? [b.asistente] : [])
+      if (!filas.length) return json({ error: 'asistentes requeridos' }, 400)
+      if (filas.length > 200) return json({ error: 'demasiados asistentes en una llamada' }, 400)
+      const stmt = env.db.prepare(
+        `INSERT INTO capacitaciones_asistentes (id, cedula, nombre, cargo, area, estado_rrhh, origen, app,
+            lugar_id, lugar, fecha, instructor, registrado_por, registrado_en)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         ON CONFLICT(id) DO NOTHING`)
+      const validas = filas.filter(f => f && f.id && f.cedula && f.nombre && f.app && f.fecha)
+      if (!validas.length) return json({ error: 'faltan datos del asistente' }, 400)
+      await env.db.batch(validas.map(f => stmt.bind(
+        txt(f.id, 60), txt(f.cedula, 13), txt(f.nombre, 120), txt(f.cargo, 120), txt(f.area, 160),
+        txt(f.estado_rrhh, 30), txt(f.origen, 10) || 'manual', txt(f.app, 20),
+        txt(f.lugar_id, 20), txt(f.lugar, 80), txt(f.fecha, 10), txt(f.instructor, 120), s.u, ahora)))
+      return json({ ok: true, guardados: validas.length })
+    }
+
+    if (path === '/d1/capacitaciones/asistentes' && request.method === 'DELETE') {
+      const id = url.searchParams.get('id')
+      if (id) {
+        await env.db.prepare('DELETE FROM capacitaciones_asistentes WHERE id = ?').bind(id).run()
+        return json({ ok: true })
+      }
+      // Toda la visita de una persona: misma cedula, lugar y dia
+      const ced = url.searchParams.get('cedula'), fecha = url.searchParams.get('fecha'), lugar = url.searchParams.get('lugar_id')
+      if (!ced || !fecha) return json({ error: 'id, o cedula y fecha' }, 400)
+      await env.db.prepare(
+        `DELETE FROM capacitaciones_asistentes WHERE cedula = ? AND fecha = ? AND (? IS NULL OR lugar_id = ?)`
+      ).bind(ced, fecha, lugar, lugar).run()
+      return json({ ok: true })
+    }
+
+    return json({ error: 'ruta no encontrada' }, 404)
+  } catch (e) {
+    return json({ error: String(e.message || e) }, 500)
+  }
+}
+
 async function handleUsuariosD1(request, url, env) {
   const path = url.pathname
   const json = (obj, status) => corsResponse(JSON.stringify(obj), status || 200, request)
@@ -4746,6 +4867,11 @@ if (url.pathname.startsWith('/db/') && request.method !== 'GET') {
     // ── Recursos por sucursal (bombas, vehiculos de diesel, parametristas) ─
     if (url.pathname === '/d1/recursos-sucursal' && env.db) {
       return handleRecursosSucursal(request, url, env)
+    }
+
+    // ── Capacitaciones de las aplicaciones ───────────────────────────────
+    if (url.pathname.startsWith('/d1/capacitaciones') && env.db) {
+      return handleCapacitaciones(request, url, env)
     }
 
     // ── Control de Usuarios AP1 Balanceado – D1 + Seguridad ──────────────

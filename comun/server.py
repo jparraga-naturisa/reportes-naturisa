@@ -158,8 +158,10 @@ class NaturisaHandler(http.server.BaseHTTPRequestHandler):
         elif self.path.startswith(('/bff/', '/bff-qa/')):
             url = gateway_url(self.path)
             extra = None
-        elif self.path.startswith('/db/') or self.path.startswith('/kv/'):
-            # Proxy al Cloudflare Worker — pasar X-Api-Key si viene en el request
+        elif self.path.startswith(('/db/', '/kv/', '/d1/')):
+            # Proxy al Cloudflare Worker — pasar X-Api-Key si viene en el request.
+            # /d1/ incluido para los POST con sesion (p. ej. /d1/usuarios/login de Capacitaciones):
+            # el Worker no acepta CORS desde todos los puertos de localhost.
             url = WORKER_URL + self.path
             api_key = self.headers.get('X-Api-Key')
             extra = {'X-Api-Key': api_key} if api_key else None
