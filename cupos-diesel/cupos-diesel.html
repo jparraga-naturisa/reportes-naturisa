@@ -146,6 +146,23 @@ button.tq.pend{ color:var(--muted); border-style:dashed; background:#fcfcfd; }
 .n + .sin-tq{ margin-top:4px; }
 
 /* Panel para elegir uno o varios tanques de una casilla */
+.modal-fondo{ position:fixed; inset:0; z-index:600; background:rgba(16,42,72,.38); display:flex; align-items:center; justify-content:center; padding:20px; }
+.modal-fondo[hidden]{ display:none; }
+.modal{ background:var(--card); border-radius:9px; box-shadow:0 18px 50px rgba(16,42,72,.3); width:min(560px,100%); max-height:82vh; display:flex; flex-direction:column; overflow:hidden; }
+.modal-cab{ background:var(--navy); color:#fff; padding:13px 18px; display:flex; align-items:flex-start; gap:10px; }
+.modal-cab b{ display:block; font-size:14.5px; }
+.modal-cab span{ display:block; font-size:11.5px; opacity:.75; margin-top:2px; }
+.modal-cab .x{ margin-left:auto; background:none; border:0; color:#fff; opacity:.75; cursor:pointer; font-size:19px; line-height:1; padding:0 2px; }
+.modal-cab .x:hover{ opacity:1; }
+.modal-cuerpo{ overflow:auto; }
+.modal table{ width:100%; border-collapse:collapse; font-size:13px; }
+.modal th{ text-align:left; font-size:11px; font-weight:600; color:var(--muted); padding:9px 18px 7px; border-bottom:1px solid var(--line); background:var(--hover); position:sticky; top:0; }
+.modal td{ padding:8px 18px; border-bottom:1px solid var(--line); vertical-align:top; }
+.modal td.num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.modal td.tq{ color:var(--muted); font-size:12px; }
+.modal tr.tot td{ font-weight:600; background:var(--hover); border-bottom:0; }
+td.ver{ cursor:pointer; }
+td.ver:hover{ background:#e8f1fb; box-shadow:inset 0 0 0 1px var(--link-2); border-radius:3px; }
 .pop{ position:fixed; z-index:500; width:335px; max-height:70vh; overflow:auto; background:#fff; border-radius:6px;
   box-shadow:0 14px 38px rgba(16,42,72,.22); border:1px solid var(--border); font-size:13px; }
 .pop[hidden]{ display:none; }
@@ -207,7 +224,8 @@ button.tq.pend{ color:var(--muted); border-style:dashed; background:#fcfcfd; }
     </div>
     <nav class="nav">
       <div class="nav-tit">Cupos de diésel</div>
-      <button data-tab="usos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg><span>Cupos por uso</span></button>
+      <button data-tab="usos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg><span>Cupo diésel</span></button>
+      <button data-tab="gas"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M14 20V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v15"/><path d="M3 20h12M6 8h6"/><path d="M18 9v8a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg><span>Cupo gasolina</span></button>
       <button data-tab="tanques"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M2 22h12M5 10h6"/><path d="M13 10h3a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg><span>Tanques</span></button>
       <button data-tab="dm"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg><span>Data Maestra</span></button>
     </nav>
@@ -217,7 +235,7 @@ button.tq.pend{ color:var(--muted); border-style:dashed; background:#fcfcfd; }
     <header class="top">
       <div class="crumb">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
-        Cupos de diésel › <b id="crumb">Cupos por uso</b>
+        Cupos de diésel › <b id="crumb">Cupo diésel</b>
       </div>
       <div class="spacer"></div>
       <span class="hdr-user" id="qaUser"></span>
@@ -226,7 +244,7 @@ button.tq.pend{ color:var(--muted); border-style:dashed; background:#fcfcfd; }
 
     <main class="main">
       <div class="page">
-        <h1 id="titulo">Cupos por uso</h1>
+        <h1 id="titulo">Cupo diésel</h1>
         <div class="acciones">
           <button class="btn ghost" id="impBtn" title="Cargar el presupuesto (hoja Diésel) o una matriz descargada de aquí">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
@@ -277,6 +295,7 @@ button.tq.pend{ color:var(--muted); border-style:dashed; background:#fcfcfd; }
   </div>
 </div>
 
+<div class="modal-fondo" id="modal" hidden><div class="modal"><div class="modal-cab" id="modalCab"></div><div class="modal-cuerpo" id="modalCuerpo"></div></div></div>
 <div class="pop" id="pop" hidden></div>
 
 <script>
@@ -368,6 +387,23 @@ function dividirAquanaturisa(){
 }
 // Los cupos van en galones enteros. Matrices guardadas con decimales: Aquanaturisa se vuelve a dividir
 // (si sus 3 campamentos siguen sumando el AL-FI) y el resto se redondea.
+// Laboratorios y Otros ya tienen columnas de rubro, así que el Cupo total suelto que traían se pasa a un
+// rubro para que siga a la vista y se pueda editar: los laboratorios a Bombeo y las filas de Otros a
+// Maquinaria. Se puede mover a mano; el valor anterior queda en Respaldos.
+function rubrosLabOtros(){
+  for(const s of SUCURSALES){
+    if(!s.unTotal) continue;
+    const gal = fila(s.id)[TOT];
+    if(!(gal > 0)){ delete M.cupos[s.id]?.[TOT]; continue; }
+    const rubro = s.otro ? 'Maquinaria' : 'Bombeo';
+    (M.cupos[s.id] ??= {})[rubro] = (M.cupos[s.id][rubro] || 0) + gal;
+    const tq = M.tanque[claveTq(s.id, TOT)];
+    if(tq && !M.tanque[claveTq(s.id, rubro)]) M.tanque[claveTq(s.id, rubro)] = tq;
+    delete M.cupos[s.id][TOT];
+    delete M.tanque[claveTq(s.id, TOT)];
+  }
+  M.rubros = true;
+}
 function galonesEnteros(){
   for(const [uso, gal] of Object.entries(ALFI)){
     const vals = CAMPAMENTOS_AQUA.map(id => fila(id)[uso]);
@@ -400,7 +436,10 @@ const usoDe = texto => { const t = norm(texto); return [...USOS, ...OTROS.map(o 
 const fila = id => M.cupos[id] || {};
 const esOtro = id => OTROS.some(o => o.id === id);
 const unTotal = id => esOtro(id) || !!SUCURSALES.find(x => x.id === id)?.unTotal;
-const totalSuc = id => unTotal(id) ? fila(id)[TOT] || 0 : USOS.reduce((a, u) => a + (fila(id)[u.nombre] || 0), 0);
+// Laboratorios y Otros tienen las mismas columnas de rubro que el resto, y además la de Cupo total,
+// para lo que no se quiera detallar; su cupo es la suma de ambas cosas.
+const clavesDe = (s, usos) => s.unTotal ? [...usos.map(u => u.nombre), TOT] : usos.map(u => u.nombre);
+const totalSuc = id => USOS.reduce((a, u) => a + (fila(id)[u.nombre] || 0), 0) + (unTotal(id) ? fila(id)[TOT] || 0 : 0);
 // Lee una propiedad sin importar mayúsculas (QA responde "Data"/"Code", producción "data"/"code")
 const g = (o, ...ks) => {
   if(!o || typeof o !== 'object') return undefined;
@@ -507,12 +546,13 @@ async function cargar(){
   SUCURSALES = lista.map(s => UN_TOTAL.includes(s.cluster) ? { ...s, unTotal: true } : s)
     .sort((a, b) => !!a.unTotal - !!b.unTotal || a.nombre.localeCompare(b.nombre))
     .concat(OTROS.map(o => ({ id: o.id, codigo: '', nombre: o.nombre, cluster: 'Otros', miembros: [], codigos: [], otro: true, unTotal: true })));
+  if(!M.rubros){ rubrosLabOtros(); guardarLocal(); }
   document.getElementById('fCluster').innerHTML = '<option value="">Todos los clusters</option>' +
     [...new Set(SUCURSALES.map(s => s.cluster))].map(c => `<option>${esc(c)}</option>`).join('');
   cambiarTab(leer(TAB_KEY, 'usos'));
   pintarEstado();
   // La lista de tanques de cada casilla necesita los tanques de QA
-  if(TAB === 'usos' && tokenQA()) cargarTanques();
+  if((TAB === 'usos' || TAB === 'gas') && tokenQA()) cargarTanques();
 }
 
 function filtradas(){
@@ -522,44 +562,51 @@ function filtradas(){
   return SUCURSALES.filter(s =>
     (!q || norm(s.nombre).includes(q) || (TAB === 'tanques' && tanquesDe(s.id).some(t => norm(t.nombre + ' ' + t.codigo).includes(q)))) &&
     (!cl || s.cluster === cl) &&
-    (!est || (est === 'pend' ? tienePend(s) : (est === 'con') === (totalSuc(s.id) > 0))));
+    (!est || (est === 'pend' ? tienePend(s) : (est === 'con') === (totalVis(s.id) > 0))));
 }
-const tienePend = s => !!TANQUES && (s.unTotal ? [TOT] : USOS.map(u => u.nombre)).some(u => fila(s.id)[u] > 0 && !cuadra(s.id, u));
+// La gasolina tiene su propia pantalla, así que Cupo diésel muestra solo los usos de diésel.
+const GAS = 'Gasolina';
+const VIS = () => TAB === 'gas' ? USOS.filter(u => u.nombre === GAS)
+  : TAB === 'usos' ? USOS.filter(u => u.nombre !== GAS) : USOS;
+const totalVis = id => VIS().reduce((a, u) => a + (fila(id)[u.nombre] || 0), 0) + (unTotal(id) ? fila(id)[TOT] || 0 : 0);
+const tienePend = s => !!TANQUES && clavesDe(s, VIS()).some(u => fila(s.id)[u] > 0 && !cuadra(s.id, u));
 function render(){ TAB === 'tanques' ? renderTanques() : TAB === 'dm' ? renderDM() : renderUsos(); }
 
 // ── Pestaña 1: matriz sucursal × uso ──
 function sumar(lista){
-  const col = USOS.map(u => lista.reduce((a, s) => a + (fila(s.id)[u.nombre] || 0), 0));
-  return { col, tot: lista.reduce((a, s) => a + totalSuc(s.id), 0) };
+  const col = VIS().map(u => lista.reduce((a, s) => a + (fila(s.id)[u.nombre] || 0), 0));
+  return { col, tot: lista.reduce((a, s) => a + totalVis(s.id), 0) };
 }
-const celdasSuma = ({ col, tot }) => col.map(v => `<td class="num">${fmt(v)}</td>`).join('') + `<td class="tot">${fmt(tot)}</td>`;
+// En Gasolina hay una sola columna, así que el total por sucursal sobra.
+const conTot = () => VIS().length > 1;
+const celdasSuma = ({ col, tot }) => col.map(v => `<td class="num">${fmt(v)}</td>`).join('') +
+  (conTot() ? `<td class="tot">${fmt(tot)}</td>` : '<td></td>');
 
 function renderUsos(){
-  document.getElementById('th').innerHTML = `<tr><th>Sucursal</th>` +
-    USOS.map(u => `<th class="uso">${esc(u.nombre)}<span class="u">gal/sem</span></th>`).join('') +
-    `<th class="tot">Cupo total<span class="u">gal/sem</span></th></tr>`;
+  const usos = VIS(), gas = TAB === 'gas';
+  document.getElementById('th').innerHTML = `<tr><th${gas ? ' style="width:300px"' : ''}>Sucursal</th>` +
+    usos.map(u => `<th class="uso"${gas ? ' style="width:240px"' : ''}>${esc(gas ? 'Cupo de gasolina' : u.nombre)}<span class="u">gal/sem</span></th>`).join('') +
+    (conTot() ? `<th class="tot">Cupo total<span class="u">gal/sem</span></th>` : '<th></th>') + `</tr>`;
 
-  const lista = filtradas();
+  // Laboratorios y Otros no reciben gasolina
+  const lista = filtradas().filter(s => !gas || (!s.unTotal && !s.otro));
   if(!lista.length){
-    document.getElementById('tb').innerHTML = `<tr><td colspan="${USOS.length + 2}" class="vacio-msg">No hay sucursales con ese filtro</td></tr>`;
+    document.getElementById('tb').innerHTML = `<tr><td colspan="${usos.length + 2}" class="vacio-msg">No hay sucursales con ese filtro</td></tr>`;
     return;
   }
   let html = '';
   const filaDe = s => {
     const f = fila(s.id);
     return `<tr class="fila" data-id="${s.id}"><td class="suc">${esc(s.nombre)}${s.partes ? `<span class="d">${esc(s.partes.join(', '))}</span>` : ''}</td>` +
-      (s.unTotal
-        ? USOS.map(() => '<td></td>').join('') +
-          `<td class="tot"><input class="n${f[TOT] == null ? ' vacio' : ''}" inputmode="decimal" data-i="tot" placeholder="—" value="${f[TOT] ?? ''}">${btnTanque(s, TOT, 'tot')}</td></tr>`
-        : USOS.map((u, i) =>
-            `<td><input class="n${f[u.nombre] == null ? ' vacio' : ''}" inputmode="decimal" data-i="${i}" placeholder="—" value="${f[u.nombre] ?? ''}">${btnTanque(s, u.nombre, i)}</td>`).join('') +
-          `<td class="tot">${fmt(totalSuc(s.id))}</td></tr>`);
+      usos.map((u, i) =>
+        `<td><input class="n${f[u.nombre] == null ? ' vacio' : ''}" inputmode="decimal" data-i="${i}" placeholder="—" value="${f[u.nombre] ?? ''}">${btnTanque(s, u.nombre, i)}</td>`).join('') +
+      (conTot() ? `<td class="tot">${fmt(totalVis(s.id))}</td>` : '<td></td>') + `</tr>`;
   };
   // Sucursales por orden alfabético, sin agrupar por cluster; Laboratorios y Otros al final
   html += lista.filter(s => !s.unTotal).map(filaDe).join('');
   for(const [titulo, del] of [['Laboratorios', lista.filter(s => s.unTotal && !s.otro)], ['Otros', lista.filter(s => s.otro)]]){
     if(!del.length) continue;
-    html += `<tr class="grupo"><td class="suc">${titulo}</td><td colspan="${USOS.length + 1}"></td></tr>` + del.map(filaDe).join('');
+    html += `<tr class="grupo"><td class="suc">${titulo}</td><td colspan="${usos.length + 1}"></td></tr>` + del.map(filaDe).join('');
   }
   html += `<tr class="total"><td class="suc">Total${lista.length < SUCURSALES.length ? ' (filtro)' : ''}</td>${celdasSuma(sumar(lista))}</tr>`;
   document.getElementById('tb').innerHTML = html;
@@ -648,10 +695,10 @@ function btnTanque(s, uso, dataI){
   return `<button type="button" class="tq${cls}" data-i="${dataI}" title="${esc(tip)}">${esc(txt)}</button>`;
 }
 const pendientesTq = () => SUCURSALES.reduce((a, s) =>
-  a + (s.unTotal ? [TOT] : USOS.map(u => u.nombre)).filter(u => fila(s.id)[u] > 0 && !cuadra(s.id, u)).length, 0);
+  a + clavesDe(s, VIS()).filter(u => fila(s.id)[u] > 0 && !cuadra(s.id, u)).length, 0);
 function avisoUsos(){
   pintarPend();
-  if(TAB !== 'usos') return;
+  if(TAB !== 'usos' && TAB !== 'gas') return;
   if(!tokenQA()) return avisar('Para elegir el tanque que recibe cada cupo, ingresa a Data Maestra QA en la pestaña <b>Tanques</b>.');
   if(TANQUES_ERR) return avisar(`No se pudieron traer los tanques: ${esc(TANQUES_ERR)}`);
   if(!TANQUES) return;
@@ -660,7 +707,7 @@ function avisoUsos(){
 // Pastilla con los cupos sin tanque elegido; al tocarla se filtra la matriz
 function pintarPend(){
   const el = document.getElementById('pend');
-  const n = TAB === 'usos' && TANQUES ? pendientesTq() : 0;
+  const n = (TAB === 'usos' || TAB === 'gas') && TANQUES ? pendientesTq() : 0;
   el.hidden = !n;
   if(n) el.textContent = `${n} sin tanque`;
   el.classList.toggle('on', document.getElementById('fEstado').value === 'pend');
@@ -674,7 +721,7 @@ document.getElementById('pend').addEventListener('click', () => {
 // Recalcula totales sin repintar la tabla (no se pierde el foco de la casilla siguiente)
 function actualizarTotales(tr){
   const id = +tr.dataset.id;
-  if(!unTotal(id)) tr.querySelector('td.tot').textContent = fmt(totalSuc(id));
+  if(conTot()) tr.querySelector('td.tot').textContent = fmt(totalVis(id));
   const lista = filtradas();
   const tot = document.querySelector('tr.total');
   tot.innerHTML = `<td class="suc">${tot.firstElementChild.textContent}</td>${celdasSuma(sumar(lista))}`;
@@ -689,7 +736,7 @@ document.getElementById('tb').addEventListener('change', e => {
   const inp = e.target.closest('input.n');
   if(!inp) return;
   const tr = inp.closest('tr.fila');
-  const id = +tr.dataset.id, uso = inp.dataset.i === 'tot' ? TOT : USOS[+inp.dataset.i].nombre;
+  const id = +tr.dataset.id, uso = inp.dataset.i === 'tot' ? TOT : VIS()[+inp.dataset.i].nombre;
   const v = numero(inp.value);
   inp.classList.toggle('err', Number.isNaN(v));
   if(Number.isNaN(v)){ pintarEstado('Solo números (galones)'); return; }
@@ -708,16 +755,18 @@ function refrescarCelda(id, dataI){
   const td = document.querySelector(`tr.fila[data-id="${id}"] input.n[data-i="${dataI}"]`)?.closest('td');
   if(!td) return;
   td.querySelector('button.tq, .sin-tq')?.remove();
-  td.insertAdjacentHTML('beforeend', btnTanque(SUCURSALES.find(x => x.id === id), dataI === 'tot' ? TOT : USOS[+dataI].nombre, dataI));
+  td.insertAdjacentHTML('beforeend', btnTanque(SUCURSALES.find(x => x.id === id), dataI === 'tot' ? TOT : VIS()[+dataI].nombre, dataI));
 }
 
 // ── Panel de tanques de una casilla: se marcan uno o varios; cada uno recibe el cupo completo ──
 let POP = null;   // { s, uso, dataI }
 document.getElementById('tb').addEventListener('click', e => {
+  const det = e.target.closest('td.ver');
+  if(det) return abrirDetalle(det.dataset.det);
   const b = e.target.closest('button.tq');
   if(!b) return;
   const s = SUCURSALES.find(x => x.id === +b.closest('tr.fila').dataset.id);
-  POP = { s, uso: b.dataset.i === 'tot' ? TOT : USOS[+b.dataset.i].nombre, dataI: b.dataset.i };
+  POP = { s, uso: b.dataset.i === 'tot' ? TOT : VIS()[+b.dataset.i].nombre, dataI: b.dataset.i };
   pintarPop();
   const el = document.getElementById('pop'), rc = b.getBoundingClientRect();
   el.style.left = Math.max(8, Math.min(rc.left, innerWidth - el.offsetWidth - 8)) + 'px';
@@ -764,6 +813,7 @@ document.addEventListener('mousedown', e => {
 });
 document.addEventListener('keydown', e => {
   if(e.key !== 'Escape') return;
+  if(!document.getElementById('modal').hidden) return cerrarDetalle();
   if(POP){ POP = null; pintarPop(); } else document.getElementById('pop').hidden = true;
 });
 document.querySelector('.card').addEventListener('scroll', () => { if(POP){ POP = null; pintarPop(); } });
@@ -830,7 +880,7 @@ function normalizarTanque(t){
 async function cargarTanques(){
   TANQUES_ERR = '';
   if(!tokenQA()){ TANQUES = null; render(); return; }
-  if(TAB !== 'usos') document.getElementById('tb').innerHTML = `<tr><td class="vacio-msg">Trayendo tanques de Data Maestra (QA)…</td></tr>`;
+  if(TAB !== 'usos' && TAB !== 'gas') document.getElementById('tb').innerHTML = `<tr><td class="vacio-msg">Trayendo tanques de Data Maestra (QA)…</td></tr>`;
   else avisar('Trayendo tanques de Data Maestra (QA)…');
   try{
     const r = await fetch(TANQUES_URL, { headers: { Authorization: `Bearer ${tokenQA()}`, Accept: 'application/json' } });
@@ -914,12 +964,12 @@ function acualit2ConTanquesFincacua(){
 }
 const tanquesDe = subId => (TANQUES || []).filter(t => t.subId === subId);
 
-// Lo que recibe cada tanque: la suma de los galones que se le asignaron en "Cupos por uso"
+// Lo que recibe cada tanque: la suma de los galones que se le asignaron en Cupo diésel y Cupo gasolina
 function asignaciones(){
   const porTanque = new Map();   // tanque → { uso: gal, Otros: gal }
   const sinTanque = {};          // sub_id → { uso | Cupo total: gal }
   for(const s of SUCURSALES){
-    for(const u of s.unTotal ? [TOT] : USOS.map(x => x.nombre)){
+    for(const u of clavesDe(s, USOS)){
       const cupo = fila(s.id)[u] || 0;
       if(!cupo) continue;
       const k = s.otro ? 'Otros' : s.unTotal ? LAB : u;
@@ -937,7 +987,9 @@ function asignaciones(){
   return { porTanque, sinTanque };
 }
 
+let DETALLE = {};   // { 'campamento|columna': [{ suc, uso, gal, tqs }] } para el modal de la pestaña Tanques
 function renderTanques(){
+  DETALLE = {};
   const cols = USOS.length;
   // Una columna por cada fila de Otros (Draga, Embarcaciones…) que tenga algo asignado a un tanque
   const { porTanque, sinTanque } = asignaciones();
@@ -958,7 +1010,7 @@ function renderTanques(){
   const lista = filtradas();
   avisar('');
 
-  // Solo los tanques con algo programado (galones asignados en "Cupos por uso"), agrupados por su sucursal
+  // Solo los tanques con algo programado (galones asignados en Cupo diésel o Cupo gasolina), agrupados por su sucursal
   const granSin = Object.values(sinTanque).reduce((a, f) => a + Object.values(f).reduce((b, v) => b + v, 0), 0);
   let html = '', gran = Array(cols).fill(0), granO = otrosCols.map(() => 0), granLab = 0, granCap = 0;
   for(const s of lista.filter(x => !x.otro)){
@@ -969,18 +1021,27 @@ function renderTanques(){
     // aunque esté en varios tanques (cada tanque recibe la cantidad completa).
     const setT = new Set(tqs), cup = {};
     for(const s2 of SUCURSALES){
-      for(const u of s2.unTotal ? [TOT] : USOS.map(x => x.nombre)){
+      for(const u of clavesDe(s2, USOS)){
         const cupo = fila(s2.id)[u] || 0;
-        if(!cupo || !destinosDe(s2.id, u).some(d => setT.has(d.t))) continue;
+        const dest = destinosDe(s2.id, u).filter(d => setT.has(d.t));
+        if(!cupo || !dest.length) continue;
         const k = s2.otro ? s2.nombre : s2.unTotal ? LAB : u;
         cup[k] = (cup[k] || 0) + cupo;
+        // Para el modal: de quién es cada galón que entra a los tanques de este campamento
+        (DETALLE[`${s.id}|${k}`] ||= []).push({ suc: s2.nombre, uso: u, gal: cupo,
+          tqs: dest.map(d => d.t.nombre || d.t.codigo) });
       }
     }
+    const celda = (k, clase) => {
+      const v = cup[k] || 0;
+      return v ? `<td class="${clase} ver" data-det="${esc(`${s.id}|${k}`)}" title="Ver de quién es este cupo">${fmt(v)}</td>`
+               : `<td class="${clase}">${fmt(v)}</td>`;
+    };
     html += `<tr class="grupo"><td class="suc">${esc(s.nombre)}</td>` +
       `<td></td><td></td>` +
-      USOS.map(u => `<td class="num">${fmt(cup[u.nombre])}</td>`).join('') +
-      (colLab ? `<td class="num">${fmt(cup[LAB])}</td>` : '') +
-      otrosCols.map(o => `<td class="num">${fmt(cup[o.nombre])}</td>`).join('') +
+      USOS.map(u => celda(u.nombre, 'num')).join('') +
+      (colLab ? celda(LAB, 'num') : '') +
+      otrosCols.map(o => celda(o.nombre, 'num')).join('') +
       `<td class="tot">${fmt(Object.values(cup).reduce((a, v) => a + v, 0))}</td></tr>`;
     for(const t of tqs){
       const rec = porTanque.get(t), otro = (rec.Otros || 0) + (rec[LAB] || 0);
@@ -996,12 +1057,34 @@ function renderTanques(){
         (colLab ? `<td class="num">${fmt(rec[LAB])}</td>` : '') + otrosCols.map(o => `<td class="num">${fmt(rec.detOtros?.[o.nombre])}</td>`).join('') + `<td class="tot">${fmt(tot)}</td></tr>`;
     }
   }
-  if(!html) html = `<tr><td colspan="${ancho}" class="vacio-msg">Todavía no hay tanques con programado. Elige los tanques en la pestaña Cupos por uso.</td></tr>`;
+  if(!html) html = `<tr><td colspan="${ancho}" class="vacio-msg">Todavía no hay tanques con programado. Elige los tanques en Cupo diésel o Cupo gasolina.</td></tr>`;
   else html += `<tr class="total"><td class="suc">Total programado${granSin ? ` (falta asignar: ${fmt(granSin)})` : ''}</td><td></td><td>${fmt(granCap)}</td>` +
     gran.map(v => `<td>${fmt(v)}</td>`).join('') + (colLab ? `<td>${fmt(granLab)}</td>` : '') + granO.map(v => `<td>${fmt(v)}</td>`).join('') +
     `<td>${fmt(gran.reduce((a, v) => a + v, 0) + granLab + granO.reduce((a, v) => a + v, 0))}</td></tr>`;
   tb.innerHTML = html;
 }
+
+// ── Modal: de quién es el cupo que recibe un campamento en una columna ──
+function abrirDetalle(clave){
+  const [sid, col] = clave.split('|');
+  const camp = SUCURSALES.find(x => String(x.id) === sid);
+  const filas = (DETALLE[clave] || []).slice().sort((a, b) => b.gal - a.gal || a.suc.localeCompare(b.suc));
+  const total = filas.reduce((a, f) => a + f.gal, 0);
+  document.getElementById('modalCab').innerHTML =
+    `<div><b>${esc(camp?.nombre || '')} · ${esc(col)}</b><span>${filas.length} cupo(s) que entran a sus tanques</span></div>` +
+    `<button type="button" class="x" id="modalX" aria-label="Cerrar">×</button>`;
+  document.getElementById('modalCuerpo').innerHTML = filas.length
+    ? `<table><thead><tr><th>Sucursal</th><th>Tanque donde recibe</th><th style="text-align:right">gal/sem</th></tr></thead><tbody>` +
+      filas.map(f => `<tr><td>${esc(f.suc)}${f.suc === camp?.nombre ? '' : ' <span class="chip azul">de otra sucursal</span>'}</td>` +
+        `<td class="tq">${esc(f.tqs.join(' · '))}</td><td class="num">${fmt(f.gal)}</td></tr>`).join('') +
+      `<tr class="tot"><td>Total</td><td></td><td class="num">${fmt(total)}</td></tr></tbody></table>`
+    : '<div class="vacio-msg" style="padding:22px">Sin detalle</div>';
+  document.getElementById('modal').hidden = false;
+}
+function cerrarDetalle(){ document.getElementById('modal').hidden = true; }
+document.getElementById('modal').addEventListener('click', e => {
+  if(e.target.id === 'modal' || e.target.id === 'modalX') cerrarDetalle();
+});
 
 function pintarLogin(tb, ancho){
   tb.innerHTML = `<tr><td colspan="${ancho}"><div class="login">
@@ -1228,10 +1311,10 @@ function pintarUsuario(){
 }
 
 function cambiarTab(tab){
-  TAB = ['tanques', 'dm'].includes(tab) ? tab : 'usos';
+  TAB = ['tanques', 'dm', 'gas'].includes(tab) ? tab : 'usos';
   grabar(TAB_KEY, TAB);
   document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === TAB));
-  const tit = { usos: 'Cupos por uso', tanques: 'Tanques', dm: 'Data Maestra' }[TAB];
+  const tit = { usos: 'Cupo diésel', gas: 'Cupo gasolina', tanques: 'Tanques', dm: 'Data Maestra' }[TAB];
   document.getElementById('titulo').textContent = tit;
   document.getElementById('crumb').textContent = tit;
   avisar('');
@@ -1250,7 +1333,7 @@ document.getElementById('excelBtn').addEventListener('click', () => {
   const filas = SUCURSALES.map(s => {
     const f = fila(s.id), o = { 'Sub ID': s.id, 'Unidad': s.codigo, 'Cluster': s.cluster, 'Sucursal': s.nombre };
     const tq = u => destinosDe(s.id, u).map(d => `${nombreTq(d.t, s)}: ${d.gal}`).join('; ');
-    USOS.forEach(u => { o[colUso(u)] = s.unTotal ? '' : f[u.nombre] ?? ''; o[`${u.nombre} · tanque`] = s.unTotal ? '' : tq(u.nombre); });
+    USOS.forEach(u => { o[colUso(u)] = f[u.nombre] ?? ''; o[`${u.nombre} · tanque`] = tq(u.nombre); });
     o['Cupo total (gal/sem)'] = totalSuc(s.id);
     o['Cupo total · tanque'] = s.unTotal ? tq(TOT) : '';
     return o;
@@ -1262,7 +1345,7 @@ document.getElementById('excelBtn').addEventListener('click', () => {
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(filas);
   ws['!cols'] = [8, 8, 16, 22, ...USOS.flatMap(u => [Math.max(12, u.nombre.length + 10), 20]), 18, 20].map(w => ({ wch: w }));
-  XLSX.utils.book_append_sheet(wb, ws, 'Cupos por uso');
+  XLSX.utils.book_append_sheet(wb, ws, 'Cupo diesel');
 
   if(TANQUES){
     const r2 = (n) => n ? Math.round(n * 100) / 100 : '';   // vacío en vez de 0 en el Excel
