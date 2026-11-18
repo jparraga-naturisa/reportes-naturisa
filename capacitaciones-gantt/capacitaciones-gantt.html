@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Capacitaciones — Naturisa</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --primary:#1a3a5c; --primary-light:#2d6a9f; --accent:#00b4d8;
+  --success:#10b981; --warning:#f59e0b; --danger:#ef4444;
+  --bg:#f5f5f7; --card:#ffffff; --text:#1d1d1f; --muted:#6e6e73; --border:#e5e5ea;
+  --shadow-md:0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --radius:10px;
+  --row-h:28px; --left-w:290px;
+}
+*{box-sizing:border-box;}
+html,body{ margin:0; }
+body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); font-size:13px; }
+
+/* ── Header con pestañas ── */
+.hdr{ position:sticky; top:0; z-index:200; display:flex; align-items:center; gap:14px; padding:9px 18px; background:var(--primary); color:#fff; flex-wrap:wrap; }
+.hdr .brand .accent{ color:var(--accent); font-size:13.5px; font-weight:800; letter-spacing:.3px; }
+.hdr .brand .sub{ font-size:10px; color:rgba(255,255,255,.6); }
+.tabs{ display:flex; gap:2px; margin-left:8px; }
+.tabs button{ all:unset; cursor:pointer; font-size:12.5px; font-weight:700; padding:7px 14px; border-radius:7px; color:rgba(255,255,255,.72); }
+.tabs button:hover{ background:rgba(255,255,255,.1); }
+.tabs button.on{ background:rgba(255,255,255,.17); color:#fff; }
+.hdr .spacer{ flex:1; }
+.hdr .ses{ font-size:11.5px; color:rgba(255,255,255,.7); }
+.sync{ font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:20px; }
+.sync.ok{ background:rgba(16,185,129,.22); color:#6ee7b7; }
+.sync.mal{ background:rgba(239,68,68,.25); color:#fca5a5; }
+
+.btn{ all:unset; cursor:pointer; background:var(--primary); color:#fff; font-weight:600; font-size:12.5px; padding:7px 12px; border-radius:7px; text-align:center; display:inline-flex; align-items:center; gap:6px; }
+.btn:hover{ background:var(--primary-light); }
+.btn.ghost{ background:#fff; color:var(--text); border:1px solid var(--border); }
+.btn.ghost:hover{ background:#eef1f5; }
+.btn.hdrg{ background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.25); }
+.btn.hdrg:hover{ background:rgba(255,255,255,.22); }
+.btn.sm{ font-size:11.5px; padding:5px 9px; }
+.btn.danger{ background:var(--danger); } .btn.danger:hover{ background:#dc2626; }
+.btn:disabled{ opacity:.45; pointer-events:none; }
+
+.main{ max-width:1560px; margin:0 auto; padding:12px 18px 30px; }
+.vista[hidden]{ display:none; }
+
+/* ── Cronograma ── */
+.resumen{ display:flex; gap:16px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--muted); margin-bottom:9px; }
+.resumen b{ color:var(--text); font-size:13px; font-variant-numeric:tabular-nums; }
+.resumen .alert b{ color:var(--danger); }
+.resumen .av{ display:inline-flex; align-items:center; gap:6px; }
+.resumen .av > i{ width:9px; height:9px; border-radius:3px; }
+.barrita{ width:70px; height:6px; background:var(--border); border-radius:4px; overflow:hidden; }
+.barrita i{ display:block; height:100%; background:var(--success); }
+
+.toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+.search{ display:flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--border); border-radius:7px; padding:5px 9px; flex:0 1 200px; }
+.search input{ all:unset; flex:1; font-size:12.5px; min-width:50px; }
+.seg{ display:flex; background:#fff; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+.seg button{ all:unset; cursor:pointer; font-size:11.5px; font-weight:700; padding:6px 10px; color:var(--muted); }
+.seg button.on{ background:var(--primary); color:#fff; }
+.seg .cap{ font-size:9px; font-weight:800; color:var(--muted); background:#f1f4f8; padding:6px 7px; text-transform:uppercase; letter-spacing:.4px; display:flex; align-items:center; }
+.toolbar .spacer{ flex:1; }
+
+.card{ background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow-md); overflow:hidden; }
+.gwrap{ display:flex; overflow:auto; max-height:74vh; position:relative; }
+.left{ position:sticky; left:0; z-index:20; background:#fff; flex:0 0 var(--left-w); width:var(--left-w); border-right:2px solid var(--border); }
+.right{ flex:1 0 auto; position:relative; }
+.lhead, .rhead{ height:44px; position:sticky; top:0; background:var(--primary); color:#fff; z-index:30; }
+.lhead{ z-index:40; display:flex; align-items:flex-end; padding:0 10px 7px; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+.lhead .c2{ margin-left:auto; }
+.rhead{ z-index:25; }
+.rhead .months{ display:flex; height:22px; }
+.rhead .months div{ font-size:10px; font-weight:800; letter-spacing:.4px; display:flex; align-items:center; padding-left:6px; border-left:1px solid rgba(255,255,255,.22); white-space:nowrap; overflow:hidden; }
+.rhead .ticks{ display:flex; height:22px; border-top:1px solid rgba(255,255,255,.18); }
+.rhead .ticks div{ font-size:9.5px; font-weight:600; color:rgba(255,255,255,.85); display:flex; align-items:center; justify-content:center; border-left:1px solid rgba(255,255,255,.12); white-space:nowrap; overflow:hidden; }
+.rhead .ticks div.we{ background:rgba(0,0,0,.18); }
+
+.lrow{ height:var(--row-h); display:flex; align-items:center; gap:6px; padding:0 9px; border-bottom:1px solid var(--border); font-size:12px; cursor:pointer; }
+.lrow:hover{ background:#f7f9fc; }
+.lrow .nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.15; }
+.lrow .nm small{ display:block; font-size:9.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; }
+.lrow .pct{ font-size:10.5px; font-weight:700; color:var(--muted); font-variant-numeric:tabular-nums; min-width:30px; text-align:right; }
+.lrow.grp{ background:#eef3f8; font-weight:800; color:var(--primary); }
+.lrow.grp:hover{ background:#e5edf5; }
+.lrow.grp .dot{ width:8px; height:8px; border-radius:3px; flex:0 0 auto; }
+.lrow.grp .car{ font-size:8px; color:var(--muted); width:9px; }
+.lrow .ind{ width:11px; flex:0 0 auto; font-size:10px; }
+.lrow.sel{ background:#e8f4fb; box-shadow:inset 3px 0 0 var(--accent); }
+
+.rrow{ height:var(--row-h); border-bottom:1px solid var(--border); position:relative; }
+.rrow.grp{ background:#eef3f8; }
+.rrow.sel{ background:#e8f4fb; }
+.grid{ position:absolute; inset:0; pointer-events:none; z-index:0; }
+.grid .we{ position:absolute; top:0; bottom:0; background:rgba(26,58,92,.045); }
+.grid .vl{ position:absolute; top:0; bottom:0; width:1px; background:var(--border); }
+.grid .vl.m{ background:#c9d4e0; }
+.today{ position:absolute; top:0; bottom:0; width:2px; background:var(--danger); z-index:6; pointer-events:none; }
+.today::before{ content:'HOY'; position:absolute; top:0; left:-15px; font-size:8.5px; font-weight:800; color:#fff; background:var(--danger); padding:1px 4px; border-radius:3px; }
+
+.bar{ position:absolute; top:4px; height:calc(var(--row-h) - 10px); border-radius:5px; z-index:3; cursor:grab; display:flex; align-items:center; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.18); user-select:none; touch-action:none; }
+.bar:active{ cursor:grabbing; }
+.bar .prog{ position:absolute; left:0; top:0; bottom:0; background:rgba(255,255,255,.42); border-right:1px solid rgba(255,255,255,.5); }
+.bar .txt{ position:relative; font-size:10px; font-weight:700; color:#fff; padding:0 6px; white-space:nowrap; text-shadow:0 1px 1px rgba(0,0,0,.28); overflow:hidden; text-overflow:ellipsis; }
+.bar .h{ position:absolute; top:0; bottom:0; width:6px; cursor:ew-resize; z-index:4; }
+.bar .h.l{ left:0; } .bar .h.r{ right:0; }
+.bar.atr{ outline:2px solid var(--danger); outline-offset:-2px; }
+.bar.drag{ opacity:.85; box-shadow:0 4px 10px rgba(0,0,0,.3); }
+.bar.gbar{ top:9px; height:calc(var(--row-h) - 20px); border-radius:3px; opacity:.5; cursor:default; }
+.lab{ position:absolute; z-index:3; font-size:10px; font-weight:600; color:var(--muted); white-space:nowrap; line-height:var(--row-h); pointer-events:none; }
+.mil{ position:absolute; z-index:4; cursor:grab; touch-action:none; }
+.mil .dia{ width:12px; height:12px; transform:rotate(45deg); border-radius:2px; box-shadow:0 1px 2px rgba(0,0,0,.25); }
+/* Vista resumen: una fila por etapa, un chip por día con los códigos de finca */
+.chd{ position:absolute; top:4px; bottom:4px; border:1.5px solid var(--c); border-radius:5px; background:#fff; color:var(--c);
+      font-size:10px; font-weight:800; letter-spacing:.2px; display:flex; flex-direction:column; align-items:center;
+      justify-content:center; gap:2px; overflow:hidden; cursor:pointer; z-index:3; user-select:none; touch-action:none; }
+.chd.ok{ background:var(--c); color:#fff; }
+.chd.med{ background:color-mix(in srgb, var(--c) 16%, #fff); }
+.chd.atr{ border-color:var(--danger); color:var(--danger); }
+.chd.drag{ opacity:.85; box-shadow:0 4px 10px rgba(0,0,0,.3); }
+.chd .cods{ line-height:1.08; text-align:center; }
+.lrow.eta .pill{ width:10px; height:10px; border-radius:3px; flex:0 0 auto; }
+.lrow.eta .pill.sop{ border-radius:3px; opacity:.6; transform:scale(.8); }
+.lrow.eta .pill.seg{ border-radius:50%; opacity:.6; transform:scale(.8); }
+.lrow.eta .nm{ font-weight:700; }
+.lrow.eta.sub2{ padding-left:20px; }
+.lrow.eta.sub2 .nm{ font-weight:600; font-size:11.5px; color:var(--muted); }
+.chd.tenue{ opacity:.78; }
+.leyenda{ display:flex; gap:13px; align-items:center; flex-wrap:wrap; }
+.leyenda .mb{ display:inline-block; width:15px; height:9px; border-radius:3px; border:1.5px solid; vertical-align:-1px; margin-right:4px; }
+.vacio{ padding:30px; text-align:center; color:var(--muted); }
+.hint{ font-size:11px; color:var(--muted); padding:7px 12px; border-top:1px solid var(--border); background:#fafbfc; display:flex; gap:10px; flex-wrap:wrap; }
+.hint .warn{ color:var(--warning); font-weight:700; }
+
+/* ── Asistentes ── */
+.cols{ display:grid; grid-template-columns:330px 1fr; gap:14px; align-items:start; }
+.panel{ background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow-md); }
+.panel h4{ margin:0; padding:11px 15px; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--primary); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+.panel h4 .n{ margin-left:auto; font-size:11px; font-weight:600; color:var(--muted); text-transform:none; letter-spacing:0; }
+.panel .bd{ padding:14px 15px; }
+.f{ display:flex; flex-direction:column; gap:4px; margin-bottom:11px; }
+.f label{ font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+.f input, .f select, .f textarea{ width:100%; padding:8px 10px; border:1.5px solid var(--border); border-radius:7px; font-size:13px; font-family:inherit; background:#fff; color:var(--text); }
+.f input:focus, .f select:focus, .f textarea:focus{ outline:none; border-color:var(--primary-light); }
+.f2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.appschk{ display:flex; gap:6px; flex-wrap:wrap; }
+.appschk label{ display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; border:1.5px solid var(--border); border-radius:7px; padding:6px 9px; cursor:pointer; }
+.appschk label.on{ border-color:var(--primary-light); background:#eef6fc; }
+.appschk input{ width:auto; }
+.appschk i{ width:9px; height:9px; border-radius:3px; }
+.apps-chips{ display:flex; gap:5px; flex-wrap:wrap; }
+.apps-chips span{ display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; background:#eef3f8; border-radius:20px; padding:2px 8px; white-space:nowrap; }
+.apps-chips i{ width:7px; height:7px; border-radius:2px; }
+.sep{ font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;
+       border-top:1px solid var(--border); padding-top:11px; margin:4px 0 11px; }
+.ced{ display:flex; gap:8px; }
+.ced input{ font-size:19px; font-weight:700; letter-spacing:1.2px; text-align:center; font-variant-numeric:tabular-nums; padding:11px; }
+.ficha{ border:1.5px solid var(--border); border-radius:9px; padding:12px 14px; margin-bottom:11px; background:#fafbfc; }
+.ficha .nom{ font-size:15px; font-weight:800; line-height:1.25; }
+.ficha .cg{ font-size:12px; color:var(--primary-light); font-weight:700; margin-top:2px; }
+.ficha .ar{ font-size:11.5px; color:var(--muted); margin-top:3px; }
+.ficha.no{ border-color:var(--warning); background:#fffbeb; }
+.ficha .chip{ display:inline-block; font-size:9.5px; font-weight:800; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:.3px; margin-top:7px; margin-right:5px; }
+.chip.ok{ background:#dcfce7; color:#15803d; } .chip.no{ background:#fee2e2; color:#b91c1c; } .chip.w{ background:#fef3c7; color:#92400e; }
+.estado{ font-size:11.5px; color:var(--muted); min-height:16px; margin-bottom:8px; line-height:1.4; }
+.estado.err{ color:var(--danger); font-weight:600; }
+
+table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+th{ background:var(--primary); color:#fff; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding:8px; text-align:left; }
+td{ border-bottom:1px solid var(--border); padding:6px 8px; vertical-align:middle; }
+tbody tr:hover{ background:#f7f9fc; }
+td.num{ font-variant-numeric:tabular-nums; }
+td .del{ all:unset; cursor:pointer; color:var(--danger); font-weight:800; padding:0 5px; }
+.tscroll{ max-height:56vh; overflow:auto; }
+.tscroll thead th{ position:sticky; top:0; z-index:2; }
+.sub{ font-size:11px; color:var(--muted); }
+tr.secc td{ background:#eef3f8; font-size:11px; font-weight:800; color:var(--primary); text-transform:uppercase;
+            letter-spacing:.4px; padding:6px 10px; }
+tr.secc .pto{ display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:7px; vertical-align:-1px; }
+tr.secc b{ margin-left:8px; font-size:11px; }
+
+/* ── Configuración ── */
+.cfg{ display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:14px; align-items:start; }
+.cfg .acciones{ display:flex; gap:8px; flex-wrap:wrap; }
+.cfg .ancho{ grid-column:1 / -1; }
+#fcTabla td{ padding:4px 6px; white-space:nowrap; }
+#fcTabla th{ text-align:center; }
+#fcTabla th:first-child, #fcTabla td:first-child{ text-align:left; }
+#fcTabla .fcel{ display:flex; align-items:center; gap:6px; }
+#fcTabla .calc{ display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--muted); margin-top:3px; margin-left:1px; white-space:nowrap; }
+#fcTabla .calc.ok{ color:var(--success); font-weight:600; }
+#fcTabla .calc.atr{ color:var(--danger); font-weight:600; }
+#fcTabla .calc.vacia{ opacity:.6; }
+#fcTabla .calc b{ font-size:10px; font-weight:800; min-width:22px; }
+#fcTabla input[type=date].mini{ width:104px; padding:3px 5px; font-size:11px; }
+#fcTabla input[type=date].manual{ border-color:var(--primary-light); background:#f3f7fb; }
+#fcTabla input.hecho.mini{ width:12px; height:12px; }
+#fcTabla td{ vertical-align:top; }
+#fcTabla input.hecho{ width:15px; height:15px; accent-color:var(--success); cursor:pointer; flex:0 0 auto; }
+#fcTabla input.hecho:disabled{ cursor:default; opacity:.35; }
+#fcTabla input[type=date]{ padding:5px 6px; border:1.5px solid var(--border); border-radius:6px; font-size:12px; font-family:inherit; background:#fff; color:var(--text); width:122px; }
+#fcTabla input[type=date]:focus{ outline:none; border-color:var(--primary-light); }
+#fcTabla input.ok{ border-color:var(--success); background:#f0fdf4; }
+#fcTabla input.atr{ border-color:var(--danger); background:#fef2f2; }
+#fcTabla .cod{ display:inline-block; min-width:22px; font-size:10px; font-weight:800; color:var(--primary-light); background:#eef3f8; border-radius:4px; padding:1px 4px; margin-right:6px; text-align:center; }
+#fcTabla td.suc{ font-weight:600; }
+#fcTabla td.suc small{ display:block; font-size:10px; font-weight:500; color:var(--muted); margin-left:34px; }
+.cfg .nota{ font-size:11.5px; color:var(--muted); line-height:1.5; margin:0 0 11px; }
+.apps-list{ display:flex; flex-direction:column; gap:7px; }
+.apps-list .it{ display:flex; align-items:center; gap:9px; font-size:12.5px; }
+.apps-list .it i{ width:13px; height:13px; border-radius:4px; flex:0 0 auto; }
+.apps-list .it b{ flex:1; font-weight:600; }
+
+
+/* ── Modales ── */
+.ovl{ position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:300; display:flex; align-items:center; justify-content:center; padding:16px; }
+.ovl[hidden]{ display:none; }
+.modal{ background:#fff; border-radius:13px; width:470px; max-width:100%; max-height:92vh; overflow:auto; box-shadow:0 24px 64px rgba(0,0,0,.4); }
+.modal h3{ margin:0; padding:14px 18px; font-size:14px; background:var(--primary); color:#fff; position:sticky; top:0; z-index:2; }
+.modal .bd{ padding:15px 18px; }
+.modal .ft{ padding:11px 18px 16px; display:flex; gap:8px; align-items:center; }
+.modal .ft .spacer{ flex:1; }
+/* Pantalla de entrada */
+.login{ position:fixed; inset:0; z-index:500; background:#0f172a; display:flex; align-items:center; justify-content:center; padding:16px; }
+.login[hidden]{ display:none; }
+.login-card{ background:#fff; border-radius:18px; padding:40px 36px; width:390px; max-width:94vw; box-shadow:0 24px 64px rgba(0,0,0,.45); }
+.login-card .lockup{ text-align:center; margin-bottom:24px; }
+.login-card .icono{ width:54px; height:54px; border-radius:15px; background:var(--primary); color:var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 13px; }
+.login-card .mark{ font-size:19px; font-weight:700; color:var(--muted); letter-spacing:1.5px; }
+.login-card .sub2{ font-size:18px; color:var(--primary); font-weight:800; margin-top:3px; }
+.login-card .hint2{ font-size:11.5px; color:var(--muted); margin-top:7px; line-height:1.45; }
+.login-card .status{ text-align:center; margin-top:12px; font-size:12.5px; color:var(--danger); min-height:18px; line-height:1.4; }
+.login-card .solo{ display:block; width:100%; text-align:center; margin-top:14px; font-size:11.5px; color:var(--muted); background:none; border:none; cursor:pointer; text-decoration:underline; font-family:inherit; }
+.pass-wrap{ position:relative; }
+.pass-wrap input{ padding-right:2.6rem; }
+.pass-toggle{ all:unset; cursor:pointer; position:absolute; right:.75rem; top:50%; transform:translateY(-50%); display:flex; color:var(--muted); }
+.avso{ background:#fffbeb; border:1px solid #fde68a; color:#92400e; font-size:12px; padding:10px 13px; border-radius:9px; margin:0 0 12px; line-height:1.45; }
+
+.toast{ position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--primary); color:#fff; font-size:12.5px; font-weight:600; padding:9px 16px; border-radius:9px; z-index:400; box-shadow:0 8px 24px rgba(0,0,0,.3); max-width:90vw; }
+.toast.err{ background:var(--danger); }
+.toast[hidden]{ display:none; }
+
+@media (max-width:980px){ .cols{ grid-template-columns:1fr; } }
+@media (max-width:860px){
+  :root{ --left-w:180px; }
+  .main{ padding:10px 10px 24px; }
+  .gwrap{ max-height:62vh; }
+  .f2{ grid-template-columns:1fr; }
+}
+@media print{
+  .hdr, .toolbar, .hint{ display:none !important; }
+  .gwrap{ max-height:none; overflow:visible; }
+  .main{ max-width:none; padding:0; }
+  .card{ box-shadow:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="brand">
+    <div class="accent">NATURISA · Capacitaciones</div>
+    <div class="sub">Parámetros · Cosecha Diaria · Combustible</div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button data-v="gantt" class="on">Cronograma</button>
+    <button data-v="asis">Asistentes</button>
+    <button data-v="cfg">Configuración</button>
+  </div>
+  <div class="spacer"></div>
+  <span class="sync" id="sync"></span>
+  <span class="ses" id="ses"></span>
+  <button class="btn hdrg sm" onclick="window.print()">Imprimir</button>
+  <button class="btn hdrg sm" id="btnSalir" onclick="salir()" hidden>Salir</button>
+</div>
+
+<div class="main">
+
+<!-- ══════════ CRONOGRAMA ══════════ -->
+<div class="vista" id="v-gantt">
+  <div class="resumen" id="resumen"></div>
+  <div class="toolbar">
+    <div class="seg" id="vistaG">
+      <span class="cap">Vista</span>
+      <button data-g="resumen" class="on">Resumen</button>
+      <button data-g="detalle">Detalle</button>
+    </div>
+    <div class="seg" id="modo">
+      <span class="cap">Agrupar</span>
+      <button data-m="app" class="on">Aplicación</button>
+      <button data-m="suc">Sucursal</button>
+      <button data-m="cluster">Cluster</button>
+    </div>
+    <div class="seg" id="zoom">
+      <span class="cap">Zoom</span>
+      <button data-z="dia" class="on">Día</button>
+      <button data-z="semana">Semana</button>
+      <button data-z="mes">Mes</button>
+    </div>
+    <div class="search">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6e6e73" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="text" id="q" placeholder="Buscar sucursal…" oninput="render()">
+    </div>
+    <button class="btn ghost sm" onclick="hoyScroll()">Hoy</button>
+    <button class="btn sm" onclick="irA('cfg')" title="Poner o cambiar las fechas de cada sucursal">Poner fechas</button>
+    <div class="spacer"></div>
+  </div>
+  <div class="card">
+    <div class="gwrap" id="gwrap"><div class="left" id="left"></div><div class="right" id="right"></div></div>
+    <div class="hint" id="hint"></div>
+  </div>
+</div>
+
+<!-- ══════════ ASISTENTES ══════════ -->
+<div class="vista" id="v-asis" hidden>
+  <div class="cols">
+    <div>
+      <div class="panel">
+        <h4>Registrar asistente</h4>
+        <div class="bd">
+          <div class="f">
+            <label>Número de cédula</label>
+            <div class="ced">
+              <input type="text" id="aCed" inputmode="numeric" maxlength="13" placeholder="0000000000"
+                     oninput="this.value=this.value.replace(/\D/g,''); limpiarFicha()"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault(); buscarCedula();}">
+              <button class="btn" onclick="buscarCedula()" id="aBuscar">Buscar</button>
+            </div>
+          </div>
+          <div class="estado" id="aEstado">Digita la cédula y pulsa Enter: el nombre y el cargo salen de RRHH. Si no está, los escribes a mano.</div>
+          <div id="aFicha"></div>
+          <p class="avso" id="avisoLectura" hidden>Entraste sin sesión: para traer nombres de RRHH
+            <button class="btn sm" style="margin-left:6px" onclick="mostrarLogin()">Ingresar a AP1</button></p>
+
+          <div class="sep">Datos de la visita</div>
+          <div class="f"><label>Aplicaciones</label><div class="appschk" id="aApps"></div></div>
+          <div class="f"><label>Dónde se capacitó</label><select id="aSuc" onchange="guardarSesion(); pintarAsis()"></select></div>
+          <div class="f2">
+            <div class="f"><label>Fecha</label><input type="date" id="aFecha" onchange="guardarSesion(); pintarAsis()"></div>
+            <div class="f"><label>Instructor</label><input type="text" id="aInstr" placeholder="Quién capacitó" oninput="guardarSesion()"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h4>Asistentes <span class="n" id="aResumen"></span></h4>
+      <div class="bd" style="padding:11px 15px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <div class="seg" id="aVista">
+          <button data-t="ses" class="on">Esta sesión</button>
+          <button data-t="todos">Todos</button>
+        </div>
+        <div class="search" style="flex:0 1 180px;">
+          <input type="text" id="aQ" placeholder="Buscar persona…" oninput="pintarAsis()">
+        </div>
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn ghost sm" onclick="exportarAsistentes()">Excel</button>
+      </div>
+      <div class="tscroll"><table id="aTabla"></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ CONFIGURACIÓN ══════════ -->
+<div class="vista" id="v-cfg" hidden>
+  <div class="cfg">
+
+
+    <div class="panel ancho">
+      <h4>Fechas por sucursal <span class="n" id="fcResumen"></span></h4>
+      <div class="bd" style="padding:11px 15px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <div class="search" style="flex:0 1 200px;">
+          <input type="text" id="fcQ" placeholder="Buscar sucursal…" oninput="pintarFechas()">
+        </div>
+        <span class="sub" style="flex:1">Pon el día en que cada aplicación se capacita en esa sucursal; la casilla la marca como hecha.</span>
+        <button class="btn ghost sm" onclick="exportarExcel()">Excel</button>
+        <button class="btn ghost sm" onclick="exportarJSON()">Respaldo</button>
+        <button class="btn ghost sm" onclick="document.getElementById('imp').click()">Restaurar</button>
+        <input type="file" id="imp" accept="application/json" hidden onchange="importarJSON(this)">
+      </div>
+      <div class="tscroll"><table id="fcTabla"></table></div>
+    </div>
+
+
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- Editor de actividad -->
+<div class="ovl" id="ovl" hidden onclick="if(event.target===this) cerrar()">
+  <div class="modal">
+    <h3 id="mTit">Actividad</h3>
+    <div class="bd">
+      <div class="f"><label>Actividad</label><input type="text" id="mNom"></div>
+      <div class="f2">
+        <div class="f"><label>Sucursal</label><select id="mSuc"></select></div>
+      </div>
+      <div class="f"><label>Aplicación</label><select id="mApp"></select></div>
+      <div class="f2">
+        <div class="f"><label>Responsable</label><input type="text" id="mResp"></div>
+        <div class="f"><label>Dirigido a</label><input type="text" id="mAud"></div>
+      </div>
+      <div class="f2">
+        <div class="f"><label>Inicio</label><input type="date" id="mIni"></div>
+        <div class="f"><label>Fin</label><input type="date" id="mFin"></div>
+      </div>
+      <div class="f"><label>Avance <b id="mPctV" style="color:var(--text)">0%</b></label>
+        <input type="range" id="mPct" min="0" max="100" step="5" oninput="document.getElementById('mPctV').textContent=this.value+'%'"></div>
+      <div class="f"><label>Notas</label><textarea id="mNot" rows="2"></textarea></div>
+    </div>
+    <div class="ft">
+      <button class="btn danger sm" id="mDel" onclick="eliminar()">Eliminar</button>
+      <div class="spacer"></div>
+      <button class="btn ghost sm" onclick="cerrar()">Cancelar</button>
+      <button class="btn sm" onclick="guardarForm()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pantalla de entrada: la aplicación se abre con el usuario de AP1 -->
+<div class="login" id="login">
+  <div class="login-card">
+    <div class="lockup">
+      <div class="icono">
+        <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 6h18M3 12h12M3 18h7"/><circle cx="18" cy="17" r="3.2"/></svg>
+      </div>
+      <div class="mark">NATURISA</div>
+      <div class="sub2">Capacitaciones</div>
+      <div class="hint2">Ingresa con tu usuario de AP1</div>
+    </div>
+    <div class="f"><label>Usuario</label><input type="text" id="lgUser" autocomplete="username"
+      onkeydown="if(event.key==='Enter') document.getElementById('lgPass').focus()"></div>
+    <div class="f"><label>Contraseña</label>
+      <div class="pass-wrap">
+        <input type="password" id="lgPass" autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()">
+        <button class="pass-toggle" type="button" onclick="verPass(this)" title="Ver contraseña">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <button class="btn" id="lgBtn" style="width:100%; justify-content:center; margin-top:4px; padding:10px;" onclick="doLogin()">Ingresar</button>
+    <div class="status" id="lgEstado"></div>
+    <button class="solo" onclick="entrarSinSesion()">Ver el cronograma sin ingresar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ══════════════ Constantes ══════════════ */
+const LS    = 'naturisa_capacitaciones_gantt_v9';
+const LS_AS = 'naturisa_capacitaciones_asistentes_v1';
+const LS_SE = 'naturisa_capacitaciones_sesion_v1';
+const SES_KEY = 'naturisa_usuarios_v1';          // misma sesión que Control de usuarios
+const DAY = 86400000;
+const LOCAL  = ['localhost','127.0.0.1',''].includes(location.hostname);
+const WORKER = LOCAL ? '' : 'https://naturisa-proxy.parragajonathan965.workers.dev';
+// En local el servidor (comun/server.py) hace de proxy: el Worker no acepta CORS desde localhost
+const API    = LOCAL ? '' : 'https://naturisa-proxy.parragajonathan965.workers.dev';
+const LS_TK  = 'naturisa_capacitaciones_token';
+const NO_GRANJA = ['Acopio','Laboratorio','Oficina'];
+const LUGARES_EXTRA = [{ id:'__matriz', nom:'Matriz / oficina' }, { id:'__virtual', nom:'Virtual (Teams)' }];
+
+const APPS_BASE = [
+  { id:'par', nom:'Parámetros',     color:'#2d6a9f' },
+  { id:'cos', nom:'Cosecha Diaria', color:'#00b4d8' },
+  // Combustible se capacita módulo a módulo: cada uno lleva su propia fecha y su avance
+  { id:'com', nom:'Combustible',    color:'#f59e0b', mods:[
+      { id:'rec', nom:'Recepción',     color:'#f59e0b' },
+      { id:'tra', nom:'Transferencia', color:'#ea8c0c' },
+      { id:'des', nom:'Despacho',      color:'#d97706' },
+      { id:'bom', nom:'Bomberos',      color:'#b45309' },
+  ] },
+];
+
+/* Pistas de capacitación: una por aplicación, o una por módulo si la aplicación los tiene.
+   Es lo que ordena el cronograma, las columnas de Configuración y las casillas de Asistentes. */
+function pistas(){
+  const out = [];
+  APPS.forEach(a => (a.mods && a.mods.length ? a.mods : [null]).forEach(m => out.push({
+    key: m ? `${a.id}:${m.id}` : a.id,
+    app: a.id, mod: m ? m.id : null,
+    nom: m ? m.nom : a.nom,
+    grupo: m ? a.nom : '',
+    color: m ? (m.color || a.color) : a.color,
+  })));
+  return out;
+}
+const pistaNom = k => { const p = pistas().find(x => x.key === k); return p ? (p.grupo ? `${p.grupo} · ${p.nom}` : p.nom) : '—'; };
+const pistaDe = t => t.mod ? `${t.app}:${t.mod}` : t.app;
+/* En cada visita se capacitan las tres aplicaciones el mismo día, y cada una arrastra
+   su propio soporte (5 días hábiles) y su seguimiento (otros 5), que se calculan solos. */
+const POR_DIA = 2;                  // sucursales por día
+
+/* Las tres etapas de cada sucursal. La capacitación va por aplicación (su avance es propio);
+   el soporte de la implementación y el seguimiento son de la sucursal entera. */
+const ETAPAS = { cap:{ nom:'Capacitación', color:null, orden:1 } };
+const etapaNom = k => (ETAPAS[k] || ETAPAS.cap).nom;
+const colorDe  = t => t.etapa && t.etapa !== 'cap' ? ETAPAS[t.etapa].color : app(t.app).color;
+const ARRANQUE = {
+  par:{ aud:'Biólogos y jefes de campamento',     resp:'Producción' },
+  cos:{ aud:'Jefes de cosecha y administradores', resp:'Producción' },
+  com:{ aud:'Bodega, campamento y transporte',    resp:'Bodega' },
+};
+
+/* Catálogo de respaldo: granjas de D1 al 17-nov-2026 */
+const SUC_BASE = [
+  {id:13,nom:'Acualit 1',cluster:'Aquanaturisa',codigo:'A1'},{id:28,nom:'Acualit 2',cluster:'Aquanaturisa',codigo:'A2'},
+  {id:14,nom:'Fincacua',cluster:'Aquanaturisa',codigo:'FI'},{id:16,nom:'Granmar',cluster:'Granmar',codigo:'GR'},
+  {id:5,nom:'Josefina',cluster:'Josefina Norte',codigo:'JO'},{id:4,nom:'Kamaclusa',cluster:'Josefina Norte',codigo:'KA'},
+  {id:3,nom:'Maricultura',cluster:'Josefina Norte',codigo:'MA'},{id:1,nom:'Naturisa',cluster:'Josefina Norte',codigo:'NA'},
+  {id:2,nom:'Pesjoya',cluster:'Josefina Norte',codigo:'PE'},{id:6,nom:'Biorey',cluster:'Josefina Sur',codigo:'BR'},
+  {id:8,nom:'Camaron',cluster:'Josefina Sur',codigo:'CA'},{id:7,nom:'Camino Real',cluster:'Josefina Sur',codigo:'CR'},
+  {id:11,nom:'Esteromar',cluster:'Josefina Sur',codigo:'ES'},{id:9,nom:'Marchena',cluster:'Josefina Sur',codigo:'MH'},
+  {id:10,nom:'Margolfo',cluster:'Josefina Sur',codigo:'MG'},{id:18,nom:'Lanconor',cluster:'Machala',codigo:'LA'},
+  {id:10033,nom:'Solcamaron',cluster:'Machala',codigo:'SC'},{id:10040,nom:'Biofina',cluster:'Natubio',codigo:'BF'},
+  {id:10041,nom:'Biosuper',cluster:'Natubio',codigo:'BS'},{id:10034,nom:'Coaque',cluster:'Nortematex',codigo:'CO'},
+  {id:10035,nom:'Juananu',cluster:'Nortematex',codigo:'JU'},{id:19,nom:'Bonanza',cluster:'Puna Sur',codigo:'BO'},
+  {id:21,nom:'Los Gelices',cluster:'Puna Sur',codigo:'LG'},{id:20,nom:'Roblemar',cluster:'Puna Sur',codigo:'RO'},
+  {id:17,nom:'Golfomar',cluster:'RN-GO-IN',codigo:'GO'},{id:15,nom:'Inducam',cluster:'RN-GO-IN',codigo:'IN'},
+  {id:12,nom:'Rio Nilo',cluster:'RN-GO-IN',codigo:'RN'},
+];
+
+let APPS = [], SUCS = [], TAREAS = [], ASIS = [];
+let ZOOM = 'dia', MODO = 'app', VISTA_G = 'resumen', SEL = null, EDIT_ID = null;
+let COLAPSADOS = {}, SRC_SUC = 'local';
+let TOKEN = null, USUARIO = null, FICHA = null, VISTA_ASIS = 'ses', MODO_LECTURA = false;
+
+const PX = { dia:44, semana:14, mes:5 };   // el día ancho para que quepan los códigos de finca
+const rowH = () => VISTA_G === 'resumen' ? 44 : 28;
+/* Código corto de la finca; si D1 no lo trae, se arma con las letras del nombre */
+const sucCod = id => {
+  const s = suc(+id);
+  if (!s) return String(id).slice(0, 3).toUpperCase();
+  return (s.codigo || s.nom.replace(/[^A-Za-zÁÉÍÓÚÑ ]/g, '').split(' ').map(w => w[0]).join('').slice(0, 3)).toUpperCase();
+};
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const DIAS  = ['D','L','M','M','J','V','S'];
+
+/* ══════════════ Fechas (UTC) ══════════════ */
+const s2d = s => { const [y,m,d] = s.split('-').map(Number); return Date.UTC(y, m-1, d); };
+const d2s = t => new Date(t).toISOString().slice(0,10);
+const addD = (t,n) => t + n*DAY;
+const dow  = t => new Date(t).getUTCDay();
+const lunes = t => addD(t, -((dow(t)+6)%7));
+const hoy = () => { const n = new Date(); return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()); };
+const habil = t => dow(t) === 6 ? addD(t,2) : dow(t) === 0 ? addD(t,1) : t;
+const sigHabil = (t,n=1) => { let x = t; for (let i=0;i<n;i++) x = habil(addD(x,1)); return x; };
+const fmt  = s => { const d = new Date(s2d(s)); return d.getUTCDate() + ' ' + MESES[d.getUTCMonth()]; };
+const fmtL = s => { const d = new Date(s2d(s)); return d.getUTCDate() + ' ' + MESES[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); };
+const conFecha = t => !!(t && t.ini);
+const dias = t => !conFecha(t) ? 0 : (t.tipo === 'hito') ? 1 : Math.round((s2d(t.fin) - s2d(t.ini))/DAY) + 1;
+/* Cuántos días hábiles abarca un rango, y dónde termina un rango de n días hábiles */
+const habilesEntre = (a, b) => { let n = 0; for (let d = a; d <= b; d = addD(d, 1)) if (![0,6].includes(dow(d))) n++; return n; };
+const finHabiles = (ini, n) => { let f = ini; for (let i = 1; i < n; i++) f = sigHabil(f); return f; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ══════════════ Catálogos ══════════════ */
+const app = id => {
+  const k = String(id || '');
+  const base = APPS.find(a => a.id === k.split(':')[0]);
+  if (!base) return { nom:k === 'com' ? 'Combustible' : '—', color:'#94a3b8' };
+  const m = k.includes(':') && (base.mods || []).find(x => x.id === k.split(':')[1]);
+  return m ? { nom:`${base.nom} · ${m.nom}`, color:m.color || base.color } : base;
+};
+const suc = id => SUCS.find(s => s.id === id) || null;
+const sucNom = id => id == null ? 'Todas las sucursales' : (suc(+id)?.nom || 'Sucursal ' + id);
+const sucCl  = id => id == null ? 'General' : (suc(+id)?.cluster || 'Sin cluster');
+const lugarNom = id => (LUGARES_EXTRA.find(l => l.id === id) || {}).nom || sucNom(id);
+const tarea = id => TAREAS.find(t => t.id === id);
+
+async function cargarSucursales(){
+  SUCS = SUC_BASE.map(s => ({...s}));
+  try{
+    const r = await fetch(`${WORKER}/db/sucursales`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const rows = (d.data || d || []).filter(s => s.cluster && !NO_GRANJA.includes(s.cluster) && !/^Matriz/i.test(s.nombre));
+    if (rows.length){ SUCS = rows.map(s => ({ id:s.id, nom:s.nombre, cluster:s.cluster, codigo:s.codigo || '' })); SRC_SUC = 'D1'; }
+  }catch(e){ SRC_SUC = 'local'; }
+  SUCS.sort((a,b) => a.cluster.localeCompare(b.cluster) || a.nom.localeCompare(b.nom));
+}
+
+/* ══════════════ Plan base ══════════════ */
+function planBase(){
+  const T = [];
+  SUCS.forEach(s => {
+    APPS_BASE.forEach(a => {
+      const cfg = ARRANQUE[a.id] || { aud:'Todos', resp:'Producción' };
+      // Sin fechas: las pone el usuario en Configuración y de ahí salen el soporte y el seguimiento
+      const base = { app:a.id, suc:s.id, tipo:'tarea', pct:0, not:'', aud:cfg.aud, ini:'', fin:'' };
+      const mods = a.mods && a.mods.length ? a.mods : [null];
+      mods.forEach(m => T.push({ ...base, mod:m ? m.id : null,
+        id:m ? `${a.id}-${m.id}-s${s.id}` : `${a.id}-s${s.id}`,
+        etapa:'cap', nom:etapaNom('cap'), resp:cfg.resp }));
+    });
+  });
+  return T;
+}
+function guardar(){
+  try{ localStorage.setItem(LS, JSON.stringify({ apps:APPS, tareas:TAREAS, colapsados:COLAPSADOS, modo:MODO, vista:VISTA_G, zoom:ZOOM })); }
+  catch(e){ toast('No se pudo guardar en este navegador', true); }
+}
+function estado(t){
+  const h = hoy();
+  if (t.pct >= 100) return 'list';
+  if (!conFecha(t)) return 'pend';
+  if (s2d(t.tipo === 'hito' ? t.ini : t.fin) < h) return 'atr';
+  if (s2d(t.ini) <= h) return 'curso';
+  return 'pend';
+}
+const EST_NOM = { pend:'Pendiente', curso:'En curso', list:'Hecha', atr:'Atrasada' };
+
+/* ══════════════ Filtros y agrupación ══════════════ */
+function visibles(){
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const conDia = TAREAS.filter(conFecha);
+  if (!q) return conDia;
+  return conDia.filter(t =>
+    [t.nom, t.resp, t.aud, t.not, app(t.app).nom, sucNom(t.suc), sucCl(t.suc), sucCod(t.suc), etapaNom(t.etapa || 'cap')]
+      .join(' ').toLowerCase().includes(q));
+}
+function grupos(vis){
+  const gs = [];
+  if (MODO === 'app'){
+    APPS.forEach(a => {
+      const ts = vis.filter(t => t.app === a.id);
+      if (ts.length){
+        const h = ts.filter(t => (t.pct||0) >= 100).length;
+        const nm = a.mods && a.mods.length ? `${a.nom} · ${a.mods.length} módulos` : a.nom;
+        gs.push({ id:a.id, nom:nm, color:a.color, sub:`${h} de ${ts.length} actividades hechas`, ts });
+      }
+    });
+    const sinApp = vis.filter(t => !t.app);
+    if (sinApp.length) gs.push({ id:'__sin', nom:'Sin aplicación', color:'#64748b', sub:`${sinApp.length} actividades`, ts:sinApp });
+  } else if (MODO === 'suc'){
+    const gen = vis.filter(t => t.suc == null);
+    if (gen.length) gs.push({ id:'__gen', nom:'General', color:'#64748b', sub:`${gen.length} actividades`, ts:gen });
+    SUCS.forEach(s => {
+      const ts = vis.filter(t => t.suc === s.id);
+      if (ts.length) gs.push({ id:'s'+s.id, nom:s.nom, color:'#1a3a5c', sub:`${s.cluster} · ${ts.length} capacitaciones`, ts });
+    });
+  } else {
+    const gen = vis.filter(t => t.suc == null);
+    if (gen.length) gs.push({ id:'__gen', nom:'General', color:'#64748b', sub:`${gen.length} actividades`, ts:gen });
+    [...new Set(SUCS.map(s => s.cluster))].forEach(c => {
+      const ts = vis.filter(t => t.suc != null && sucCl(t.suc) === c);
+      if (ts.length) gs.push({ id:'c'+c, nom:c, color:'#1a3a5c', sub:`${new Set(ts.map(t => t.suc)).size} sucursales`, ts });
+    });
+  }
+  return gs;
+}
+
+/* ══════════════ Render del Gantt ══════════════ */
+function render(){
+  resumen();
+  const vis = visibles();
+  const left = document.getElementById('left'), right = document.getElementById('right');
+  document.getElementById('modo').style.display = VISTA_G === 'resumen' ? 'none' : '';
+  document.documentElement.style.setProperty('--row-h', rowH() + 'px');
+
+  if (!vis.length){
+    const sinFecha = TAREAS.length && !TAREAS.some(conFecha);
+    left.innerHTML = `<div class="lhead"><span>Etapa</span></div>`;
+    right.innerHTML = `<div class="vacio">${sinFecha
+      ? 'Todavía no hay fechas.<br><button class="btn" style="margin-top:12px" onclick="irA(&quot;cfg&quot;)">Poner fechas</button><br><br>Escribes el día de la capacitación de cada aplicación y de ahí salen el soporte y el seguimiento.'
+      : 'Nada coincide con la búsqueda.'}</div>`;
+    return;
+  }
+
+  const m = marcoTiempo();
+  const { lh, rh, nFilas, titulo } = VISTA_G === 'resumen' ? cuerpoResumen(m, vis) : cuerpoDetalle(m, vis);
+
+  left.innerHTML = `<div class="lhead"><span>${titulo}</span><span class="c2">Avance</span></div>` + lh;
+  right.innerHTML = `<div class="rhead" style="width:${m.W}px"><div class="months">${m.meses}</div><div class="ticks">${m.ticks}</div></div>
+     <div class="rbody" style="width:${m.W}px;height:${nFilas*rowH()}px"><div class="grid">${m.grid}</div>${m.tl}${rh}</div>`;
+
+  conectarDrag();
+  document.getElementById('hint').innerHTML = (VISTA_G === 'resumen'
+    ? `<span class="leyenda">
+         <span>Cada recuadro es un día, con el código de las fincas que tocan</span>
+         <span><span class="mb" style="border-color:var(--primary-light)"></span>pendiente</span>
+         <span><span class="mb" style="border-color:var(--primary-light);background:var(--primary-light)"></span>hecho</span>
+         <span>· clic para darlo por completo · arrastra para reprogramar · doble clic abre la actividad</span>
+       </span>`
+    : `<span>${vis.length} de ${TAREAS.length} · arrastra para reprogramar · clic para editar</span>`) +
+    (SRC_SUC === 'local' ? `<span class="warn">Sucursales del catálogo local</span>` : '');
+}
+
+/* Primer día del cronograma: el lunes de la semana en que arranca el plan
+   (o la de hoy, si hoy quedara antes). Lo usan el dibujo y el arrastre. */
+function iniEscala(){
+  let min = Infinity;
+  TAREAS.filter(conFecha).forEach(t => min = Math.min(min, s2d(t.ini)));
+  return lunes(Math.min(min, hoy()));
+}
+
+/* Escala de tiempo compartida por las dos vistas */
+function marcoTiempo(){
+  let max = -Infinity;
+  TAREAS.filter(conFecha).forEach(t => { max = Math.max(max, s2d(t.tipo === 'hito' ? t.ini : t.fin)); });
+  max = Math.max(max, addD(hoy(), 21));       // sin fechas todavía, se muestran tres semanas
+  // El cronograma arranca en la semana de la primera actividad, sin semanas vacías delante
+  const ini = iniEscala();
+  const fin = addD(lunes(max), 6);
+  const nD = Math.round((fin - ini)/DAY) + 1, px = PX[ZOOM], W = Math.max(nD*px, 400);
+  const x = t => (t - ini)/DAY * px;
+
+  let meses = '', k = 0;
+  while (k < nD){
+    const t = addD(ini, k), d = new Date(t);
+    const finMes = Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 0);
+    const n = Math.min(Math.round((finMes - t)/DAY) + 1, nD - k);
+    meses += `<div style="width:${n*px}px">${n*px > 44 ? (MESES[d.getUTCMonth()] + ' ' + d.getUTCFullYear()).toUpperCase() : ''}</div>`;
+    k += n;
+  }
+  let ticks = '';
+  if (ZOOM === 'dia'){
+    for (let i = 0; i < nD; i++){
+      const t = addD(ini, i), we = dow(t) === 0 || dow(t) === 6;
+      ticks += `<div class="${we ? 'we' : ''}" style="width:${px}px">${DIAS[dow(t)]}&nbsp;${new Date(t).getUTCDate()}</div>`;
+    }
+  } else {
+    for (let i = 0; i < nD; i += 7){
+      const t = addD(ini, i), w = Math.min(7, nD - i)*px;
+      ticks += `<div style="width:${w}px">${w > 28 ? fmt(d2s(t)) : ''}</div>`;
+    }
+  }
+  let grid = '';
+  if (ZOOM === 'dia') for (let i = 0; i < nD; i++){ const t = addD(ini, i); if (dow(t) === 0 || dow(t) === 6) grid += `<div class="we" style="left:${x(t)}px;width:${px}px"></div>`; }
+  for (let i = 0; i < nD; i += 7){ const t = addD(ini, i); grid += `<div class="vl ${new Date(t).getUTCDate() <= 7 ? 'm' : ''}" style="left:${x(t)}px"></div>`; }
+
+  const h = hoy();
+  const tl = (h >= ini && h <= fin) ? `<div class="today" style="left:${x(h) + px/2}px"></div>` : '';
+  return { ini, fin, nD, px, W, x, meses, ticks, grid, tl };
+}
+
+/* ── Vista Resumen: una fila por aplicación (capacitación) más soporte y seguimiento;
+      en cada día, los códigos de las fincas que tocan ── */
+function cuerpoResumen(m, vis){
+  const { x, px } = m;
+
+  // Una línea por pista de capacitación (módulo a módulo donde los hay), más el
+  // soporte y el seguimiento de cada aplicación.
+  const lineas = [];
+  pistas().forEach(p => lineas.push({
+    nom:p.nom, sub:p.grupo ? `Capacitación · ${p.grupo}` : 'Capacitación',
+    color:p.color, tenue:false, etapa:'cap',
+    ts:vis.filter(t => (t.etapa || 'cap') === 'cap' && pistaDe(t) === p.key) }));
+  // Actividades sueltas sin aplicación, si alguien las creó
+  const sueltas = vis.filter(t => !t.app);
+  if (sueltas.length) lineas.push({ nom:'Otras actividades', sub:'sin aplicación', color:'#64748b', etapa:'cap', ts:sueltas });
+
+  let lh = '', rh = '', nFilas = 0;
+  lineas.forEach(pi => {
+    const ts = pi.ts;
+    if (!ts.length) return;
+    nFilas++;
+    const hechas = new Set(ts.filter(t => (t.pct||0) >= 100).map(t => t.suc)).size;
+    const total  = new Set(ts.map(t => t.suc)).size;
+    const pct = Math.round(ts.reduce((a,t) => a + (t.pct||0), 0) / ts.length);
+    const gi = Math.min(...ts.map(t => s2d(t.ini))), gf = Math.max(...ts.map(t => s2d(t.fin)));
+
+    lh += `<div class="lrow eta ${pi.tenue ? 'sub2' : ''}">
+             <span class="pill ${pi.etapa === 'sop' ? 'sop' : pi.etapa === 'seg' ? 'seg' : ''}" style="background:${pi.color}"></span>
+             <span class="nm">${esc(pi.nom)}<small>${esc(pi.sub)} · ${hechas}/${total} fincas · ${fmt(d2s(gi))} → ${fmt(d2s(gf))}</small></span>
+             <span class="pct">${pct}%</span></div>`;
+
+    // Un recuadro por día con las fincas de ese día
+    const dias = new Map();
+    ts.forEach(t => {
+      const rango = s2d(t.fin) > s2d(t.ini);
+      for (let d = s2d(t.ini); d <= s2d(t.fin); d = addD(d, 1)){
+        if (rango && [0,6].includes(dow(d))) continue;   // los rangos no pintan sábado ni domingo
+        if (!dias.has(d)) dias.set(d, []);
+        dias.get(d).push(t);
+      }
+    });
+
+    let fila = '';
+    [...dias.entries()].sort((a,b) => a[0] - b[0]).forEach(([d, lote]) => {
+      const sucs = [...new Set(lote.map(t => t.suc))];
+      const cods = sucs.map(id => id == null ? 'GEN' : sucCod(id));
+      const avg = Math.round(lote.reduce((a,t) => a + (t.pct||0), 0) / lote.length);
+      const nivel = avg >= 100 ? 'ok' : avg > 0 ? 'med' : '';
+      const atrasado = avg < 100 && lote.some(t => estado(t) === 'atr');
+      const ancho = px - 2;
+      // Solo la capacitación lleva texto: los códigos de las fincas de ese día, en varias
+      // líneas si no caben de corrido. El soporte y el seguimiento van en blanco.
+      let txt = '';
+      if (pi.etapa === 'cap'){
+        const porLinea = Math.max(1, Math.floor((ancho - 4) / 15));
+        const lineas = [];
+        for (let i = 0; i < cods.length; i += porLinea) lineas.push(esc(cods.slice(i, i + porLinea).join('·')));
+        txt = lineas.length <= 3 ? lineas.join('<br>')
+            : (String(sucs.length).length * 6 <= ancho ? String(sucs.length) : '');
+      }
+      const detalle = sucs.map(id => {
+        const suyas = lote.filter(t => t.suc === id);
+        const hecho = suyas.filter(t => (t.pct||0) >= 100).length;
+        return `${sucNom(id)}${suyas.length > 1 ? ` (${hecho}/${suyas.length})` : (hecho ? ' ✓' : '')}`;
+      }).join(', ');
+      fila += `<div class="chd ${nivel} ${atrasado ? 'atr' : ''} ${pi.tenue ? 'tenue' : ''}" data-ids="${lote.map(t => t.id).join(',')}"
+                    style="left:${x(d) + 1}px;width:${ancho}px;--c:${pi.color}"
+                    title="${esc(pi.nom)} · ${fmtL(d2s(d))}&#10;${esc(detalle)}">
+                 <span class="cods">${txt}</span></div>`;
+    });
+    rh += `<div class="rrow">${fila}</div>`;
+  });
+
+  return { lh, rh, nFilas, titulo:'Aplicación / etapa' };
+}
+
+/* ── Vista Detalle: una fila por actividad ── */
+function cuerpoDetalle(m, vis){
+  const { x, px } = m;
+  const filas = [];
+  grupos(vis).forEach(g => {
+    filas.push({ k:'grp', g });
+    if (!COLAPSADOS[MODO + ':' + g.id])
+      g.ts.slice().sort((p,q) => s2d(p.ini) - s2d(q.ini) || p.nom.localeCompare(q.nom)).forEach(t => filas.push({ k:'t', t }));
+  });
+
+  let lh = '', rh = '';
+  filas.forEach(f => {
+    if (f.k === 'grp'){
+      const g = f.g;
+      let gi = Infinity, gf = -Infinity, dTot = 0, dHechos = 0;
+      g.ts.forEach(t => {
+        gi = Math.min(gi, s2d(t.ini)); gf = Math.max(gf, s2d(t.tipo === 'hito' ? t.ini : t.fin));
+        const d = dias(t); dTot += d; dHechos += d*(t.pct||0)/100;
+      });
+      const pct = dTot ? Math.round(dHechos/dTot*100) : 0;
+      lh += `<div class="lrow grp" onclick="toggleGrp('${esc(g.id)}')">
+               <span class="car">${COLAPSADOS[MODO+':'+g.id] ? '▶' : '▼'}</span>
+               <span class="dot" style="background:${g.color}"></span>
+               <span class="nm">${esc(g.nom)}<small>${esc(g.sub)} · ${fmt(d2s(gi))} → ${fmt(d2s(gf))}</small></span>
+               <span class="pct">${pct}%</span></div>`;
+      rh += `<div class="rrow grp"><div class="bar gbar" style="left:${x(gi)}px;width:${(gf-gi)/DAY*px + px}px;background:${g.color}">
+               <div class="prog" style="width:${pct}%"></div></div></div>`;
+    } else {
+      const t = f.t, a = app(t.app), es = estado(t), hito = t.tipo === 'hito';
+      const x1 = x(s2d(t.ini)), x2 = hito ? x1 + px : x(s2d(t.fin)) + px;
+      const sub = MODO === 'app'
+        ? `${esc(sucNom(t.suc))}${t.suc != null ? ' · ' + esc(sucCl(t.suc)) : ''}`
+        : ((t.etapa || 'cap') === 'cap' ? esc(pistaNom(pistaDe(t))) : esc(a.nom));
+      lh += `<div class="lrow ${SEL === t.id ? 'sel' : ''}" onclick="abrir('${t.id}')" title="Clic para editar">
+               <span class="ind"></span>
+               <span class="nm">${esc(t.nom)}<small>${sub} · ${hito ? fmt(t.ini) : fmt(t.ini) + ' → ' + fmt(t.fin)}</small></span>
+               <span class="pct">${hito ? '' : (t.pct||0) + '%'}</span></div>`;
+      const etiq = t.suc != null && MODO !== 'suc' ? sucNom(t.suc) : t.nom;
+      if (hito){
+        rh += `<div class="rrow ${SEL === t.id ? 'sel' : ''}">
+                 <div class="mil" data-id="${t.id}" style="left:${x1 + px/2 - 6}px;top:7px">
+                   <div class="dia" style="background:${es === 'atr' ? 'var(--danger)' : colorDe(t)}"></div></div>
+                 <div class="lab" style="left:${x1 + px/2 + 10}px">${esc(etiq)}</div></div>`;
+      } else {
+        const w = Math.max(x2 - x1, 6);
+        rh += `<div class="rrow ${SEL === t.id ? 'sel' : ''}">
+                 <div class="bar ${es === 'atr' ? 'atr' : ''}" data-id="${t.id}" style="left:${x1}px;width:${w}px;background:${colorDe(t)}">
+                   <div class="prog" style="width:${t.pct||0}%"></div>
+                   <div class="h l" data-h="l"></div><div class="h r" data-h="r"></div>
+                   <span class="txt">${w > 56 ? esc(etiq) : ''}</span></div>
+                 ${w <= 56 ? `<div class="lab" style="left:${x2 + 5}px">${esc(etiq)}</div>` : ''}</div>`;
+      }
+    }
+  });
+  return { lh, rh, nFilas:filas.length, titulo:'Capacitación / sucursal' };
+}
+
+/* El avance se lleva por pista: cada aplicacion o modulo en cada sucursal */
+function avancePista(key){
+  const ts = TAREAS.filter(t => pistaDe(t) === key && (t.etapa || 'cap') === 'cap');
+  if (!ts.length) return { pct:0, hechas:0, total:0 };
+  const hechas = ts.filter(t => (t.pct||0) >= 100).length;
+  const pct = Math.round(ts.reduce((a,t) => a + (t.pct||0), 0) / ts.length);
+  return { pct, hechas, total:ts.length };
+}
+function resumen(){
+  const atr = TAREAS.filter(t => estado(t) === 'atr').length;
+  const sinFecha = TAREAS.filter(t => !conFecha(t)).length;
+  let fin = -Infinity; TAREAS.filter(conFecha).forEach(t => fin = Math.max(fin, s2d(t.tipo === 'hito' ? t.ini : t.fin)));
+  const chip = (nom, color, v) => v.total
+    ? `<span class="av" title="${esc(nom)}: ${v.hechas} de ${v.total} hechas">
+         <i style="background:${color}"></i>${esc(nom)} <b>${v.pct}%</b>
+         <span class="barrita"><i style="width:${v.pct}%;background:${color}"></i></span></span>`
+    : '';
+  const porApp = pistas().map(p => chip(p.nom, p.color, avancePista(p.key))).join('');
+  document.getElementById('resumen').innerHTML = porApp +
+    `<span>${SUCS.length} sucursales · ${TAREAS.length} actividades</span>` +
+    (atr ? `<span class="alert">Atrasadas <b>${atr}</b></span>` : '') +
+    (sinFecha ? `<span>Sin fecha <b>${sinFecha}</b></span>` : '') +
+    `<span>Asistentes <b>${ASIS.length}</b></span>` +
+    (isFinite(fin) ? `<span>Cierre <b>${fmtL(d2s(fin))}</b></span>` : '');
+}
+
+function toggleGrp(id){ const k = MODO + ':' + id; COLAPSADOS[k] = !COLAPSADOS[k]; guardar(); render(); }
+
+/* ══════════════ Arrastrar barras ══════════════ */
+let drag = null;
+function conectarDrag(){
+  document.querySelectorAll('.bar[data-id], .mil[data-id], .chd[data-ids]').forEach(el => {
+    el.addEventListener('pointerdown', iniDrag);
+    el.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      abrir((el.dataset.ids || el.dataset.id).split(',')[0]);
+    });
+  });
+}
+
+/* Clic en un recuadro del cronograma: lo completa; si ya lo estaba, lo devuelve a pendiente */
+function alternarHecho(ids){
+  const ts = ids.map(tarea).filter(Boolean);
+  if (!ts.length) return;
+  const ok = !ts.every(t => (t.pct||0) >= 100);
+  ts.forEach(t => t.pct = ok ? 100 : 0);
+  guardar(); guardarActividades(ts); render(); pintarFechas();
+  const sucs = [...new Set(ts.map(t => sucCod(t.suc)))].join(', ');
+  toast(`${sucs}: ${ok ? 'completa' : 'pendiente'}`);
+}
+function iniDrag(e){
+  if (e.button !== undefined && e.button !== 0) return;
+  const el = e.currentTarget;
+  const ids = (el.dataset.ids || el.dataset.id || '').split(',').filter(Boolean);
+  const ts = ids.map(tarea).filter(Boolean);
+  if (!ts.length) return;
+  e.preventDefault();
+  // un recuadro de día dentro de un rango (soporte) no se arrastra: se abre
+  const esRango = ts.some(t => s2d(t.fin) > s2d(t.ini)) && el.classList.contains('chd');
+  drag = { ids, el, mode:e.target.dataset.h || 'move', x0:e.clientX, px:PX[ZOOM], moved:false, fijo:esRango,
+           orig:ts.map(t => ({ id:t.id, ini:t.ini, fin:t.fin })), abrir:ids[0] };
+  el.setPointerCapture(e.pointerId); el.classList.add('drag');
+  window.addEventListener('pointermove', mueveDrag);
+  window.addEventListener('pointerup', finDrag, { once:true });
+}
+function mueveDrag(e){
+  if (!drag || drag.fijo) return;
+  const dd = Math.round((e.clientX - drag.x0)/drag.px);
+  if (dd !== 0) drag.moved = true;
+  drag.orig.forEach(or => {
+    const t = tarea(or.id); if (!t) return;
+    if (drag.mode === 'move'){ t.ini = d2s(addD(s2d(or.ini), dd)); t.fin = d2s(addD(s2d(or.fin), dd)); }
+    else if (drag.mode === 'l') t.ini = d2s(Math.min(addD(s2d(or.ini), dd), s2d(t.fin)));
+    else t.fin = d2s(Math.max(addD(s2d(or.fin), dd), s2d(t.ini)));
+    if (t.tipo === 'hito') t.fin = t.ini;
+  });
+  const px = drag.px, el = drag.el, ini0 = s2d(iniRango());
+  const prim = tarea(drag.orig[0].id);
+  const x1 = (s2d(prim.ini) - ini0)/DAY*px;
+  if (el.classList.contains('mil')) el.style.left = (x1 + px/2 - 6) + 'px';
+  else if (el.classList.contains('chd')) el.style.left = (x1 + 1) + 'px';
+  else { el.style.left = x1 + 'px'; el.style.width = Math.max((s2d(prim.fin) - s2d(prim.ini))/DAY*px + px, 6) + 'px'; }
+}
+function iniRango(){ return d2s(iniEscala()); }
+function finDrag(){
+  window.removeEventListener('pointermove', mueveDrag);
+  if (!drag) return;
+  const d = drag; drag = null;
+  d.el.classList.remove('drag');
+  if (!d.moved){ alternarHecho(d.ids); return; }   // clic sin arrastre: marca o desmarca
+  const t = tarea(d.ids[0]);
+  // si se movió una capacitación, el soporte se va al día siguiente
+  const movidas = d.ids.map(i => tarea(i)).filter(Boolean);
+  guardar();
+  guardarActividades(movidas);
+  const sucs = [...new Set(d.ids.map(i => sucNom(tarea(i).suc)))];
+  toast(d.ids.length > 1
+    ? `${sucs.slice(0,3).join(', ')}${sucs.length > 3 ? '…' : ''} → ${fmt(t.ini)}`
+    : `${sucNom(t.suc)} · ${t.nom}: ${fmt(t.ini)}${t.tipo === 'hito' ? '' : ' → ' + fmt(t.fin)}`);
+  render();
+}
+
+/* ══════════════ Editor ══════════════ */
+function abrir(id){
+  const t = tarea(id); if (!t) return;
+  SEL = id; EDIT_ID = id; form(t);
+  document.getElementById('mTit').textContent =
+    `${etapaNom(t.etapa || 'cap')}${t.app ? ' · ' + app(t.app).nom : ''} · ${sucNom(t.suc)}`;
+  document.getElementById('mDel').style.display = '';
+}
+function opcionesSuc(sel, conGeneral = true){
+  let h = conGeneral ? `<option value="">Todas las sucursales</option>` : '';
+  let cl = null;
+  SUCS.forEach(s => {
+    if (s.cluster !== cl){ if (cl !== null) h += '</optgroup>'; h += `<optgroup label="${esc(s.cluster)}">`; cl = s.cluster; }
+    h += `<option value="${s.id}" ${String(sel) === String(s.id) ? 'selected' : ''}>${esc(s.nom)}</option>`;
+  });
+  return h + (cl !== null ? '</optgroup>' : '');
+}
+function form(t){
+  const mApp = document.getElementById('mApp');
+  mApp.innerHTML = `<option value="">Todas las aplicaciones</option>` +
+    APPS.map(a => `<option value="${esc(a.id)}">${esc(a.nom)}</option>`).join('');
+  mApp.value = t.app || '';
+  document.getElementById('mSuc').innerHTML = opcionesSuc(t.suc);
+  document.getElementById('mNom').value = t.nom;
+  document.getElementById('mResp').value = t.resp || '';
+  document.getElementById('mAud').value = (t.aud === '—' ? '' : t.aud) || '';
+  document.getElementById('mIni').value = t.ini;
+  document.getElementById('mFin').value = t.fin;
+  document.getElementById('mPct').value = t.pct || 0;
+  document.getElementById('mPctV').textContent = (t.pct||0) + '%';
+  document.getElementById('mNot').value = t.not || '';
+  document.getElementById('ovl').hidden = false;
+  setTimeout(() => document.getElementById('mNom').focus(), 30);
+}
+function cerrar(){ document.getElementById('ovl').hidden = true; SEL = null; render(); }
+function guardarForm(){
+  const nom = document.getElementById('mNom').value.trim();
+  if (!nom){ toast('Ponle nombre a la actividad', true); return; }
+  let ini = document.getElementById('mIni').value;
+  let fin = document.getElementById('mFin').value || ini;
+  if (!ini){ toast('Falta la fecha de inicio', true); return; }
+  if (s2d(fin) < s2d(ini)){ const x = ini; ini = fin; fin = x; }
+  const sv = document.getElementById('mSuc').value;
+  const av = document.getElementById('mApp').value;
+  const datos = { app: av || null, etapa:'cap', suc: sv === '' ? null : +sv, nom, tipo:'tarea',
+    resp:document.getElementById('mResp').value.trim(), aud:document.getElementById('mAud').value.trim() || '—',
+    ini, fin, pct:+document.getElementById('mPct').value, not:document.getElementById('mNot').value.trim() };
+  const t = EDIT_ID ? Object.assign(tarea(EDIT_ID), datos) : { id:'t' + Date.now().toString(36), ...datos };
+  if (!EDIT_ID) TAREAS.push(t);
+  guardar(); guardarActividad(t); cerrar(); pintarCfg(); toast('Guardado');
+}
+function eliminar(){
+  if (!EDIT_ID || !confirm('¿Eliminar esta actividad?')) return;
+  const fuera = EDIT_ID;
+  TAREAS = TAREAS.filter(t => t.id !== fuera);
+  guardar(); borrarActividadD1(fuera); cerrar(); pintarCfg(); toast('Actividad eliminada');
+}
+
+
+/* ══════════════ Guardado en D1 (compartido entre quienes usan la pantalla) ══════════════ */
+const D1 = '/d1/capacitaciones';
+const LS_PEND = 'naturisa_capacitaciones_pendientes_v1';
+let PEND = [];
+
+const aFilaPlan = t => ({ id:t.id, app:t.app || null, etapa:t.etapa || 'cap',
+  sub_id:t.suc == null ? null : t.suc, sucursal:t.suc == null ? '' : sucNom(t.suc),
+  nombre:t.nom, responsable:t.resp, dirigido_a:t.aud,
+  fecha_ini:t.ini || '', fecha_fin:t.fin || '', avance:t.pct || 0, notas:t.not || '' });
+const deFilaPlan = f => ({ id:f.id, app:f.app || null, etapa:f.etapa || 'cap',
+  suc:f.sub_id == null ? null : Number(f.sub_id), nom:f.nombre || '', resp:f.responsable || '',
+  aud:f.dirigido_a || '', ini:f.fecha_ini || '', fin:f.fecha_fin || '',
+  pct:Number(f.avance) || 0, not:f.notas || '', tipo:'tarea' });
+const aFilaAsis = a => ({ id:a.id, cedula:a.ced, nombre:a.nombre, cargo:a.cargo || '', area:a.area || '',
+  estado_rrhh:a.estadoRrhh || '', origen:a.origen || 'manual', app:a.app,
+  lugar_id:String(a.suc), lugar:lugarNom(a.suc), fecha:a.fecha, instructor:a.instr || '' });
+const deFilaAsis = f => ({ id:f.id, ced:f.cedula, nombre:f.nombre, cargo:f.cargo || '', area:f.area || '',
+  estadoRrhh:f.estado_rrhh || '', origen:f.origen || 'rrhh', app:f.app,
+  suc:/^\d+$/.test(String(f.lugar_id)) ? Number(f.lugar_id) : f.lugar_id,
+  fecha:f.fecha, instr:f.instructor || '' });
+
+function guardarPend(){ try{ localStorage.setItem(LS_PEND, JSON.stringify(PEND)); }catch(e){} }
+function pintarSync(){
+  const el = document.getElementById('sync');
+  if (!el) return;
+  if (!TOKEN){ el.textContent = ''; el.className = 'sync'; return; }
+  if (PEND.length){ el.textContent = `${PEND.length} sin guardar`; el.className = 'sync mal'; }
+  else { el.textContent = 'guardado'; el.className = 'sync ok'; }
+}
+
+/* Envía una operación; si falla queda pendiente y se reintenta al volver a abrir */
+async function enviar(op){
+  if (!TOKEN) return false;
+  try{
+    await api(op.url, { method:op.m, ...(op.body ? { body:JSON.stringify(op.body) } : {}) });
+    pintarSync();
+    return true;
+  }catch(e){
+    PEND.push(op); guardarPend(); pintarSync();
+    toast('No se pudo guardar en el servidor: queda pendiente', true);
+    return false;
+  }
+}
+const guardarActividades = ts => { const l = ts.filter(Boolean); if (l.length) enviar({ m:'PUT', url:D1 + '/plan', body:{ actividades:l.map(aFilaPlan) } }); };
+const guardarActividad   = t  => guardarActividades([t]);
+const guardarAsistentesD1 = as => { if (as.length) enviar({ m:'POST', url:D1 + '/asistentes', body:{ asistentes:as.map(aFilaAsis) } }); };
+const borrarAsistenteD1  = id => enviar({ m:'DELETE', url:`${D1}/asistentes?id=${encodeURIComponent(id)}` });
+const borrarVisitaD1 = (ced, fecha, lugar) =>
+  enviar({ m:'DELETE', url:`${D1}/asistentes?cedula=${encodeURIComponent(ced)}&fecha=${encodeURIComponent(fecha)}&lugar_id=${encodeURIComponent(lugar)}` });
+const borrarActividadD1  = id => enviar({ m:'DELETE', url:`${D1}/plan?id=${encodeURIComponent(id)}` });
+
+
+
+/* Al abrir: lo que ya está en D1 manda; si está vacío, se siembra el plan */
+async function cargarDeD1(){
+  const j = await api(D1);
+  const filas = Array.isArray(j.plan) ? j.plan : [];
+  // Lo que está en D1 manda, pero el plan base completa lo que falte: si una carga anterior
+  // no llegó entera, no se pierden las aplicaciones que no alcanzaron a subir.
+  const porId = new Map(planBase().map(t => [t.id, t]));
+  const enD1 = new Set();
+  filas.forEach(f => { porId.set(f.id, deFilaPlan(f)); enD1.add(f.id); });
+  TAREAS = [...porId.values()];
+  // Combustible pasó a capacitarse módulo a módulo: la fila antigua sin módulo se retira
+  // (si tenía fecha, se la queda el primer módulo para no perderla).
+  const conMods = APPS.filter(a => a.mods && a.mods.length).map(a => a.id);
+  // El plan ya no lleva soporte ni seguimiento: esas actividades se retiran
+  TAREAS.filter(t => ['sop','seg'].includes(t.etapa)).forEach(v => {
+    TAREAS = TAREAS.filter(t => t.id !== v.id);
+    if (enD1.has(v.id)) borrarActividadD1(v.id);
+  });
+  const viejas = TAREAS.filter(t => !t.mod && conMods.includes(t.app));
+  viejas.forEach(v => {
+    if (conFecha(v)){
+      const prim = pistas().find(p => p.app === v.app);
+      const dest = tareaEtapa(v.suc, v.etapa || 'cap', prim.key);
+      if (dest && !conFecha(dest)){
+        dest.ini = v.ini; dest.fin = v.fin; dest.pct = v.pct || 0;
+        if (v.manual) dest.manual = true;
+      }
+    }
+    TAREAS = TAREAS.filter(t => t.id !== v.id);
+    if (enD1.has(v.id)) borrarActividadD1(v.id);
+  });
+  const faltan = TAREAS.filter(t => !enD1.has(t.id));
+  if (faltan.length) guardarActividades(faltan);
+  ASIS = Array.isArray(j.asistentes) ? j.asistentes.map(deFilaAsis) : [];
+  guardar(); guardarAsis();
+}
+
+/* Reintenta lo que quedó pendiente de una sesión anterior */
+async function reintentarPendientes(){
+  if (!TOKEN || !PEND.length) return;
+  const cola = PEND.slice(); PEND = []; guardarPend();
+  for (const op of cola) await enviar(op);
+  if (!PEND.length) toast('Se guardó lo que había quedado pendiente');
+}
+
+/* ══════════════ Fechas por sucursal ══════════════ */
+/* Capacitación de una aplicación en una sucursal (la primera, si hubiera varias) */
+function tareaDe(sucId, pista){
+  return TAREAS.find(t => t.suc === sucId && (t.etapa || 'cap') === 'cap' && pistaDe(t) === pista);
+}
+/* La actividad de una etapa en una sucursal, para una pista (aplicación o módulo) */
+function tareaEtapa(sucId, k, pista){
+  return TAREAS.find(t => t.suc === sucId && (t.etapa || 'cap') === k &&
+                          (pista === undefined || pistaDe(t) === pista));
+}
+function claseFecha(t){
+  if (!t) return '';
+  const e = estado(t);
+  return e === 'list' ? 'ok' : e === 'atr' ? 'atr' : '';
+}
+
+function pintarFechas(){
+  const q = document.getElementById('fcQ').value.trim().toLowerCase();
+  const lista = SUCS.filter(s => !q || (s.nom + ' ' + s.cluster + ' ' + sucCod(s.id)).toLowerCase().includes(q));
+  const PS = pistas();
+  const cols = ['Sucursal', ...PS.map(p => p.grupo ? `${p.grupo}: ${p.nom}` : p.nom)];
+
+  const filas = lista.map(s => {
+    // Una columna por aplicación: la fecha de capacitación se edita; soporte y seguimiento
+    // se calculan solos y solo se muestran.
+    // Cada columna es una pista: la fecha en que esa aplicación o módulo se capacita aquí.
+    const celda = pi => {
+      const t = tareaDe(s.id, pi.key);
+      if (!t) return `<td><span class="sub">—</span></td>`;
+      return `<td><div class="fcel">
+          <input type="checkbox" class="hecho" ${(t.pct||0) >= 100 ? 'checked' : ''}
+                 title="Marcar como completa" onchange="marcarHecho('${t.id}', this.checked)">
+          <input type="date" class="${claseFecha(t)}" value="${t.ini || ''}"
+                 title="Día de la capacitación" onchange="moverTarea('${t.id}', this.value)">
+        </div></td>`;
+    };
+    return `<tr>
+        <td class="suc"><span class="cod">${esc(sucCod(s.id))}</span>${esc(s.nom)}<small>${esc(s.cluster)}</small></td>
+        ${PS.map(celda).join('')}
+      </tr>`;
+  }).join('');
+
+  document.getElementById('fcTabla').innerHTML =
+    `<thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+     <tbody>${filas || `<tr><td colspan="${cols.length}" class="vacio">Ninguna sucursal coincide.</td></tr>`}</tbody>`;
+  document.getElementById('fcResumen').textContent = `${lista.length} de ${SUCS.length} sucursales`;
+}
+
+/* Cada aplicación va seguida en el campamento: capacitación → soporte (5 días) →
+   seguimiento (5 días). Las dos últimas se calculan solas a partir de la capacitación. */
+
+/* La casilla deja la actividad completa (100 %) o la devuelve a pendiente */
+function marcarHecho(id, ok){
+  const t = tarea(id);
+  if (!t) return;
+  t.pct = ok ? 100 : 0;
+  guardar(); guardarActividad(t); render(); pintarFechas();
+  toast(`${sucNom(t.suc)} · ${t.app ? app(t.app).nom : t.nom}: ${ok ? 'completa' : 'pendiente'}`);
+}
+
+/* Mueve una actividad conservando cuántos días dura */
+function moverTarea(id, valor){
+  const t = tarea(id);
+  if (!t) return;
+  if (!valor){                       // se borró la fecha: toda la cadena queda en blanco
+    t.ini = ''; t.fin = '';
+    guardar(); guardarActividad(t); render(); pintarFechas();
+    toast(`${sucNom(t.suc)} · ${app(t.app).nom}: sin fecha`);
+    return;
+  }
+  const dur = conFecha(t) ? Math.round((s2d(t.fin) - s2d(t.ini))/DAY) : 0;
+  t.ini = valor;
+  t.fin = d2s(addD(s2d(valor), dur));
+  guardar(); guardarActividad(t); render(); pintarFechas();
+  toast(`${sucNom(t.suc)} · ${app(t.app).nom}: ${fmt(t.ini)}`);
+}
+
+
+function pintarCfg(){ pintarFechas(); }
+
+/* ══════════════ Asistentes ══════════════ */
+function guardarAsis(){ try{ localStorage.setItem(LS_AS, JSON.stringify(ASIS)); }catch(e){ toast('No se pudo guardar', true); } }
+function sesionActual(){
+  return { apps:[...document.querySelectorAll('#aApps input:checked')].map(c => c.value),
+           suc:document.getElementById('aSuc').value,
+           fecha:document.getElementById('aFecha').value,
+           instr:document.getElementById('aInstr').value.trim() };
+}
+function guardarSesion(){ try{ localStorage.setItem(LS_SE, JSON.stringify(sesionActual())); }catch(e){} }
+function pintarSelectoresAsis(){
+  const aApps = document.getElementById('aApps'), aSuc = document.getElementById('aSuc');
+  const vSuc = aSuc.value;
+  let ses = null; try{ ses = JSON.parse(localStorage.getItem(LS_SE) || 'null'); }catch(e){}
+  // las casillas se repintan solo si cambió el catálogo de aplicaciones, para no perder lo marcado
+  const marcadas = aApps.children.length
+    ? [...aApps.querySelectorAll('input:checked')].map(c => c.value)
+    : ((ses && ses.apps) || pistas().map(p => p.key));
+  const firma = pistas().map(p => p.key).join(',');
+  if (aApps.dataset.apps !== firma){
+    aApps.innerHTML = pistas().map(p => `<label class="${marcadas.includes(p.key) ? 'on' : ''}" title="${esc(pistaNom(p.key))}">
+        <input type="checkbox" value="${esc(p.key)}" ${marcadas.includes(p.key) ? 'checked' : ''}
+               onchange="this.parentNode.classList.toggle('on', this.checked); guardarSesion(); pintarAsis()">
+        <i style="background:${p.color}"></i>${esc(p.nom)}</label>`).join('');
+    aApps.dataset.apps = firma;
+  }
+  aSuc.innerHTML = opcionesSuc(null, false) + LUGARES_EXTRA.map(l => `<option value="${l.id}">${esc(l.nom)}</option>`).join('');
+  aSuc.value = vSuc || (ses && ses.suc) || (SUCS[0] ? String(SUCS[0].id) : '');
+  if (!document.getElementById('aFecha').value) document.getElementById('aFecha').value = (ses && ses.fecha) || d2s(hoy());
+  if (!document.getElementById('aInstr').value) document.getElementById('aInstr').value = (ses && ses.instr) || (USUARIO ? USUARIO.nombre : '');
+}
+
+/* dígito verificador de la cédula ecuatoriana: solo para avisar de un tipeo */
+function cedulaValida(c){
+  if (c.length === 13) return /^\d{13}$/.test(c);
+  if (!/^\d{10}$/.test(c)) return false;
+  const prov = +c.slice(0, 2);
+  if (prov < 1 || (prov > 24 && prov !== 30)) return false;
+  let suma = 0;
+  for (let i = 0; i < 9; i++){
+    let v = +c[i] * (i % 2 === 0 ? 2 : 1);
+    if (v > 9) v -= 9;
+    suma += v;
+  }
+  return (10 - suma % 10) % 10 === +c[9];
+}
+function limpiarFicha(){ FICHA = null; document.getElementById('aFicha').innerHTML = ''; }
+
+async function api(path, opts = {}){
+  const headers = { Accept:'application/json', ...(opts.body ? { 'Content-Type':'application/json' } : {}) };
+  if (TOKEN) headers.Authorization = 'Bearer ' + TOKEN;
+  const r = await fetch(API + path, { ...opts, headers });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && !/\/usuarios\/login$/.test(path)){
+    TOKEN = null; USUARIO = null;
+    try{ localStorage.removeItem(LS_TK); }catch(e){}
+    pintarSesionHdr();
+    throw new Error(j.error || 'Sesión vencida, vuelve a ingresar');
+  }
+  if (!r.ok && r.status === 401) throw new Error(j.error || 'Usuario o contraseña incorrectos');
+  if (!r.ok) throw new Error(j.error || 'Error ' + r.status);
+  return j;
+}
+function mostrarLogin(msg){
+  document.getElementById('lgEstado').textContent = msg || '';
+  document.getElementById('login').hidden = false;
+  setTimeout(() => {
+    const u = document.getElementById('lgUser');
+    (u.value ? document.getElementById('lgPass') : u).focus();
+  }, 40);
+}
+function verPass(btn){
+  const i = document.getElementById('lgPass');
+  i.type = i.type === 'password' ? 'text' : 'password';
+  btn.title = i.type === 'password' ? 'Ver contraseña' : 'Ocultar contraseña';
+}
+function entrarSinSesion(){
+  MODO_LECTURA = true;
+  document.getElementById('login').hidden = true;
+  pintarSesionHdr(); pintarAsis();
+  toast('Modo consulta: el cronograma se ve y se edita, pero RRHH necesita sesión');
+}
+function salir(){
+  if (!confirm('¿Cerrar la sesión? El cronograma y los asistentes guardados en este equipo no se borran.')) return;
+  TOKEN = null; USUARIO = null; MODO_LECTURA = false;
+  try{ localStorage.removeItem(LS_TK); sessionStorage.removeItem(SES_KEY); }catch(e){}
+  document.getElementById('lgPass').value = '';
+  pintarSesionHdr();
+  mostrarLogin();
+}
+async function doLogin(){
+  const u = document.getElementById('lgUser').value.trim(), p = document.getElementById('lgPass').value;
+  const st = document.getElementById('lgEstado'), btn = document.getElementById('lgBtn');
+  if (!u || !p){ st.textContent = 'Ingresa usuario y contraseña'; return; }
+  btn.disabled = true; btn.textContent = 'Validando…';
+  try{
+    const j = await api('/d1/usuarios/login', { method:'POST', body:JSON.stringify({ username:u, password:p }) });
+    TOKEN = j.token; USUARIO = j.usuario; MODO_LECTURA = false;
+    try{ localStorage.setItem(LS_TK, j.token); sessionStorage.setItem(SES_KEY, j.token); }catch(e){}
+    document.getElementById('lgPass').value = '';
+    document.getElementById('login').hidden = true;
+    st.textContent = '';
+    pintarSesionHdr();
+    if (!document.getElementById('aInstr').value && USUARIO) document.getElementById('aInstr').value = USUARIO.nombre;
+    await reintentarPendientes();
+    try{ await cargarDeD1(); }catch(e){ toast('No se pudo leer el servidor', true); }
+    pintarSync(); render(); pintarCfg(); pintarAsis();
+    if (document.getElementById('aCed').value) buscarCedula();
+  }catch(e){
+    // 404 = el servidor local quedó con la versión vieja (sin proxy de POST /d1/): hay que reabrirlo
+    st.innerHTML = /404/.test(e.message)
+      ? 'El servidor local está desactualizado.<br>Cierra la ventana negra del servidor y vuelve a abrir el acceso directo «Plan de capacitaciones».'
+      : (/fetch|network|failed/i.test(e.message)
+          ? 'No se pudo contactar al servidor. Revisa tu conexión.'
+          : esc(e.message));
+  }
+  finally{ btn.disabled = false; btn.textContent = 'Ingresar'; }
+}
+function pintarSesionHdr(){
+  document.getElementById('ses').textContent = USUARIO ? USUARIO.nombre : (MODO_LECTURA ? 'Modo consulta' : '');
+  document.getElementById('btnSalir').hidden = !USUARIO && !MODO_LECTURA;
+  const av = document.getElementById('avisoLectura');
+  if (av) av.hidden = !!TOKEN;
+}
+
+/* Cuando RRHH no da la ficha, los datos se escriben a mano */
+function fichaManual(ced, titulo, motivo){
+  FICHA = { ced, nombre:'', cargo:'', area:'', estado:'NO ENCONTRADO', origen:'manual' };
+  document.getElementById('aFicha').innerHTML = `<div class="ficha no">
+      <div class="nom">${esc(titulo)}</div>
+      <div class="ar">${esc(motivo)}</div>
+      <div class="f" style="margin-top:9px"><label>Nombre y apellido</label><input type="text" id="fNom" placeholder="Nombre completo"
+             onkeydown="if(event.key==='Enter'){event.preventDefault(); document.getElementById('fCargo').focus();}"></div>
+      <div class="f" style="margin-bottom:0"><label>Cargo</label><input type="text" id="fCargo" placeholder="Cargo"
+             onkeydown="if(event.key==='Enter'){event.preventDefault(); registrar();}"></div>
+    </div>
+    <button class="btn" style="width:100%;justify-content:center" onclick="registrar()">Registrar asistencia</button>`;
+  setTimeout(() => { const n = document.getElementById('fNom'); if (n) n.focus(); }, 30);
+}
+
+async function buscarCedula(){
+  const ced = document.getElementById('aCed').value.replace(/\D/g, '');
+  document.getElementById('aCed').value = ced;
+  const st = document.getElementById('aEstado'), fi = document.getElementById('aFicha');
+  st.className = 'estado'; fi.innerHTML = ''; FICHA = null;
+  if (!/^\d{10,13}$/.test(ced)){ st.className = 'estado err'; st.textContent = 'La cédula debe tener 10 dígitos (13 si es RUC).'; return; }
+  if (!cedulaValida(ced)){ st.className = 'estado err'; st.textContent = 'Ese número no pasa el dígito verificador: revísalo.'; return; }
+  if (!TOKEN){
+    st.textContent = '';
+    fichaManual(ced, 'Sin sesión de RRHH', 'Entra con tu usuario AP1 para traer el nombre, o escríbelo a mano aquí.');
+    return;
+  }
+  st.textContent = '';
+  const btn = document.getElementById('aBuscar');
+  btn.disabled = true; btn.textContent = '…';
+  try{
+    const j = await api('/d1/usuarios/consulta?cedula=' + ced);
+    const regs = (j.empresa && j.empresa.registros) || [];
+    const r = regs.find(x => x.estado === 'ACTIVO') || regs[0] || null;
+    if (!r){
+      st.textContent = '';
+      fichaManual(ced, 'No está en RRHH',
+        j.rrhhDisponible === false ? 'RRHH no respondió. Escribe los datos a mano.'
+                                   : 'Esa cédula no tiene ficha de empleado. Escribe los datos a mano.');
+      return;
+    }
+    const nombre = `${r.nombres} ${r.apellidos}`.trim();
+    FICHA = { ced, nombre, cargo:r.cargo || '', area:[r.centroCosto, r.area].filter(Boolean).join(' · '), estado:r.estado, origen:'rrhh' };
+    st.textContent = '';
+    const dup = yaRegistrado(ced);
+    const dupTxt = dup.map(id => app(id).nom).join(', ');
+    fi.innerHTML = `<div class="ficha">
+        <div class="nom">${esc(nombre)}</div>
+        <div class="cg">${esc(r.cargo || 'Sin cargo en RRHH')}</div>
+        <div class="ar">${esc(FICHA.area || '—')}</div>
+        <span class="chip ${r.estado === 'ACTIVO' ? 'ok' : 'no'}">${esc(r.estado || '—')}</span>
+        ${dup.length ? `<span class="chip w">Ya registrado en ${esc(dupTxt)}</span>` : ''}
+      </div>
+      <button class="btn" style="width:100%;justify-content:center" onclick="registrar()">Registrar asistencia</button>`;
+  }catch(e){
+    st.className = 'estado err'; st.textContent = e.message;
+    // aunque falle la consulta, la asistencia se puede anotar a mano
+    fichaManual(ced, 'No se pudo consultar RRHH', 'Escribe el nombre y el cargo para no perder el registro.');
+  }finally{
+    const btn = document.getElementById('aBuscar');
+    btn.disabled = false; btn.textContent = 'Buscar';
+  }
+}
+
+/* Aplicaciones en las que esa cédula ya quedó registrada en este lugar y fecha */
+function yaRegistrado(ced){
+  const s = sesionActual();
+  return ASIS.filter(a => a.ced === ced && String(a.suc) === String(s.suc) && a.fecha === s.fecha)
+             .map(a => a.app).filter(id => s.apps.includes(id));
+}
+function registrar(){
+  if (!FICHA){ toast('Primero busca la cédula', true); return; }
+  const s = sesionActual();
+  if (!s.fecha){ toast('Falta la fecha de la sesión', true); return; }
+  if (!s.apps.length){ toast('Marca al menos una aplicación', true); return; }
+  let nombre = FICHA.nombre, cargo = FICHA.cargo;
+  if (FICHA.origen === 'manual'){
+    const n = document.getElementById('fNom'), c = document.getElementById('fCargo');
+    nombre = n ? n.value.trim() : ''; cargo = c ? c.value.trim() : '';
+    if (!nombre){ toast('Escribe el nombre', true); return; }
+  }
+  const ya = yaRegistrado(FICHA.ced);
+  const nuevas = s.apps.filter(id => !ya.includes(id));
+  if (!nuevas.length){ toast(`${nombre} ya estaba registrado en ${s.apps.map(id => app(id).nom).join(', ')}`, true); return; }
+  const sello = Date.now().toString(36);
+  nuevas.forEach((appId, i) => ASIS.push({ id:'a' + sello + i, ced:FICHA.ced, nombre, cargo, area:FICHA.area || '',
+              estadoRrhh:FICHA.estado || '', origen:FICHA.origen,
+              app:appId, suc:s.suc, fecha:s.fecha, instr:s.instr, ts:new Date().toISOString() }));
+  guardarAsis();
+  guardarAsistentesD1(ASIS.slice(-nuevas.length));
+  document.getElementById('aCed').value = '';
+  limpiarFicha();
+  const st = document.getElementById('aEstado');
+  st.className = 'estado'; st.textContent = `${nombre}: ${nuevas.map(id => app(id).nom).join(', ')} en ${lugarNom(s.suc)}. Sigue con el siguiente.`;
+  document.getElementById('aCed').focus();
+  pintarAsis(); resumen(); pintarCfg();
+  toast(`${nombre} · ${nuevas.length} aplicación${nuevas.length === 1 ? '' : 'es'} · ${lugarNom(s.suc)}`);
+}
+function borrarPersona(ced){
+  const s = sesionActual();
+  const suyos = ASIS.filter(a => a.ced === ced && String(a.suc) === String(s.suc) && a.fecha === s.fecha);
+  if (!suyos.length) return;
+  if (!confirm(`¿Quitar a ${suyos[0].nombre} de esta visita (${suyos.length} registro${suyos.length === 1 ? '' : 's'})?`)) return;
+  const fuera = new Set(suyos.map(a => a.id));
+  ASIS = ASIS.filter(a => !fuera.has(a.id));
+  guardarAsis(); borrarVisitaD1(ced, s.fecha, s.suc);
+  pintarAsis(); resumen(); pintarCfg(); toast('Registro eliminado');
+}
+function borrarAsis(id){
+  const a = ASIS.find(x => x.id === id); if (!a) return;
+  if (!confirm(`¿Quitar a ${a.nombre} del registro?`)) return;
+  ASIS = ASIS.filter(x => x.id !== id);
+  guardarAsis(); borrarAsistenteD1(id); pintarAsis(); resumen(); pintarCfg(); toast('Registro eliminado');
+}
+function pintarAsis(){
+  pintarSelectoresAsis();
+  const s = sesionActual();
+  const q = document.getElementById('aQ').value.trim().toLowerCase();
+  let lista = VISTA_ASIS === 'ses'
+    ? ASIS.filter(a => String(a.suc) === String(s.suc) && a.fecha === s.fecha)
+    : ASIS.slice();
+  if (q) lista = lista.filter(a => [a.nombre, a.ced, a.cargo, a.area, lugarNom(a.suc), app(a.app).nom].join(' ').toLowerCase().includes(q));
+  lista.sort((a,b) => (b.fecha || '').localeCompare(a.fecha || '') || a.nombre.localeCompare(b.nombre));
+
+  let cols, filas;
+  if (VISTA_ASIS === 'ses'){
+    // Un listado por aplicación: quién recibió cada una ese día en ese lugar
+    cols = ['Cédula', 'Nombre', 'Cargo', 'Se capacitó en', 'Instructor', ''];
+    const apps = [...new Set([...s.apps, ...lista.map(a => a.app)])];
+    filas = apps.map(id => {
+      const suyos = lista.filter(a => a.app === id);
+      const cab = `<tr class="secc"><td colspan="${cols.length}">
+          <span class="pto" style="background:${app(id).color}"></span>${esc(app(id).nom)}
+          <b>${suyos.length}</b> ${suyos.length === 1 ? 'persona' : 'personas'}</td></tr>`;
+      const cuerpo = suyos.length
+        ? suyos.map(a => `<tr>
+            <td class="num">${esc(a.ced)}</td>
+            <td>${esc(a.nombre)}${a.origen === 'manual' ? ' <span class="sub">(a mano)</span>' : ''}</td>
+            <td>${esc(a.cargo || '—')}</td>
+            <td>${esc(lugarNom(a.suc))}</td>
+            <td>${esc(a.instr || '—')}</td>
+            <td style="text-align:right"><button class="del" onclick="borrarAsis('${a.id}')" title="Quitar de esta aplicación">✕</button></td>
+          </tr>`).join('')
+        : `<tr><td colspan="${cols.length}" class="sub" style="padding-left:16px">Nadie registrado todavía.</td></tr>`;
+      return cab + cuerpo;
+    }).join('');
+  } else {
+    cols = ['Fecha','Cédula','Nombre','Cargo','Aplicación','Dónde','Instructor',''];
+    filas = lista.map(a => `<tr><td class="num">${esc(fmt(a.fecha))}</td><td class="num">${esc(a.ced)}</td><td>${esc(a.nombre)}</td>
+         <td>${esc(a.cargo || '—')}</td><td>${esc(app(a.app).nom)}</td><td>${esc(lugarNom(a.suc))}</td>
+         <td>${esc(a.instr || '—')}</td>
+         <td style="text-align:right"><button class="del" onclick="borrarAsis('${a.id}')" title="Quitar">✕</button></td></tr>`).join('');
+  }
+
+  document.getElementById('aTabla').innerHTML =
+    `<thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+     <tbody>${filas || `<tr><td colspan="${cols.length}" class="vacio">${VISTA_ASIS === 'ses' ? 'Todavía nadie en esta sesión.' : 'Sin registros.'}</td></tr>`}</tbody>`;
+
+  const enSes = new Set(ASIS.filter(a => String(a.suc) === String(s.suc) && a.fecha === s.fecha).map(a => a.ced)).size;
+  
+  document.getElementById('aResumen').textContent = VISTA_ASIS === 'ses'
+    ? `${enSes} persona${enSes === 1 ? '' : 's'} en ${lugarNom(s.suc)} · ${s.fecha ? fmt(s.fecha) : ''}`
+    : `${ASIS.length} registros en total`;
+}
+
+function exportarAsistentes(){
+  if (!ASIS.length){ toast('No hay asistentes registrados', true); return; }
+  const filas = ASIS.slice().sort((a,b) => (a.fecha||'').localeCompare(b.fecha||'')).map(a => ({
+    'Fecha':a.fecha, 'Cédula':a.ced, 'Nombre':a.nombre, 'Cargo':a.cargo || '',
+    'Área / centro de costo':a.area || '', 'Estado en RRHH':a.estadoRrhh || '',
+    'Aplicación':app(a.app).nom, 'Dónde fue capacitado':lugarNom(a.suc),
+    'Cluster':/^__/.test(String(a.suc)) ? '' : sucCl(a.suc),
+    'Instructor':a.instr || '', 'Origen del dato':a.origen === 'rrhh' ? 'RRHH' : 'Manual',
+  }));
+  const ws = XLSX.utils.json_to_sheet(filas);
+  ws['!cols'] = [{wch:11},{wch:13},{wch:30},{wch:26},{wch:26},{wch:13},{wch:16},{wch:20},{wch:15},{wch:22},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Asistentes');
+  XLSX.writeFile(wb, `Asistentes_capacitaciones_${d2s(hoy())}.xlsx`);
+}
+
+/* ══════════════ Exportar cronograma ══════════════ */
+function exportarExcel(){
+  const filas = [];
+  TAREAS.slice().sort((p,q) => s2d(p.ini) - s2d(q.ini) || String(p.suc).localeCompare(String(q.suc))).forEach(t => {
+    const asis = ASIS.filter(x => x.app === t.app && String(x.suc) === String(t.suc)).length;
+    filas.push({ 'Etapa':etapaNom(t.etapa || 'cap'),
+      'Aplicación':t.app ? app(t.app).nom : 'Todas',
+      'Sucursal':t.suc == null ? 'Todas' : sucNom(t.suc),
+      'Cluster':t.suc == null ? 'General' : sucCl(t.suc), 'Actividad':t.nom, 'Responsable':t.resp || '',
+      'Dirigido a':t.aud === '—' ? '' : (t.aud || ''), 'Inicio':t.ini, 'Fin':t.fin, 'Días':dias(t),
+      'Avance %':t.pct || 0, 'Estado':EST_NOM[estado(t)], 'Asistentes':asis, 'Notas':t.not || '' });
+  });
+  if (!filas.length){ toast('No hay nada que exportar', true); return; }
+  const ws = XLSX.utils.json_to_sheet(filas);
+  ws['!cols'] = [{wch:26},{wch:16},{wch:16},{wch:15},{wch:26},{wch:13},{wch:26},{wch:11},{wch:11},{wch:6},{wch:9},{wch:11},{wch:11},{wch:24}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Cronograma');
+  XLSX.writeFile(wb, `Plan_capacitaciones_${d2s(hoy())}.xlsx`);
+}
+function exportarJSON(){
+  const blob = new Blob([JSON.stringify({ apps:APPS, tareas:TAREAS, colapsados:COLAPSADOS, modo:MODO, asistentes:ASIS }, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `capacitaciones_${d2s(hoy())}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function importarJSON(inp){
+  const f = inp.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const d = JSON.parse(r.result);
+      if (!Array.isArray(d.tareas)) throw 0;
+      APPS = d.apps || APPS; TAREAS = d.tareas; COLAPSADOS = d.colapsados || {};
+      if (Array.isArray(d.asistentes)){ ASIS = d.asistentes; guardarAsis(); }
+      guardar(); render(); pintarCfg(); pintarAsis(); toast('Respaldo restaurado');
+    }catch(e){ toast('Ese archivo no es un respaldo válido', true); }
+    inp.value = '';
+  };
+  r.readAsText(f);
+}
+
+/* ══════════════ Varios ══════════════ */
+let tt;
+function toast(m, err){
+  const el = document.getElementById('toast');
+  el.textContent = m; el.className = 'toast' + (err ? ' err' : ''); el.hidden = false;
+  clearTimeout(tt); tt = setTimeout(() => el.hidden = true, err ? 4200 : 2600);
+}
+function hoyScroll(){
+  const w = document.getElementById('gwrap'), l = w.querySelector('.today');
+  if (!l){ toast('Hoy queda fuera del cronograma'); return; }
+  w.scrollTo({ left:Math.max(0, l.offsetLeft - w.clientWidth/2), behavior:'smooth' });
+}
+function irA(v){
+  ['gantt','asis','cfg'].forEach(k => document.getElementById('v-' + k).hidden = k !== v);
+  [...document.querySelectorAll('#tabs button')].forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  if (v === 'gantt'){ render(); setTimeout(hoyScroll, 60); }
+  if (v === 'asis'){ pintarAsis(); setTimeout(() => document.getElementById('aCed').focus(), 60); }
+  if (v === 'cfg') pintarCfg();
+}
+document.getElementById('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) irA(b.dataset.v); });
+document.getElementById('zoom').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  ZOOM = b.dataset.z;
+  [...e.currentTarget.querySelectorAll('button')].forEach(c => c.classList.toggle('on', c === b));
+  render(); setTimeout(hoyScroll, 60);
+});
+document.getElementById('vistaG').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  VISTA_G = b.dataset.g;
+  [...e.currentTarget.querySelectorAll('button')].forEach(c => c.classList.toggle('on', c === b));
+  // los códigos solo se leen con el día ancho
+  if (VISTA_G === 'resumen' && ZOOM !== 'dia'){
+    ZOOM = 'dia';
+    [...document.querySelectorAll('#zoom button')].forEach(c => c.classList.toggle('on', c.dataset.z === 'dia'));
+  }
+  guardar(); render(); setTimeout(hoyScroll, 60);
+});
+document.getElementById('modo').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  MODO = b.dataset.m;
+  [...e.currentTarget.querySelectorAll('button')].forEach(c => c.classList.toggle('on', c === b));
+  guardar(); render();
+});
+document.getElementById('aVista').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  VISTA_ASIS = b.dataset.t;
+  [...e.currentTarget.querySelectorAll('button')].forEach(c => c.classList.toggle('on', c === b));
+  pintarAsis();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !document.getElementById('ovl').hidden) cerrar();
+});
+
+/* ══════════════ Arranque ══════════════ */
+(async function init(){
+  try{ ASIS = JSON.parse(localStorage.getItem(LS_AS) || '[]'); }catch(e){ ASIS = []; }
+  try{ PEND = JSON.parse(localStorage.getItem(LS_PEND) || '[]'); }catch(e){ PEND = []; }
+  try{ TOKEN = localStorage.getItem(LS_TK) || sessionStorage.getItem(SES_KEY) || null; }catch(e){}
+  await cargarSucursales();
+  let g = null;
+  try{ g = JSON.parse(localStorage.getItem(LS) || 'null'); }catch(e){}
+  if (g && Array.isArray(g.tareas) && g.tareas.length){
+    APPS = g.apps || APPS_BASE.map(a => ({...a}));
+    TAREAS = g.tareas.map(t => ({ etapa:'cap', ...t }));   // planes viejos: todo era capacitación
+    COLAPSADOS = g.colapsados || {}; MODO = g.modo || 'app';
+    VISTA_G = g.vista || 'resumen'; ZOOM = g.zoom || 'dia';
+    [...document.querySelectorAll('#vistaG button')].forEach(b => b.classList.toggle('on', b.dataset.g === VISTA_G));
+    [...document.querySelectorAll('#zoom button')].forEach(b => b.classList.toggle('on', b.dataset.z === ZOOM));
+    [...document.querySelectorAll('#modo button')].forEach(b => b.classList.toggle('on', b.dataset.m === MODO));
+  } else {
+    APPS = APPS_BASE.map(a => ({...a}));
+    TAREAS = planBase();
+    guardar();
+  }
+  // Sesión guardada: si sigue viva se entra directo; si no, se pide el usuario de AP1
+  if (TOKEN){
+    try{
+      const j = await api('/d1/usuarios/sesion');
+      USUARIO = j.usuario;
+      document.getElementById('login').hidden = true;
+      await reintentarPendientes();
+      try{ await cargarDeD1(); }
+      catch(e){ toast('No se pudo leer el servidor: se ve lo guardado en este equipo', true); }
+    }catch(e){ TOKEN = null; }
+  }
+  pintarSesionHdr(); pintarSync();
+  render(); pintarCfg(); pintarAsis();
+  if (!TOKEN) mostrarLogin();
+  else setTimeout(hoyScroll, 120);
+})();
+</script>
+</body>
+</html>
