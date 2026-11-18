@@ -328,7 +328,7 @@ tr.secc b{ margin-left:8px; font-size:11px; }
               <button class="btn" onclick="buscarCedula()" id="aBuscar">Buscar</button>
             </div>
           </div>
-          <div class="estado" id="aEstado">Digita la cédula y pulsa Enter: el nombre y el cargo salen de RRHH. Si no está, los escribes a mano.</div>
+          <div class="estado" id="aEstado"></div>
           <div id="aFicha"></div>
           <p class="avso" id="avisoLectura" hidden>Entraste sin sesión: para traer nombres de RRHH
             <button class="btn sm" style="margin-left:6px" onclick="mostrarLogin()">Ingresar a AP1</button></p>
@@ -373,7 +373,7 @@ tr.secc b{ margin-left:8px; font-size:11px; }
         <div class="search" style="flex:0 1 200px;">
           <input type="text" id="fcQ" placeholder="Buscar sucursal…" oninput="pintarFechas()">
         </div>
-        <span class="sub" style="flex:1">Pon el día en que cada aplicación se capacita en esa sucursal; la casilla la marca como hecha.</span>
+        <div class="spacer" style="flex:1"></div>
         <button class="btn ghost sm" onclick="exportarExcel()">Excel</button>
         <button class="btn ghost sm" onclick="exportarJSON()">Respaldo</button>
         <button class="btn ghost sm" onclick="document.getElementById('imp').click()">Restaurar</button>
@@ -666,8 +666,8 @@ function render(){
     const sinFecha = TAREAS.length && !TAREAS.some(conFecha);
     left.innerHTML = `<div class="lhead"><span>Etapa</span></div>`;
     right.innerHTML = `<div class="vacio">${sinFecha
-      ? 'Todavía no hay fechas.<br><button class="btn" style="margin-top:12px" onclick="irA(&quot;cfg&quot;)">Poner fechas</button><br><br>Escribes el día de la capacitación de cada aplicación y de ahí salen el soporte y el seguimiento.'
-      : 'Nada coincide con la búsqueda.'}</div>`;
+      ? '<button class="btn" onclick="irA(&quot;cfg&quot;)">Poner fechas</button>'
+      : ''}</div>`;
     return;
   }
 
@@ -679,14 +679,7 @@ function render(){
      <div class="rbody" style="width:${m.W}px;height:${nFilas*rowH()}px"><div class="grid">${m.grid}</div>${m.tl}${rh}</div>`;
 
   conectarDrag();
-  document.getElementById('hint').innerHTML = (VISTA_G === 'resumen'
-    ? `<span class="leyenda">
-         <span>Cada recuadro es un día, con el código de las fincas que tocan</span>
-         <span><span class="mb" style="border-color:var(--primary-light)"></span>pendiente</span>
-         <span><span class="mb" style="border-color:var(--primary-light);background:var(--primary-light)"></span>hecho</span>
-         <span>· clic para darlo por completo · arrastra para reprogramar · doble clic abre la actividad</span>
-       </span>`
-    : `<span>${vis.length} de ${TAREAS.length} · arrastra para reprogramar · clic para editar</span>`) +
+  document.getElementById('hint').innerHTML =
     (SRC_SUC === 'local' ? `<span class="warn">Sucursales del catálogo local</span>` : '');
 }
 
@@ -844,12 +837,13 @@ function cuerpoDetalle(m, vis){
     } else {
       const t = f.t, a = app(t.app), es = estado(t), hito = t.tipo === 'hito';
       const x1 = x(s2d(t.ini)), x2 = hito ? x1 + px : x(s2d(t.fin)) + px;
-      const sub = MODO === 'app'
-        ? `${esc(sucNom(t.suc))}${t.suc != null ? ' · ' + esc(sucCl(t.suc)) : ''}`
-        : ((t.etapa || 'cap') === 'cap' ? esc(pistaNom(pistaDe(t))) : esc(a.nom));
+      // El grupo ya dice la aplicación: la fila lleva la sucursal (o la pista, si se agrupa por sucursal)
+      const titulo = MODO === 'app' ? sucNom(t.suc) : (t.app ? pistaNom(pistaDe(t)) : t.nom);
+      const sub = MODO === 'app' ? (t.suc != null ? esc(sucCl(t.suc)) : '') : '';
+      const fechas = hito ? fmt(t.ini) : fmt(t.ini) + ' → ' + fmt(t.fin);
       lh += `<div class="lrow ${SEL === t.id ? 'sel' : ''}" onclick="abrir('${t.id}')" title="Clic para editar">
                <span class="ind"></span>
-               <span class="nm">${esc(t.nom)}<small>${sub} · ${hito ? fmt(t.ini) : fmt(t.ini) + ' → ' + fmt(t.fin)}</small></span>
+               <span class="nm">${esc(titulo)}<small>${sub ? sub + ' · ' : ''}${fechas}</small></span>
                <span class="pct">${hito ? '' : (t.pct||0) + '%'}</span></div>`;
       const etiq = t.suc != null && MODO !== 'suc' ? sucNom(t.suc) : t.nom;
       if (hito){
@@ -918,8 +912,6 @@ function alternarHecho(ids){
   const ok = !ts.every(t => (t.pct||0) >= 100);
   ts.forEach(t => t.pct = ok ? 100 : 0);
   guardar(); guardarActividades(ts); render(); pintarFechas();
-  const sucs = [...new Set(ts.map(t => sucCod(t.suc)))].join(', ');
-  toast(`${sucs}: ${ok ? 'completa' : 'pendiente'}`);
 }
 function iniDrag(e){
   if (e.button !== undefined && e.button !== 0) return;
@@ -961,15 +953,10 @@ function finDrag(){
   const d = drag; drag = null;
   d.el.classList.remove('drag');
   if (!d.moved){ alternarHecho(d.ids); return; }   // clic sin arrastre: marca o desmarca
-  const t = tarea(d.ids[0]);
   // si se movió una capacitación, el soporte se va al día siguiente
   const movidas = d.ids.map(i => tarea(i)).filter(Boolean);
   guardar();
   guardarActividades(movidas);
-  const sucs = [...new Set(d.ids.map(i => sucNom(tarea(i).suc)))];
-  toast(d.ids.length > 1
-    ? `${sucs.slice(0,3).join(', ')}${sucs.length > 3 ? '…' : ''} → ${fmt(t.ini)}`
-    : `${sucNom(t.suc)} · ${t.nom}: ${fmt(t.ini)}${t.tipo === 'hito' ? '' : ' → ' + fmt(t.fin)}`);
   render();
 }
 
@@ -1022,13 +1009,13 @@ function guardarForm(){
     ini, fin, pct:+document.getElementById('mPct').value, not:document.getElementById('mNot').value.trim() };
   const t = EDIT_ID ? Object.assign(tarea(EDIT_ID), datos) : { id:'t' + Date.now().toString(36), ...datos };
   if (!EDIT_ID) TAREAS.push(t);
-  guardar(); guardarActividad(t); cerrar(); pintarCfg(); toast('Guardado');
+  guardar(); guardarActividad(t); cerrar(); pintarCfg();
 }
 function eliminar(){
   if (!EDIT_ID || !confirm('¿Eliminar esta actividad?')) return;
   const fuera = EDIT_ID;
   TAREAS = TAREAS.filter(t => t.id !== fuera);
-  guardar(); borrarActividadD1(fuera); cerrar(); pintarCfg(); toast('Actividad eliminada');
+  guardar(); borrarActividadD1(fuera); cerrar(); pintarCfg();
 }
 
 
@@ -1127,7 +1114,7 @@ async function reintentarPendientes(){
   if (!TOKEN || !PEND.length) return;
   const cola = PEND.slice(); PEND = []; guardarPend();
   for (const op of cola) await enviar(op);
-  if (!PEND.length) toast('Se guardó lo que había quedado pendiente');
+  pintarSync();
 }
 
 /* ══════════════ Fechas por sucursal ══════════════ */
@@ -1187,7 +1174,6 @@ function marcarHecho(id, ok){
   if (!t) return;
   t.pct = ok ? 100 : 0;
   guardar(); guardarActividad(t); render(); pintarFechas();
-  toast(`${sucNom(t.suc)} · ${t.app ? app(t.app).nom : t.nom}: ${ok ? 'completa' : 'pendiente'}`);
 }
 
 /* Mueve una actividad conservando cuántos días dura */
@@ -1197,14 +1183,12 @@ function moverTarea(id, valor){
   if (!valor){                       // se borró la fecha: toda la cadena queda en blanco
     t.ini = ''; t.fin = '';
     guardar(); guardarActividad(t); render(); pintarFechas();
-    toast(`${sucNom(t.suc)} · ${app(t.app).nom}: sin fecha`);
     return;
   }
   const dur = conFecha(t) ? Math.round((s2d(t.fin) - s2d(t.ini))/DAY) : 0;
   t.ini = valor;
   t.fin = d2s(addD(s2d(valor), dur));
   guardar(); guardarActividad(t); render(); pintarFechas();
-  toast(`${sucNom(t.suc)} · ${app(t.app).nom}: ${fmt(t.ini)}`);
 }
 
 
@@ -1427,10 +1411,9 @@ function registrar(){
   document.getElementById('aCed').value = '';
   limpiarFicha();
   const st = document.getElementById('aEstado');
-  st.className = 'estado'; st.textContent = `${nombre}: ${nuevas.map(id => app(id).nom).join(', ')} en ${lugarNom(s.suc)}. Sigue con el siguiente.`;
+  st.className = 'estado'; st.textContent = '';
   document.getElementById('aCed').focus();
   pintarAsis(); resumen(); pintarCfg();
-  toast(`${nombre} · ${nuevas.length} aplicación${nuevas.length === 1 ? '' : 'es'} · ${lugarNom(s.suc)}`);
 }
 function borrarPersona(ced){
   const s = sesionActual();
@@ -1440,13 +1423,13 @@ function borrarPersona(ced){
   const fuera = new Set(suyos.map(a => a.id));
   ASIS = ASIS.filter(a => !fuera.has(a.id));
   guardarAsis(); borrarVisitaD1(ced, s.fecha, s.suc);
-  pintarAsis(); resumen(); pintarCfg(); toast('Registro eliminado');
+  pintarAsis(); resumen(); pintarCfg();
 }
 function borrarAsis(id){
   const a = ASIS.find(x => x.id === id); if (!a) return;
   if (!confirm(`¿Quitar a ${a.nombre} del registro?`)) return;
   ASIS = ASIS.filter(x => x.id !== id);
-  guardarAsis(); borrarAsistenteD1(id); pintarAsis(); resumen(); pintarCfg(); toast('Registro eliminado');
+  guardarAsis(); borrarAsistenteD1(id); pintarAsis(); resumen(); pintarCfg();
 }
 function pintarAsis(){
   pintarSelectoresAsis();
@@ -1550,7 +1533,7 @@ function importarJSON(inp){
       if (!Array.isArray(d.tareas)) throw 0;
       APPS = d.apps || APPS; TAREAS = d.tareas; COLAPSADOS = d.colapsados || {};
       if (Array.isArray(d.asistentes)){ ASIS = d.asistentes; guardarAsis(); }
-      guardar(); render(); pintarCfg(); pintarAsis(); toast('Respaldo restaurado');
+      guardar(); render(); pintarCfg(); pintarAsis();
     }catch(e){ toast('Ese archivo no es un respaldo válido', true); }
     inp.value = '';
   };
