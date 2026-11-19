@@ -178,6 +178,8 @@ td .del{ all:unset; cursor:pointer; color:var(--danger); font-weight:800; paddin
 tr.secc td{ background:#eef3f8; font-size:11px; font-weight:800; color:var(--primary); text-transform:uppercase;
             letter-spacing:.4px; padding:6px 10px; }
 tr.secc .pto{ display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:7px; vertical-align:-1px; }
+.seg button .pto{ display:inline-block; width:7px; height:7px; border-radius:2px; margin-right:6px; vertical-align:1px; }
+.seg button.on .pto{ box-shadow:0 0 0 1.5px #fff; }
 tr.secc b{ margin-left:8px; font-size:11px; }
 
 /* ── Configuración ── */
@@ -351,6 +353,7 @@ tr.secc b{ margin-left:8px; font-size:11px; }
           <button data-t="ses" class="on">Esta sesión</button>
           <button data-t="todos">Todos</button>
         </div>
+        <div class="seg" id="aApp"></div>
         <div class="search" style="flex:0 1 180px;">
           <input type="text" id="aQ" placeholder="Buscar persona…" oninput="pintarAsis()">
         </div>
@@ -527,6 +530,7 @@ let APPS = [], SUCS = [], TAREAS = [], ASIS = [];
 let ZOOM = 'dia', MODO = 'app', VISTA_G = 'resumen', SEL = null, EDIT_ID = null;
 let COLAPSADOS = {}, SRC_SUC = 'local';
 let TOKEN = null, USUARIO = null, FICHA = null, VISTA_ASIS = 'ses', MODO_LECTURA = false;
+let FILTRO_APP = '';                 // '' = las tres aplicaciones
 
 const PX = { dia:44, semana:14, mes:5 };   // el día ancho para que quepan los códigos de finca
 const rowH = () => VISTA_G === 'resumen' ? 44 : 28;
@@ -1217,6 +1221,14 @@ function pintarSelectoresAsis(){
         <i style="background:${p.color}"></i>${esc(p.nom)}</label>`).join('');
     aApps.dataset.apps = firma;
   }
+  const aApp = document.getElementById('aApp');
+  const firmaApp = APPS.map(a => a.id).join(',');
+  if (aApp.dataset.apps !== firmaApp){
+    aApp.innerHTML = APPS.map(a => `<button data-a="${esc(a.id)}"><span class="pto" style="background:${a.color}"></span>${esc(a.nom)}</button>`).join('');
+    aApp.dataset.apps = firmaApp;
+  }
+  [...aApp.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.a === FILTRO_APP));
+
   aSuc.innerHTML = opcionesSuc(null, false) + LUGARES_EXTRA.map(l => `<option value="${l.id}">${esc(l.nom)}</option>`).join('');
   aSuc.value = vSuc || (ses && ses.suc) || (SUCS[0] ? String(SUCS[0].id) : '');
   if (!document.getElementById('aFecha').value) document.getElementById('aFecha').value = (ses && ses.fecha) || d2s(hoy());
@@ -1432,6 +1444,7 @@ function pintarAsis(){
   let lista = VISTA_ASIS === 'ses'
     ? ASIS.filter(a => String(a.suc) === String(s.suc) && a.fecha === s.fecha)
     : ASIS.slice();
+  if (FILTRO_APP) lista = lista.filter(a => String(a.app).split(':')[0] === FILTRO_APP);
   if (q) lista = lista.filter(a => [a.nombre, a.ced, a.cargo, a.area, lugarNom(a.suc), app(a.app).nom].join(' ').toLowerCase().includes(q));
   lista.sort((a,b) => (b.fecha || '').localeCompare(a.fecha || '') || a.nombre.localeCompare(b.nombre));
 
@@ -1439,7 +1452,8 @@ function pintarAsis(){
   if (VISTA_ASIS === 'ses'){
     // Un listado por aplicación: quién recibió cada una ese día en ese lugar
     cols = ['Cédula', 'Nombre', 'Cargo', 'Se capacitó en', 'Instructor', ''];
-    const apps = [...new Set([...s.apps, ...lista.map(a => a.app)])];
+    let apps = [...new Set([...s.apps, ...lista.map(a => a.app)])];
+    if (FILTRO_APP) apps = apps.filter(id => String(id).split(':')[0] === FILTRO_APP);
     filas = apps.map(id => {
       const suyos = lista.filter(a => a.app === id);
       const cab = `<tr class="secc"><td colspan="${cols.length}">
@@ -1576,6 +1590,11 @@ document.getElementById('modo').addEventListener('click', e => {
   MODO = b.dataset.m;
   [...e.currentTarget.querySelectorAll('button')].forEach(c => c.classList.toggle('on', c === b));
   guardar(); render();
+});
+document.getElementById('aApp').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  FILTRO_APP = FILTRO_APP === b.dataset.a ? '' : b.dataset.a;   // el mismo botón lo suelta
+  pintarAsis();
 });
 document.getElementById('aVista').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
